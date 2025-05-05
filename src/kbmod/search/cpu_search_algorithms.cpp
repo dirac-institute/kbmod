@@ -17,10 +17,8 @@ namespace search {
  *
  * Does not do sigma-G filtering.
  */
-void evaluate_trajectory_cpu(PsiPhiArray& psi_phi, Trajectory& candidate) {
+void evaluate_trajectory_cpu(const PsiPhiArray& psi_phi, Trajectory& candidate) {
     const unsigned int num_times = psi_phi.get_num_times();
-    std::vector<float> psi_array;
-    std::vector<float> phi_array;
     float psi_sum = 0.0;
     float phi_sum = 0.0;
 
@@ -42,8 +40,6 @@ void evaluate_trajectory_cpu(PsiPhiArray& psi_phi, Trajectory& candidate) {
         if (isfinite(pixel_vals.psi) && isfinite(pixel_vals.phi)) {
             psi_sum += pixel_vals.psi;
             phi_sum += pixel_vals.phi;
-            psi_array.push_back(pixel_vals.psi);
-            phi_array.push_back(pixel_vals.phi);
             num_seen += 1;
         }
     }
@@ -54,45 +50,66 @@ void evaluate_trajectory_cpu(PsiPhiArray& psi_phi, Trajectory& candidate) {
 }
 
 /*
+ * Evaluate all of the candidate trajectories from a single starting pixel
+ * (y, x) and return the best "num_results".
+ *
+ */
+std::vector<Trajectory> evaluate_single_pixel(int y, int x, const PsiPhiArray& psi_phi,
+                                              TrajectoryList& trj_to_search, int num_results) {
+    // Allocate space for this search.
+    uint64_t num_candidates = trj_to_search.get_size();
+    TrajectoryList pixel_res(num_candidates);
+
+    // Evaluate all of the candidate trajectories for this pixel.
+    for (uint64_t trj_idx = 0; trj_idx < num_candidates; ++trj_idx) {
+        Trajectory& candidate = trj_to_search.get_trajectory(trj_idx);
+
+        Trajectory& curr_trj = pixel_res.get_trajectory(trj_idx);
+        curr_trj.x = x;
+        curr_trj.y = y;
+        curr_trj.vx = candidate.vx;
+        curr_trj.vy = candidate.vy;
+        curr_trj.flux = 0.0;
+        curr_trj.obs_count = 0.0;
+
+        evaluate_trajectory_cpu(psi_phi, curr_trj);
+    }
+
+    // Sort the trajectories and save the best ones.
+    pixel_res.sort_by_likelihood();
+    return pixel_res.get_batch(0, num_results);
+}
+
+/*
  * Perform the core KBMOD search (without sigma-G filtering) on CPU using
  * a naive nested loop.
- *
- * TODO: Add threading to speed this up.
  *
  */
 void search_cpu_only(PsiPhiArray& psi_phi_array, SearchParameters params, TrajectoryList& trj_to_search,
                      TrajectoryList& results) {
     // Allocate space for all of the results.
-    uint64_t height = psi_phi_array.get_height();
-    uint64_t width = psi_phi_array.get_width();
-    uint64_t total_results = params.results_per_pixel * height * width;
+    uint64_t search_height = params.y_start_max - params.y_start_min;
+    uint64_t search_width = params.x_start_max - params.x_start_min;
+    uint64_t total_results = params.results_per_pixel * search_height * search_width;
     results.resize(total_results);
 
-    // Allocate space for a single pixel's results. We process one pixel at a time.
-    uint64_t num_candidates = trj_to_search.get_size();
-    TrajectoryList pixel_res(num_candidates);
+    // Test each pixel using a giant nested loop.  Allow omp to dynamically
+    // thread the computations.
+    #pragma omp parallel for collapse(2) schedule(dynamic)
+    for (int y_i = 0; y_i < search_height; ++y_i) {
+        for (int x_i = 0; x_i < search_width; ++x_i) {
+            std::vector<Trajectory> pixel_res =
+                    evaluate_single_pixel(y_i + params.y_start_min, x_i + params.x_start_min, psi_phi_array,
+                                          trj_to_search, params.results_per_pixel);
 
-    // Test each pixel using a giant nested loop.
-    uint64_t next_result = 0;
-    for (int y_i = params.y_start_min; y_i < params.y_start_max; ++y_i) {
-        for (int x_i = params.x_start_min; x_i < params.x_start_max; ++x_i) {
-            // Evaluate all the candidates.
-            for (uint64_t trj_idx = 0; trj_idx < num_candidates; ++trj_idx) {
-                Trajectory& candidate = trj_to_search.get_trajectory(trj_idx);
-                Trajectory& curr_trj = pixel_res.get_trajectory(trj_idx);
-                curr_trj.x = x_i;
-                curr_trj.y = y_i;
-                curr_trj.vx = candidate.vx;
-                curr_trj.vy = candidate.vy;
-
-                evaluate_trajectory_cpu(psi_phi_array, curr_trj);
-            }
-
-            // Sort the trajectories and save the best ones.
-            pixel_res.sort_by_likelihood();
-            for (int i = 0; i < params.results_per_pixel; ++i) {
-                results.set_trajectory(next_result, pixel_res.get_trajectory(i));
-                ++next_result;
+            // We restrict the writing of results to a single thread.  The batch of results
+            // is inserted into a specific location within the full results list.
+            #pragma omp critical
+            {
+                uint64_t start_ind = (y_i * search_width + x_i) * params.results_per_pixel;
+                for (uint64_t i = 0; i < params.results_per_pixel; ++i) {
+                    results.set_trajectory(start_ind + i, pixel_res[i]);
+                }
             }
         }
     }

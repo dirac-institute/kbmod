@@ -137,7 +137,7 @@ class SigmaGClipping:
             device = torch.device("cpu")
 
         # Move the likelihood data to the device.
-        torch_lh = torch.tensor(lh, device=device, dtype=torch.float64)
+        torch_lh = torch.tensor(lh, device=device, dtype=torch.float32)
 
         # Mask out the negative values (if clip negative is true).
         if self.clip_negative:
@@ -149,14 +149,14 @@ class SigmaGClipping:
         q_values = torch.tensor(
             [self.low_bnd / 100.0, 0.5, self.high_bnd / 100.0],
             device=device,
-            dtype=torch.float64,
+            dtype=torch.float32,
         )
         lower_per, median, upper_per = torch.nanquantile(masked_lh, q_values, dim=1)
 
         # Compute the bounds for each row, enforcing a minimum gap in case all the
         # points are identical (upper_per == lower_per).
         delta = upper_per - lower_per
-        delta[delta < 1e-8] = 1e-8
+        delta[delta < 1e-5] = 1e-5
         nSigmaG = self.n_sigma * self.coeff * delta
 
         num_rows = lh.shape[0]

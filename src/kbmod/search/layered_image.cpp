@@ -169,11 +169,6 @@ Image LayeredImage::generate_psi_image() {
 
     // Convolve with the PSF.
     result = convolve_image(result, psf);
-
-    logging::getLogger("kbmod.search.layered_image")
-            ->debug("Generated psi image. " + std::to_string(no_data_count) + " of " +
-                    std::to_string(num_pixels) + " had no data.");
-
     return result;
 }
 
@@ -198,11 +193,6 @@ Image LayeredImage::generate_phi_image() {
     // Convolve with the PSF squared.
     Image psfsq = square_psf(psf);  // Copy
     result = convolve_image(result, psfsq);
-
-    logging::getLogger("kbmod.search.layered_image")
-            ->debug("Generated phi image. " + std::to_string(no_data_count) + " of " +
-                    std::to_string(num_pixels) + " had no data.");
-
     return result;
 }
 
@@ -217,27 +207,6 @@ static void layered_image_bindings(py::module& m) {
             .def(py::init<search::Image&, search::Image&, search::Image&, search::Image&, double>(),
                  py::arg("sci").noconvert(true), py::arg("var").noconvert(true),
                  py::arg("msk").noconvert(true), py::arg("psf"), py::arg("obs_time"))
-            .def("contains", &li::contains, pydocs::DOC_LayeredImage_contains)
-            .def("get_science_pixel", &li::get_science_pixel, pydocs::DOC_LayeredImage_get_science_pixel)
-            .def("get_variance_pixel", &li::get_variance_pixel, pydocs::DOC_LayeredImage_get_variance_pixel)
-            .def("science_pixel_has_data", &li::science_pixel_has_data,
-                 pydocs::DOC_LayeredImage_science_pixel_has_data)
-            .def("contains",
-                 [](li& cls, int i, int j) {
-                     return cls.contains({i, j});
-                 })
-            .def("get_science_pixel",
-                 [](li& cls, int i, int j) {
-                     return cls.get_science_pixel({i, j});
-                 })
-            .def("get_variance_pixel",
-                 [](li& cls, int i, int j) {
-                     return cls.get_variance_pixel({i, j});
-                 })
-            .def("science_pixel_has_data",
-                 [](li& cls, int i, int j) {
-                     return cls.science_pixel_has_data({i, j});
-                 })
             .def("set_psf", &li::set_psf, pydocs::DOC_LayeredImage_set_psf)
             .def("get_psf", &li::get_psf, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_psf)

@@ -83,7 +83,7 @@ def add_fake_object(img, x, y, flux, psf=None):
 
     Parameters
     ----------
-    img : `LayeredImage`
+    img : `LayeredImage` or `np.ndarray`
         The image to modify.
     x : `int` or `float`
         The x pixel location of the fake object.
@@ -94,9 +94,12 @@ def add_fake_object(img, x, y, flux, psf=None):
     psf : `numpy.ndarray`
             The PSF's kernel for the image.
     """
-    if type(img) is not LayeredImage:
-        raise TypeError("Expected a LayeredImage")
-    sci = img.get_science()
+    if type(img) is LayeredImage:
+        sci = img.get_science_array()
+    elif type(img) is np.ndarray:
+        sci = img
+    else:
+        raise TypeError("Expected a LayeredImage or np.ndarray")
 
     # Explicitly cast to float because the indexing uses different order
     # float integer and float.
@@ -104,8 +107,8 @@ def add_fake_object(img, x, y, flux, psf=None):
     y = int(y)
 
     if psf is None:
-        if (x >= 0) and (y >= 0) and (x < sci.width) and (y < sci.height):
-            sci.set_pixel(y, x, flux + sci.get_pixel(y, x))
+        if (x >= 0) and (y >= 0) and (x < sci.shape[1]) and (y < sci.shape[0]):
+            sci[y, x] = flux + sci[y, x]
     else:
         radius = int((psf.shape[0] - 1) / 2)
         initial_x = int(x - radius)
@@ -114,8 +117,8 @@ def add_fake_object(img, x, y, flux, psf=None):
             for j in range(psf.shape[0]):
                 xp = initial_x + i
                 yp = initial_y + j
-                if (xp >= 0) and (yp >= 0) and (xp < sci.width) and (yp < sci.height):
-                    sci.set_pixel(yp, xp, flux * psf[i, j] + sci.get_pixel(yp, xp))
+                if (xp >= 0) and (yp >= 0) and (xp < sci.shape[1]) and (yp < sci.shape[0]):
+                    sci[yp, xp] = flux * psf[i, j] + sci[yp, xp]
 
 
 def create_fake_times(num_times, t0=0.0, obs_per_day=1, intra_night_gap=0.01, inter_night_gap=1):

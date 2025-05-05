@@ -1,6 +1,18 @@
+import numpy as np
 import unittest
 
-from kbmod.search import HAS_GPU, Trajectory, TrajectoryList
+from kbmod.search import (
+    extract_all_trajectory_flux,
+    extract_all_trajectory_lh,
+    extract_all_trajectory_obs_count,
+    extract_all_trajectory_vx,
+    extract_all_trajectory_vy,
+    extract_all_trajectory_x,
+    extract_all_trajectory_y,
+    HAS_GPU,
+    Trajectory,
+    TrajectoryList,
+)
 
 
 class test_trajectory_list(unittest.TestCase):
@@ -151,6 +163,38 @@ class test_trajectory_list(unittest.TestCase):
         # Moving back to CPU again doesn't do anything.
         self.trj_list.move_to_cpu()
         self.assertFalse(self.trj_list.on_gpu)
+
+    def test_extraction_helpers(self):
+        """Test that we can extract components of trajectories from a list."""
+        num_trjs = 20
+        all_x = [(i + 2) for i in range(num_trjs)]
+        all_y = [(105 - i) for i in range(num_trjs)]
+        all_vx = [(0.5 + 0.01 * i) for i in range(num_trjs)]
+        all_vy = [(0.2 - 0.01 * i) for i in range(num_trjs)]
+        all_lh = [(0.1 * i) for i in range(num_trjs)]
+        all_flux = [(2.0 * i) for i in range(num_trjs)]
+        all_obs_count = [(10 + i) for i in range(num_trjs)]
+
+        trj_list = []
+        for i in range(num_trjs):
+            trj = Trajectory(
+                x=all_x[i],
+                y=all_y[i],
+                vx=all_vx[i],
+                vy=all_vy[i],
+                lh=all_lh[i],
+                flux=all_flux[i],
+                obs_count=all_obs_count[i],
+            )
+            trj_list.append(trj)
+
+        self.assertTrue(np.allclose(extract_all_trajectory_x(trj_list), all_x))
+        self.assertTrue(np.allclose(extract_all_trajectory_y(trj_list), all_y))
+        self.assertTrue(np.allclose(extract_all_trajectory_vx(trj_list), all_vx))
+        self.assertTrue(np.allclose(extract_all_trajectory_vy(trj_list), all_vy))
+        self.assertTrue(np.allclose(extract_all_trajectory_lh(trj_list), all_lh))
+        self.assertTrue(np.allclose(extract_all_trajectory_flux(trj_list), all_flux))
+        self.assertTrue(np.allclose(extract_all_trajectory_obs_count(trj_list), all_obs_count))
 
 
 if __name__ == "__main__":

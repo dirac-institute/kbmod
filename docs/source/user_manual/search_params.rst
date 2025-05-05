@@ -60,6 +60,12 @@ Configuration Parameters
 |                        |                             | The filtering coadd is controlled by   |
 |                        |                             | the ``stamp_type`` parameter.          |
 +------------------------+-----------------------------+----------------------------------------+
+| ``cpu_only``           | False                       | Perform the core search on the CPU     |
+|                        |                             | (even if the GPU is available).        |
++------------------------+-----------------------------+----------------------------------------+
+| ``compute_ra_dec``     | True                        | Compute and save the predicted RA and  |
+|                        |                             | dec for each result at each time.      |
++------------------------+-----------------------------+----------------------------------------+
 | ``debug``              | False                       | Display debugging output.              |
 +------------------------+-----------------------------+----------------------------------------+
 | ``do_clustering``      | True                        | Cluster the resulting trajectories to  |
@@ -88,9 +94,16 @@ Configuration Parameters
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
 +------------------------+-----------------------------+----------------------------------------+
+| ``near_dup_thresh``    | 10                          | The grid size (in pixels) for near     |
+|                        |                             | duplicate pre-filtering. Use ``None``  |
+|                        |                             | to skip this filtering step.           |
++------------------------+-----------------------------+----------------------------------------+
 | ``num_obs``            | 10                          | The minimum number of non-masked       |
 |                        |                             | observations for the object to be      |
-|                        |                             | accepted.                              |
+|                        |                             | accepted. If this is greater than the  |
+|                        |                             | number of the valid images or set to   |
+|                        |                             | -1 then it is reduced to the number of |
+|                        |                             | the valid images.                      |
 +------------------------+-----------------------------+----------------------------------------+
 | ``psf_val``            | 1.4                         | The value for the standard deviation of|
 |                        |                             | the point spread function (PSF) in     |

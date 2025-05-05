@@ -3,7 +3,6 @@ import numpy as np
 import unittest
 
 from kbmod.core.psf import PSF
-from kbmod.image_utils import image_allclose
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
@@ -243,7 +242,7 @@ class test_RawImage(unittest.TestCase):
         stamp = img2.create_stamp(7.5, 5.5, 1, True)
         self.assertEqual(stamp.image.shape, (3, 3))
         stamp2 = RawImage(img2.image[4:7, 6:9])
-        self.assertTrue(image_allclose(stamp.image, stamp2.image, 0.01))
+        self.assertTrue(np.allclose(stamp.image, stamp2.image, atol=0.01, equal_nan=True))
 
         # Test a stamp with masked pixels and replacement.
         stamp = img2.create_stamp(7.5, 5.5, 2, False)

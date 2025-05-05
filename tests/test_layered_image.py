@@ -50,33 +50,16 @@ class test_LayeredImage(unittest.TestCase):
                 self.assertGreaterEqual(science.get_pixel(y, x), -100.0)
                 self.assertLessEqual(science.get_pixel(y, x), 100.0)
 
-                # Check direct lookup of pixel values matches the RawImage lookup.
-                self.assertEqual(science.get_pixel(y, x), self.image.get_science_pixel(y, x))
-                self.assertEqual(variance.get_pixel(y, x), self.image.get_variance_pixel(y, x))
-
                 # Check the arrays.
                 self.assertEqual(mask_arr[y, x], 0)
                 self.assertEqual(variance_arr[y, x], 4.0)
                 self.assertAlmostEqual(science.get_pixel(y, x), science_arr[y, x])
 
-        # Check that the LayeredImage pixel lookups work with a masked pixel.
-        # But the the mask was not applied yet to the images themselves.
+        # Check that setting a masked bit does not propagate to the science
+        # and variance layers until apply mask is called..
         mask.set_pixel(5, 6, 1)
         self.assertTrue(pixel_value_valid(science.get_pixel(5, 6)))
         self.assertTrue(pixel_value_valid(variance.get_pixel(5, 6)))
-        self.assertFalse(pixel_value_valid(self.image.get_science_pixel(5, 6)))
-        self.assertFalse(pixel_value_valid(self.image.get_variance_pixel(5, 6)))
-
-        # Test that out of bounds pixel lookups are handled correctly.
-        self.assertFalse(pixel_value_valid(self.image.get_science_pixel(-1, 1)))
-        self.assertFalse(pixel_value_valid(self.image.get_science_pixel(1, -1)))
-        self.assertFalse(pixel_value_valid(self.image.get_science_pixel(self.image.get_height() + 1, 1)))
-        self.assertFalse(pixel_value_valid(self.image.get_science_pixel(1, self.image.get_width() + 1)))
-
-        self.assertFalse(pixel_value_valid(self.image.get_variance_pixel(-1, 1)))
-        self.assertFalse(pixel_value_valid(self.image.get_variance_pixel(1, -1)))
-        self.assertFalse(pixel_value_valid(self.image.get_variance_pixel(self.image.get_height() + 1, 1)))
-        self.assertFalse(pixel_value_valid(self.image.get_variance_pixel(1, self.image.get_width() + 1)))
 
     def test_create_from_layers(self):
         sci = RawImage(30, 40)
@@ -98,14 +81,6 @@ class test_LayeredImage(unittest.TestCase):
         self.assertEqual(img2.get_npixels(), 30.0 * 40.0)
         self.assertEqual(img2.get_obstime(), -1.0)  # No time given
 
-        # Test the bounds checking.
-        self.assertTrue(img2.contains(0, 0))
-        self.assertTrue(img2.contains(39, 29))
-        self.assertFalse(img2.contains(39, 30))
-        self.assertFalse(img2.contains(40, 15))
-        self.assertFalse(img2.contains(15, -1))
-        self.assertFalse(img2.contains(-1, 0))
-
         # Check the layers.
         science = img2.get_science()
         variance = img2.get_variance()
@@ -115,12 +90,8 @@ class test_LayeredImage(unittest.TestCase):
                 if x == 12 and y == 10:
                     # The masked pixel should have no data.
                     self.assertEqual(mask2.get_pixel(y, x), 1)
-                    self.assertFalse(pixel_value_valid(img2.get_science_pixel(y, x)))
-                    self.assertFalse(pixel_value_valid(img2.get_variance_pixel(y, x)))
                 else:
                     self.assertEqual(mask2.get_pixel(y, x), 0)
-                    self.assertAlmostEqual(img2.get_science_pixel(y, x), x + 40.0 * y)
-                    self.assertAlmostEqual(img2.get_variance_pixel(y, x), 1.0)
 
                 # The individual layers do not have the masking until it is applied.
                 self.assertEqual(variance.get_pixel(y, x), 1.0)
@@ -180,10 +151,9 @@ class test_LayeredImage(unittest.TestCase):
         self.image.mask_pixel(22, 23)
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
-                pix_val = self.image.get_science_pixel(y, x)
+                pix_val = self.image.get_science().get_pixel(y, x)
                 expected = not ((x == 15 and y == 10) or (x == 23 and y == 22))
                 self.assertEqual(pixel_value_valid(pix_val), expected)
-                self.assertEqual(self.image.science_pixel_has_data(y, x), expected)
 
     def test_binarize_mask(self):
         # Mask out a range of pixels.

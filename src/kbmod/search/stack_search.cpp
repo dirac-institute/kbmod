@@ -9,7 +9,32 @@ extern "C" void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void* psi_phi_v
                                    SearchParameters params, Trajectory* candidate);
 #endif
 
-StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_search_list(0) {
+// A helper function to extact both the psi and phi information as a single
+// list with all psi values and then all phi values.
+std::vector<float> extract_joint_psi_phi_curve(const PsiPhiArray& psi_phi, const Trajectory& trj) {
+    const unsigned int num_times = psi_phi.get_num_times();
+    std::vector<float> result(2 * num_times, 0.0);
+
+    for (unsigned int i = 0; i < num_times; ++i) {
+        double time = psi_phi.read_time(i);
+
+        // Query the center of the predicted location's pixel.
+        PsiPhi psi_phi_val = psi_phi.read_psi_phi(i, trj.get_y_index(time), trj.get_x_index(time));
+        if (pixel_value_valid(psi_phi_val.psi)) {
+            result[i] = psi_phi_val.psi;
+        }
+        if (pixel_value_valid(psi_phi_val.phi)) {
+            result[i + num_times] = psi_phi_val.phi;
+        }
+    }
+    return result;
+}
+
+// --------------------------------------------
+// StackSearch
+// --------------------------------------------
+
+StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0) {
     psi_phi_generated = false;
 
     // Default The Thresholds.
@@ -176,33 +201,13 @@ Trajectory StackSearch::search_linear_trajectory(int x, int y, float vx, float v
     return result;
 }
 
-void StackSearch::finish_search() {
-    psi_phi_array.clear_from_gpu();
-    gpu_search_list.move_to_cpu();
-}
-
-void StackSearch::prepare_search(std::vector<Trajectory>& search_list) {
-    DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", rs_logger);
+void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) {
+    // Prepare the input data (psi/phi and candidate lists).
     prepare_psi_phi();
-    psi_phi_array.move_to_gpu();
-    psi_phi_timer.stop();
-
-    uint64_t num_to_search = search_list.size();
-
-    rs_logger->info("Preparing to search " + std::to_string(num_to_search) + " trajectories.");
-    gpu_search_list.set_trajectories(search_list);
-    gpu_search_list.move_to_gpu();
-}
-
-void StackSearch::search_all(std::vector<Trajectory>& search_list) {
-    prepare_search(search_list);
-    if (!psi_phi_array.gpu_array_allocated()) {
-        throw std::runtime_error(
-                "PsiPhiArray array not allocated on GPU. Did you forget to call prepare_search?");
-    }
-
+    TrajectoryList candidate_list = TrajectoryList(search_list);
+     uint64_t max_results = compute_max_results();
+    
     DebugTimer core_timer = DebugTimer("Running batch search", rs_logger);
-    uint64_t max_results = compute_max_results();
 
     // staple C++
     std::stringstream logmsg;
@@ -210,24 +215,41 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list) {
            << "Y=[" << params.y_start_min << ", " << params.y_start_max << "]\n"
            << "Allocating space for " << max_results << " results.";
     rs_logger->info(logmsg.str());
-
     results.resize(max_results);
-    results.move_to_gpu();
 
-    // Do the actual search on the GPU.
     DebugTimer search_timer = DebugTimer("Running search", rs_logger);
-#ifdef HAVE_CUDA
-    deviceSearchFilter(psi_phi_array, params, gpu_search_list, results);
-#else
-    throw std::runtime_error("Non-GPU search is not implemented.");
-#endif
-    search_timer.stop();
+    if (on_gpu) {
+        // Moved the needed data to the GPU.
+        psi_phi_array.move_to_gpu();
+        candidate_list.move_to_gpu();
+        results.move_to_gpu();
 
-    // Move the results back to the CPU (if needed) and perform filtering.
-    results.move_to_cpu();
+        // Do the actual search on the GPU.
+#ifdef HAVE_CUDA
+        deviceSearchFilter(psi_phi_array, params, candidate_list, results);
+#else
+        throw std::runtime_error("Non-GPU search is not implemented.");
+#endif
+
+        // Free up the GPU memory.
+        results.move_to_cpu();
+        candidate_list.move_to_cpu();
+        psi_phi_array.clear_from_gpu();
+    } else {
+        search_cpu_only(psi_phi_array, params, candidate_list, results);
+    }
+    search_timer.stop();
+    uint64_t num_results = results.get_size();
+    rs_logger->debug("Core search returned " + std::to_string(num_results) + " results.\n");
+    
+    // Perform initial LH and obscount filtering.
+    
     DebugTimer filter_timer = DebugTimer("Filtering results by LH and min_obs", rs_logger);
     results.filter_by_likelihood(params.min_lh);
     results.filter_by_obs_count(params.min_observations);
+    uint64_t new_num_results = results.get_size();
+    rs_logger->debug("After filtering by LH and min_obs " + std::to_string(new_num_results) +
+                     " results (" + std::to_string(num_results - new_num_results) + " removed).\n");
     filter_timer.stop();
 
     // Sort the results by decreasing likleihood.
@@ -236,7 +258,6 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list) {
     sort_timer.stop();
 
     core_timer.stop();
-    finish_search();
 }
 
 uint64_t StackSearch::compute_max_results() {
@@ -255,47 +276,25 @@ uint64_t StackSearch::compute_max_results() {
     return num_search_pixels * params.results_per_pixel;
 }
 
-std::vector<float> StackSearch::extract_psi_or_phi_curve(const Trajectory& trj, bool extract_psi) {
+Image StackSearch::get_all_psi_phi_curves(const std::vector<Trajectory>& trajectories) {
+    // Allocate a (num_trj, 2 * num_times) image to store the curves for all the trajectories.
+    const unsigned int num_trj = trajectories.size();
+    const unsigned int num_times = stack.img_count();
+    Image results = Image::Zero(num_trj, 2 * num_times);
+
     prepare_psi_phi();
 
-    const unsigned int num_times = stack.img_count();
-    std::vector<float> result(num_times, 0.0);
+#pragma omp parallel for schedule(dynamic)
+    for (int i = 0; i < num_trj; ++i) {
+        std::vector<float> curve = extract_joint_psi_phi_curve(psi_phi_array, trajectories[i]);
 
-    for (unsigned int i = 0; i < num_times; ++i) {
-        double time = psi_phi_array.read_time(i);
-
-        // Query the center of the predicted location's pixel.
-        PsiPhi psi_phi_val = psi_phi_array.read_psi_phi(i, trj.get_y_index(time), trj.get_x_index(time));
-        float value = (extract_psi) ? psi_phi_val.psi : psi_phi_val.phi;
-        if (pixel_value_valid(value)) {
-            result[i] = value;
+// Copy the data into the results.
+#pragma omp critical
+        for (int j = 0; j < 2 * num_times; ++j) {
+            results(i, j) = curve[j];
         }
     }
-    return result;
-}
-
-std::vector<std::vector<float> > StackSearch::get_psi_curves(const std::vector<Trajectory>& trajectories) {
-    std::vector<std::vector<float> > all_results;
-    for (const auto& trj : trajectories) {
-        all_results.push_back(extract_psi_or_phi_curve(trj, true));
-    }
-    return all_results;
-}
-
-std::vector<float> StackSearch::get_psi_curves(const Trajectory& trj) {
-    return extract_psi_or_phi_curve(trj, true);
-}
-
-std::vector<std::vector<float> > StackSearch::get_phi_curves(const std::vector<Trajectory>& trajectories) {
-    std::vector<std::vector<float> > all_results;
-    for (const auto& trj : trajectories) {
-        all_results.push_back(extract_psi_or_phi_curve(trj, false));
-    }
-    return all_results;
-}
-
-std::vector<float> StackSearch::get_phi_curves(const Trajectory& trj) {
-    return extract_psi_or_phi_curve(trj, false);
+    return results;
 }
 
 std::vector<Trajectory> StackSearch::get_results(uint64_t start, uint64_t count) {
@@ -349,15 +348,9 @@ static void stack_search_bindings(py::module& m) {
             .def("get_image_npixels", &ks::get_image_npixels, pydocs::DOC_StackSearch_get_image_npixels)
             .def("get_imagestack", &ks::get_imagestack, py::return_value_policy::reference_internal,
                  pydocs::DOC_StackSearch_get_imagestack)
+            .def("get_all_psi_phi_curves", &ks::get_all_psi_phi_curves,
+                 pydocs::DOC_StackSearch_get_all_psi_phi_curves)
             // For testings
-            .def("get_psi_curves", (std::vector<float>(ks::*)(const tj&)) & ks::get_psi_curves,
-                 pydocs::DOC_StackSearch_get_psi_curves)
-            .def("get_phi_curves", (std::vector<float>(ks::*)(const tj&)) & ks::get_phi_curves,
-                 pydocs::DOC_StackSearch_get_phi_curves)
-            .def("get_psi_curves",
-                 (std::vector<std::vector<float> >(ks::*)(const std::vector<tj>&)) & ks::get_psi_curves)
-            .def("get_phi_curves",
-                 (std::vector<std::vector<float> >(ks::*)(const std::vector<tj>&)) & ks::get_phi_curves)
             .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
             .def("clear_psi_phi", &ks::clear_psi_phi, pydocs::DOC_StackSearch_clear_psi_phi)
             .def("get_number_total_results", &ks::get_number_total_results,
@@ -366,9 +359,8 @@ static void stack_search_bindings(py::module& m) {
             .def("get_all_results", &ks::get_all_results, pydocs::DOC_StackSearch_get_all_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results)
             .def("clear_results", &ks::clear_results, pydocs::DOC_StackSearch_clear_results)
-            .def("compute_max_results", &ks::compute_max_results, pydocs::DOC_StackSearch_compute_max_results)
-            .def("prepare_search", &ks::prepare_search, pydocs::DOC_StackSearch_prepare_batch_search)
-            .def("finish_search", &ks::finish_search, pydocs::DOC_StackSearch_finish_search);
+            .def("compute_max_results", &ks::compute_max_results,
+                 pydocs::DOC_StackSearch_compute_max_results);
 }
 #endif /* Py_PYTHON_H */
 

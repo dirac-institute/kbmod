@@ -82,6 +82,48 @@ class test_clustering_filters(unittest.TestCase):
         f4 = ClusterPosVelFilter(cluster_eps=5.0, cluster_v_scale=1e-9)
         self.assertEqual(f4.keep_indices(rs), [0, 3])
 
+    def test_cluster_build_data(self):
+        """Test that we predict the correct positions."""
+        rs = self._make_result_data(
+            [
+                [10, 11, 0, 0],
+                [10, 11, 1, 2],
+            ]
+        )
+        times = [0.0, 0.5, 1.0, 1.5, 2.0]
+
+        f1 = ClusterPosVelFilter(cluster_eps=5.0, cluster_v_scale=1.0)
+        cluster_data = f1._build_clustering_data(rs)
+        expected_data = np.array(
+            [
+                [10.0, 11.0, 0.0, 0.0],
+                [10.0, 11.0, 1.0, 2.0],
+            ]
+        )
+        self.assertEqual(cluster_data.dtype, np.float32)
+        self.assertTrue(np.allclose(cluster_data, expected_data))
+
+    def test_cluster_build_data_prediction(self):
+        """Test that we predict the correct positions."""
+        rs = self._make_result_data(
+            [
+                [10, 11, 0, 0],
+                [10, 11, 1, 2],
+            ]
+        )
+        times = [0.0, 0.5, 1.0, 1.5, 2.0]
+
+        f1 = ClusterPredictionFilter(cluster_eps=2.0, pred_times=times)
+        predicted_pos = f1._build_clustering_data(rs)
+        expected_pos = np.array(
+            [
+                [10.0, 10.0, 10.0, 10.0, 10.0, 11.0, 11.0, 11.0, 11.0, 11.0],
+                [10.0, 10.5, 11.0, 11.5, 12.0, 11.0, 12.0, 13.0, 14.0, 15.0],
+            ]
+        )
+        self.assertEqual(predicted_pos.dtype, np.float32)
+        self.assertTrue(np.allclose(predicted_pos, expected_pos))
+
     def test_dbscan_mid_pos(self):
         rs = self._make_result_data(
             [
@@ -170,6 +212,27 @@ class test_clustering_filters(unittest.TestCase):
         cluster_params["cluster_type"] = "invalid"
         self.assertRaises(ValueError, apply_clustering, results2, cluster_params)
 
+    def test_nnsweep_build_data(self):
+        """Test that we predict the correct positions."""
+        rs = self._make_result_data(
+            [
+                [10, 11, 0, 0],
+                [10, 11, 1, 2],
+            ]
+        )
+        times = [0.0, 0.5, 1.0, 1.5, 2.0]
+
+        f1 = NNSweepFilter(cluster_eps=2.0, pred_times=times)
+        predicted_pos = f1._build_clustering_data(rs)
+        expected_pos = np.array(
+            [
+                [10.0, 10.0, 10.0, 10.0, 10.0, 11.0, 11.0, 11.0, 11.0, 11.0],
+                [10.0, 10.5, 11.0, 11.5, 12.0, 11.0, 12.0, 13.0, 14.0, 15.0],
+            ]
+        )
+        self.assertEqual(predicted_pos.dtype, np.float32)
+        self.assertTrue(np.allclose(predicted_pos, expected_pos))
+
     def test_nnfilter(self):
         """Test filtering based on removing neighbors."""
         trjs = [
@@ -188,17 +251,32 @@ class test_clustering_filters(unittest.TestCase):
         ]
         rs = Results.from_trajectories(trjs)
 
-        # Start with 5 clusters as noted above.
-        f1 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0, 20.0])
-        self.assertEqual(f1.keep_indices(rs), [2, 3, 5, 6, 7])
+        for batchsize in [1, 2, 5, 1000]:
+            with self.subTest(batchsize=batchsize):
+                # Start with 5 clusters as noted above.
+                f1 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0, 20.0], batch_size=batchsize)
+                self.assertEqual(f1.keep_indices(rs), [2, 3, 5, 6, 7])
 
-        # Larger eps includes more points.
-        f2 = NNSweepFilter(cluster_eps=20.0, pred_times=[0.0, 20.0])
-        self.assertEqual(f2.keep_indices(rs), [2, 3, 5, 7])
+                # Larger eps includes more points.
+                f2 = NNSweepFilter(cluster_eps=20.0, pred_times=[0.0, 20.0], batch_size=batchsize)
+                self.assertEqual(f2.keep_indices(rs), [2, 3, 5, 7])
 
-        # Using only the start time filters on the (x, y) values only.
-        f3 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0])
-        self.assertEqual(f3.keep_indices(rs), [2, 5, 6, 7])
+                # Using only the start time filters on the (x, y) values only.
+                f3 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0])
+                self.assertEqual(f3.keep_indices(rs), [2, 5, 6, 7])
+
+                # Using five times.
+                f4 = NNSweepFilter(
+                    cluster_eps=5.0, pred_times=[0.0, 5.0, 10.0, 15.0, 20.0], batch_size=batchsize
+                )
+                self.assertEqual(f4.keep_indices(rs), [2, 3, 5, 6, 7])
+
+                # Using five times and a tiny threshold. Everything should be its
+                # own cluster except 9 which is an exact match with 7.
+                f5 = NNSweepFilter(
+                    cluster_eps=1e-8, pred_times=[0.0, 5.0, 10.0, 15.0, 20.0], batch_size=batchsize
+                )
+                self.assertEqual(f5.keep_indices(rs), [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11])
 
     def test_cluster_grid_filter(self):
         """Test filtering based on a discrete grid."""

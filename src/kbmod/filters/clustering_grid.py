@@ -1,5 +1,18 @@
 """A data structure for online clustering of result trajectories."""
 
+import numpy as np
+
+from kbmod.search import (
+    extract_all_trajectory_flux,
+    extract_all_trajectory_lh,
+    extract_all_trajectory_obs_count,
+    extract_all_trajectory_vx,
+    extract_all_trajectory_vy,
+    extract_all_trajectory_x,
+    extract_all_trajectory_y,
+    Trajectory,
+)
+
 
 class TrajectoryClusterGrid:
     """A spatial hash of trajectory results.
@@ -82,6 +95,44 @@ class TrajectoryClusterGrid:
 
         self.total_count += 1
 
+    def add_trajectory_list(self, trj_list):
+        """Add a list of results to the table.
+
+        Parameters
+        ----------
+        trj_list : `list` of `Trajectory`
+            The trajectories to add.
+        """
+        # Extract the components for all results.
+        x0 = np.asanyarray(extract_all_trajectory_x(trj_list))
+        y0 = np.asanyarray(extract_all_trajectory_y(trj_list))
+        vx = np.asanyarray(extract_all_trajectory_vx(trj_list))
+        vy = np.asanyarray(extract_all_trajectory_vy(trj_list))
+
+        # Compute the spatial bin (vectorized) for all results.
+        xs_bin = (x0 / self.bin_width).astype(int)
+        ys_bin = (y0 / self.bin_width).astype(int)
+        xe_bin = ((x0 + self.max_time * vx) / self.bin_width).astype(int)
+        ye_bin = ((y0 + self.max_time * vy) / self.bin_width).astype(int)
+
+        # We need to insert the trajectories serially because we are modifying the table.
+        for idx, trj in enumerate(trj_list):
+            bin_key = (xs_bin[idx], ys_bin[idx], xe_bin[idx], ye_bin[idx])
+            old_result = self.table.get(bin_key, None)
+
+            if old_result is None:
+                self.table[bin_key] = trj
+                self.count[bin_key] = 1
+                self.idx_table[bin_key] = idx
+            elif trj.lh > old_result.lh:
+                self.table[bin_key] = trj
+                self.idx_table[bin_key] = idx
+                self.count[bin_key] += 1
+            else:
+                self.count[bin_key] += 1
+
+        self.total_count += len(trj_list)
+
     def get_trajectories(self):
         """Get all of the best trajectories from each bin.
 
@@ -101,3 +152,28 @@ class TrajectoryClusterGrid:
             A list of the indices of the best trajectory results from each bin.
         """
         return list(self.idx_table.values())
+
+
+def apply_trajectory_grid_filter(trajectories, bin_width, max_dt):
+    """Use the TrajectoryClusterGrid to remove near duplicates.
+
+    Parameters
+    ----------
+    trajectories : `list` of `Trajectory`
+        The trajectories to filter.
+    bin_width : `int`
+        The width of the bins in TrajectoryClusterGrid.
+    max_dt : `float`
+        The maximum time to use.
+
+    Returns
+    -------
+    results : `list` of `Trajectory`
+        The unfiltered trajectories.
+    indices : `list` of `int`
+        The indices of the unfiltered trajectories.
+    """
+    grid_filter = TrajectoryClusterGrid(bin_width=bin_width, max_time=max_dt)
+    for idx, trj in enumerate(trajectories):
+        grid_filter.add_trajectory(trj, idx=idx)
+    return grid_filter.get_trajectories(), grid_filter.get_indices()

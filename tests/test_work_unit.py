@@ -15,7 +15,6 @@ import warnings
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import make_fake_layered_image
-from kbmod.image_utils import image_allclose
 import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
@@ -245,9 +244,17 @@ class test_work_unit(unittest.TestCase):
                 # Check the three image layers match. We use more permissive values for science and
                 # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.05))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.05))
-                self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
+                self.assertTrue(
+                    np.allclose(li.get_science_array(), li_org.get_science_array(), atol=0.05, equal_nan=True)
+                )
+                self.assertTrue(
+                    np.allclose(
+                        li.get_variance_array(), li_org.get_variance_array(), atol=0.05, equal_nan=True
+                    )
+                )
+                self.assertTrue(
+                    np.allclose(li.get_mask_array(), li_org.get_mask_array(), atol=0.001, equal_nan=True)
+                )
 
                 # Check the PSF layer matches.
                 p1 = self.p[i]
@@ -305,9 +312,17 @@ class test_work_unit(unittest.TestCase):
                 # Check the three image layers match. We use more permissive values for science and
                 # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.05))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.05))
-                self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
+                self.assertTrue(
+                    np.allclose(li.get_science_array(), li_org.get_science_array(), atol=0.05, equal_nan=True)
+                )
+                self.assertTrue(
+                    np.allclose(
+                        li.get_variance_array(), li_org.get_variance_array(), atol=0.05, equal_nan=True
+                    )
+                )
+                self.assertTrue(
+                    np.allclose(li.get_mask_array(), li_org.get_mask_array(), atol=0.001, equal_nan=True)
+                )
 
                 # Check the PSF layer matches.
                 p1 = self.p[i]

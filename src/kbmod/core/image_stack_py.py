@@ -10,6 +10,51 @@ import numpy as np
 from kbmod.core.psf import PSF
 
 
+class LayeredImagePy:
+    """A data class for storing all of the image components for a single
+    time step.  This is primarily used to ease the transition between
+    the numpy-based ImageStackPy and the C++ ImageStack.
+
+    Attributes
+    ----------
+    sci : np.array
+        The H x W array of science data.
+    var : np.array
+        The H x W array of variance data.
+    time : float, optional
+        The time stamp (in UTC MJD).
+    mask : np.array, optional
+        The H x W array of mask data.
+    psf : np.array, optional
+        The kernel of the PSF function.
+    """
+
+    def __init__(self, sci, var, mask=None, time=0.0, psf=None):
+        self.time = time
+        self.sci = np.asanyarray(sci, dtype=np.float32)
+        self.var = np.asanyarray(var, dtype=np.float32)
+
+        if psf is None:
+            self.psf = np.ones((1, 1), dtype=np.float32)
+        else:
+            self.psf = np.asanyarray(psf, dtype=np.float32)
+
+        if mask is None:
+            self.mask = np.zeros_like(sci, dtype=np.float32)
+        else:
+            self.mask = mask
+
+    @property
+    def width(self):
+        """The width of the image."""
+        return self.sci.shape[1]
+
+    @property
+    def height(self):
+        """The height of the image."""
+        return self.sci.shape[0]
+
+
 class ImageStackPy:
     """A class for storing science and variance image data along
     with corresponding metadata.
@@ -43,26 +88,36 @@ class ImageStackPy:
         The length T array of zeroed times.
     """
 
-    def __init__(self, times, sci, var, mask=None, psfs=None):
+    def __init__(self, times=None, sci=None, var=None, mask=None, psfs=None):
+        # If nothing is provided, create an empty data structure.
         if times is None or len(times) == 0:
-            raise ValueError("Cannot create an ImageStack with no times.")
+            if sci is not None or var is not None:
+                raise ValueError("Cannot create an ImageStackPy without times")
+            self.num_times = 0
+            self.times = np.array([])
+            self.sci = []
+            self.var = []
+            self.psfs = []
+            self.height = -1
+            self.width = -1
+            self.zeroed_times = np.array([])
+            return
+
         self.num_times = len(times)
         self.times = np.asarray(times, dtype=float)
         self.zeroed_times = self.times - self.times[0]
 
         # Get and validate the image size information.
-        if len(sci) != self.num_times:
-            raise ValueError(
-                f"Incorrect number of science images. Expected {self.num_times}. Received {len(sci)}."
-            )
-        if len(var) != self.num_times:
-            raise ValueError(
-                f"Incorrect number of variance images. Expected {self.num_times}. Received {len(var)}."
-            )
+        if sci is None:
+            raise ValueError("Missing science data.")
+        elif len(sci) != self.num_times:
+            raise ValueError(f"Expected {self.num_times} science images. Received {len(sci)}.")
+        if var is None:
+            raise ValueError("Missing variance data.")
+        elif len(var) != self.num_times:
+            raise ValueError(f"Expected {self.num_times} science images. Received {len(var)}.")
         if mask is not None and len(mask) != self.num_times:
-            raise ValueError(
-                f"Incorrect number of mask images. Expected {self.num_times}. Received {len(mask)}."
-            )
+            raise ValueError(f"Expected {self.num_times} mask images. Received {len(mask)}.")
         self.height = len(sci[0])
         self.width = len(sci[0][0])
 
@@ -122,6 +177,11 @@ class ImageStackPy:
         if img.dtype != np.single:
             img = img.astype(np.single)
 
+        # If we have not seen any data before (empty stack) use these image dimensions.
+        if self.num_times == 0:
+            self.width = img.shape[1]
+            self.height = img.shape[0]
+
         # Check that the image is the correct size.
         if img.shape[1] != self.width:
             raise ValueError(f"Incorrect image width. Expected {self.width}. Received {img.shape[1]}")
@@ -149,6 +209,193 @@ class ImageStackPy:
         for img in self.sci:
             total += np.sum(np.isnan(img))
         return total
+
+    def append_image(self, time, sci, var, mask=None, psf=None):
+        """Append an image onto the back of the stack.
+
+        Parameters
+        ----------
+        time : float
+            The observation time (in UTC MJD).
+        sci : np.array
+            A H x W array of science data.
+        var : np.array
+            A H x W array of variance data.
+        mask : np.array, optional
+            A H x W array of mask data. If not provided, nothing is masked.
+        psfs : np.array or PSF
+            The PSF information for this time.
+        """
+        current_idx = self.num_times
+        self.sci.append(self._standardize_image(sci))
+        self.var.append(self._standardize_image(var))
+        if psf is None:
+            psf = np.array([[1.0]])
+        elif isinstance(psf, PSF):
+            psf = psf.kernel
+        self.psfs.append(psf)
+
+        # Apply the mask if it is provided.
+        if mask is not None:
+            mask = np.asanyarray(mask)
+            if mask.shape != (self.height, self.width):
+                raise ValueError("Science and Mask data must have the same shape.")
+            masked_pixels = mask > 0
+            self.sci[current_idx][masked_pixels] = np.nan
+            self.var[current_idx][masked_pixels] = np.nan
+
+        # Set the time information.
+        self.num_times += 1
+        self.times = np.append(self.times, time)
+        self.zeroed_times = self.times - self.times[0]
+
+    def append_layered_image(self, layered_image):
+        """Append a LayeredImagePy object to the stack.
+        This is a wrapper for append_image.
+
+        Parameters
+        ----------
+        layered_image : LayeredImagePy
+            The image data to append.
+        """
+        self.append_image(
+            layered_image.time,
+            layered_image.sci,
+            layered_image.var,
+            mask=layered_image.mask,
+            psf=layered_image.psf,
+        )
+
+    def filter_images(self, mask):
+        """Remove images from the stack according to a mask.
+
+        Parameters
+        ----------
+        mask : list or np.ndarray
+            A Boolean array of the images to keep.
+        """
+        mask = np.asanyarray(mask)
+
+        new_sci = []
+        new_var = []
+        new_psfs = []
+        for idx in range(self.num_times):
+            if mask[idx]:
+                new_sci.append(self.sci[idx])
+                new_var.append(self.var[idx])
+                new_psfs.append(self.psfs[idx])
+        self.sci = new_sci
+        self.var = new_var
+        self.psfs = new_psfs
+
+        self.num_times = len(self.sci)
+        self.times = self.times[mask]
+        if self.num_times > 0:
+            self.zeroed_times = self.times - self.times[0]
+        else:
+            self.zeroed_times = []
+
+    def get_masked_fractions(self):
+        """Compute the fraction of masked pixels for each image.
+
+        Returns
+        -------
+        masked_fraction : np.ndarray
+            An array of the fraction of pixels that are masked.
+        """
+        masked_fraction = np.zeros(self.num_times)
+        total_pixels = float(self.width * self.height)
+
+        # Iterate through the list checking each image.
+        for idx in range(self.num_times):
+            is_masked = np.isnan(self.sci[idx]) | np.isnan(self.var[idx])
+            masked_fraction[idx] = np.count_nonzero(is_masked) / total_pixels
+        return masked_fraction
+
+    def mask_by_science_bounds(self, min_val=-1e20, max_val=1e20):
+        """Mask pixels whose value in the science layer lies outside the given bounds.
+        Applies mask to both science and variance layer.
+
+        Parameter
+        ---------
+        min_val : float
+            The minimum acceptable flux. Default: -1e20
+        max_val : float
+            The maximum acceptable flux. Default: 1e20
+        """
+        for idx in range(self.num_times):
+            bad_values = (self.sci[idx] < min_val) | (self.sci[idx] > max_val)
+            self.sci[idx][bad_values] = np.nan
+            self.var[idx][bad_values] = np.nan
+
+    def mask_by_variance_bounds(self, min_val=1e-20, max_val=1e20):
+        """Mask pixels whose value in the variance layer lies outside the given bounds.
+        Applies mask to both science and variance layer.
+
+        Parameter
+        ---------
+        min_val : float
+            The minimum acceptable variance (should always be > 0.0 since negative
+            variance and 0.0 variance are both invalid).
+            Default: 1e-20
+        max_val : float
+            The maximum acceptable variance. Default: 1e20
+        """
+        for idx in range(self.num_times):
+            bad_values = (self.var[idx] < min_val) | (self.var[idx] > max_val)
+            self.sci[idx][bad_values] = np.nan
+            self.var[idx][bad_values] = np.nan
+
+    def get_single_image(self, index):
+        """Get a single image from the stack.
+
+        Parameters
+        ----------
+        index : int
+            The index of the image to get.
+
+        Returns
+        -------
+        LayeredImagePy
+            The image data at the given index.
+        """
+        if index < 0 or index >= self.num_times:
+            raise IndexError(f"Index {index} out of range for ImageStack.")
+        return LayeredImagePy(self.sci[index], self.var[index], time=self.times[index], psf=self.psfs[index])
+
+    def set_single_image(self, index, img):
+        """Set a single image in the stack.
+
+        Parameters
+        ----------
+        index : int
+            The index of the image to set.
+        img : LayeredImagePy
+            The image data to set.
+        """
+        if index < 0 or index >= self.num_times:
+            raise IndexError(f"Index {index} out of range for ImageStack.")
+        if img.width != self.width or img.height != self.height:
+            raise ValueError(
+                f"Image shape does not match the ImageStack size. Expected ({self.width},{self.height}). "
+                f"Received ({img.width}, {img.height})."
+            )
+
+        new_sci = self._standardize_image(img.sci)
+        new_var = self._standardize_image(img.var)
+
+        # Do any masking needed.
+        masked_pixels = img.mask > 0
+        if np.any(masked_pixels):
+            new_sci[masked_pixels] = np.nan
+            new_var[masked_pixels] = np.nan
+
+        # Set the image data.
+        self.sci[index] = new_sci
+        self.var[index] = new_var
+        self.psfs[index] = img.psf
+        self.times[index] = img.time
+        self.zeroed_times[index] = img.time - self.times[0]
 
     def get_matched_obstimes(self, query_times, threshold=0.0007):
         """Given a list of times, returns the indices of images that are close

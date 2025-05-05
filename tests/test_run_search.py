@@ -15,6 +15,7 @@ from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.results import Results
 from kbmod.run_search import append_positions_to_results, configure_kb_search_stack, SearchRunner
 from kbmod.search import *
+from kbmod.trajectory_generator import VelocityGridSearch
 from kbmod.wcs_utils import make_fake_wcs
 from kbmod.work_unit import WorkUnit
 
@@ -35,11 +36,6 @@ class test_run_search(unittest.TestCase):
         # Turn off the warnings for this test.
         logging.disable(logging.CRITICAL)
 
-        # Too few observations.
-        config = SearchConfiguration()
-        config.set("num_obs", 21)
-        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
-
         # Bad results_per_pixel.
         config = SearchConfiguration()
         config.set("results_per_pixel", -1)
@@ -57,6 +53,21 @@ class test_run_search(unittest.TestCase):
         # Re-enable warnings.
         logging.disable(logging.NOTSET)
 
+    def test_run_search_auto_config(self):
+        """Test that if we set num_obs to high, we down scale it."""
+        num_times = 10
+        width = 15
+        height = 10
+
+        fake_times = create_fake_times(num_times, t0=60676.0)
+        fake_ds = FakeDataSet(width, height, fake_times)
+        runner = SearchRunner()
+
+        config = SearchConfiguration()
+        config.set("num_obs", 21)
+        _ = runner.run_search(config, fake_ds.stack)
+        self.assertEqual(config["num_obs"], 10)
+
     def test_load_and_filter_results(self):
         num_times = 50
         width = 20
@@ -73,30 +84,45 @@ class test_run_search(unittest.TestCase):
 
         # Trajectory x is given x outliers.
         for i in range(num_times):
-            sci = im_stack.get_single_image(i).get_science()
+            sci = im_stack.get_single_image(i).get_science_array()
             for x, trj in enumerate(trjs):
                 if i < 2 * x:
-                    sci.set_pixel(trj.y, trj.x, 2000.0)
+                    sci[trj.y, trj.x] = 2000.0
                 else:
-                    sci.set_pixel(trj.y, trj.x, 10.0)
+                    sci[trj.y, trj.x] = 10.0
 
-        # Set up the search object.
+        # Set up the search object.  We turn off near duplicate filtering because
+        # the trajectories are all near duplicates.
         config = SearchConfiguration()
         config.set("num_obs", 39)
         config.set("lh_level", 1.0)
         config.set("sigmaG_filter", True)
         config.set("sigmaG_lims", [10, 90])
+        config.set("near_dup_thresh", None)
 
         search = StackSearch(fake_ds.stack)
         configure_kb_search_stack(search, config)
+
+        # Try extracting before we have inserted any results. We should get an empty Results.
+        runner = SearchRunner()
+        results_empty = runner.load_and_filter_results(search, config, batch_size=10)
+        self.assertEqual(len(results_empty), 0)
+
+        # Insert the fake results.
         search.set_results(trjs)
 
         # Extract the (fake) results from the runner. We filter a bunch of
         # results that fall below 10 observations.
         runner = SearchRunner()
-        results = runner.load_and_filter_results(search, config)
+        results = runner.load_and_filter_results(search, config, batch_size=10)
         self.assertLess(len(results), 10)
         self.assertGreater(len(results), 2)
+
+        # Reload with a different batch size and confirm we get the same results.
+        results2 = runner.load_and_filter_results(search, config, batch_size=2)
+        self.assertEqual(len(results2), len(results))
+        results1 = runner.load_and_filter_results(search, config, batch_size=1)
+        self.assertEqual(len(results1), len(results))
 
         # Re-extract without sigma-G filtering. We do not filter any results, but
         # still generate the psi and phi curves.
@@ -299,6 +325,59 @@ class test_run_search(unittest.TestCase):
             self.assertEqual(len(results["img_y"][i]), num_times)
             self.assertEqual(len(results["pred_y"][i]), num_times)
             self.assertTrue(np.allclose(results["img_y"][i], results["pred_y"][i]))
+
+    def test_core_search_cpu(self):
+        # Create a very small fake data set.
+        num_times = 20
+        width = 50
+        height = 60
+        fake_times = [float(i) / num_times for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        # Create a Trajectory for the object and insert it into the image stack.
+        trj = Trajectory(x=17, y=12, vx=21.0, vy=16.0, flux=250.0)
+        fake_ds.insert_object(trj)
+
+        # Use a small grid of search trajectories around the true velocity.
+        trj_gen = VelocityGridSearch(5, 15.0, 27.0, 5, 10.0, 22.0)
+        config = SearchConfiguration()
+        config.set("cpu_only", True)
+
+        # Run the core search algorithm and confirm we find the inserted fake.
+        runner = SearchRunner()
+        keep = runner.do_core_search(config, fake_ds.stack, trj_gen)
+
+        self.assertGreater(len(keep), 0)
+        self.assertEqual(keep["x"][0], 17)
+        self.assertEqual(keep["y"][0], 12)
+        self.assertAlmostEqual(keep["vx"][0], 21.0)
+        self.assertAlmostEqual(keep["vy"][0], 16.0)
+
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_core_search_gpu(self):
+        # Create a very small fake data set.
+        num_times = 20
+        width = 50
+        height = 60
+        fake_times = [float(i) / num_times for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        # Create a Trajectory for the object and insert it into the image stack.
+        trj = Trajectory(x=17, y=12, vx=21.0, vy=16.0, flux=250.0)
+        fake_ds.insert_object(trj)
+
+        # Use a small grid of search trajectories around the true velocity.
+        trj_gen = VelocityGridSearch(5, 15.0, 27.0, 5, 10.0, 22.0)
+        config = SearchConfiguration()
+
+        # Run the core search algorithm and confirm we find the inserted fake.
+        runner = SearchRunner()
+        keep = runner.do_core_search(config, fake_ds.stack, trj_gen)
+        self.assertGreater(len(keep), 0)
+        self.assertEqual(keep["x"][0], 17)
+        self.assertEqual(keep["y"][0], 12)
+        self.assertAlmostEqual(keep["vx"][0], 21.0)
+        self.assertAlmostEqual(keep["vy"][0], 16.0)
 
 
 if __name__ == "__main__":
