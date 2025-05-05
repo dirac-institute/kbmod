@@ -12,8 +12,16 @@ from astropy.table import Column, Table, vstack
 from astropy.time import Time
 from pathlib import Path
 
-from kbmod.trajectory_utils import trajectories_to_dict
-from kbmod.search import Trajectory
+from kbmod.search import (
+    extract_all_trajectory_flux,
+    extract_all_trajectory_lh,
+    extract_all_trajectory_obs_count,
+    extract_all_trajectory_vx,
+    extract_all_trajectory_vy,
+    extract_all_trajectory_x,
+    extract_all_trajectory_y,
+    Trajectory,
+)
 from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
 
 
@@ -96,7 +104,7 @@ class Results:
         elif isinstance(data, dict):
             self.table = Table(data)
         elif isinstance(data, Table):
-            self.table = data.copy()
+            self.table = data
         else:
             raise TypeError(f"Incompatible data type {type(data)}")
 
@@ -181,16 +189,23 @@ class Results:
         track_filtered : `bool`
             Indicates whether to track future filtered points.
         """
-        # Create dictionaries from the Trajectories.
-        input_d = trajectories_to_dict(trajectories)
+        # Create a table object from the Trajectories.
+        input_table = Table()
+        input_table["x"] = extract_all_trajectory_x(trajectories)
+        input_table["y"] = extract_all_trajectory_y(trajectories)
+        input_table["vx"] = extract_all_trajectory_vx(trajectories)
+        input_table["vy"] = extract_all_trajectory_vy(trajectories)
+        input_table["likelihood"] = extract_all_trajectory_lh(trajectories)
+        input_table["flux"] = extract_all_trajectory_flux(trajectories)
+        input_table["obs_count"] = extract_all_trajectory_obs_count(trajectories)
 
         # Check for any missing columns and fill in the default value.
         for col in cls.required_cols:
-            if col[0] not in input_d:
-                input_d[col[0]] = [col[2]] * len(trajectories)
+            if col[0] not in input_table.colnames:
+                input_table[col[0]] = [col[2]] * len(trajectories)
 
         # Create the table and add the unfiltered (and filtered) results.
-        results = Results(input_d, track_filtered=track_filtered)
+        results = Results(input_table, track_filtered=track_filtered)
         return results
 
     @classmethod

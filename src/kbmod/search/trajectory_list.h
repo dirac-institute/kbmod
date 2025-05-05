@@ -41,6 +41,12 @@ public:
         return cpu_list[index];
     }
 
+    inline std::vector<Trajectory>& get_list() {
+        if (data_on_gpu) throw std::runtime_error("Data on GPU");
+        return cpu_list;
+    }
+
+    // --- Setter functions ----------------
     inline void set_trajectory(uint64_t index, const Trajectory& new_value) {
         if (index >= max_size) throw std::runtime_error("Index out of bounds.");
         if (data_on_gpu) throw std::runtime_error("Data on GPU");
@@ -48,11 +54,6 @@ public:
     }
 
     void set_trajectories(const std::vector<Trajectory>& new_values);
-
-    inline std::vector<Trajectory>& get_list() {
-        if (data_on_gpu) throw std::runtime_error("Data on GPU");
-        return cpu_list;
-    }
 
     // Forcibly resize. May add blank data.
     void resize(uint64_t new_size);
@@ -80,6 +81,15 @@ private:
     std::vector<Trajectory> cpu_list;
     GPUArray<Trajectory> gpu_array;
 };
+
+// Helper functions for extracting individual components from trajectories.
+std::vector<int> extract_all_trajectory_x(const std::vector<Trajectory>& trajectories);
+std::vector<int> extract_all_trajectory_y(const std::vector<Trajectory>& trajectories);
+std::vector<float> extract_all_trajectory_vx(const std::vector<Trajectory>& trajectories);
+std::vector<float> extract_all_trajectory_vy(const std::vector<Trajectory>& trajectories);
+std::vector<float> extract_all_trajectory_lh(const std::vector<Trajectory>& trajectories);
+std::vector<float> extract_all_trajectory_flux(const std::vector<Trajectory>& trajectories);
+std::vector<int> extract_all_trajectory_obs_count(const std::vector<Trajectory>& trajectories);
 
 } /* namespace search */
 

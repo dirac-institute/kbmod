@@ -116,6 +116,80 @@ void TrajectoryList::move_to_cpu() {
 }
 
 // -------------------------------------------
+// --- Helper functions ----------------------
+// -------------------------------------------
+
+std::vector<int> extract_all_trajectory_x(const std::vector<Trajectory>& trajectories) {
+    size_t num_trj = trajectories.size();
+
+    std::vector<int> result(num_trj);
+    for (size_t i = 0; i < num_trj; ++i) {
+        result[i] = trajectories[i].x;
+    }
+    return result;
+}
+
+std::vector<int> extract_all_trajectory_y(const std::vector<Trajectory>& trajectories) {
+    size_t num_trj = trajectories.size();
+
+    std::vector<int> result(num_trj);
+    for (size_t i = 0; i < num_trj; ++i) {
+        result[i] = trajectories[i].y;
+    }
+    return result;
+}
+
+std::vector<float> extract_all_trajectory_vx(const std::vector<Trajectory>& trajectories) {
+    size_t num_trj = trajectories.size();
+
+    std::vector<float> result(num_trj);
+    for (size_t i = 0; i < num_trj; ++i) {
+        result[i] = trajectories[i].vx;
+    }
+    return result;
+}
+
+std::vector<float> extract_all_trajectory_vy(const std::vector<Trajectory>& trajectories) {
+    size_t num_trj = trajectories.size();
+
+    std::vector<float> result(num_trj);
+    for (size_t i = 0; i < num_trj; ++i) {
+        result[i] = trajectories[i].vy;
+    }
+    return result;
+}
+
+std::vector<float> extract_all_trajectory_lh(const std::vector<Trajectory>& trajectories) {
+    size_t num_trj = trajectories.size();
+
+    std::vector<float> result(num_trj);
+    for (size_t i = 0; i < num_trj; ++i) {
+        result[i] = trajectories[i].lh;
+    }
+    return result;
+}
+
+std::vector<float> extract_all_trajectory_flux(const std::vector<Trajectory>& trajectories) {
+    size_t num_trj = trajectories.size();
+
+    std::vector<float> result(num_trj);
+    for (size_t i = 0; i < num_trj; ++i) {
+        result[i] = trajectories[i].flux;
+    }
+    return result;
+}
+
+std::vector<int> extract_all_trajectory_obs_count(const std::vector<Trajectory>& trajectories) {
+    size_t num_trj = trajectories.size();
+
+    std::vector<int> result(num_trj);
+    for (size_t i = 0; i < num_trj; ++i) {
+        result[i] = trajectories[i].obs_count;
+    }
+    return result;
+}
+
+// -------------------------------------------
 // --- Python definitions --------------------
 // -------------------------------------------
 
@@ -146,6 +220,22 @@ static void trajectory_list_binding(py::module& m) {
                  pydocs::DOC_TrajectoryList_filter_by_obs_count)
             .def("move_to_cpu", &trjl::move_to_cpu, pydocs::DOC_TrajectoryList_move_to_cpu)
             .def("move_to_gpu", &trjl::move_to_gpu, pydocs::DOC_TrajectoryList_move_to_gpu);
+
+    // Add the helper functions.
+    m.def("extract_all_trajectory_x", &search::extract_all_trajectory_x,
+          pydocs::DOC_TrajectoryList_extract_all_x);
+    m.def("extract_all_trajectory_y", &search::extract_all_trajectory_y,
+          pydocs::DOC_TrajectoryList_extract_all_y);
+    m.def("extract_all_trajectory_vx", &search::extract_all_trajectory_vx,
+          pydocs::DOC_TrajectoryList_extract_all_vx);
+    m.def("extract_all_trajectory_vy", &search::extract_all_trajectory_vy,
+          pydocs::DOC_TrajectoryList_extract_all_vy);
+    m.def("extract_all_trajectory_lh", &search::extract_all_trajectory_lh,
+          pydocs::DOC_TrajectoryList_extract_all_lh);
+    m.def("extract_all_trajectory_flux", &search::extract_all_trajectory_flux,
+          pydocs::DOC_TrajectoryList_extract_all_flux);
+    m.def("extract_all_trajectory_obs_count", &search::extract_all_trajectory_obs_count,
+          pydocs::DOC_TrajectoryList_extract_all_obs_count);
 }
 #endif
 
