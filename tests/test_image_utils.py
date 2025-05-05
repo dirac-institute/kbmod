@@ -7,7 +7,6 @@ from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.search import KB_NO_DATA, Trajectory
 
 from kbmod.image_utils import (
-    count_valid_images,
     create_stamps_from_image_stack,
     create_stamps_from_image_stack_xy,
     extract_sci_images_from_stack,
@@ -168,39 +167,6 @@ class test_image_utils(unittest.TestCase):
         # Re-enable warnings.
         logging.disable(logging.NOTSET)
 
-    def test_count_valid_images(self):
-        """Tests that we can count the number of valid images in an ImageStack."""
-        # Start with a valid ImageStack.
-        num_times = 10
-        width = 20
-        height = 20
-        fake_times = np.arange(num_times)
-        fake_sci = [90.0 * np.random.random((height, width)) + 10.0 for _ in range(num_times)]
-        fake_var = [0.49 * np.random.random((height, width)) + 0.01 for _ in range(num_times)]
-        fake_mask = [np.zeros((height, width)) for _ in range(num_times)]
-        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var, fake_mask)
-        self.assertEqual(im_stack.img_count(), 10)
-        self.assertTrue(count_valid_images(im_stack), 9)
-
-        # Mask most of the pixels in the science layer 1.
-        fake_sci[1][:, 1:width] = np.nan
-        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var, fake_mask)
-        self.assertEqual(im_stack.img_count(), 10)
-        self.assertTrue(count_valid_images(im_stack, 0.8), 9)
-
-        # Mask most of the pixels in the mask layers 3 and 7.
-        fake_mask[3][:, 1:width] = 1
-        fake_mask[7][1:height, :] = 1
-        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var, fake_mask)
-        self.assertEqual(im_stack.img_count(), 10)
-        self.assertTrue(count_valid_images(im_stack, 0.8), 7)
-
-        # Mask most of the science pixels in layer 3 (does not change count).
-        fake_sci[3][:, 1:width] = np.nan
-        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var, fake_mask)
-        self.assertEqual(im_stack.img_count(), 10)
-        self.assertTrue(count_valid_images(im_stack, 0.8), 7)
-
     def test_create_stamps_from_image_stack(self):
         # Create a small fake data set for the tests.
         num_times = 10
@@ -225,11 +191,13 @@ class test_image_utils(unittest.TestCase):
             self.assertEqual(stamps[i].shape, (3, 3))
 
             # Compare to the (manually computed) trajectory location.
-            center_val = fake_ds.stack.get_single_image(i).get_science().get_pixel(7 + i, 8 + 2 * i)
-            if np.isnan(center_val):
-                self.assertTrue(np.isnan(stamps[i][1, 1]))
-            else:
+            xp = 8 + 2 * i
+            yp = 7 + i
+            if xp < 25 and yp < 35:
+                center_val = fake_ds.stack.get_single_image(i).get_science_array()[yp, xp]
                 self.assertAlmostEqual(center_val, stamps[i][1, 1])
+            else:
+                self.assertTrue(np.isnan(stamps[i][1, 1]))
 
         # Check that we can set use_indices to produce only some stamps.
         use_times = [False, True, False, True, True, False, False, False, True, False]
@@ -240,11 +208,15 @@ class test_image_utils(unittest.TestCase):
         for i in range(num_times):
             if use_times[i]:
                 self.assertEqual(stamps[stamp_count].shape, (3, 3))
-                center_val = fake_ds.stack.get_single_image(i).get_science().get_pixel(7 + i, 8 + 2 * i)
-                if np.isnan(center_val):
-                    self.assertTrue(np.isnan(stamps[stamp_count][1, 1]))
-                else:
+
+                xp = 8 + 2 * i
+                yp = 7 + i
+                if xp < 25 and yp < 35:
+                    center_val = fake_ds.stack.get_single_image(i).get_science_array()[yp, xp]
                     self.assertAlmostEqual(center_val, stamps[stamp_count][1, 1])
+                else:
+                    self.assertTrue(np.isnan(stamps[stamp_count][1, 1]))
+
                 stamp_count += 1
 
     def test_create_stamps_from_image_stack_xy(self):
@@ -272,11 +244,14 @@ class test_image_utils(unittest.TestCase):
         for i in range(num_times):
             self.assertEqual(stamps[i].shape, (3, 3))
 
-            pix_val = fake_ds.stack.get_single_image(i).get_science().get_pixel(7 + i, 8 + 2 * i)
-            if np.isnan(pix_val):
-                self.assertTrue(np.isnan(stamps[i][1, 1]))
+            # Compare to the (manually computed) trajectory location.
+            xp = 8 + 2 * i
+            yp = 7 + i
+            if xp < 25 and yp < 35:
+                center_val = fake_ds.stack.get_single_image(i).get_science_array()[yp, xp]
+                self.assertAlmostEqual(center_val, stamps[i][1, 1])
             else:
-                self.assertAlmostEqual(pix_val, stamps[i][1, 1])
+                self.assertTrue(np.isnan(stamps[i][1, 1]))
 
         # Check that we can set use_indices to produce only some stamps.
         use_inds = np.array([1, 2, 3, 5, 6])
@@ -285,19 +260,14 @@ class test_image_utils(unittest.TestCase):
 
         for stamp_i, image_i in enumerate(use_inds):
             self.assertEqual(stamps[stamp_i].shape, (3, 3))
-            pix_val = (
-                fake_ds.stack.get_single_image(image_i)
-                .get_science()
-                .get_pixel(
-                    7 + image_i,
-                    8 + 2 * image_i,
-                )
-            )
 
-            if np.isnan(pix_val):
-                self.assertTrue(np.isnan(stamps[stamp_i][1, 1]))
+            xp = 8 + 2 * image_i
+            yp = 7 + image_i
+            if xp < 25 and yp < 35:
+                center_val = fake_ds.stack.get_single_image(image_i).get_science_array()[yp, xp]
+                self.assertAlmostEqual(center_val, stamps[stamp_i][1, 1])
             else:
-                self.assertAlmostEqual(pix_val, stamps[stamp_i][1, 1])
+                self.assertTrue(np.isnan(stamps[stamp_i][1, 1]))
 
 
 if __name__ == "__main__":
