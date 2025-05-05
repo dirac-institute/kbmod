@@ -97,7 +97,10 @@ Configuration Parameters
 +------------------------+-----------------------------+----------------------------------------+
 | ``num_obs``            | 10                          | The minimum number of non-masked       |
 |                        |                             | observations for the object to be      |
-|                        |                             | accepted.                              |
+|                        |                             | accepted. If this is greater than the  |
+|                        |                             | number of the valid images or set to   |
+|                        |                             | -1 then it is reduced to the number of |
+|                        |                             | the valid images.                      |
 +------------------------+-----------------------------+----------------------------------------+
 | ``psf_val``            | 1.4                         | The value for the standard deviation of|
 |                        |                             | the point spread function (PSF) in     |

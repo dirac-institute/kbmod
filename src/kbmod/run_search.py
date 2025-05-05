@@ -11,6 +11,7 @@ from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds
 
+from .image_utils import count_valid_images
 from .results import Results
 from .trajectory_generator import create_trajectory_generator
 from .trajectory_utils import predict_pixel_locations
@@ -228,9 +229,14 @@ class SearchRunner:
             bnds = [25, 75]
         clipper = SigmaGClipping(bnds[0], bnds[1], 2, config["clip_negative"])
 
+        keep = Results(track_filtered=config["track_filtered"])
+
         # Retrieve a reference to all the results and compile the results table.
         result_trjs = search.get_all_results()
         logger.info(f"Retrieving Results (total={len(result_trjs)})")
+        if len(result_trjs) < 1:
+            logger.info(f"No results found.")
+            return keep
         logger.info(f"Max Likelihood = {result_trjs[0].lh}")
         logger.info(f"Min. Likelihood = {result_trjs[-1].lh}")
 
@@ -246,7 +252,6 @@ class SearchRunner:
             self._end_phase("near duplicate removal")
 
         # Transform the results into a Result table in batches while doing sigma-G filtering.
-        keep = Results(track_filtered=config["track_filtered"])
         batch_start = 0
         while batch_start < len(result_trjs):
             batch_end = min(batch_start + batch_size, len(result_trjs))
@@ -303,13 +308,6 @@ class SearchRunner:
         use_gpu = not config["cpu_only"]
         if use_gpu and not check_gpu_memory(config, stack, trj_generator):
             raise ValueError("Insufficient GPU memory to conduct the search.")
-
-        # Do some very basic checking of the configuration parameters.
-        min_num_obs = int(config["num_obs"])
-        if min_num_obs > stack.img_count():
-            raise ValueError(
-                f"num_obs ({min_num_obs}) is greater than the number of images ({stack.img_count()})."
-            )
 
         # Create the search object which will hold intermediate data and results.
         search = kb.StackSearch(stack)
@@ -368,6 +366,15 @@ class SearchRunner:
         """
         self._start_phase("KBMOD")
 
+        # Determine how many images have at least 10% valid pixels.  Make sure
+        # num_obs is no larger than 80% of the valid images.
+        img_count = count_valid_images(stack, 0.9)
+        if img_count == 0:
+            raise ValueError("No valid images in input.")
+        if config["num_obs"] == -1 or config["num_obs"] >= img_count:
+            logger.info(f"Automatically setting num_obs = {img_count} (from {config['num_obs']}).")
+            config.set("num_obs", img_count)
+
         if config["debug"]:
             logging.basicConfig(level=logging.DEBUG)
             logger.debug("Starting Search")
@@ -391,7 +398,7 @@ class SearchRunner:
             trj_generator = create_trajectory_generator(config, work_unit=None)
         keep = self.do_core_search(config, stack, trj_generator)
 
-        if config["do_clustering"]:
+        if config["do_clustering"] and len(keep) > 1:
             self._start_phase("clustering")
             mjds = [stack.get_obstime(t) for t in range(stack.img_count())]
             cluster_params = {
