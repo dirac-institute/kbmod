@@ -319,6 +319,50 @@ class test_image_stack_py(unittest.TestCase):
         self.assertEqual(stack.num_times, times_remaining)
         self.assertTrue(np.allclose(stack.times, np.arange(times_remaining) / float(num_times)))
 
+    def test_mask_by_science_bounds(self):
+        """Test that we can mask pixels by their science values."""
+        height = 20
+        width = 30
+
+        times = [0.0]
+        sci = [np.arange(height * width).reshape((height, width)).astype(np.float32)]
+        var = [np.full((height, width), 0.1, dtype=np.float32)]
+
+        stack = ImageStackPy(times, sci, var)
+        fractions = stack.get_masked_fractions()
+        self.assertEqual(fractions[0], 0.0)
+
+        # Mask out everything outside [10.0, 110.0].
+        stack.mask_by_science_bounds(min_val=10.0, max_val=110.0)
+        fractions = stack.get_masked_fractions()
+        self.assertAlmostEqual(fractions[0], 499.0 / 600.0)
+
+        is_unmasked = ~np.isnan(stack.sci[0])
+        self.assertTrue(np.all(stack.sci[0][is_unmasked] >= 10.0))
+        self.assertTrue(np.all(stack.sci[0][is_unmasked] <= 110.0))
+
+    def test_mask_by_variance_bounds(self):
+        """Test that we can mask pixels by their science values."""
+        height = 20
+        width = 30
+
+        times = [0.0]
+        sci = [np.arange(height * width).reshape((height, width)).astype(np.float32)]
+        var = [np.arange(height * width).reshape((height, width)).astype(np.float32) - 10.0]
+
+        stack = ImageStackPy(times, sci, var)
+        fractions = stack.get_masked_fractions()
+        self.assertEqual(fractions[0], 0.0)
+
+        # Mask out everything with a variance <= 0.0 or above 200.0)
+        stack.mask_by_variance_bounds(max_val=200.0)
+        fractions = stack.get_masked_fractions()
+        self.assertAlmostEqual(fractions[0], 400.0 / 600.0)
+
+        is_unmasked = ~np.isnan(stack.var[0])
+        self.assertTrue(np.all(stack.var[0][is_unmasked] > 0.0))
+        self.assertTrue(np.all(stack.var[0][is_unmasked] <= 200.0))
+
     def test_image_stack_py_validate(self):
         """Tests that we can validate an ImageStackPy."""
         # Turn off the warnings for this test.

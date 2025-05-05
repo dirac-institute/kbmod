@@ -312,6 +312,40 @@ class ImageStackPy:
             masked_fraction[idx] = np.count_nonzero(is_masked) / total_pixels
         return masked_fraction
 
+    def mask_by_science_bounds(self, min_val=-1e20, max_val=1e20):
+        """Mask pixels whose value in the science layer lies outside the given bounds.
+        Applies mask to both science and variance layer.
+
+        Parameter
+        ---------
+        min_val : float
+            The minimum acceptable flux. Default: -1e20
+        max_val : float
+            The maximum acceptable flux. Default: 1e20
+        """
+        for idx in range(self.num_times):
+            bad_values = (self.sci[idx] < min_val) | (self.sci[idx] > max_val)
+            self.sci[idx][bad_values] = np.nan
+            self.var[idx][bad_values] = np.nan
+
+    def mask_by_variance_bounds(self, min_val=1e-20, max_val=1e20):
+        """Mask pixels whose value in the variance layer lies outside the given bounds.
+        Applies mask to both science and variance layer.
+
+        Parameter
+        ---------
+        min_val : float
+            The minimum acceptable variance (should always be > 0.0 since negative
+            variance and 0.0 variance are both invalid).
+            Default: 1e-20
+        max_val : float
+            The maximum acceptable variance. Default: 1e20
+        """
+        for idx in range(self.num_times):
+            bad_values = (self.var[idx] < min_val) | (self.var[idx] > max_val)
+            self.sci[idx][bad_values] = np.nan
+            self.var[idx][bad_values] = np.nan
+
     def get_single_image(self, index):
         """Get a single image from the stack.
 
