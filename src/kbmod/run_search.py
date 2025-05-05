@@ -228,9 +228,14 @@ class SearchRunner:
             bnds = [25, 75]
         clipper = SigmaGClipping(bnds[0], bnds[1], 2, config["clip_negative"])
 
+        keep = Results(track_filtered=config["track_filtered"])
+
         # Retrieve a reference to all the results and compile the results table.
         result_trjs = search.get_all_results()
         logger.info(f"Retrieving Results (total={len(result_trjs)})")
+        if len(result_trjs) < 1:
+            logger.info(f"No results found.")
+            return keep
         logger.info(f"Max Likelihood = {result_trjs[0].lh}")
         logger.info(f"Min. Likelihood = {result_trjs[-1].lh}")
 
@@ -246,7 +251,6 @@ class SearchRunner:
             self._end_phase("near duplicate removal")
 
         # Transform the results into a Result table in batches while doing sigma-G filtering.
-        keep = Results(track_filtered=config["track_filtered"])
         batch_start = 0
         while batch_start < len(result_trjs):
             batch_end = min(batch_start + batch_size, len(result_trjs))
@@ -391,7 +395,7 @@ class SearchRunner:
             trj_generator = create_trajectory_generator(config, work_unit=None)
         keep = self.do_core_search(config, stack, trj_generator)
 
-        if config["do_clustering"]:
+        if config["do_clustering"] and len(keep) > 1:
             self._start_phase("clustering")
             mjds = [stack.get_obstime(t) for t in range(stack.img_count())]
             cluster_params = {

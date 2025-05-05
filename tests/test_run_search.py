@@ -92,6 +92,13 @@ class test_run_search(unittest.TestCase):
 
         search = StackSearch(fake_ds.stack)
         configure_kb_search_stack(search, config)
+
+        # Try extracting before we have inserted any results. We should get an empty Results.
+        runner = SearchRunner()
+        results_empty = runner.load_and_filter_results(search, config, batch_size=10)
+        self.assertEqual(len(results_empty), 0)
+
+        # Insert the fake results.
         search.set_results(trjs)
 
         # Extract the (fake) results from the runner. We filter a bunch of
