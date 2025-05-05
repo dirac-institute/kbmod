@@ -434,7 +434,8 @@ class SearchRunner:
         if workunit is not None:
             self._start_phase("append_positions_to_results")
             keep.table.wcs = workunit.wcs
-            append_positions_to_results(workunit, keep)
+            if config["compute_ra_dec"]:
+                append_positions_to_results(workunit, keep)
             self._end_phase("append_positions_to_results")
 
         # Create and save any additional meta data that should be saved with the results.
@@ -451,12 +452,7 @@ class SearchRunner:
 
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
-            if not config["save_all_stamps"]:
-                keep.write_table(
-                    config["result_filename"], cols_to_drop=["all_stamps"], extra_meta=meta_to_save
-                )
-            else:
-                keep.write_table(config["result_filename"], extra_meta=meta_to_save)
+            keep.write_table(config["result_filename"], extra_meta=meta_to_save)
         self._end_phase("write results")
 
         # Display the stats for each of the search phases.
