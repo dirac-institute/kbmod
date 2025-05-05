@@ -63,6 +63,9 @@ Configuration Parameters
 | ``cpu_only``           | False                       | Perform the core search on the CPU     |
 |                        |                             | (even if the GPU is available).        |
 +------------------------+-----------------------------+----------------------------------------+
+| ``compute_ra_dec``     | True                        | Compute and save the predicted RA and  |
+|                        |                             | dec for each result at each time.      |
++------------------------+-----------------------------+----------------------------------------+
 | ``debug``              | False                       | Display debugging output.              |
 +------------------------+-----------------------------+----------------------------------------+
 | ``do_clustering``      | True                        | Cluster the resulting trajectories to  |
