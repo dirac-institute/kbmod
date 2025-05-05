@@ -9,41 +9,6 @@ from kbmod.search import ImageStack, LayeredImage
 logger = logging.getLogger(__name__)
 
 
-def image_allclose(img_a, img_b, atol=1e-6):
-    """Determine whether two images are almost equal, accounting for NO_DATA.
-
-    Parameters
-    ----------
-    img_a : numpy.ndarray
-        The first image.
-    img_b : numpy.ndarray
-        The second image.
-    atol : `float`
-        The absolute tolerance of pixel value differences.
-        Default: 1e-6
-
-    Returns
-    -------
-    are_close : `bool`
-        Whether the images are close.
-    """
-    if img_a.shape != img_b.shape:
-        return False
-
-    # Check that both images have the same mask of valid pixels.
-    valid_a = np.isfinite(img_a)
-    valid_b = np.isfinite(img_b)
-    if np.any(valid_a != valid_b):
-        return False
-
-    # Check the absolute differences of the valid pixels.
-    diffs = img_a[valid_a] - img_b[valid_b]
-    if np.any(np.abs(diffs) > atol):
-        return False
-
-    return True
-
-
 def extract_sci_images_from_stack(im_stack):
     """Extract the science images in an ImageStack into a single T x H x W numpy array
     where T is the number of times (images), H is the image height in pixels, and W is
@@ -237,6 +202,44 @@ def _im_stack_validation_error(msg, warn_only):
         logger.warning(f"WARNING: {msg}")
     else:
         raise ValueError(msg)
+
+
+def count_valid_images(im_stack, masked_fraction=0.5):
+    """Count the number of images in the ImageStack whose fraction
+    of masked pixels is below the given threshold. Used for checking
+    num_obs.
+
+    Parameters
+    ----------
+    im_stack : `ImageStack`
+        The images to validate.
+    masked_fraction: `float`
+        The maximum fraction of masked pixels allowed.
+        Default: 0.9
+
+    Returns
+    -------
+    count : `int`
+        The count of images with below the threshold fraction of masked pixels.
+    """
+    total_pixels = im_stack.get_height() * im_stack.get_width()
+    if total_pixels == 0 or im_stack.img_count() == 0:
+        return 0
+
+    valid_count = 0
+    for idx in range(im_stack.img_count()):
+        img = im_stack.get_single_image(idx)
+        sci = img.get_science_array()
+        var = img.get_variance_array()
+        mask = img.get_mask_array()
+
+        # Check for masked pixels.
+        is_masked = np.isnan(sci) | np.isnan(var) | (mask != 0) | (var <= 0)
+        percent_masked = np.count_nonzero(is_masked) / total_pixels
+        if percent_masked <= masked_fraction:
+            valid_count += 1
+
+    return valid_count
 
 
 def validate_image_stack(
