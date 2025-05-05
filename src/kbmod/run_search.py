@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import psutil
+import os
 import sys
 import time
 
@@ -453,6 +454,18 @@ class SearchRunner:
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
             keep.write_table(config["result_filename"], extra_meta=meta_to_save)
+
+            if config["save_config"]:
+                # create provenance directory write out the config file
+                result_dir = os.path.dirname(config["result_filename"])
+                base_file = os.path.basename(config["result_filename"])
+                for ext in keep._supported_formats:
+                    if base_file.endswith(ext):
+                        base_file = base_file[: -len(ext)]
+                        break
+                provenance_dir = os.path.join(result_dir, base_file + "_provenance")
+                os.makedirs(provenance_dir, exist_ok=True)
+                config.to_file(os.path.join(provenance_dir, base_file + "_config.yaml"))
         self._end_phase("write results")
 
         # Display the stats for each of the search phases.

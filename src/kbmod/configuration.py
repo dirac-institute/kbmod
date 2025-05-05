@@ -50,6 +50,7 @@ class SearchConfiguration:
             "num_obs": 10,
             "psf_val": 1.4,
             "result_filename": None,
+            "save_config": True,
             "results_per_pixel": 8,
             "save_all_stamps": False,
             "sigmaG_filter": True,
