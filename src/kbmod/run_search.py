@@ -1,7 +1,8 @@
 import logging
-
 import numpy as np
+import psutil
 import sys
+import time
 
 import kbmod.search as kb
 
@@ -10,6 +11,7 @@ from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds
 
+from .image_utils import count_valid_images
 from .results import Results
 from .trajectory_generator import create_trajectory_generator
 from .trajectory_utils import predict_pixel_locations
@@ -128,12 +130,75 @@ def check_gpu_memory(config, stack, trj_generator=None):
 
 
 class SearchRunner:
-    """A class to run the KBMOD grid search."""
+    """A class to run the KBMOD grid search.
 
-    def __init__(self):
-        pass
+    Attributes
+    ----------
+    phase_times : `dict`
+        A dictionary mapping the search phase to the timing information,
+        a list of [starting time, ending time] in seconds.
+    phase_memory : `dict`
+        A dictionary mapping the search phase the memory information,
+        a list of [starting memory, ending memory] in bytes.
+    """
 
-    def load_and_filter_results(self, search, config, batch_size=10_000):
+    def __init__(self, config=None):
+        self.phase_times = {}
+        self.phase_memory = {}
+
+    def _start_phase(self, phase_name):
+        """Start recording stats for the current phase.
+
+        Parameters
+        ----------
+        phase_name : `str`
+            The current phase.
+        """
+        # Record the start time.
+        self.phase_times[phase_name] = [time.time(), None]
+
+        # Record the starting memory.
+        memory_info = psutil.Process().memory_info()
+        self.phase_memory[phase_name] = [memory_info.rss, None]
+
+    def _end_phase(self, phase_name):
+        """Finish recording stats for the current phase.
+
+        Parameters
+        ----------
+        phase_name : `str`
+            The current phase.
+        """
+        if phase_name not in self.phase_times:
+            raise KeyError(f"Phase {phase_name} has not been started.")
+
+        # Record the end time.
+        self.phase_times[phase_name][1] = time.time()
+        delta_t = self.phase_times[phase_name][1] - self.phase_times[phase_name][0]
+        logger.debug(f"Finished {phase_name} in {delta_t} seconds.")
+
+        # Record the starting memory.
+        memory_info = psutil.Process().memory_info()
+        self.phase_memory[phase_name][1] = memory_info.rss
+
+    def display_phase_stats(self):
+        """Output the statistics for each phase."""
+        for phase in self.phase_times:
+            print(f"{phase}:")
+
+            if self.phase_times[phase][1] is not None:
+                delta_t = self.phase_times[phase][1] - self.phase_times[phase][0]
+                print(f"    Time (sec) = {delta_t}")
+            else:
+                print(f"    Time (sec) = Unfinished")
+
+            print(f"    Memory Start (mb) = {self.phase_memory[phase][0] / (1024.0 * 1024.0)}")
+            if self.phase_memory[phase][1] is not None:
+                print(f"    Memory End (mb) = {self.phase_memory[phase][1] / (1024.0 * 1024.0)}")
+            else:
+                print(f"    Memory End (mb) = Unfinished")
+
+    def load_and_filter_results(self, search, config, batch_size=100_000):
         """This function loads results that are output by the grid search.
         It can then generate psi + phi curves and perform sigma-G filtering
         (depending on the parameter settings).
@@ -147,13 +212,14 @@ class SearchRunner:
         batch_size : `int`
             The number of results to load at once. This is used to limit the
             memory usage when loading results.
-            Default is 10000.
+            Default is 100000.
 
         Returns
         -------
         keep : `Results`
             A Results object containing values from trajectories.
         """
+        self._start_phase("load_and_filter_results")
         num_times = search.get_num_images()
 
         # Set up the clipped sigmaG filter.
@@ -163,44 +229,43 @@ class SearchRunner:
             bnds = [25, 75]
         clipper = SigmaGClipping(bnds[0], bnds[1], 2, config["clip_negative"])
 
+        keep = Results(track_filtered=config["track_filtered"])
+
         # Retrieve a reference to all the results and compile the results table.
         result_trjs = search.get_all_results()
         logger.info(f"Retrieving Results (total={len(result_trjs)})")
+        if len(result_trjs) < 1:
+            logger.info(f"No results found.")
+            return keep
         logger.info(f"Max Likelihood = {result_trjs[0].lh}")
         logger.info(f"Min. Likelihood = {result_trjs[-1].lh}")
 
         # Perform near duplicate filtering.
         if config["near_dup_thresh"] is not None and config["near_dup_thresh"] > 0:
-            near_dup_timer = kb.DebugTimer("Near duplicate removal", logger)
+            self._start_phase("near duplicate removal")
             bin_width = config["near_dup_thresh"]
             all_times = search.get_imagestack().build_zeroed_times()
             max_dt = np.max(all_times) - np.min(all_times)
             logger.info(f"Prefiltering Near Duplicates (bin_width={bin_width}, max_dt={max_dt})")
             result_trjs, _ = apply_trajectory_grid_filter(result_trjs, bin_width, max_dt)
             logger.info(f"After prefiltering {len(result_trjs)} remaining.")
-            near_dup_timer.stop()
+            self._end_phase("near duplicate removal")
 
         # Transform the results into a Result table in batches while doing sigma-G filtering.
-        keep = Results(track_filtered=config["track_filtered"])
         batch_start = 0
         while batch_start < len(result_trjs):
             batch_end = min(batch_start + batch_size, len(result_trjs))
-            logger.debug(f"Loading results {batch_start} to {batch_end}")
-
             batch = result_trjs[batch_start:batch_end]
             batch_results = Results.from_trajectories(batch, track_filtered=config["track_filtered"])
 
             if config["generate_psi_phi"]:
-                psi_phi_timer = kb.DebugTimer("Batch psi and phi generation", logger)
                 psi_phi_batch = search.get_all_psi_phi_curves(batch)
                 batch_results.add_psi_phi_data(psi_phi_batch[:, :num_times], psi_phi_batch[:, num_times:])
-                psi_phi_timer.stop()
 
             # Do the sigma-G filtering and subsequent stats filtering.
             if config["sigmaG_filter"]:
                 if not config["generate_psi_phi"]:
                     raise ValueError("Unable to do sigma-G filtering without psi and phi curves.")
-                sigma_g_timer = kb.DebugTimer("Batch Sigma-G filtering", logger)
                 apply_clipped_sigma_g(clipper, batch_results)
 
                 # Re-test the obs_count and likelihood after sigma-G has removed points.
@@ -208,12 +273,15 @@ class SearchRunner:
                 if config["lh_level"] > 0.0:
                     row_mask = row_mask & (batch_results["likelihood"] >= config["lh_level"])
                 batch_results.filter_rows(row_mask, "sigma-g")
-                sigma_g_timer.stop()
                 logger.debug(f"After sigma-G filtering, batch size = {len(batch_results)}")
 
             # Append the unfiltered results to the final table.
+            logger.debug(f"Added {len(batch_results)} results from batch [{batch_start}, {batch_end}).")
             keep.extend(batch_results)
             batch_start += batch_size
+
+        # Save the timing information.
+        self._end_phase("load_and_filter_results")
 
         # Return the extracted and unfiltered results.
         return keep
@@ -235,25 +303,19 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
+        self._start_phase("do_core_search")
+
         use_gpu = not config["cpu_only"]
         if use_gpu and not check_gpu_memory(config, stack, trj_generator):
             raise ValueError("Insufficient GPU memory to conduct the search.")
-
-        # Do some very basic checking of the configuration parameters.
-        min_num_obs = int(config["num_obs"])
-        if min_num_obs > stack.img_count():
-            raise ValueError(
-                f"num_obs ({min_num_obs}) is greater than the number of images ({stack.img_count()})."
-            )
 
         # Create the search object which will hold intermediate data and results.
         search = kb.StackSearch(stack)
         configure_kb_search_stack(search, config)
 
-        search_timer = kb.DebugTimer("grid search", logger)
-        logger.debug(f"{trj_generator}")
-
         # Do the actual search.
+        self._start_phase("grid search")
+        logger.debug(f"{trj_generator}")
         candidates = [trj for trj in trj_generator]
         try:
             search.search_all(candidates, use_gpu)
@@ -261,8 +323,7 @@ class SearchRunner:
             # Delete the search object to force the memory cleanup.
             del search
             raise
-
-        search_timer.stop()
+        self._end_phase("grid search")
 
         # Load the results.
         keep = self.load_and_filter_results(search, config)
@@ -270,6 +331,7 @@ class SearchRunner:
         # Force the deletion of the psi and phi data.
         search.clear_psi_phi()
 
+        self._end_phase("do_core_search")
         return keep
 
     def run_search(
@@ -302,6 +364,17 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
+        self._start_phase("KBMOD")
+
+        # Determine how many images have at least 10% valid pixels.  Make sure
+        # num_obs is no larger than 80% of the valid images.
+        img_count = count_valid_images(stack, 0.9)
+        if img_count == 0:
+            raise ValueError("No valid images in input.")
+        if config["num_obs"] == -1 or config["num_obs"] >= img_count:
+            logger.info(f"Automatically setting num_obs = {img_count} (from {config['num_obs']}).")
+            config.set("num_obs", img_count)
+
         if config["debug"]:
             logging.basicConfig(level=logging.DEBUG)
             logger.debug("Starting Search")
@@ -315,8 +388,6 @@ class SearchRunner:
             logger.warning("Code was compiled without GPU using CPU only.")
             config.set("cpu_only", True)
 
-        full_timer = kb.DebugTimer("KBMOD", logger)
-
         # Apply the mask to the images.
         if config["do_mask"]:
             for i in range(stack.img_count()):
@@ -327,8 +398,8 @@ class SearchRunner:
             trj_generator = create_trajectory_generator(config, work_unit=None)
         keep = self.do_core_search(config, stack, trj_generator)
 
-        if config["do_clustering"]:
-            cluster_timer = kb.DebugTimer("clustering", logger)
+        if config["do_clustering"] and len(keep) > 1:
+            self._start_phase("clustering")
             mjds = [stack.get_obstime(t) for t in range(stack.img_count())]
             cluster_params = {
                 "cluster_type": config["cluster_type"],
@@ -337,10 +408,11 @@ class SearchRunner:
                 "times": np.asarray(mjds),
             }
             apply_clustering(keep, cluster_params)
-            cluster_timer.stop()
+            self._end_phase("clustering")
 
         # Generate coadded stamps without filtering -- both the "stamp" column
         # as well as any additional coadds.
+        self._start_phase("stamp generation")
         stamp_radius = config["stamp_radius"]
         stamp_type = config["stamp_type"]
         coadds = set(config["coadds"])
@@ -355,17 +427,21 @@ class SearchRunner:
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:
             append_all_stamps(keep, stack, stamp_radius)
+        self._end_phase("stamp generation")
 
         # Append additional information derived from the WorkUnit if one is provided,
         # including a global WCS and per-time (RA, dec) predictions for each image.
         if workunit is not None:
+            self._start_phase("append_positions_to_results")
             keep.table.wcs = workunit.wcs
             if config["compute_ra_dec"]:
                 append_positions_to_results(workunit, keep)
+            self._end_phase("append_positions_to_results")
 
         # Create and save any additional meta data that should be saved with the results.
         num_img = stack.img_count()
 
+        self._start_phase("write results")
         if extra_meta is not None:
             meta_to_save = extra_meta.copy()
         else:
@@ -377,7 +453,12 @@ class SearchRunner:
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
             keep.write_table(config["result_filename"], extra_meta=meta_to_save)
-        full_timer.stop()
+        self._end_phase("write results")
+
+        # Display the stats for each of the search phases.
+        self._end_phase("KBMOD")
+        if config["debug"]:
+            self.display_phase_stats()
 
         return keep
 

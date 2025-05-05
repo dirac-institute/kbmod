@@ -39,6 +39,7 @@ dependencies = [
     "numba",
     "numpy<2.0",
     "pandas",
+    "psutil",
     "pyarrow",
     "reproject",
     "scipy>=1.9.2",
