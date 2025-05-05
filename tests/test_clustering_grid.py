@@ -56,6 +56,35 @@ class test_trajectory_cluster_grid(unittest.TestCase):
         self.assertEqual(set(table.get_indices()), set([10, 1, 3]))
         self.assertEqual(len(table.get_trajectories()), 3)
 
+    def test_trajectory_cluster_add_list(self):
+        """Tests that we can add a list of Trajectories to the grid."""
+        table = TrajectoryClusterGrid(10, 1.0)
+        self.assertEqual(len(table), 0)
+        self.assertEqual(table.total_count, 0)
+
+        trj_list = [
+            Trajectory(0, 0, 0.0, 0.0, 1.0, 10.0, 10),
+            Trajectory(21, 21, 10.0, 10.0, 1.0, 10.0, 10),
+            Trajectory(21, 21, 0.0, 0.0, 1.0, 10.0, 10),
+            Trajectory(21, 21, 0.0, 0.0, 1.0, 100.0, 9),
+            Trajectory(0, 0, 0.0, 0.0, 1.0, 5.0, 5),
+        ]
+        table.add_trajectory_list(trj_list)
+
+        self.assertEqual(len(table), 3)
+        self.assertEqual(table.total_count, 5)
+        self.assertIsNotNone(table.table.get((0, 0, 0, 0)))
+        self.assertIsNotNone(table.table.get((2, 2, 3, 3)))
+        self.assertIsNotNone(table.table.get((2, 2, 2, 2)))
+        self.assertEqual(table.count.get((0, 0, 0, 0)), 2)
+        self.assertEqual(table.count.get((2, 2, 3, 3)), 1)
+        self.assertEqual(table.count.get((2, 2, 2, 2)), 2)
+        self.assertEqual(table.table[(0, 0, 0, 0)].obs_count, 10)
+        self.assertEqual(table.table[(2, 2, 2, 2)].obs_count, 9)
+
+        self.assertEqual(set(table.get_indices()), set([0, 1, 3]))
+        self.assertEqual(len(table.get_trajectories()), 3)
+
     def test_apply_trajectory_grid_filter(self):
         trjs = [
             Trajectory(0, 0, 0.0, 0.0, 1.0, 10.0, 10),

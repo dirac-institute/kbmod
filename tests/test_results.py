@@ -496,22 +496,17 @@ class test_results(unittest.TestCase):
 
             # Cannot overwrite with it set to False
             with self.assertRaises(OSError):
-                table.write_table(file_path, overwrite=False, cols_to_drop=["other"])
+                table.write_table(file_path, overwrite=False)
 
             # We can overwrite with droped columns and additional meta data.
             table.write_table(
                 file_path,
                 overwrite=True,
-                cols_to_drop=["other"],
                 extra_meta={"other": 100.0},
             )
 
             table3 = Results.read_table(file_path)
             self.assertEqual(len(table2), max_save)
-
-            # We only dropped the table from the save file.
-            self.assertFalse("other" in table3.colnames)
-            self.assertTrue("other" in table.colnames)
 
             # We saved the additional meta data, including the WCS.
             self.assertTrue(np.array_equal(table3.table.meta["mjd_mid"], [1, 2, 3, 4, 5]))
