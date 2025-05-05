@@ -10,6 +10,15 @@ static const auto DOC_ImageStack = R"doc(
   The images are not required to be in sorted time order, but the first
   image is used for t=0.0 when computing zeroed times (which might make
   some times negative).
+
+  Attributes
+  ----------
+  height : `int`
+      Image height, in pixels.
+  width : `int`
+      Image width, in pixels.
+  num_times : `int`
+      The number of images (times) in the stack.
   )doc";
 
 static const auto DOC_ImageStack_get_images = R"doc(
@@ -19,15 +28,6 @@ static const auto DOC_ImageStack_get_images = R"doc(
   -------
   images : `list`
       The reference to the vector of LayeredImages.
-  )doc";
-
-static const auto DOC_ImageStack_img_count = R"doc(
-  Returns the number of images in the stack.
-
-  Returns
-  -------
-  img_count : `int`
-      The number of images in the stack.
   )doc";
 
 static const auto DOC_ImageStack_get_single_image = R"doc(
@@ -137,24 +137,6 @@ static const auto DOC_ImageStack_build_zeroed_times = R"doc(
 
 static const auto DOC_ImageStack_sort_by_time = R"doc(
   Sort the images in the ImageStack by their time.
-  )doc";
-
-static const auto DOC_ImageStack_get_width = R"doc(
-  Returns the width of the images in pixels.
-   
-  Returns
-  -------
-  npixels : `int`
-      The width of each image in pixels.
-  )doc";
-
-static const auto DOC_ImageStack_get_height = R"doc(
-  Returns the height of the images in pixels.
-   
-  Returns
-  -------
-  npixels : `int`
-      The height of each image in pixels.
   )doc";
 
 static const auto DOC_ImageStack_get_npixels = R"doc(

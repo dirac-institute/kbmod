@@ -355,7 +355,7 @@ class TestKBMODV1(unittest.TestCase):
         np.testing.assert_equal(self.fits["MASK"].data, img.get_mask_array())
 
         # Test that we correctly set metadata
-        self.assertEqual(expected_mjd, img.get_obstime())
+        self.assertEqual(expected_mjd, img.time)
 
     def test_to_layered_image_no_greedy(self):
         """Test that KBMODV1 standardizer can create LayeredImages. Explicitly
@@ -381,7 +381,7 @@ class TestKBMODV1(unittest.TestCase):
         self.assertIsNone(self.fits["IMAGE"].data)
 
         # Test that we correctly set metadata
-        self.assertEqual(expected_mjd, img.get_obstime())
+        self.assertEqual(expected_mjd, img.time)
 
 
 if __name__ == "__main__":

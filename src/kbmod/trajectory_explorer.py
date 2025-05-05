@@ -113,7 +113,7 @@ class TrajectoryExplorer:
         result = Results.from_trajectories([trj])
 
         # Get the psi and phi curves and do the sigma_g filtering.
-        num_times = self.im_stack.img_count()
+        num_times = self.im_stack.num_times
         psi_phi = self.search.get_all_psi_phi_curves([trj])
         psi_curve = psi_phi[:, :num_times]
         phi_curve = psi_phi[:, num_times:]

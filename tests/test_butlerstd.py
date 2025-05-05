@@ -262,7 +262,7 @@ class TestButlerStandardizer(unittest.TestCase):
         # Test that we correctly set metadata
         # times can only be compred approximately, because sometimes we
         # calculate the time in the middle of the exposure
-        self.assertAlmostEqual(expected_mjd, img.get_obstime(), 2)
+        self.assertAlmostEqual(expected_mjd, img.time, 2)
 
 
 if __name__ == "__main__":

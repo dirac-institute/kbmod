@@ -91,16 +91,16 @@ class test_image_utils(unittest.TestCase):
             fake_psf,
         )
         self.assertEqual(len(im_stack), num_times)
-        self.assertEqual(im_stack.get_height(), height)
-        self.assertEqual(im_stack.get_width(), width)
+        self.assertEqual(im_stack.height, height)
+        self.assertEqual(im_stack.width, width)
         self.assertEqual(im_stack.get_npixels(), width * height)
         self.assertEqual(im_stack.get_total_pixels(), num_times * width * height)
 
         for idx in range(num_times):
             img = im_stack.get_single_image(idx)
-            self.assertEqual(img.get_width(), width)
-            self.assertEqual(img.get_height(), height)
-            self.assertAlmostEqual(img.get_obstime(), fake_times[idx])
+            self.assertEqual(img.width, width)
+            self.assertEqual(img.height, height)
+            self.assertAlmostEqual(img.time, fake_times[idx])
 
             # Check that the images are equal. We use a threshold of 0.001 because the
             # RawImage arrays will be converted into single precision floats.
@@ -111,8 +111,8 @@ class test_image_utils(unittest.TestCase):
         # Test that everything still works when we don't pass in a mask or PSFs.
         im_stack = image_stack_from_components(fake_times, fake_sci, fake_var)
         self.assertEqual(len(im_stack), num_times)
-        self.assertEqual(im_stack.get_height(), height)
-        self.assertEqual(im_stack.get_width(), width)
+        self.assertEqual(im_stack.height, height)
+        self.assertEqual(im_stack.width, width)
 
     def test_validate_image_stack(self):
         """Tests that we can validate an ImageStack."""
@@ -128,7 +128,7 @@ class test_image_utils(unittest.TestCase):
         fake_var = [0.49 * np.random.random((height, width)) + 0.01 for _ in range(num_times)]
         fake_mask = [np.zeros((height, width)) for _ in range(num_times)]
         im_stack = image_stack_from_components(fake_times, fake_sci, fake_var, fake_mask)
-        self.assertEqual(im_stack.img_count(), 5)
+        self.assertEqual(im_stack.num_times, 5)
         self.assertTrue(validate_image_stack(im_stack))
 
         # Too high flux.

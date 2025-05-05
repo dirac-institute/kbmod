@@ -31,19 +31,19 @@ class test_ImageStack(unittest.TestCase):
     def test_create_empty(self):
         im_stack = ImageStack([])
         self.assertEqual(len(im_stack), 0)
-        self.assertEqual(im_stack.get_width(), 0)
-        self.assertEqual(im_stack.get_height(), 0)
+        self.assertEqual(im_stack.width, 0)
+        self.assertEqual(im_stack.height, 0)
 
         im_stack2 = ImageStack()
         self.assertEqual(len(im_stack2), 0)
-        self.assertEqual(im_stack2.get_width(), 0)
-        self.assertEqual(im_stack2.get_height(), 0)
+        self.assertEqual(im_stack2.width, 0)
+        self.assertEqual(im_stack2.height, 0)
 
     def test_create(self):
         self.assertEqual(len(self.im_stack), self.num_images)
-        self.assertEqual(self.num_images, self.im_stack.img_count())
-        self.assertEqual(self.im_stack.get_height(), 80)
-        self.assertEqual(self.im_stack.get_width(), 60)
+        self.assertEqual(self.num_images, self.im_stack.num_times)
+        self.assertEqual(self.im_stack.height, 80)
+        self.assertEqual(self.im_stack.width, 60)
         self.assertEqual(self.im_stack.get_npixels(), 60 * 80)
         self.assertEqual(self.im_stack.get_total_pixels(), 5 * 60 * 80)
 
@@ -55,7 +55,7 @@ class test_ImageStack(unittest.TestCase):
     def test_access(self):
         """Test we can access an individual image."""
         img = self.im_stack.get_single_image(1)
-        self.assertEqual(img.get_obstime(), 3.0)
+        self.assertEqual(img.time, 3.0)
 
         # Test an out of bounds access.
         with self.assertRaises(IndexError):

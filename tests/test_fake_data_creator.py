@@ -56,26 +56,26 @@ class test_fake_image_creator(unittest.TestCase):
     def test_create(self):
         times = create_fake_times(10)
         ds = FakeDataSet(256, 128, times)
-        self.assertEqual(ds.stack.img_count(), 10)
+        self.assertEqual(ds.stack.num_times, 10)
 
         last_time = -1.0
-        for i in range(ds.stack.img_count()):
+        for i in range(ds.stack.num_times):
             layered = ds.stack.get_single_image(i)
-            self.assertEqual(layered.get_width(), 256)
-            self.assertEqual(layered.get_height(), 128)
+            self.assertEqual(layered.width, 256)
+            self.assertEqual(layered.height, 128)
 
-            t = layered.get_obstime()
+            t = layered.time
             self.assertGreater(t, last_time)
             last_time = t
 
     def test_create_empty_times(self):
         ds = FakeDataSet(256, 128, [])
-        self.assertEqual(ds.stack.img_count(), 0)
+        self.assertEqual(ds.stack.num_times, 0)
 
     def test_insert_object(self):
         times = create_fake_times(5, 57130.2, 3, 0.01, 1)
         ds = FakeDataSet(128, 128, times, use_seed=True)
-        self.assertEqual(ds.stack.img_count(), 5)
+        self.assertEqual(ds.stack.num_times, 5)
         self.assertEqual(len(ds.trajectories), 0)
 
         # Create and insert a random object.
@@ -83,9 +83,9 @@ class test_fake_image_creator(unittest.TestCase):
         self.assertEqual(len(ds.trajectories), 1)
 
         # Check the object was inserted correctly.
-        t0 = ds.stack.get_single_image(0).get_obstime()
-        for i in range(ds.stack.img_count()):
-            dt = ds.stack.get_single_image(i).get_obstime() - t0
+        t0 = ds.stack.get_single_image(0).time
+        for i in range(ds.stack.num_times):
+            dt = ds.stack.get_single_image(i).time - t0
             px = trj.get_x_index(dt)
             py = trj.get_y_index(dt)
 
@@ -110,11 +110,11 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertTrue(Path(file_name).exists())
 
             work2 = WorkUnit.from_fits(file_name)
-            self.assertEqual(work2.im_stack.img_count(), num_images)
+            self.assertEqual(work2.im_stack.num_times, num_images)
             for i in range(num_images):
                 li = work2.im_stack.get_single_image(i)
-                self.assertEqual(li.get_width(), 15)
-                self.assertEqual(li.get_height(), 10)
+                self.assertEqual(li.width, 15)
+                self.assertEqual(li.height, 10)
 
 
 if __name__ == "__main__":

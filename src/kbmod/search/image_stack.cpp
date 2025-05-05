@@ -97,6 +97,9 @@ static void image_stack_bindings(py::module& m) {
             .def(py::init<>())
             .def(py::init<std::vector<li>>())
             .def("__len__", &is::img_count)
+            .def_property_readonly("height", &is::get_height)
+            .def_property_readonly("width", &is::get_width)
+            .def_property_readonly("num_times", &is::img_count)
             .def("get_images", &is::get_images, py::return_value_policy::reference_internal,
                  pydocs::DOC_ImageStack_get_images)
             .def("get_single_image", &is::get_single_image, py::return_value_policy::reference_internal,
@@ -109,9 +112,6 @@ static void image_stack_bindings(py::module& m) {
             .def("get_zeroed_time", &is::get_zeroed_time, pydocs::DOC_ImageStack_get_zeroed_time)
             .def("build_zeroed_times", &is::build_zeroed_times, pydocs::DOC_ImageStack_build_zeroed_times)
             .def("sort_by_time", &is::sort_by_time, pydocs::DOC_ImageStack_sort_by_time)
-            .def("img_count", &is::img_count, pydocs::DOC_ImageStack_img_count)
-            .def("get_width", &is::get_width, pydocs::DOC_ImageStack_get_width)
-            .def("get_height", &is::get_height, pydocs::DOC_ImageStack_get_height)
             .def("get_npixels", &is::get_npixels, pydocs::DOC_ImageStack_get_npixels)
             .def("get_total_pixels", &is::get_total_pixels, pydocs::DOC_ImageStack_get_total_pixels);
 }

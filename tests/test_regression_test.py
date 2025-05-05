@@ -129,7 +129,7 @@ def perform_search(im_stack, res_filename, default_psf):
 
     # Create fake visit metadata to confirm we pass it along.
     wu = WorkUnit(im_stack=im_stack, config=config)
-    wu.org_img_meta["visit"] = [f"img_{i}" for i in range(im_stack.img_count())]
+    wu.org_img_meta["visit"] = [f"img_{i}" for i in range(im_stack.num_times)]
 
     rs = SearchRunner()
     rs.run_search_from_work_unit(wu)
@@ -209,11 +209,11 @@ def run_full_test():
 
         # Check that we saved the correct meta data for the table.
         assert loaded_data.table.meta["num_img"] == num_times
-        assert loaded_data.table.meta["dims"] == (stack.get_width(), stack.get_height())
+        assert loaded_data.table.meta["dims"] == (stack.width, stack.height)
         assert np.allclose(loaded_data.table.meta["mjd_mid"], times)
         assert np.array_equal(
             loaded_data.table.meta["visit"],
-            [f"img_{i}" for i in range(stack.img_count())],
+            [f"img_{i}" for i in range(stack.num_times)],
         )
 
         # Determine which trajectories we did not recover.

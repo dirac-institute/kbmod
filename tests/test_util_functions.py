@@ -31,8 +31,8 @@ class test_util_functions(unittest.TestCase):
         img = load_deccam_layered_image(img_path, PSF.make_gaussian_kernel(1.0))
 
         self.assertTrue(isinstance(img, LayeredImage))
-        self.assertGreater(img.get_width(), 0)
-        self.assertGreater(img.get_height(), 0)
+        self.assertGreater(img.width, 0)
+        self.assertGreater(img.height, 0)
 
 
 if __name__ == "__main__":

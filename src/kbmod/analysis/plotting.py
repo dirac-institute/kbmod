@@ -458,7 +458,7 @@ def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False
     """
     # Automatically unpack an ImageStack.
     if type(images) is ImageStack:
-        num_imgs = images.img_count()
+        num_imgs = images.num_times
         if labels is None:
             labels = [f"{images.get_obstime(i)}" for i in range(num_imgs)]
         images = [images.get_single_image(i).get_science_array() for i in range(num_imgs)]

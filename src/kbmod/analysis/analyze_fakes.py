@@ -119,8 +119,8 @@ class FakeInfo:
         self.y_pos_fakes = y_pos
 
         # Determine at which times the fake is in an image.
-        in_bnds_x = (x_pos >= 0) & (x_pos < wu.im_stack.get_width())
-        in_bnds_y = (y_pos >= 0) & (y_pos < wu.im_stack.get_height())
+        in_bnds_x = (x_pos >= 0) & (x_pos < wu.im_stack.width)
+        in_bnds_y = (y_pos >= 0) & (y_pos < wu.im_stack.height)
         self.in_image_bnds = in_bnds_x & in_bnds_y
 
         # Fit a linear trajectory to the data.

@@ -207,6 +207,9 @@ static void layered_image_bindings(py::module& m) {
             .def(py::init<search::Image&, search::Image&, search::Image&, search::Image&, double>(),
                  py::arg("sci").noconvert(true), py::arg("var").noconvert(true),
                  py::arg("msk").noconvert(true), py::arg("psf"), py::arg("obs_time"))
+            .def_property_readonly("height", &li::get_height)
+            .def_property_readonly("width", &li::get_width)
+            .def_property("time", &li::get_obstime, &li::set_obstime)
             .def("set_psf", &li::set_psf, pydocs::DOC_LayeredImage_set_psf)
             .def("get_psf", &li::get_psf, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_psf)
@@ -234,11 +237,7 @@ static void layered_image_bindings(py::module& m) {
             .def("set_variance", &li::set_variance, pydocs::DOC_LayeredImage_set_variance)
             .def("convolve_psf", &li::convolve_psf, pydocs::DOC_LayeredImage_convolve_psf)
             .def("convolve_given_psf", &li::convolve_given_psf, pydocs::DOC_LayeredImage_convolve_given_psf)
-            .def("get_width", &li::get_width, pydocs::DOC_LayeredImage_get_width)
-            .def("get_height", &li::get_height, pydocs::DOC_LayeredImage_get_height)
             .def("get_npixels", &li::get_npixels, pydocs::DOC_LayeredImage_get_npixels)
-            .def("get_obstime", &li::get_obstime, pydocs::DOC_LayeredImage_get_obstime)
-            .def("set_obstime", &li::set_obstime, pydocs::DOC_LayeredImage_set_obstime)
             .def("generate_psi_image", &li::generate_psi_image, pydocs::DOC_LayeredImage_generate_psi_image)
             .def("generate_phi_image", &li::generate_phi_image, pydocs::DOC_LayeredImage_generate_phi_image);
 }

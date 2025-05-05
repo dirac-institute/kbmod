@@ -18,7 +18,7 @@ class test_readme_example(unittest.TestCase):
         imgs = ds.stack.get_images()
 
         # Get the timestamp of the first image.
-        t0 = imgs[0].get_obstime()
+        t0 = imgs[0].time
 
         # Specify an artificial object
         flux = 275.0
@@ -27,7 +27,7 @@ class test_readme_example(unittest.TestCase):
 
         # Inject object into images
         for im in imgs:
-            dt = im.get_obstime() - t0
+            dt = im.time - t0
             add_fake_object(
                 im,
                 position[0] + dt * velocity[0],
