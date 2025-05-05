@@ -130,24 +130,6 @@ void LayeredImage::apply_mask(int flags) {
     variance.apply_mask(flags, mask);
 }
 
-void LayeredImage::set_science(RawImage& im) {
-    assert_sizes_equal(im.get_width(), width, "science layer width");
-    assert_sizes_equal(im.get_height(), height, "science layer height");
-    science = im;
-}
-
-void LayeredImage::set_mask(RawImage& im) {
-    assert_sizes_equal(im.get_width(), width, "mask layer width");
-    assert_sizes_equal(im.get_height(), height, "mask layer height");
-    mask = im;
-}
-
-void LayeredImage::set_variance(RawImage& im) {
-    assert_sizes_equal(im.get_width(), width, "variance layer width");
-    assert_sizes_equal(im.get_height(), height, "variance layer height");
-    variance = im;
-}
-
 Image LayeredImage::generate_psi_image() {
     Image result = Image::Zero(height, width);
     float* result_arr = result.data();
@@ -220,21 +202,12 @@ static void layered_image_bindings(py::module& m) {
                  })
             .def("binarize_mask", &li::binarize_mask, pydocs::DOC_LayeredImage_binarize_mask)
             .def("apply_mask", &li::apply_mask, pydocs::DOC_LayeredImage_apply_mask)
-            .def("get_science", &li::get_science, py::return_value_policy::reference_internal,
-                 pydocs::DOC_LayeredImage_get_science)
-            .def("get_mask", &li::get_mask, py::return_value_policy::reference_internal,
-                 pydocs::DOC_LayeredImage_get_mask)
-            .def("get_variance", &li::get_variance, py::return_value_policy::reference_internal,
-                 pydocs::DOC_LayeredImage_get_variance)
             .def("get_science_array", &li::get_science_array, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_science_array)
             .def("get_mask_array", &li::get_mask_array, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_mask_array)
             .def("get_variance_array", &li::get_variance_array, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_variance_array)
-            .def("set_science", &li::set_science, pydocs::DOC_LayeredImage_set_science)
-            .def("set_mask", &li::set_mask, pydocs::DOC_LayeredImage_set_mask)
-            .def("set_variance", &li::set_variance, pydocs::DOC_LayeredImage_set_variance)
             .def("convolve_psf", &li::convolve_psf, pydocs::DOC_LayeredImage_convolve_psf)
             .def("convolve_given_psf", &li::convolve_given_psf, pydocs::DOC_LayeredImage_convolve_given_psf)
             .def("get_npixels", &li::get_npixels, pydocs::DOC_LayeredImage_get_npixels)

@@ -75,18 +75,6 @@ static const auto DOC_LayeredImage_apply_mask = R"doc(
   call binarize_mask() first.
   )doc";
 
-static const auto DOC_LayeredImage_get_science = R"doc(
-  Returns the science layer as a `RawImage`.
-  )doc";
-
-static const auto DOC_LayeredImage_get_mask = R"doc(
-  Returns the mask layer as a `RawImage`.
-  )doc";
-
-static const auto DOC_LayeredImage_get_variance = R"doc(
-  Returns the variance layer as a `RawImage`.
-  )doc";
-
 static const auto DOC_LayeredImage_get_science_array = R"doc(
   Returns the science layer as an `Image`.
   )doc";
@@ -97,18 +85,6 @@ static const auto DOC_LayeredImage_get_mask_array = R"doc(
 
 static const auto DOC_LayeredImage_get_variance_array = R"doc(
   Returns the variance layer as an `Image`.
-  )doc";
-
-static const auto DOC_LayeredImage_set_science = R"doc(
-  Returns the science layer `RawImage`.
-  )doc";
-
-static const auto DOC_LayeredImage_set_mask = R"doc(
-  Returns the mask layer `RawImage`.
-  )doc";
-
-static const auto DOC_LayeredImage_set_variance = R"doc(
-  Returns the science layer `RawImage`.
   )doc";
 
 static const auto DOC_LayeredImage_convolve_psf = R"doc(
