@@ -36,11 +36,6 @@ class test_run_search(unittest.TestCase):
         # Turn off the warnings for this test.
         logging.disable(logging.CRITICAL)
 
-        # Too few observations.
-        config = SearchConfiguration()
-        config.set("num_obs", 21)
-        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
-
         # Bad results_per_pixel.
         config = SearchConfiguration()
         config.set("results_per_pixel", -1)
@@ -57,6 +52,21 @@ class test_run_search(unittest.TestCase):
 
         # Re-enable warnings.
         logging.disable(logging.NOTSET)
+
+    def test_run_search_auto_config(self):
+        """Test that if we set num_obs to high, we down scale it."""
+        num_times = 10
+        width = 15
+        height = 10
+
+        fake_times = create_fake_times(num_times, t0=60676.0)
+        fake_ds = FakeDataSet(width, height, fake_times)
+        runner = SearchRunner()
+
+        config = SearchConfiguration()
+        config.set("num_obs", 21)
+        _ = runner.run_search(config, fake_ds.stack)
+        self.assertEqual(config["num_obs"], 10)
 
     def test_load_and_filter_results(self):
         num_times = 50

@@ -11,6 +11,7 @@ from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds
 
+from .image_utils import count_valid_images
 from .results import Results
 from .trajectory_generator import create_trajectory_generator
 from .trajectory_utils import predict_pixel_locations
@@ -308,13 +309,6 @@ class SearchRunner:
         if use_gpu and not check_gpu_memory(config, stack, trj_generator):
             raise ValueError("Insufficient GPU memory to conduct the search.")
 
-        # Do some very basic checking of the configuration parameters.
-        min_num_obs = int(config["num_obs"])
-        if min_num_obs > stack.img_count():
-            raise ValueError(
-                f"num_obs ({min_num_obs}) is greater than the number of images ({stack.img_count()})."
-            )
-
         # Create the search object which will hold intermediate data and results.
         search = kb.StackSearch(stack)
         configure_kb_search_stack(search, config)
@@ -371,6 +365,15 @@ class SearchRunner:
             The results.
         """
         self._start_phase("KBMOD")
+
+        # Determine how many images have at least 10% valid pixels.  Make sure
+        # num_obs is no larger than 80% of the valid images.
+        img_count = count_valid_images(stack, 0.9)
+        if img_count == 0:
+            raise ValueError("No valid images in input.")
+        if config["num_obs"] == -1 or config["num_obs"] >= img_count:
+            logger.info(f"Automatically setting num_obs = {img_count} (from {config['num_obs']}).")
+            config.set("num_obs", img_count)
 
         if config["debug"]:
             logging.basicConfig(level=logging.DEBUG)
