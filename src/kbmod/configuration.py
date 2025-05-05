@@ -29,6 +29,7 @@ class SearchConfiguration:
             "cluster_type": "all",
             "cluster_v_scale": 1.0,
             "coadds": [],
+            "compute_ra_dec": True,
             "cpu_only": False,
             "debug": False,
             "do_clustering": True,
