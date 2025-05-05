@@ -1,4 +1,4 @@
-"""`Standardizer` converts data from a given data source into a `LayeredImage`
+"""`Standardizer` converts data from a given data source into a `LayeredImagePy`
 object, applying data-source specific, transformations in the process. A
 layered image is a collection containing:
  * science image

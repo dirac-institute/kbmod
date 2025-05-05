@@ -14,7 +14,7 @@ import numpy as np
 from .standardizer import Standardizer, StandardizerConfig
 
 from kbmod.core.psf import PSF
-from kbmod.search import LayeredImage
+from kbmod.core.image_stack_py import LayeredImagePy
 
 
 __all__ = [
@@ -517,12 +517,12 @@ class ButlerStandardizer(Standardizer):
         # support different types, TODO: update when fixed
         mask = masks[0].astype(np.float32)
         imgs = [
-            LayeredImage(
+            LayeredImagePy(
                 self.standardizeScienceImage()[0],
                 self.standardizeVarianceImage()[0],
-                mask,
-                self.standardizePSF()[0],
-                self._metadata["mjd_mid"],
+                mask=mask,
+                psf=self.standardizePSF()[0],
+                time=self._metadata["mjd_mid"],
             ),
         ]
         if not self.config["greedy_export"]:
