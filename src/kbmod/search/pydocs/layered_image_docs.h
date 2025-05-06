@@ -102,8 +102,24 @@ static const auto DOC_LayeredImage_convolve_given_psf = R"doc(
       The PSF to use.
   )doc";
 
+static const auto DOC_LayeredImage_get_width = R"doc(
+  Returns the image's width in pixels.
+  )doc";
+
+static const auto DOC_LayeredImage_get_height = R"doc(
+  Returns the image's height in pixels.
+  )doc";
+
 static const auto DOC_LayeredImage_get_npixels = R"doc(
   Returns the image's total number of pixels.
+  )doc";
+
+static const auto DOC_LayeredImage_get_obstime = R"doc(
+  Get the image's observation time in UTC MJD.
+  )doc";
+
+static const auto DOC_LayeredImage_set_obstime = R"doc(
+  Set the image's observation time in UTC MJD.
   )doc";
 
 static const auto DOC_LayeredImage_generate_psi_image = R"doc(

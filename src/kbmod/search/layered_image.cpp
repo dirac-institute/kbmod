@@ -210,7 +210,11 @@ static void layered_image_bindings(py::module& m) {
                  pydocs::DOC_LayeredImage_get_variance_array)
             .def("convolve_psf", &li::convolve_psf, pydocs::DOC_LayeredImage_convolve_psf)
             .def("convolve_given_psf", &li::convolve_given_psf, pydocs::DOC_LayeredImage_convolve_given_psf)
+            .def("get_width", &li::get_width, pydocs::DOC_LayeredImage_get_width)
+            .def("get_height", &li::get_height, pydocs::DOC_LayeredImage_get_height)
             .def("get_npixels", &li::get_npixels, pydocs::DOC_LayeredImage_get_npixels)
+            .def("get_obstime", &li::get_obstime, pydocs::DOC_LayeredImage_get_obstime)
+            .def("set_obstime", &li::set_obstime, pydocs::DOC_LayeredImage_set_obstime)
             .def("generate_psi_image", &li::generate_psi_image, pydocs::DOC_LayeredImage_generate_psi_image)
             .def("generate_phi_image", &li::generate_phi_image, pydocs::DOC_LayeredImage_generate_phi_image);
 }

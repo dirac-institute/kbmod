@@ -112,6 +112,9 @@ static void image_stack_bindings(py::module& m) {
             .def("get_zeroed_time", &is::get_zeroed_time, pydocs::DOC_ImageStack_get_zeroed_time)
             .def("build_zeroed_times", &is::build_zeroed_times, pydocs::DOC_ImageStack_build_zeroed_times)
             .def("sort_by_time", &is::sort_by_time, pydocs::DOC_ImageStack_sort_by_time)
+            .def("img_count", &is::img_count, pydocs::DOC_ImageStack_img_count)
+            .def("get_width", &is::get_width, pydocs::DOC_ImageStack_get_width)
+            .def("get_height", &is::get_height, pydocs::DOC_ImageStack_get_height)
             .def("get_npixels", &is::get_npixels, pydocs::DOC_ImageStack_get_npixels)
             .def("get_total_pixels", &is::get_total_pixels, pydocs::DOC_ImageStack_get_total_pixels);
 }
