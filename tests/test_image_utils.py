@@ -11,41 +11,12 @@ from kbmod.image_utils import (
     create_stamps_from_image_stack_xy,
     extract_sci_images_from_stack,
     extract_var_images_from_stack,
-    image_allclose,
     image_stack_from_components,
     validate_image_stack,
 )
 
 
 class test_image_utils(unittest.TestCase):
-    def test_image_allclose(self):
-        """Test that we can compare two images."""
-        arr1 = np.arange(12).reshape((3, 4)).astype(np.float32)
-        arr2 = np.arange(12).reshape((4, 3)).astype(np.float32)
-        self.assertFalse(image_allclose(arr1, arr2))
-
-        arr2 = np.arange(12).reshape((3, 4)).astype(np.float32)
-        self.assertTrue(image_allclose(arr1, arr2))
-
-        arr2[0, 1] = arr2[0, 1] + 0.001
-        self.assertFalse(image_allclose(arr1, arr2))
-
-        arr1[0, 1] = arr1[0, 1] + 0.001
-        self.assertTrue(image_allclose(arr1, arr2))
-
-        arr1[1, 2] = KB_NO_DATA
-        self.assertFalse(image_allclose(arr1, arr2))
-
-        arr2[1, 2] = KB_NO_DATA
-        self.assertTrue(image_allclose(arr1, arr2))
-
-        arr1[0, 3] = KB_NO_DATA
-        arr2[0, 3] = KB_NO_DATA
-        self.assertTrue(image_allclose(arr1, arr2))
-
-        arr1[2, 2] = 1.0
-        self.assertFalse(image_allclose(arr1, arr2))
-
     def test_extract_images_from_stack(self):
         """Tests that we can transform an ImageStack into a single numpy array."""
         num_times = 5
@@ -104,9 +75,9 @@ class test_image_utils(unittest.TestCase):
 
             # Check that the images are equal. We use a threshold of 0.001 because the
             # RawImage arrays will be converted into single precision floats.
-            self.assertTrue(image_allclose(img.get_science_array(), fake_sci[idx], atol=0.001))
-            self.assertTrue(image_allclose(img.get_variance_array(), fake_var[idx], atol=0.001))
-            self.assertTrue(image_allclose(img.get_mask_array(), fake_mask[idx], atol=0.001))
+            self.assertTrue(np.allclose(img.get_science_array(), fake_sci[idx], atol=0.001, equal_nan=True))
+            self.assertTrue(np.allclose(img.get_variance_array(), fake_var[idx], atol=0.001, equal_nan=True))
+            self.assertTrue(np.allclose(img.get_mask_array(), fake_mask[idx], atol=0.001, equal_nan=True))
 
         # Test that everything still works when we don't pass in a mask or PSFs.
         im_stack = image_stack_from_components(fake_times, fake_sci, fake_var)

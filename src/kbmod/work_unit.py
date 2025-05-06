@@ -18,7 +18,8 @@ from tqdm import tqdm
 
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
-from kbmod.image_utils import stat_image_stack, validate_image_stack
+from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
+from kbmod.image_utils import image_stack_from_components, stat_image_stack, validate_image_stack
 from kbmod.reprojection_utils import invert_correct_parallax
 from kbmod.search import ImageStack, LayeredImage, Logging, Trajectory
 from kbmod.util_functions import get_matched_obstimes
@@ -129,6 +130,17 @@ class WorkUnit:
         obstimes=None,
         org_image_meta=None,
     ):
+        # Add a temporary bridge to convert the Python ImageStackPy into the C++
+        # version. This uses force_move and destroys the original im_stack.
+        if isinstance(im_stack, ImageStackPy):
+            im_stack = image_stack_from_components(
+                im_stack.times,
+                im_stack.sci,
+                im_stack.var,
+                psfs=im_stack.psfs,
+            )
+
+        # Assign the core components.
         self.im_stack = im_stack
         self.config = config
         self.lazy = lazy
@@ -953,6 +965,26 @@ class WorkUnit:
 
         self.im_stack = im_stack
         self.lazy = False
+
+    def write_config(self, overwrite=False):
+        """Create the provenance directory and writes the `SearchConfiguration` out to disk."""
+        result_filename = Path(self.config["result_filename"])
+        if not os.path.isabs(result_filename):
+            raise ValueError("result_filename must be absolute to use `write_config`")
+
+        result_dir = result_filename.parent.absolute()
+        base_filename = os.path.basename(result_filename).split(".ecsv")[0]
+        provenance_dir = f"{base_filename}_provenance"
+        provenance_dir_path = result_dir.joinpath(provenance_dir)
+
+        if not os.path.exists(provenance_dir_path) or overwrite:
+            os.makedirs(provenance_dir_path)
+        else:
+            raise ValueError(f"{provenance_dir} directory already exists")
+
+        config_filename = f"{base_filename}_config.yaml"
+        config_path = provenance_dir_path.joinpath(config_filename)
+        self.config.to_file(config_path, overwrite)
 
 
 def load_layered_image_from_shard(file_path):

@@ -255,9 +255,9 @@ class TestButlerStandardizer(unittest.TestCase):
         img = butler_imgs[0]
 
         # Compare standardized images
-        np.testing.assert_equal(fits["IMAGE"].data, img.get_science_array())
-        np.testing.assert_equal(fits["VARIANCE"].data, img.get_variance_array())
-        np.testing.assert_equal(fits["MASK"].data, img.get_mask_array())
+        np.testing.assert_equal(fits["IMAGE"].data, img.sci)
+        np.testing.assert_equal(fits["VARIANCE"].data, img.var)
+        np.testing.assert_equal(fits["MASK"].data, img.mask)
 
         # Test that we correctly set metadata
         # times can only be compred approximately, because sometimes we

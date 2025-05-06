@@ -19,7 +19,7 @@ import numpy as np
 from ..standardizer import Standardizer, StandardizerConfig, ConfigurationError
 
 from kbmod.core.psf import PSF
-from kbmod.search import LayeredImage
+from kbmod.core.image_stack_py import LayeredImagePy
 
 
 __all__ = [
@@ -389,7 +389,7 @@ class FitsStandardizer(Standardizer):
             raise TypeError("Expected a number or a list, got {type(stds)}: {stds}")
 
     def toLayeredImage(self):
-        """Returns a list of `~kbmod.search.layered_image` objects for each
+        """Returns a list of `~LayeredImagePy` objects for each
         entry marked as processable.
 
         Returns
@@ -411,10 +411,6 @@ class FitsStandardizer(Standardizer):
         else:
             mjds = (meta["mjd_mid"] for e in self.processable)
 
-        # Sci and var will be, potentially, loaded by AstroPy as float32 arrays
-        # already. Depends on the header keys really, but that's Standardizer's
-        # job. Lack of generics in CPP code forces casting of mask, making a
-        # copy. TODO: fix when/if CPP stuff is fixed.
         imgs = []
         for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
             # Make sure the science and variance layers are float32.
@@ -423,7 +419,7 @@ class FitsStandardizer(Standardizer):
 
             # Converts nd array mask from bool to np.float32
             mask = mask.astype(np.float32)
-            imgs.append(LayeredImage(sci, var, mask, psf.astype(np.float32), obs_time=t))
+            imgs.append(LayeredImagePy(sci, var, mask=mask, psf=psf.astype(np.float32), time=t))
 
         if not self.config["greedy_export"]:
             for i in self.processable:
