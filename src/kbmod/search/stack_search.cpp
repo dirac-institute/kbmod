@@ -37,6 +37,28 @@ std::vector<float> extract_joint_psi_phi_curve(const PsiPhiArray& psi_phi, const
 StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0) {
     psi_phi_generated = false;
 
+    // Get the logger for this module.
+    rs_logger = logging::getLogger("kbmod.search.run_search");
+
+    // Get the cached stats for the images.
+    width = imstack.get_width();
+    height = imstack.get_height();
+    num_imgs = imstack.img_count();
+    zeroed_times = imstack.build_zeroed_times();
+
+    set_default_parameters();
+}
+
+StackSearch::~StackSearch() {
+    // Clear the memory allocated for psi and phi.
+    clear_psi_phi();
+}
+
+// --------------------------------------------
+// Configuration functions
+// --------------------------------------------
+
+void StackSearch::set_default_parameters() {
     // Default The Thresholds.
     params.min_observations = 0;
     params.min_lh = 0.0;
@@ -55,32 +77,14 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0) {
 
     // Default pixel starting bounds.
     params.x_start_min = 0;
-    params.x_start_max = stack.get_width();
+    params.x_start_max = width;
     params.y_start_min = 0;
-    params.y_start_max = stack.get_height();
-
-    // Get the logger for this module.
-    rs_logger = logging::getLogger("kbmod.search.run_search");
-
-    // Get the cached stats for the images.
-    width = imstack.get_width();
-    height = imstack.get_height();
-    num_imgs = imstack.img_count();
-    zeroed_times = imstack.build_zeroed_times();
+    params.y_start_max = height;
 }
-
-StackSearch::~StackSearch() {
-    // Clear the memory allocated for psi and phi.
-    clear_psi_phi();
-}
-
-// --------------------------------------------
-// Configuration functions
-// --------------------------------------------
 
 void StackSearch::set_min_obs(int new_value) {
     if (new_value < 0) throw std::runtime_error("min_obs must be >= 0.");
-    if (new_value > stack.img_count())
+    if (new_value > num_imgs)
         throw std::runtime_error("min_obs cannot be greater than the number of images.");
 
     params.min_observations = new_value;
@@ -285,8 +289,7 @@ uint64_t StackSearch::compute_max_results() {
 Image StackSearch::get_all_psi_phi_curves(const std::vector<Trajectory>& trajectories) {
     // Allocate a (num_trj, 2 * num_times) image to store the curves for all the trajectories.
     const unsigned int num_trj = trajectories.size();
-    const unsigned int num_times = stack.img_count();
-    Image results = Image::Zero(num_trj, 2 * num_times);
+    Image results = Image::Zero(num_trj, 2 * num_imgs);
 
     prepare_psi_phi();
 
@@ -296,7 +299,7 @@ Image StackSearch::get_all_psi_phi_curves(const std::vector<Trajectory>& traject
 
 // Copy the data into the results.
 #pragma omp critical
-        for (int j = 0; j < 2 * num_times; ++j) {
+        for (int j = 0; j < 2 * num_imgs; ++j) {
             results(i, j) = curve[j];
         }
     }

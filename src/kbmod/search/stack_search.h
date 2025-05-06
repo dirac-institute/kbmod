@@ -36,6 +36,7 @@ public:
     std::vector<double>& get_zeroed_times() { return zeroed_times; }
 
     // Parameter setters used to control the searches.
+    void set_default_parameters();
     void set_min_obs(int new_value);
     void set_min_lh(float new_value);
     void disable_gpu_sigmag_filter();
