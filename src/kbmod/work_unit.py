@@ -158,7 +158,7 @@ class WorkUnit:
         elif per_image_wcs is not None:
             self.n_constituents = len(per_image_wcs)
         else:
-            self.n_constituents = im_stack.img_count()
+            self.n_constituents = im_stack.num_times
 
         # Track the metadata for each constituent image in the WorkUnit. If no constituent
         # data is provided, this will create a table of default values the correct size.
@@ -200,7 +200,7 @@ class WorkUnit:
 
     def __len__(self):
         """Returns the size of the WorkUnit in number of images."""
-        return self.im_stack.img_count()
+        return self.im_stack.num_times
 
     def get_num_images(self):
         return len(self._per_image_indices)
@@ -225,7 +225,7 @@ class WorkUnit:
 
         # Compute the size of the candidates
         trj_size = sys.getsizeof(Trajectory())
-        ppi = self.im_stack.get_width() * self.im_stack.get_height()
+        ppi = self.im_stack.width * self.im_stack.height
         result_memory = ppi * self.config["results_per_pixel"] * trj_size
 
         return result_memory + 2 * psi_memory
@@ -346,7 +346,7 @@ class WorkUnit:
         if wcs is None or self.im_stack is None:
             logger.warning(f"A valid wcs and ImageStack is needed to compute the ecliptic angle.")
             return None
-        center_pixel = (self.im_stack.get_width() / 2, self.im_stack.get_height() / 2)
+        center_pixel = (self.im_stack.width / 2, self.im_stack.height / 2)
         return calc_ecliptic_angle(wcs, center_pixel)
 
     def get_all_obstimes(self):
@@ -363,7 +363,7 @@ class WorkUnit:
         if self._obstimes is not None:
             return self._obstimes
 
-        self._obstimes = [self.im_stack.get_obstime(i) for i in range(self.im_stack.img_count())]
+        self._obstimes = [self.im_stack.get_obstime(i) for i in range(self.im_stack.num_times)]
         return self._obstimes
 
     def get_unique_obstimes_and_indices(self):
@@ -540,7 +540,7 @@ class WorkUnit:
         overwrite : bool
             Indicates whether to overwrite an existing file.
         """
-        logger.info(f"Writing WorkUnit with {self.im_stack.img_count()} images to file {filename}")
+        logger.info(f"Writing WorkUnit with {self.im_stack.num_times} images to file {filename}")
         if Path(filename).is_file() and not overwrite:
             raise FileExistsError(f"WorkUnit file {filename} already exists.")
 
@@ -548,9 +548,9 @@ class WorkUnit:
         hdul = self.metadata_to_hdul()
 
         # Create each image layer.
-        for i in range(self.im_stack.img_count()):
+        for i in range(self.im_stack.num_times):
             layered = self.im_stack.get_single_image(i)
-            obstime = layered.get_obstime()
+            obstime = layered.time
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
 
@@ -558,9 +558,9 @@ class WorkUnit:
             add_image_data_to_hdul(
                 hdul,
                 i,
-                layered.get_science_array(),
-                layered.get_variance_array(),
-                layered.get_mask_array(),
+                layered.sci,
+                layered.var,
+                layered.mask,
                 obstime,
                 psf_kernel=layered.get_psf(),
                 wcs=self.get_wcs(i),
@@ -612,7 +612,7 @@ class WorkUnit:
             Indicates whether to overwrite an existing file.
         """
         logger.info(
-            f"Writing WorkUnit shards with {self.im_stack.img_count()} images with main file {filename} in {directory}"
+            f"Writing WorkUnit shards with {self.im_stack.num_times} images with main file {filename} in {directory}"
         )
         primary_file = os.path.join(directory, filename)
         if Path(primary_file).is_file() and not overwrite:
@@ -622,9 +622,9 @@ class WorkUnit:
                 "WorkUnit was lazy loaded, must load all ImageStack data to output new WorkUnit."
             )
 
-        for i in range(self.im_stack.img_count()):
+        for i in range(self.im_stack.num_times):
             layered = self.im_stack.get_single_image(i)
-            obstime = layered.get_obstime()
+            obstime = layered.time
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
             sub_hdul = fits.HDUList()
@@ -633,9 +633,9 @@ class WorkUnit:
             add_image_data_to_hdul(
                 sub_hdul,
                 i,
-                layered.get_science_array(),
-                layered.get_variance_array(),
-                layered.get_mask_array(),
+                layered.sci,
+                layered.var,
+                layered.mask,
                 obstime,
                 psf_kernel=layered.get_psf(),
                 wcs=self.get_wcs(i),

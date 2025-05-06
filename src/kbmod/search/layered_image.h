@@ -39,11 +39,6 @@ public:
     double get_obstime() const { return obstime; }
     void set_obstime(double new_obstime) { obstime = new_obstime; }
 
-    // Getter functions for the data in the individual layers.
-    RawImage& get_science() { return science; }
-    RawImage& get_mask() { return mask; }
-    RawImage& get_variance() { return variance; }
-
     // Getter functions for the data in the individual layers as Images.
     Image& get_science_array() { return science.get_image(); }
     Image& get_mask_array() { return mask.get_image(); }
@@ -53,11 +48,6 @@ public:
     void mask_pixel(const Index& idx);
     void binarize_mask(int flags_to_keep);
     void apply_mask(int flags);
-
-    // Setter functions for the individual layers.
-    void set_science(RawImage& im);
-    void set_mask(RawImage& im);
-    void set_variance(RawImage& im);
 
     // Convolve with a given PSF or the default one.
     void convolve_psf();

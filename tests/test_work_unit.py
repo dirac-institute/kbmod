@@ -47,8 +47,8 @@ class test_work_unit(unittest.TestCase):
             )
 
             # Include one masked pixel per time step at (10, 10 + i).
-            mask = self.images[i].get_mask()
-            mask.set_pixel(10, 10 + i, 1)
+            mask = self.images[i].mask
+            mask[10, 10 + i] = 1
 
         self.im_stack = kb.ImageStack(self.images)
 
@@ -121,7 +121,7 @@ class test_work_unit(unittest.TestCase):
             work = WorkUnit(self.im_stack, self.config)
 
             self.assertIsNotNone(work)
-            self.assertEqual(work.im_stack.img_count(), 5)
+            self.assertEqual(work.im_stack.num_times, 5)
             self.assertEqual(work.config["result_filename"], "Here")
             self.assertEqual(work.config["num_obs"], 5)
             self.assertIsNone(work.wcs)
@@ -131,7 +131,7 @@ class test_work_unit(unittest.TestCase):
 
         # Create with a global WCS
         work2 = WorkUnit(self.im_stack, self.config, self.wcs)
-        self.assertEqual(work2.im_stack.img_count(), 5)
+        self.assertEqual(work2.im_stack.num_times, 5)
         self.assertIsNotNone(work2.wcs)
         for i in range(self.num_images):
             self.assertIsNotNone(work2.get_wcs(i))
@@ -235,26 +235,18 @@ class test_work_unit(unittest.TestCase):
 
             # Read in the file and check that the values agree.
             work2 = WorkUnit.from_fits(file_path)
-            self.assertEqual(work2.im_stack.img_count(), self.num_images)
+            self.assertEqual(work2.im_stack.num_times, self.num_images)
             self.assertIsNone(work2.wcs)
             for i in range(self.num_images):
                 li = work2.im_stack.get_single_image(i)
-                self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
+                self.assertEqual(li.time, 59000.0 + (2 * i + 1))
 
                 # Check the three image layers match. We use more permissive values for science and
                 # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(
-                    np.allclose(li.get_science_array(), li_org.get_science_array(), atol=0.05, equal_nan=True)
-                )
-                self.assertTrue(
-                    np.allclose(
-                        li.get_variance_array(), li_org.get_variance_array(), atol=0.05, equal_nan=True
-                    )
-                )
-                self.assertTrue(
-                    np.allclose(li.get_mask_array(), li_org.get_mask_array(), atol=0.001, equal_nan=True)
-                )
+                self.assertTrue(np.allclose(li.sci, li_org.sci, atol=0.05, equal_nan=True))
+                self.assertTrue(np.allclose(li.var, li_org.var, atol=0.05, equal_nan=True))
+                self.assertTrue(np.allclose(li.mask, li_org.mask, atol=0.001, equal_nan=True))
 
                 # Check the PSF layer matches.
                 p1 = self.p[i]
@@ -303,26 +295,18 @@ class test_work_unit(unittest.TestCase):
 
             # Read in the file and check that the values agree.
             work2 = WorkUnit.from_sharded_fits(filename="test_workunit.fits", directory=dir_name)
-            self.assertEqual(work2.im_stack.img_count(), self.num_images)
+            self.assertEqual(work2.im_stack.num_times, self.num_images)
             self.assertIsNone(work2.wcs)
             for i in range(self.num_images):
                 li = work2.im_stack.get_single_image(i)
-                self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
+                self.assertEqual(li.time, 59000.0 + (2 * i + 1))
 
                 # Check the three image layers match. We use more permissive values for science and
                 # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(
-                    np.allclose(li.get_science_array(), li_org.get_science_array(), atol=0.05, equal_nan=True)
-                )
-                self.assertTrue(
-                    np.allclose(
-                        li.get_variance_array(), li_org.get_variance_array(), atol=0.05, equal_nan=True
-                    )
-                )
-                self.assertTrue(
-                    np.allclose(li.get_mask_array(), li_org.get_mask_array(), atol=0.001, equal_nan=True)
-                )
+                self.assertTrue(np.allclose(li.sci, li_org.sci, atol=0.05, equal_nan=True))
+                self.assertTrue(np.allclose(li.var, li_org.var, atol=0.05, equal_nan=True))
+                self.assertTrue(np.allclose(li.mask, li_org.mask, atol=0.001, equal_nan=True))
 
                 # Check the PSF layer matches.
                 p1 = self.p[i]
@@ -365,11 +349,11 @@ class test_work_unit(unittest.TestCase):
             # Check that we read in the configuration values correctly.
             self.assertEqual(work2.config["result_filename"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
-            self.assertEqual(work2.im_stack.img_count(), 0)
+            self.assertEqual(work2.im_stack.num_times, 0)
 
             work2.load_images()
 
-            self.assertEqual(work2.im_stack.img_count(), self.num_images)
+            self.assertEqual(work2.im_stack.num_times, self.num_images)
             self.assertEqual(work2.lazy, False)
 
     def test_save_and_load_fits_global_wcs(self):

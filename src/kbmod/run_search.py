@@ -111,13 +111,13 @@ def check_gpu_memory(config, stack, trj_generator=None):
 
     # Compute the size of the results.  We use the bounds from the search dimensions
     # (not the raw image dimensions).
-    search_width = stack.get_width()
+    search_width = stack.width
     if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
         search_width = config["x_pixel_bounds"][1] - config["x_pixel_bounds"][0]
     elif config["x_pixel_buffer"] and config["x_pixel_buffer"] > 0:
         search_width += 2 * config["x_pixel_buffer"]
 
-    search_height = stack.get_height()
+    search_height = stack.height
     if config["y_pixel_bounds"] and len(config["y_pixel_bounds"]) == 2:
         search_height = config["y_pixel_bounds"][1] - config["y_pixel_bounds"][0]
     elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
@@ -390,7 +390,7 @@ class SearchRunner:
 
         # Apply the mask to the images.
         if config["do_mask"]:
-            for i in range(stack.img_count()):
+            for i in range(stack.num_times):
                 stack.get_single_image(i).apply_mask(0xFFFFFF)
 
         # Perform the actual search.
@@ -400,7 +400,7 @@ class SearchRunner:
 
         if config["do_clustering"] and len(keep) > 1:
             self._start_phase("clustering")
-            mjds = [stack.get_obstime(t) for t in range(stack.img_count())]
+            mjds = [stack.get_obstime(t) for t in range(stack.num_times)]
             cluster_params = {
                 "cluster_type": config["cluster_type"],
                 "cluster_eps": config["cluster_eps"],
@@ -439,7 +439,7 @@ class SearchRunner:
             self._end_phase("append_positions_to_results")
 
         # Create and save any additional meta data that should be saved with the results.
-        num_img = stack.img_count()
+        num_img = stack.num_times
 
         self._start_phase("write results")
         if extra_meta is not None:
@@ -447,7 +447,7 @@ class SearchRunner:
         else:
             meta_to_save = {}
         meta_to_save["num_img"] = num_img
-        meta_to_save["dims"] = stack.get_width(), stack.get_height()
+        meta_to_save["dims"] = stack.width, stack.height
         keep.set_mjd_utc_mid(np.array([stack.get_obstime(i) for i in range(num_img)]))
 
         if config["result_filename"] is not None:
@@ -520,7 +520,7 @@ def append_positions_to_results(workunit, results):
     if num_results == 0:
         return  # Nothing to do
 
-    num_times = workunit.im_stack.img_count()
+    num_times = workunit.im_stack.num_times
     times = workunit.im_stack.build_zeroed_times()
 
     # Predict where each candidate trajectory will be at each time step in the

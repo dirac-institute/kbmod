@@ -69,8 +69,8 @@ class test_reprojection(unittest.TestCase):
                     )
 
                 assert reprojected_wunit.wcs != None
-                assert reprojected_wunit.im_stack.get_width() == 60
-                assert reprojected_wunit.im_stack.get_height() == 50
+                assert reprojected_wunit.im_stack.width == 60
+                assert reprojected_wunit.im_stack.height == 50
 
                 test_dists = self.test_wunit.get_constituent_meta("geocentric_distance")
                 reproject_dists = reprojected_wunit.get_constituent_meta("geocentric_distance")
@@ -83,7 +83,7 @@ class test_reprojection(unittest.TestCase):
                 # get condensed to one image.
                 assert len(images) == 3
 
-                data = [[i.get_science_array(), i.get_variance_array(), i.get_mask_array()] for i in images]
+                data = [[i.sci, i.var, i.mask] for i in images]
 
                 for img in data:
                     # test that mask values are binary
@@ -123,7 +123,7 @@ class test_reprojection(unittest.TestCase):
         """Make sure that the reprojection fails when images at the same time
         have overlapping pixels."""
         images = self.test_wunit.im_stack.get_images()
-        images[1].set_obstime(images[0].get_obstime())
+        images[1].time = images[0].time
         new_im_stack = ImageStack(images)
         self.test_wunit.im_stack = new_im_stack
 

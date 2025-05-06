@@ -97,6 +97,9 @@ static void image_stack_bindings(py::module& m) {
             .def(py::init<>())
             .def(py::init<std::vector<li>>())
             .def("__len__", &is::img_count)
+            .def_property_readonly("height", &is::get_height)
+            .def_property_readonly("width", &is::get_width)
+            .def_property_readonly("num_times", &is::img_count)
             .def("get_images", &is::get_images, py::return_value_policy::reference_internal,
                  pydocs::DOC_ImageStack_get_images)
             .def("get_single_image", &is::get_single_image, py::return_value_policy::reference_internal,

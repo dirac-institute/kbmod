@@ -87,7 +87,7 @@ class Visualizer:
         # Map each day for a result to its coadded stamp
         daily_coadds = {}
         result_row = self.results.table[result_idx]
-        for i in range(self.im_stack.img_count()):
+        for i in range(self.im_stack.num_times):
             if result_row["obs_valid"][i]:
                 day = mjd_to_day(self.im_stack.get_obstime(i))
                 curr_stamp = result_row["all_stamps"][i]

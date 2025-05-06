@@ -95,7 +95,7 @@ def add_fake_object(img, x, y, flux, psf=None):
             The PSF's kernel for the image.
     """
     if type(img) is LayeredImage:
-        sci = img.get_science_array()
+        sci = img.sci
     elif type(img) is np.ndarray:
         sci = img
     else:

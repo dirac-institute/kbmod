@@ -10,6 +10,15 @@ static const auto DOC_ImageStack = R"doc(
   The images are not required to be in sorted time order, but the first
   image is used for t=0.0 when computing zeroed times (which might make
   some times negative).
+
+  Attributes
+  ----------
+  height : `int`
+      Image height, in pixels.
+  width : `int`
+      Image width, in pixels.
+  num_times : `int`
+      The number of images (times) in the stack.
   )doc";
 
 static const auto DOC_ImageStack_get_images = R"doc(
@@ -23,7 +32,6 @@ static const auto DOC_ImageStack_get_images = R"doc(
 
 static const auto DOC_ImageStack_img_count = R"doc(
   Returns the number of images in the stack.
-
   Returns
   -------
   img_count : `int`

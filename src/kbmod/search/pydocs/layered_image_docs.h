@@ -5,12 +5,29 @@ namespace pydocs {
 static const auto DOC_LayeredImage = R"doc(
   Creates a layered_image out of individual `RawImage` layers.
 
+  Attributes
+  ----------
+  height : `int`
+      Image height, in pixels. Read only in Python.
+  width : `int`
+      Image width, in pixels. Read only in Python.
+  time : `float`
+      The time of the image (in UTC MJD).
+  sci : `numpy.ndarray`
+      The array for the science layer. Getter only in Python.
+  var : `numpy.ndarray`
+      The array for the variance layer. Getter only in Python.
+  mask : `numpy.ndarray`
+      The array for the mask layer. Getter only in Python.
+  psf : `numpy.ndarray`
+      The kernel of the PSF.
+      
   Parameters
   ----------
   sci : `RawImage`
       The `RawImage` for the science layer.
   var : `RawImage`
-      The `RawImage` for the cariance layer.
+      The `RawImage` for the variance layer.
   msk : `RawImage`
       The `RawImage` for the mask layer.
   psf : `numpy.ndarray`
@@ -66,18 +83,6 @@ static const auto DOC_LayeredImage_apply_mask = R"doc(
   call binarize_mask() first.
   )doc";
 
-static const auto DOC_LayeredImage_get_science = R"doc(
-  Returns the science layer as a `RawImage`.
-  )doc";
-
-static const auto DOC_LayeredImage_get_mask = R"doc(
-  Returns the mask layer as a `RawImage`.
-  )doc";
-
-static const auto DOC_LayeredImage_get_variance = R"doc(
-  Returns the variance layer as a `RawImage`.
-  )doc";
-
 static const auto DOC_LayeredImage_get_science_array = R"doc(
   Returns the science layer as an `Image`.
   )doc";
@@ -88,18 +93,6 @@ static const auto DOC_LayeredImage_get_mask_array = R"doc(
 
 static const auto DOC_LayeredImage_get_variance_array = R"doc(
   Returns the variance layer as an `Image`.
-  )doc";
-
-static const auto DOC_LayeredImage_set_science = R"doc(
-  Returns the science layer `RawImage`.
-  )doc";
-
-static const auto DOC_LayeredImage_set_mask = R"doc(
-  Returns the mask layer `RawImage`.
-  )doc";
-
-static const auto DOC_LayeredImage_set_variance = R"doc(
-  Returns the science layer `RawImage`.
   )doc";
 
 static const auto DOC_LayeredImage_convolve_psf = R"doc(

@@ -23,27 +23,27 @@ class test_ImageStack(unittest.TestCase):
             )
 
             # Include one masked pixel per time step at (10, 10 + i).
-            mask = self.images[i].get_mask()
-            mask.set_pixel(10, 10 + i, 1)
+            mask = self.images[i].mask
+            mask[10, 10 + i] = 1
 
         self.im_stack = ImageStack(self.images)
 
     def test_create_empty(self):
         im_stack = ImageStack([])
         self.assertEqual(len(im_stack), 0)
-        self.assertEqual(im_stack.get_width(), 0)
-        self.assertEqual(im_stack.get_height(), 0)
+        self.assertEqual(im_stack.width, 0)
+        self.assertEqual(im_stack.height, 0)
 
         im_stack2 = ImageStack()
         self.assertEqual(len(im_stack2), 0)
-        self.assertEqual(im_stack2.get_width(), 0)
-        self.assertEqual(im_stack2.get_height(), 0)
+        self.assertEqual(im_stack2.width, 0)
+        self.assertEqual(im_stack2.height, 0)
 
     def test_create(self):
         self.assertEqual(len(self.im_stack), self.num_images)
-        self.assertEqual(self.num_images, self.im_stack.img_count())
-        self.assertEqual(self.im_stack.get_height(), 80)
-        self.assertEqual(self.im_stack.get_width(), 60)
+        self.assertEqual(self.num_images, self.im_stack.num_times)
+        self.assertEqual(self.im_stack.height, 80)
+        self.assertEqual(self.im_stack.width, 60)
         self.assertEqual(self.im_stack.get_npixels(), 60 * 80)
         self.assertEqual(self.im_stack.get_total_pixels(), 5 * 60 * 80)
 
@@ -55,7 +55,7 @@ class test_ImageStack(unittest.TestCase):
     def test_access(self):
         """Test we can access an individual image."""
         img = self.im_stack.get_single_image(1)
-        self.assertEqual(img.get_obstime(), 3.0)
+        self.assertEqual(img.time, 3.0)
 
         # Test an out of bounds access.
         with self.assertRaises(IndexError):
@@ -106,7 +106,7 @@ class test_ImageStack(unittest.TestCase):
         for i in range(self.num_images):
             img = self.im_stack.get_single_image(i)
             add_fake_object(img, 10, 20, 500.0, self.p[i])
-            pix_val = img.get_science_array()[20, 10]
+            pix_val = img.sci[20, 10]
             self.assertGreater(pix_val, last_val)
             last_val = pix_val
 

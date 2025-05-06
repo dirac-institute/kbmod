@@ -52,9 +52,9 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True):
     stamp_timer = DebugTimer("computing extra coadds", logger)
 
     # Copy the image data that we need. The data only copies the references to the numpy arrays.
-    num_times = im_stack.img_count()
-    sci_data = [im_stack.get_single_image(i).get_science_array() for i in range(num_times)]
-    var_data = [im_stack.get_single_image(i).get_variance_array() for i in range(num_times)]
+    num_times = im_stack.num_times
+    sci_data = [im_stack.get_single_image(i).sci for i in range(num_times)]
+    var_data = [im_stack.get_single_image(i).var for i in range(num_times)]
     times = np.asarray(im_stack.build_zeroed_times())
 
     # Predict the x and y locations in a giant batch.
@@ -110,8 +110,8 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
     width = 2 * stamp_radius + 1
 
     # Copy the image data that we need. The data only copies the references to the numpy arrays.
-    num_times = im_stack.img_count()
-    sci_data = [im_stack.get_single_image(i).get_science_array() for i in range(num_times)]
+    num_times = im_stack.num_times
+    sci_data = [im_stack.get_single_image(i).sci for i in range(num_times)]
     times = np.asarray(im_stack.build_zeroed_times())
 
     # Predict the x and y locations in a giant batch.
