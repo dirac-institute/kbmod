@@ -70,7 +70,7 @@ class test_search(unittest.TestCase):
 
             # Mask a pixel in half the images.
             if i % 2 == 0:
-                mask = im.get_mask_array()
+                mask = im.mask
                 mask[self.masked_y, self.masked_x] = 1
                 im.apply_mask(1)
 

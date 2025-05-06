@@ -37,7 +37,7 @@ class test_fake_image_creator(unittest.TestCase):
         )
         add_fake_object(img, 5.5, 3.5, 100.0, p)
 
-        sci = img.get_science_array()
+        sci = img.sci
         for r in range(10):
             for c in range(20):
                 if abs(c - 5) <= 1 and abs(r - 3) <= 1:
@@ -96,7 +96,7 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertLess(py, 256)
 
             # Check that there is a bright spot at the predicted position.
-            pix_val = ds.stack.get_single_image(i).get_science_array()[py, px]
+            pix_val = ds.stack.get_single_image(i).sci[py, px]
             self.assertGreaterEqual(pix_val, 50.0)
 
     def test_save_work_unit(self):

@@ -56,7 +56,7 @@ class test_stamp_filters(unittest.TestCase):
         valid2 = [True] * self.image_count
         # Completely mess up some of the images.
         for i in [1, 3, 6, 7, 9]:
-            self.ds.stack.get_single_image(i).get_science_array()[:, :] = 1000.0
+            self.ds.stack.get_single_image(i).sci[:, :] = 1000.0
             valid2[i] = False
 
         # Create the Results with nearly identical trajectories,

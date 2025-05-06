@@ -31,14 +31,14 @@ class test_image_utils(unittest.TestCase):
         sci_array = extract_sci_images_from_stack(fake_ds.stack)
         self.assertEqual(sci_array.shape, (num_times, height, width))
         for idx in range(num_times):
-            img_data = fake_ds.stack.get_single_image(idx).get_science_array()
+            img_data = fake_ds.stack.get_single_image(idx).sci
             self.assertTrue(np.allclose(sci_array[idx, :, :], img_data))
 
         # Check that we can extract the variance pixels.
         var_array = extract_var_images_from_stack(fake_ds.stack)
         self.assertEqual(var_array.shape, (num_times, height, width))
         for idx in range(num_times):
-            img_data = fake_ds.stack.get_single_image(idx).get_variance_array()
+            img_data = fake_ds.stack.get_single_image(idx).var
             self.assertTrue(np.allclose(var_array[idx, :, :], img_data))
 
     def test_image_stack_from_components(self):
@@ -76,9 +76,9 @@ class test_image_utils(unittest.TestCase):
 
             # Check that the images are equal. We use a threshold of 0.001 because the
             # RawImage arrays will be converted into single precision floats.
-            self.assertTrue(np.allclose(img.get_science_array(), fake_sci[idx], atol=0.001, equal_nan=True))
-            self.assertTrue(np.allclose(img.get_variance_array(), fake_var[idx], atol=0.001, equal_nan=True))
-            self.assertTrue(np.allclose(img.get_mask_array(), fake_mask[idx], atol=0.001, equal_nan=True))
+            self.assertTrue(np.allclose(img.sci, fake_sci[idx], atol=0.001, equal_nan=True))
+            self.assertTrue(np.allclose(img.var, fake_var[idx], atol=0.001, equal_nan=True))
+            self.assertTrue(np.allclose(img.mask, fake_mask[idx], atol=0.001, equal_nan=True))
 
         # Test that everything still works when we don't pass in a mask or PSFs.
         im_stack = image_stack_from_components(fake_times, fake_sci, fake_var)
@@ -199,7 +199,7 @@ class test_image_utils(unittest.TestCase):
             xp = 8 + 2 * i
             yp = 7 + i
             if xp < 25 and yp < 35:
-                center_val = fake_ds.stack.get_single_image(i).get_science_array()[yp, xp]
+                center_val = fake_ds.stack.get_single_image(i).sci[yp, xp]
                 self.assertAlmostEqual(center_val, stamps[i][1, 1])
             else:
                 self.assertTrue(np.isnan(stamps[i][1, 1]))
@@ -217,7 +217,7 @@ class test_image_utils(unittest.TestCase):
                 xp = 8 + 2 * i
                 yp = 7 + i
                 if xp < 25 and yp < 35:
-                    center_val = fake_ds.stack.get_single_image(i).get_science_array()[yp, xp]
+                    center_val = fake_ds.stack.get_single_image(i).sci[yp, xp]
                     self.assertAlmostEqual(center_val, stamps[stamp_count][1, 1])
                 else:
                     self.assertTrue(np.isnan(stamps[stamp_count][1, 1]))
@@ -253,7 +253,7 @@ class test_image_utils(unittest.TestCase):
             xp = 8 + 2 * i
             yp = 7 + i
             if xp < 25 and yp < 35:
-                center_val = fake_ds.stack.get_single_image(i).get_science_array()[yp, xp]
+                center_val = fake_ds.stack.get_single_image(i).sci[yp, xp]
                 self.assertAlmostEqual(center_val, stamps[i][1, 1])
             else:
                 self.assertTrue(np.isnan(stamps[i][1, 1]))
@@ -269,7 +269,7 @@ class test_image_utils(unittest.TestCase):
             xp = 8 + 2 * image_i
             yp = 7 + image_i
             if xp < 25 and yp < 35:
-                center_val = fake_ds.stack.get_single_image(image_i).get_science_array()[yp, xp]
+                center_val = fake_ds.stack.get_single_image(image_i).sci[yp, xp]
                 self.assertAlmostEqual(center_val, stamps[stamp_i][1, 1])
             else:
                 self.assertTrue(np.isnan(stamps[stamp_i][1, 1]))

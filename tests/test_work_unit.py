@@ -47,7 +47,7 @@ class test_work_unit(unittest.TestCase):
             )
 
             # Include one masked pixel per time step at (10, 10 + i).
-            mask = self.images[i].get_mask_array()
+            mask = self.images[i].mask
             mask[10, 10 + i] = 1
 
         self.im_stack = kb.ImageStack(self.images)
@@ -245,15 +245,15 @@ class test_work_unit(unittest.TestCase):
                 # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
                 self.assertTrue(
-                    np.allclose(li.get_science_array(), li_org.get_science_array(), atol=0.05, equal_nan=True)
+                    np.allclose(li.sci, li_org.sci, atol=0.05, equal_nan=True)
                 )
                 self.assertTrue(
                     np.allclose(
-                        li.get_variance_array(), li_org.get_variance_array(), atol=0.05, equal_nan=True
+                        li.var, li_org.var, atol=0.05, equal_nan=True
                     )
                 )
                 self.assertTrue(
-                    np.allclose(li.get_mask_array(), li_org.get_mask_array(), atol=0.001, equal_nan=True)
+                    np.allclose(li.mask, li_org.mask, atol=0.001, equal_nan=True)
                 )
 
                 # Check the PSF layer matches.
@@ -313,15 +313,15 @@ class test_work_unit(unittest.TestCase):
                 # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
                 self.assertTrue(
-                    np.allclose(li.get_science_array(), li_org.get_science_array(), atol=0.05, equal_nan=True)
+                    np.allclose(li.sci, li_org.sci, atol=0.05, equal_nan=True)
                 )
                 self.assertTrue(
                     np.allclose(
-                        li.get_variance_array(), li_org.get_variance_array(), atol=0.05, equal_nan=True
+                        li.var, li_org.var, atol=0.05, equal_nan=True
                     )
                 )
                 self.assertTrue(
-                    np.allclose(li.get_mask_array(), li_org.get_mask_array(), atol=0.001, equal_nan=True)
+                    np.allclose(li.mask, li_org.mask, atol=0.001, equal_nan=True)
                 )
 
                 # Check the PSF layer matches.

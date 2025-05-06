@@ -37,7 +37,7 @@ class test_trajectory_explorer(unittest.TestCase):
         # Remove at least one observation from the trajectory.
         pred_x = self.trj.get_x_index(fake_times[10])
         pred_y = self.trj.get_y_index(fake_times[10])
-        sci_t10 = self.fake_ds.stack.get_single_image(10).get_science_array()
+        sci_t10 = self.fake_ds.stack.get_single_image(10).sci
         for dy in [-1, 0, 1]:
             for dx in [-1, 0, 1]:
                 sci_t10[pred_y + dy, pred_x + dx] = 0.0001

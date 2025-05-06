@@ -242,7 +242,7 @@ class test_psi_phi_array(unittest.TestCase):
         fake_ds = FakeDataSet(width, height, np.arange(num_times))
 
         # Set all pixels in one of the images to NO_DATA.
-        science = fake_ds.stack.get_single_image(1).get_science_array()
+        science = fake_ds.stack.get_single_image(1).sci
         science[:, :] = KB_NO_DATA
 
         # Create the PsiPhiArray from the ImageStack and 2 byte encoding.

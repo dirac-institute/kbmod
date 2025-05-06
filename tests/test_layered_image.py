@@ -33,9 +33,9 @@ class test_LayeredImage(unittest.TestCase):
         self.assertEqual(self.image.time, 10.0)
 
         # Check the created image.
-        science_arr = self.image.get_science_array()
-        variance_arr = self.image.get_variance_array()
-        mask_arr = self.image.get_mask_array()
+        science_arr = self.image.sci
+        variance_arr = self.image.var
+        mask_arr = self.image.mask
 
         for y in range(self.image.height):
             for x in range(self.image.width):
@@ -68,29 +68,29 @@ class test_LayeredImage(unittest.TestCase):
         self.assertEqual(img2.time, 1.0)
 
         # Check the layers.
-        self.assertTrue(np.allclose(img2.get_science_array(), sci))
-        self.assertTrue(np.allclose(img2.get_variance_array(), var))
-        self.assertTrue(np.allclose(img2.get_mask_array(), mask))
+        self.assertTrue(np.allclose(img2.sci, sci))
+        self.assertTrue(np.allclose(img2.var, var))
+        self.assertTrue(np.allclose(img2.mask, mask))
 
     def test_convolve_psf(self):
-        sci0 = self.image.get_science_array()
-        var0 = self.image.get_variance_array()
-        msk0 = self.image.get_mask_array()
+        sci0 = self.image.sci
+        var0 = self.image.var
+        msk0 = self.image.mask
 
         # Create a copy of the image.
         img_b = LayeredImage(sci0, var0, msk0, self.p, 1.0)
 
         # A no-op PSF does not change the image.
         img_b.convolve_given_psf(np.array([[1.0]]))
-        sci1 = img_b.get_science_array()
-        var1 = img_b.get_variance_array()
+        sci1 = img_b.sci
+        var1 = img_b.var
         self.assertTrue(np.allclose(sci0, sci1))
         self.assertTrue(np.allclose(var0, var1))
 
         # The default PSF (stdev=1.0) DOES have the image.
         img_b.convolve_psf()
-        sci1 = img_b.get_science_array()
-        var1 = img_b.get_variance_array()
+        sci1 = img_b.sci
+        var1 = img_b.var
         self.assertFalse(np.allclose(sci0, sci1))
         self.assertFalse(np.allclose(var0, var1))
 
@@ -108,7 +108,7 @@ class test_LayeredImage(unittest.TestCase):
     def test_mask_pixel(self):
         self.image.mask_pixel(10, 15)
         self.image.mask_pixel(22, 23)
-        sci = self.image.get_science_array()
+        sci = self.image.sci
         for y in range(self.image.height):
             for x in range(self.image.width):
                 expected = not ((x == 15 and y == 10) or (x == 23 and y == 22))
@@ -116,7 +116,7 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_binarize_mask(self):
         # Mask out a range of pixels.
-        mask = self.image.get_mask_array()
+        mask = self.image.mask
         for x in range(9):
             mask[10, x] = x
 
@@ -135,11 +135,11 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_apply_mask(self):
         # Nothing is initially masked.
-        science = self.image.get_science_array()
+        science = self.image.sci
         self.assertEqual(np.count_nonzero(np.isnan(science)), 0)
 
         # Mask out three pixels.
-        mask = self.image.get_mask_array()
+        mask = self.image.mask
         mask[10, 11] = 1
         mask[10, 12] = 2
         mask[10, 13] = 3
@@ -147,7 +147,7 @@ class test_LayeredImage(unittest.TestCase):
         # Apply the mask flags to only (10, 11) and (10, 13)
         self.image.apply_mask(1)
 
-        science = self.image.get_science_array()
+        science = self.image.sci
         for y in range(self.image.height):
             for x in range(self.image.width):
                 if y == 10 and (x == 11 or x == 13):
@@ -160,8 +160,8 @@ class test_LayeredImage(unittest.TestCase):
         img = make_fake_layered_image(6, 5, 2.0, 4.0, 10.0, p)
 
         # Create fake science and variance images.
-        sci = img.get_science_array()
-        var = img.get_variance_array()
+        sci = img.sci
+        var = img.var
         for y in range(5):
             for x in range(6):
                 sci[y, x] = float(x)

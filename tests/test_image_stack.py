@@ -23,7 +23,7 @@ class test_ImageStack(unittest.TestCase):
             )
 
             # Include one masked pixel per time step at (10, 10 + i).
-            mask = self.images[i].get_mask_array()
+            mask = self.images[i].mask
             mask[10, 10 + i] = 1
 
         self.im_stack = ImageStack(self.images)
@@ -106,7 +106,7 @@ class test_ImageStack(unittest.TestCase):
         for i in range(self.num_images):
             img = self.im_stack.get_single_image(i)
             add_fake_object(img, 10, 20, 500.0, self.p[i])
-            pix_val = img.get_science_array()[20, 10]
+            pix_val = img.sci[20, 10]
             self.assertGreater(pix_val, last_val)
             last_val = pix_val
 

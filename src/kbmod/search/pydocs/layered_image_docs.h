@@ -8,18 +8,26 @@ static const auto DOC_LayeredImage = R"doc(
   Attributes
   ----------
   height : `int`
-      Image height, in pixels.
+      Image height, in pixels. Read only in Python.
   width : `int`
-      Image width, in pixels.
+      Image width, in pixels. Read only in Python.
   time : `float`
       The time of the image (in UTC MJD).
-
+  sci : `numpy.ndarray`
+      The array for the science layer. Getter only in Python.
+  var : `numpy.ndarray`
+      The array for the variance layer. Getter only in Python.
+  mask : `numpy.ndarray`
+      The array for the mask layer. Getter only in Python.
+  psf : `numpy.ndarray`
+      The kernel of the PSF.
+      
   Parameters
   ----------
   sci : `RawImage`
       The `RawImage` for the science layer.
   var : `RawImage`
-      The `RawImage` for the cariance layer.
+      The `RawImage` for the variance layer.
   msk : `RawImage`
       The `RawImage` for the mask layer.
   psf : `numpy.ndarray`

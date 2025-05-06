@@ -84,7 +84,7 @@ class test_run_search(unittest.TestCase):
 
         # Trajectory x is given x outliers.
         for i in range(num_times):
-            sci = im_stack.get_single_image(i).get_science_array()
+            sci = im_stack.get_single_image(i).sci
             for x, trj in enumerate(trjs):
                 if i < 2 * x:
                     sci[trj.y, trj.x] = 2000.0

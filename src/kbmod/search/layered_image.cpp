@@ -191,7 +191,11 @@ static void layered_image_bindings(py::module& m) {
                  py::arg("msk").noconvert(true), py::arg("psf"), py::arg("obs_time"))
             .def_property_readonly("height", &li::get_height)
             .def_property_readonly("width", &li::get_width)
+            .def_property_readonly("sci", &li::get_science_array, py::return_value_policy::reference_internal)
+            .def_property_readonly("mask", &li::get_mask_array, py::return_value_policy::reference_internal)
+            .def_property_readonly("var", &li::get_variance_array, py::return_value_policy::reference_internal)
             .def_property("time", &li::get_obstime, &li::set_obstime)
+            .def_property("psf", &li::get_psf, &li::set_psf, py::return_value_policy::reference_internal)
             .def("set_psf", &li::set_psf, pydocs::DOC_LayeredImage_set_psf)
             .def("get_psf", &li::get_psf, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_psf)

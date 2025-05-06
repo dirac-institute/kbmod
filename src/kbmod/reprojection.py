@@ -216,9 +216,9 @@ def _reproject_work_unit(
 
         for index in indices:
             image = images[index]
-            science = image.get_science_array()
-            variance = image.get_variance_array()
-            mask = image.get_mask_array()
+            science = image.sci
+            variance = image.var
+            mask = image.mask
 
             original_wcs = wcs_list[index]
             if original_wcs is None:
@@ -369,9 +369,9 @@ def _reproject_work_unit_in_parallel(
             images_at_obstime = [images[i] for i in indices]
 
             # convert each image into a science, variance, or mask "image", i.e. a list of numpy arrays.
-            science_images_at_obstime = [this_image.get_science_array() for this_image in images_at_obstime]
-            variance_images_at_obstime = [this_image.get_variance_array() for this_image in images_at_obstime]
-            mask_images_at_obstime = [this_image.get_mask_array() for this_image in images_at_obstime]
+            science_images_at_obstime = [this_image.sci for this_image in images_at_obstime]
+            variance_images_at_obstime = [this_image.var for this_image in images_at_obstime]
+            mask_images_at_obstime = [this_image.mask for this_image in images_at_obstime]
 
             if write_output:
                 psf_array = _get_first_psf_at_time(work_unit, obstime)
