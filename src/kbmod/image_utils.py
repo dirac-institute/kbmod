@@ -222,12 +222,12 @@ def count_valid_images(im_stack, masked_fraction=0.5):
     count : `int`
         The count of images with below the threshold fraction of masked pixels.
     """
-    total_pixels = im_stack.get_height() * im_stack.get_width()
-    if total_pixels == 0 or im_stack.img_count() == 0:
+    total_pixels = im_stack.height * im_stack.width
+    if total_pixels == 0 or im_stack.num_times == 0:
         return 0
 
     valid_count = 0
-    for idx in range(im_stack.img_count()):
+    for idx in range(im_stack.num_times):
         img = im_stack.get_single_image(idx)
         sci = img.get_science_array()
         var = img.get_variance_array()

@@ -7,6 +7,7 @@ from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.search import KB_NO_DATA, Trajectory
 
 from kbmod.image_utils import (
+    count_valid_images,
     create_stamps_from_image_stack,
     create_stamps_from_image_stack_xy,
     extract_sci_images_from_stack,
@@ -137,6 +138,39 @@ class test_image_utils(unittest.TestCase):
 
         # Re-enable warnings.
         logging.disable(logging.NOTSET)
+
+    def test_count_valid_images(self):
+        """Tests that we can count the number of valid images in an ImageStack."""
+        # Start with a valid ImageStack.
+        num_times = 10
+        width = 20
+        height = 20
+        fake_times = np.arange(num_times)
+        fake_sci = [90.0 * np.random.random((height, width)) + 10.0 for _ in range(num_times)]
+        fake_var = [0.49 * np.random.random((height, width)) + 0.01 for _ in range(num_times)]
+        fake_mask = [np.zeros((height, width)) for _ in range(num_times)]
+        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var, fake_mask)
+        self.assertEqual(im_stack.num_times, 10)
+        self.assertTrue(count_valid_images(im_stack), 9)
+
+        # Mask most of the pixels in the science layer 1.
+        fake_sci[1][:, 1:width] = np.nan
+        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var, fake_mask)
+        self.assertEqual(im_stack.num_times, 10)
+        self.assertTrue(count_valid_images(im_stack, 0.8), 9)
+
+        # Mask most of the pixels in the mask layers 3 and 7.
+        fake_mask[3][:, 1:width] = 1
+        fake_mask[7][1:height, :] = 1
+        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var, fake_mask)
+        self.assertEqual(im_stack.num_times, 10)
+        self.assertTrue(count_valid_images(im_stack, 0.8), 7)
+
+        # Mask most of the science pixels in layer 3 (does not change count).
+        fake_sci[3][:, 1:width] = np.nan
+        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var, fake_mask)
+        self.assertEqual(im_stack.num_times, 10)
+        self.assertTrue(count_valid_images(im_stack, 0.8), 7)
 
     def test_create_stamps_from_image_stack(self):
         # Create a small fake data set for the tests.
