@@ -17,7 +17,7 @@ from astropy.utils import isiterable
 
 import numpy as np
 
-from kbmod.search import ImageStack
+from kbmod.core.image_stack_py import ImageStackPy
 from .standardizers import Standardizer
 
 
@@ -518,12 +518,12 @@ class ImageCollection:
                     guess_dist,
                     earth_loc,
                 )
-                self.data[self.reflex_corrected_col(f"ra_{box_corner}", guess_dist)] = (
-                    corrected_ra_dec_corner.ra.deg
-                )
-                self.data[self.reflex_corrected_col(f"dec_{box_corner}", guess_dist)] = (
-                    corrected_ra_dec_corner.dec.deg
-                )
+
+                ra_col = self.reflex_corrected_col(f"ra_{box_corner}", guess_dist)
+                self.data[ra_col] = corrected_ra_dec_corner.ra.deg
+
+                dec_col = self.reflex_corrected_col(f"dec_{box_corner}", guess_dist)
+                self.data[dec_col] = corrected_ra_dec_corner.dec.deg
 
     def reflex_corrected_col(self, col_name, guess_dist):
         """Get the name of the reflex-corrected column for a given guess distance.
@@ -1030,18 +1030,6 @@ class ImageCollection:
             self.meta.pop("is_packed", None)
         return fitsio.hdu.BinTableHDU(self.data, name="IMGCOLL")
 
-    def toImageStack(self):
-        """Return an `~kbmod.search.image_stack` object for processing with
-        KBMOD.
-        Returns
-        -------
-        imageStack : `~kbmod.search.image_stack`
-            Image stack for processing with KBMOD.
-        """
-        logger.info("Building ImageStack from ImageCollection")
-        layeredImages = [img for std in self._standardizers for img in std.toLayeredImage()]
-        return ImageStack(layeredImages)
-
     def toWorkUnit(self, search_config=None, **kwargs):
         """Return an `~kbmod.WorkUnit` object for processing with
         KBMOD.
@@ -1072,10 +1060,10 @@ class ImageCollection:
         if None not in self.wcs:
             metadata["per_image_wcs"] = list(self.wcs)
 
-        # Create the basic WorkUnit from the ImageStack.
-        imgstack = ImageStack()
+        # Create the basic WorkUnit from the ImageStackPy.
+        imgstack = ImageStackPy()
         for layimg in layeredImages:
-            imgstack.append_image(layimg, force_move=True)
+            imgstack.append_layered_image(layimg)
         work = WorkUnit(imgstack, search_config, org_image_meta=metadata)
 
         return work
