@@ -105,34 +105,6 @@ class test_LayeredImage(unittest.TestCase):
         p2 = self.image.get_psf()
         self.assertEqual(p2.shape, (1, 1))
 
-    def test_mask_pixel(self):
-        self.image.mask_pixel(10, 15)
-        self.image.mask_pixel(22, 23)
-        sci = self.image.sci
-        for y in range(self.image.height):
-            for x in range(self.image.width):
-                expected = not ((x == 15 and y == 10) or (x == 23 and y == 22))
-                self.assertEqual(pixel_value_valid(sci[y, x]), expected)
-
-    def test_binarize_mask(self):
-        # Mask out a range of pixels.
-        mask = self.image.mask
-        for x in range(9):
-            mask[10, x] = x
-
-        # Only keep the mask for pixels with flags at
-        # bit positions 0 and 2 (1 + 4 = 5).
-        self.image.binarize_mask(5)
-        self.assertEqual(mask[10, 0], 0)
-        self.assertEqual(mask[10, 1], 1)
-        self.assertEqual(mask[10, 2], 0)
-        self.assertEqual(mask[10, 3], 1)
-        self.assertEqual(mask[10, 4], 1)
-        self.assertEqual(mask[10, 5], 1)
-        self.assertEqual(mask[10, 6], 1)
-        self.assertEqual(mask[10, 7], 1)
-        self.assertEqual(mask[10, 8], 0)
-
     def test_apply_mask(self):
         # Nothing is initially masked.
         science = self.image.sci

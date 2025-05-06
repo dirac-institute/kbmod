@@ -103,28 +103,6 @@ Image LayeredImage::square_psf(Image& given_psf) {
     return psf_sq;
 }
 
-void LayeredImage::mask_pixel(const Index& idx) {
-    science.mask_pixel(idx);
-    variance.mask_pixel(idx);
-    mask.set_pixel(idx, 1);
-}
-
-void LayeredImage::binarize_mask(int flags_to_use) {
-    logging::getLogger("kbmod.search.layered_image")
-            ->debug("Converting mask to binary using " + std::to_string(flags_to_use));
-
-    const uint64_t num_pixels = get_npixels();
-    float* mask_pixels = mask.data();
-
-    for (uint64_t i = 0; i < num_pixels; ++i) {
-        int current_flags = static_cast<int>(mask_pixels[i]);
-
-        // Use a bitwise AND to only keep flags that are set in the current pixel
-        // and in the flags_to_use bitmask.
-        mask_pixels[i] = (flags_to_use & current_flags) > 0 ? 1 : 0;
-    }
-}
-
 void LayeredImage::apply_mask(int flags) {
     science.apply_mask(flags, mask);
     variance.apply_mask(flags, mask);
@@ -193,18 +171,13 @@ static void layered_image_bindings(py::module& m) {
             .def_property_readonly("width", &li::get_width)
             .def_property_readonly("sci", &li::get_science_array, py::return_value_policy::reference_internal)
             .def_property_readonly("mask", &li::get_mask_array, py::return_value_policy::reference_internal)
-            .def_property_readonly("var", &li::get_variance_array, py::return_value_policy::reference_internal)
+            .def_property_readonly("var", &li::get_variance_array,
+                                   py::return_value_policy::reference_internal)
             .def_property("time", &li::get_obstime, &li::set_obstime)
             .def_property("psf", &li::get_psf, &li::set_psf, py::return_value_policy::reference_internal)
             .def("set_psf", &li::set_psf, pydocs::DOC_LayeredImage_set_psf)
             .def("get_psf", &li::get_psf, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_psf)
-            .def("mask_pixel", &li::mask_pixel, pydocs::DOC_LayeredImage_mask_pixel)
-            .def("mask_pixel",
-                 [](li& cls, int i, int j) {
-                     return cls.mask_pixel({i, j});
-                 })
-            .def("binarize_mask", &li::binarize_mask, pydocs::DOC_LayeredImage_binarize_mask)
             .def("apply_mask", &li::apply_mask, pydocs::DOC_LayeredImage_apply_mask)
             .def("get_science_array", &li::get_science_array, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_science_array)
