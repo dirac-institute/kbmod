@@ -6,6 +6,17 @@ static const auto DOC_StackSearch = R"doc(
   The data and configuration needed for KBMOD's core search. It is created
   using a *reference* to the ``ImageStack``. The underlying ``ImageStack``
   must exist for the life of the ``StackSearch`` object's life.
+
+  Attributes
+  ----------
+  num_images : `int`
+      The number of images (or time steps).
+  height : `int`
+      The height of each image in pixels.
+  width : `int`
+      The width of each image in pixels.
+  zeroed_times : `list`
+      The times shift so the first time is at 0.0.
   )doc";
 
 static const auto DOC_StackSearch_search = R"doc(
@@ -128,14 +139,6 @@ static const auto DOC_StackSearch_get_image_width = R"doc(
 
 static const auto DOC_StackSearch_get_image_height = R"doc(
   Returns the height of the images in pixels.
-  )doc";
-
-static const auto DOC_StackSearch_get_image_npixels = R"doc(
-  Returns the number of pixels for each image.
-  )doc";
-
-static const auto DOC_StackSearch_get_imagestack = R"doc(
-  Return the `kb.ImageStack` containing the data to search.
   )doc";
 
 static const auto DOC_StackSearch_get_all_psi_phi_curves = R"doc(

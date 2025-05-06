@@ -30,11 +30,10 @@ class StackSearch {
 public:
     StackSearch(ImageStack& imstack);
     uint64_t compute_max_results();
-    unsigned int num_images() const { return stack.img_count(); }
-    unsigned int get_image_width() const { return stack.get_width(); }
-    unsigned int get_image_height() const { return stack.get_height(); }
-    uint64_t get_image_npixels() const { return stack.get_npixels(); }
-    const ImageStack& get_imagestack() const { return stack; }
+    unsigned int num_images() const { return num_imgs; }
+    unsigned int get_image_width() const { return width; }
+    unsigned int get_image_height() const { return height; }
+    std::vector<double>& get_zeroed_times() { return zeroed_times; }
 
     // Parameter setters used to control the searches.
     void set_min_obs(int new_value);
@@ -72,8 +71,13 @@ public:
 protected:
     // Core data and search parameters. Note the StackSearch does not own
     // the ImageStack and it must exist for the duration of the object's life.
-    ImageStack& stack;
     SearchParameters params;
+    unsigned int height;
+    unsigned int width;
+    unsigned int num_imgs;
+    std::vector<double> zeroed_times;
+
+    ImageStack& stack;
 
     // Precomputed and cached search data
     bool psi_phi_generated;

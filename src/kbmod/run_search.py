@@ -245,8 +245,7 @@ class SearchRunner:
         if config["near_dup_thresh"] is not None and config["near_dup_thresh"] > 0:
             self._start_phase("near duplicate removal")
             bin_width = config["near_dup_thresh"]
-            all_times = search.get_imagestack().build_zeroed_times()
-            max_dt = np.max(all_times) - np.min(all_times)
+            max_dt = np.max(search.zeroed_times) - np.min(search.zeroed_times)
             logger.info(f"Prefiltering Near Duplicates (bin_width={bin_width}, max_dt={max_dt})")
             result_trjs, _ = apply_trajectory_grid_filter(result_trjs, bin_width, max_dt)
             logger.info(f"After prefiltering {len(result_trjs)} remaining.")
