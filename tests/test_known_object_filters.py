@@ -11,6 +11,8 @@ from kbmod.search import *
 from kbmod.trajectory_utils import trajectory_predict_skypos
 from kbmod.wcs_utils import make_fake_wcs
 
+import tempfile
+
 
 class TestKnownObjMatcher(unittest.TestCase):
     def setUp(self):
@@ -551,6 +553,28 @@ class TestKnownObjMatcher(unittest.TestCase):
             matcher.filter_matches(self.res, match_col)
             self.assertEqual(10 - len(expected), len(self.res))
 
+            # Test serialization of our matching results
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".ecsv") as tmp_file:
+                self.res.write_table(tmp_file.name, overwrite=True)
+                # Read the results back in to test correct deserialization
+                loaded_res = Results.read_table(tmp_file.name)
+
+                # Check that the loaded results match the original results
+                self.assertEqual(len(self.res), len(loaded_res))
+                for idx in range(len(self.res)):
+                    # Check that the primary matching column is the same
+                    self.assertEqual(
+                        self.res[matcher.matcher_name][idx],
+                        loaded_res[matcher.matcher_name][idx],
+                    )
+                    # Check that the obs ratio column is the same.
+                    self.assertTrue(
+                        np.array_equal(
+                            self.res[matcher.match_obs_ratio_col(obs_ratio)][idx],
+                            loaded_res[matcher.match_obs_ratio_col(obs_ratio)][idx],
+                        )
+                    )
+
     def test_match_min_obs(self):
         # Here we test considering a known object recovered based on the ratio of observations
         # in the catalog that were temporally within
@@ -600,6 +624,26 @@ class TestKnownObjMatcher(unittest.TestCase):
             # Verify that we filter out our expected results
             matcher.filter_matches(self.res, match_col)
             self.assertEqual(10 - len(expected), len(self.res))
+
+        # Test file serialization by saving the results to a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".ecsv") as tmp_file:
+            self.res.write_table(tmp_file.name, overwrite=True)
+            # Read the results back in to test correct deserialization
+            loaded_res = Results.read_table(tmp_file.name)
+
+            # Check that the loaded results match the original results
+            self.assertEqual(len(self.res), len(loaded_res))
+            for idx in range(len(self.res)):
+                # Check that the primary matching column is the same
+                self.assertEqual(
+                    self.res[matcher.matcher_name][idx],
+                    loaded_res[matcher.matcher_name][idx],
+                )
+                # Check that the min obs column is the same.
+                self.assertEqual(
+                    self.res[matcher.match_min_obs_col(5)][idx],
+                    loaded_res[matcher.match_min_obs_col(5)][idx],
+                )
 
     def test_empty_filter_matches(self):
         # Test that we can filter matches with an empty Results table
