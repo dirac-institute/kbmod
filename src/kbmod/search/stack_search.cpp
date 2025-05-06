@@ -37,6 +37,28 @@ std::vector<float> extract_joint_psi_phi_curve(const PsiPhiArray& psi_phi, const
 StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0) {
     psi_phi_generated = false;
 
+    // Get the logger for this module.
+    rs_logger = logging::getLogger("kbmod.search.run_search");
+
+    // Get the cached stats for the images.
+    width = imstack.get_width();
+    height = imstack.get_height();
+    num_imgs = imstack.img_count();
+    zeroed_times = imstack.build_zeroed_times();
+
+    set_default_parameters();
+}
+
+StackSearch::~StackSearch() {
+    // Clear the memory allocated for psi and phi.
+    clear_psi_phi();
+}
+
+// --------------------------------------------
+// Configuration functions
+// --------------------------------------------
+
+void StackSearch::set_default_parameters() {
     // Default The Thresholds.
     params.min_observations = 0;
     params.min_lh = 0.0;
@@ -55,26 +77,14 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0) {
 
     // Default pixel starting bounds.
     params.x_start_min = 0;
-    params.x_start_max = stack.get_width();
+    params.x_start_max = width;
     params.y_start_min = 0;
-    params.y_start_max = stack.get_height();
-
-    // Get the logger for this module.
-    rs_logger = logging::getLogger("kbmod.search.run_search");
+    params.y_start_max = height;
 }
-
-StackSearch::~StackSearch() {
-    // Clear the memory allocated for psi and phi.
-    clear_psi_phi();
-}
-
-// --------------------------------------------
-// Configuration functions
-// --------------------------------------------
 
 void StackSearch::set_min_obs(int new_value) {
     if (new_value < 0) throw std::runtime_error("min_obs must be >= 0.");
-    if (new_value > stack.img_count())
+    if (new_value > num_imgs)
         throw std::runtime_error("min_obs cannot be greater than the number of images.");
 
     params.min_observations = new_value;
@@ -205,8 +215,8 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
     // Prepare the input data (psi/phi and candidate lists).
     prepare_psi_phi();
     TrajectoryList candidate_list = TrajectoryList(search_list);
-     uint64_t max_results = compute_max_results();
-    
+    uint64_t max_results = compute_max_results();
+
     DebugTimer core_timer = DebugTimer("Running batch search", rs_logger);
 
     // staple C++
@@ -241,15 +251,15 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
     search_timer.stop();
     uint64_t num_results = results.get_size();
     rs_logger->debug("Core search returned " + std::to_string(num_results) + " results.\n");
-    
+
     // Perform initial LH and obscount filtering.
-    
+
     DebugTimer filter_timer = DebugTimer("Filtering results by LH and min_obs", rs_logger);
     results.filter_by_likelihood(params.min_lh);
     results.filter_by_obs_count(params.min_observations);
     uint64_t new_num_results = results.get_size();
-    rs_logger->debug("After filtering by LH and min_obs " + std::to_string(new_num_results) +
-                     " results (" + std::to_string(num_results - new_num_results) + " removed).\n");
+    rs_logger->debug("After filtering by LH and min_obs " + std::to_string(new_num_results) + " results (" +
+                     std::to_string(num_results - new_num_results) + " removed).\n");
     filter_timer.stop();
 
     // Sort the results by decreasing likleihood.
@@ -279,8 +289,7 @@ uint64_t StackSearch::compute_max_results() {
 Image StackSearch::get_all_psi_phi_curves(const std::vector<Trajectory>& trajectories) {
     // Allocate a (num_trj, 2 * num_times) image to store the curves for all the trajectories.
     const unsigned int num_trj = trajectories.size();
-    const unsigned int num_times = stack.img_count();
-    Image results = Image::Zero(num_trj, 2 * num_times);
+    Image results = Image::Zero(num_trj, 2 * num_imgs);
 
     prepare_psi_phi();
 
@@ -290,7 +299,7 @@ Image StackSearch::get_all_psi_phi_curves(const std::vector<Trajectory>& traject
 
 // Copy the data into the results.
 #pragma omp critical
-        for (int j = 0; j < 2 * num_times; ++j) {
+        for (int j = 0; j < 2 * num_imgs; ++j) {
             results(i, j) = curve[j];
         }
     }
@@ -326,6 +335,10 @@ static void stack_search_bindings(py::module& m) {
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
             .def(py::init<is&>())
+            .def_property_readonly("num_images", &ks::num_images)
+            .def_property_readonly("height", &ks::get_image_height)
+            .def_property_readonly("width", &ks::get_image_width)
+            .def_property_readonly("zeroed_times", &ks::get_zeroed_times)
             .def("search_all", &ks::search_all, pydocs::DOC_StackSearch_search)
             .def("evaluate_single_trajectory", &ks::evaluate_single_trajectory,
                  pydocs::DOC_StackSearch_evaluate_single_trajectory)
@@ -345,9 +358,6 @@ static void stack_search_bindings(py::module& m) {
             .def("get_num_images", &ks::num_images, pydocs::DOC_StackSearch_get_num_images)
             .def("get_image_width", &ks::get_image_width, pydocs::DOC_StackSearch_get_image_width)
             .def("get_image_height", &ks::get_image_height, pydocs::DOC_StackSearch_get_image_height)
-            .def("get_image_npixels", &ks::get_image_npixels, pydocs::DOC_StackSearch_get_image_npixels)
-            .def("get_imagestack", &ks::get_imagestack, py::return_value_policy::reference_internal,
-                 pydocs::DOC_StackSearch_get_imagestack)
             .def("get_all_psi_phi_curves", &ks::get_all_psi_phi_curves,
                  pydocs::DOC_StackSearch_get_all_psi_phi_curves)
             // For testings
