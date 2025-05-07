@@ -83,14 +83,14 @@ class test_LayeredImage(unittest.TestCase):
         var0 = self.image.var
         msk0 = self.image.mask
 
-	    # Create a copy of the image.  We use a copy of the
-	    # arrays so that LayeredImage can take ownership.
+        # Create a copy of the image.  We use a copy of the
+        # arrays so that LayeredImage can take ownership.
         img_b = LayeredImage(
             np.copy(sci0),
             np.copy(var0),
             np.copy(msk0),
             self.p,
-	        1.0,
+            1.0,
         )
 
         # A no-op PSF does not change the image.
