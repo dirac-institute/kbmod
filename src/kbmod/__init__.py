@@ -93,6 +93,6 @@ from . import (  # noqa: F401
     util_functions,
 )
 
-from .search import RawImage, LayeredImage, ImageStack, StackSearch
+from .search import LayeredImage, ImageStack, StackSearch
 from .standardizers import Standardizer, StandardizerConfig
 from .image_collection import ImageCollection
