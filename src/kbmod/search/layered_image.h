@@ -45,8 +45,6 @@ public:
     Image& get_variance_array() { return variance.get_image(); }
 
     // Masking functions.
-    void mask_pixel(const Index& idx);
-    void binarize_mask(int flags_to_keep);
     void apply_mask(int flags);
 
     // Convolve with a given PSF or the default one.
