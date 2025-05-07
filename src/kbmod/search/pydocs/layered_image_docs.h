@@ -3,7 +3,8 @@
 
 namespace pydocs {
 static const auto DOC_LayeredImage = R"doc(
-  Creates a layered_image out of individual `RawImage` layers.
+  Creates a layered_image out of individual image layers. The LayeredImage
+  takes ownership of each layer, invalidating the previous object.
 
   Attributes
   ----------
@@ -24,12 +25,12 @@ static const auto DOC_LayeredImage = R"doc(
       
   Parameters
   ----------
-  sci : `RawImage`
-      The `RawImage` for the science layer.
-  var : `RawImage`
-      The `RawImage` for the variance layer.
-  msk : `RawImage`
-      The `RawImage` for the mask layer.
+  sci : `numpy.ndarray`
+      The data for the science layer. The LayeredImage takes ownership.
+  var : `numpy.ndarray`
+      The data for the variance layer. The LayeredImage takes ownership.
+  msk : `numpy.ndarray`
+      The data for the mask layer. The LayeredImage takes ownership.
   psf : `numpy.ndarray`
       The kernel of the PSF.
   obstime : `float`
@@ -54,18 +55,6 @@ static const auto DOC_LayeredImage_apply_mask = R"doc(
   by checking whether the pixel in the mask layer is 0 (no masking)
   or non-zero (masked). Applies all flags. To use a subset of flags
   call binarize_mask() first.
-  )doc";
-
-static const auto DOC_LayeredImage_get_science_array = R"doc(
-  Returns the science layer as an `Image`.
-  )doc";
-
-static const auto DOC_LayeredImage_get_mask_array = R"doc(
-  Returns the mask layer as an `Image`.
-  )doc";
-
-static const auto DOC_LayeredImage_get_variance_array = R"doc(
-  Returns the variance layer as an `Image`.
   )doc";
 
 static const auto DOC_LayeredImage_convolve_psf = R"doc(

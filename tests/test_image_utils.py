@@ -75,7 +75,7 @@ class test_image_utils(unittest.TestCase):
             self.assertAlmostEqual(img.time, fake_times[idx])
 
             # Check that the images are equal. We use a threshold of 0.001 because the
-            # RawImage arrays will be converted into single precision floats.
+            # arrays will be converted into single precision floats.
             self.assertTrue(np.allclose(img.sci, fake_sci[idx], atol=0.001, equal_nan=True))
             self.assertTrue(np.allclose(img.var, fake_var[idx], atol=0.001, equal_nan=True))
             self.assertTrue(np.allclose(img.mask, fake_mask[idx], atol=0.001, equal_nan=True))

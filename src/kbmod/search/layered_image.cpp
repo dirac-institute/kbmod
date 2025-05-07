@@ -2,34 +2,20 @@
 
 namespace search {
 
-LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
-                           const Image& given_psf, double obs_time)
-        : obstime(obs_time) {
-    // Get the dimensions of the science layer and check for consistency with
-    // the other two layers.
-    width = sci.get_width();
-    height = sci.get_height();
-    assert_sizes_equal(var.get_width(), width, "variance layer width");
-    assert_sizes_equal(var.get_height(), height, "variance layer height");
-    assert_sizes_equal(msk.get_width(), width, "mask layer width");
-    assert_sizes_equal(msk.get_height(), height, "mask layer height");
-
-    // Copy the image layers.
-    science = sci;
-    mask = msk;
-    variance = var;
-    psf = given_psf;
-}
-
 LayeredImage::LayeredImage(Image& sci, Image& var, Image& msk, Image& psf, double obs_time)
-        : science(sci), variance(var), mask(msk), psf(psf) {
-    width = science.get_width();
-    height = science.get_height();
-    obstime = obs_time;
-    assert_sizes_equal(variance.get_width(), width, "variance layer width");
-    assert_sizes_equal(variance.get_height(), height, "variance layer height");
-    assert_sizes_equal(mask.get_width(), width, "mask layer width");
-    assert_sizes_equal(mask.get_height(), height, "mask layer height");
+        : science(std::move(sci)),
+          variance(std::move(var)),
+          mask(std::move(msk)),
+          psf(psf),
+          obstime(obs_time) {
+    width = science.cols();
+    height = science.rows();
+
+    // Check that sizes are compatible.
+    assert_sizes_equal(variance.cols(), width, "variance layer width");
+    assert_sizes_equal(variance.rows(), height, "variance layer height");
+    assert_sizes_equal(mask.cols(), width, "mask layer width");
+    assert_sizes_equal(mask.rows(), height, "mask layer height");
 }
 
 // Copy constructor
@@ -45,13 +31,12 @@ LayeredImage::LayeredImage(const LayeredImage& source) noexcept {
 
 // Move constructor
 LayeredImage::LayeredImage(LayeredImage&& source) noexcept
-        : width(source.width),
-          height(source.height),
-          obstime(source.obstime),
-          science(std::move(source.science)),
-          mask(std::move(source.mask)),
-          variance(std::move(source.variance)),
-          psf(std::move(source.psf)) {}
+        : width(source.width), height(source.height), obstime(source.obstime) {
+    science = std::move(source.science);
+    mask = std::move(source.mask);
+    variance = std::move(source.variance);
+    psf = std::move(source.psf);
+}
 
 // Copy assignment
 LayeredImage& LayeredImage::operator=(const LayeredImage& source) noexcept {
@@ -82,11 +67,11 @@ LayeredImage& LayeredImage::operator=(LayeredImage&& source) noexcept {
 void LayeredImage::set_psf(const Image& new_psf) { psf = new_psf; }
 
 void LayeredImage::convolve_given_psf(Image& given_psf) {
-    science.convolve(given_psf);
+    science = std::move(convolve_image(science, given_psf));
 
     // Square the PSF use that on the variance image.
     Image psfsq = square_psf(given_psf);
-    variance.convolve(psfsq);
+    variance = std::move(convolve_image(variance, psfsq));
 }
 
 void LayeredImage::convolve_psf() { convolve_given_psf(psf); }
@@ -104,8 +89,15 @@ Image LayeredImage::square_psf(Image& given_psf) {
 }
 
 void LayeredImage::apply_mask(int flags) {
-    science.apply_mask(flags, mask);
-    variance.apply_mask(flags, mask);
+    for (unsigned int r = 0; r < height; ++r) {
+        for (unsigned int c = 0; c < width; ++c) {
+            int pix_flags = static_cast<int>(mask(r, c));
+            if ((flags & pix_flags) != 0) {
+                science(r, c) = NO_DATA;
+                variance(r, c) = NO_DATA;
+            }
+        }  // for r
+    }      // for c
 }
 
 Image LayeredImage::generate_psi_image() {
@@ -126,10 +118,8 @@ Image LayeredImage::generate_psi_image() {
             no_data_count += 1;
         }
     }
-
     // Convolve with the PSF.
-    result = convolve_image(result, psf);
-    return result;
+    return convolve_image(result, psf);
 }
 
 Image LayeredImage::generate_phi_image() {
@@ -152,18 +142,14 @@ Image LayeredImage::generate_phi_image() {
 
     // Convolve with the PSF squared.
     Image psfsq = square_psf(psf);  // Copy
-    result = convolve_image(result, psfsq);
-    return result;
+    return convolve_image(result, psfsq);
 }
 
 #ifdef Py_PYTHON_H
 static void layered_image_bindings(py::module& m) {
     using li = search::LayeredImage;
-    using ri = search::RawImage;
 
     py::class_<li>(m, "LayeredImage", pydocs::DOC_LayeredImage)
-            .def(py::init<const ri&, const ri&, const ri&, const search::Image&, double>(), py::arg("sci"),
-                 py::arg("var"), py::arg("msk"), py::arg("psf"), py::arg("obs_time") = -1.0)
             .def(py::init<search::Image&, search::Image&, search::Image&, search::Image&, double>(),
                  py::arg("sci").noconvert(true), py::arg("var").noconvert(true),
                  py::arg("msk").noconvert(true), py::arg("psf"), py::arg("obs_time"))
@@ -179,12 +165,6 @@ static void layered_image_bindings(py::module& m) {
             .def("get_psf", &li::get_psf, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_psf)
             .def("apply_mask", &li::apply_mask, pydocs::DOC_LayeredImage_apply_mask)
-            .def("get_science_array", &li::get_science_array, py::return_value_policy::reference_internal,
-                 pydocs::DOC_LayeredImage_get_science_array)
-            .def("get_mask_array", &li::get_mask_array, py::return_value_policy::reference_internal,
-                 pydocs::DOC_LayeredImage_get_mask_array)
-            .def("get_variance_array", &li::get_variance_array, py::return_value_policy::reference_internal,
-                 pydocs::DOC_LayeredImage_get_variance_array)
             .def("convolve_psf", &li::convolve_psf, pydocs::DOC_LayeredImage_convolve_psf)
             .def("convolve_given_psf", &li::convolve_given_psf, pydocs::DOC_LayeredImage_convolve_given_psf)
             .def("get_width", &li::get_width, pydocs::DOC_LayeredImage_get_width)
