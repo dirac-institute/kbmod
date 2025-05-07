@@ -20,6 +20,11 @@ using ImageIRef = Eigen::Ref<Image>;
 Image convolve_image_cpu(Image& img, Image& psf);
 Image convolve_image_gpu(Image& img, Image& psf);
 Image convolve_image(Image& img, Image& psf);
+Image square_psf(Image& given_psf);
+
+// Functions for psi and phi generation.
+Image generate_psi_image(Image& sci, Image& var, Image& psf);
+Image generate_phi_image(Image& var, Image& psf);
 
 } /* namespace search */
 

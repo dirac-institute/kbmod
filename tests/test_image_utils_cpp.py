@@ -11,7 +11,10 @@ from kbmod.search import (
     convolve_image_cpu,
     convolve_image_gpu,
     convolve_image,
+    generate_phi_image,
+    generate_psi_image,
     pixel_value_valid,
+    square_psf,
 )
 
 
@@ -19,7 +22,7 @@ class test_image_utils_cpp(unittest.TestCase):
     def setUp(self, width=10, height=12):
         self.width = width
         self.height = height
-        self.array = np.arange(0, width * height, dtype=np.single).reshape(height, width)
+        self.array = np.arange(0, width * height, dtype=np.single).reshape(height, width).astype(np.float32)
 
     def test_convolve_psf_identity_cpu(self):
         """Test convolution with a identity kernel on CPU"""
@@ -201,7 +204,7 @@ class test_image_utils_cpp(unittest.TestCase):
         """Test convolution on CPU with a non-symmetric PSF"""
         # Set up a non-symmetric psf where orientation matters.
         psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
-        p = np.array(psf_data)
+        p = np.array(psf_data, dtype=np.float32)
 
         result = convolve_image_cpu(self.array, p)
 
@@ -225,7 +228,7 @@ class test_image_utils_cpp(unittest.TestCase):
         """Test convolution on GPU with a non-symmetric PSF"""
         # Set up a non-symmetric psf where orientation matters.
         psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
-        p = np.array(psf_data)
+        p = np.array(psf_data, dtype=np.float32)
 
         result = convolve_image_gpu(self.array, p)
 
@@ -243,6 +246,52 @@ class test_image_utils_cpp(unittest.TestCase):
 
                 # Compute the manually computed result with the convolution.
                 self.assertAlmostEqual(result[y, x], ave, delta=0.001)
+
+    def test_psi_and_phi_image(self):
+        # Create fake science and variance images.
+        height = 5
+        width = 6
+        sci = np.zeros((height, width), dtype=np.float32)
+        var = np.zeros((height, width), dtype=np.float32)
+        for y in range(height):
+            for x in range(width):
+                sci[y, x] = float(x)
+                var[y, x] = float(y + 1)
+
+        # Mask a single pixel, set another to variance of zero,
+        # and mark two as NaN.
+        sci[3, 1] = np.nan
+        var[3, 1] = np.nan
+        var[3, 2] = 0.0
+        var[3, 0] = np.nan
+        sci[3, 3] = math.nan
+        sci[3, 4] = np.nan
+
+        # Create an identity PSF
+        p = np.array([[1.0]], dtype=np.float32)
+
+        # Generate and check psi and phi images.
+        psi = generate_psi_image(sci, var, p)
+        self.assertEqual(psi.shape, (5, 6))
+
+        phi = generate_phi_image(var, p)
+        self.assertEqual(phi.shape, (5, 6))
+
+        for y in range(height):
+            for x in range(width):
+                psi_val = psi[y, x]
+                if y != 3 or x > 4:
+                    self.assertTrue(np.isfinite(psi_val))
+                    self.assertAlmostEqual(psi_val, x / (y + 1), delta=1e-5)
+                else:
+                    self.assertFalse(np.isfinite(psi_val))
+
+                phi_val = phi[y, x]
+                if y != 3 or x > 2:
+                    self.assertTrue(np.isfinite(phi_val))
+                    self.assertAlmostEqual(phi_val, 1.0 / (y + 1), delta=1e-5)
+                else:
+                    self.assertFalse(np.isfinite(phi_val))
 
 
 if __name__ == "__main__":
