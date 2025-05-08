@@ -241,7 +241,7 @@ class test_image_utils(unittest.TestCase):
         trj = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
         fake_ds.insert_object(trj)
 
-        zeroed_times = np.array(fake_ds.stack.build_zeroed_times())
+        zeroed_times = np.array(fake_ds.stack.zeroed_times)
         xvals = (trj.x + trj.vx * zeroed_times + 0.5).astype(int)
         yvals = (trj.y + trj.vy * zeroed_times + 0.5).astype(int)
         stamps = create_stamps_from_image_stack_xy(fake_ds.stack, 1, xvals, yvals)

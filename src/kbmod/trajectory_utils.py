@@ -17,9 +17,6 @@ from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 
 from kbmod.search import (
-    extract_all_trajectory_flux,
-    extract_all_trajectory_lh,
-    extract_all_trajectory_obs_count,
     extract_all_trajectory_vx,
     extract_all_trajectory_vy,
     extract_all_trajectory_x,
