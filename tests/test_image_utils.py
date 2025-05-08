@@ -304,7 +304,7 @@ class test_image_utils(unittest.TestCase):
             if xp < 25 and yp < 35:
                 center_val = fake_ds.stack.get_single_image(image_i).sci[yp, xp]
                 self.assertAlmostEqual(center_val, stamps[stamp_i][1, 1])
-                self.assertAlmostEqual(center_val, stamp_py[stamp_i][1, 1])
+                self.assertAlmostEqual(center_val, stamps_py[stamp_i][1, 1])
             else:
                 self.assertTrue(np.isnan(stamps[stamp_i][1, 1]))
                 self.assertTrue(np.isnan(stamps_py[stamp_i][1, 1]))
