@@ -1,7 +1,5 @@
 import math
 import numpy as np
-import os
-import tempfile
 import unittest
 
 from kbmod.core.psf import PSF
@@ -10,11 +8,9 @@ from kbmod.search import (
     KB_NO_DATA,
     convolve_image_cpu,
     convolve_image_gpu,
-    convolve_image,
     generate_phi_image,
     generate_psi_image,
     pixel_value_valid,
-    square_psf,
 )
 
 

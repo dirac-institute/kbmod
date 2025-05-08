@@ -209,9 +209,9 @@ class KnownObjsMatcher:
                     # The name of the object that matched to this observation
                     obj_name = self.get_name(ko_idx)
                     if obj_name not in matched_known_objs:
-                        # Create an array of which observations match to this object.
+                        # Create a list of which observations match to this object.
                         # Note that we need to use the length of all obstimes, not just the presently valid ones
-                        matched_known_objs[obj_name] = np.full(len(self.obstimes), False)
+                        matched_known_objs[obj_name] = [False] * len(self.obstimes)
                     # Map to the original set of all obstimes (valid or invalid) since that's what we
                     # want for results filtering.
                     obs_idx = trj_idx_to_obs_idx[t_idx]
@@ -311,7 +311,10 @@ class KnownObjsMatcher:
             for name in matches:
                 if np.count_nonzero(matches[name]) >= min_obs:
                     matched_objs[-1].add(name)
-        result_data.table[self.match_min_obs_col(min_obs)] = matched_objs
+
+        # Add the matched objects to the results table, converting our de-deduplicated sets
+        # of matched objects to lists for table serialization.
+        result_data.table[self.match_min_obs_col(min_obs)] = [list(x) for x in matched_objs]
 
         return result_data
 
@@ -368,7 +371,9 @@ class KnownObjsMatcher:
                 if curr_obs_ratio <= obs_ratio:
                     matched_objs[-1].add(name)
 
-        result_data.table[self.match_obs_ratio_col(obs_ratio)] = matched_objs
+        # Add the matched objects to the results table, converting our de-deduplicated sets
+        # of matched objects to lists for table serialization.
+        result_data.table[self.match_obs_ratio_col(obs_ratio)] = [list(x) for x in matched_objs]
 
         return result_data
 

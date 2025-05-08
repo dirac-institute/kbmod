@@ -20,7 +20,6 @@
 #include "image_stack.h"
 #include "layered_image.h"
 #include "psi_phi_array_ds.h"
-#include "raw_image.h"
 
 namespace search {
 

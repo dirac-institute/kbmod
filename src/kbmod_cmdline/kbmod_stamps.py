@@ -1,4 +1,23 @@
-"""A program to generate stamps from a file of KBMOD results."""
+"""A program to generate stamps from a file of KBMOD results.
+
+To generate stamps from the result trajectories in 'my_results.ecsv' and image data in the
+WorkUnit 'my_wu.fits' you would use:
+
+>>> kbmod-stamps --workunit=my_wu.fits --results=my_results.ecsv --outfile=stamps.npy --type=all
+
+The type specifies which stamp type to generate:
+  - "all" generates a stamp for each (result, time step) pair.
+     The output is a 4-d numpy array of shape (num results, num times, stamp width, stamp width)
+  - "mean" generates a stamp mean coadded stamp for each result.
+     The output is a 3-d numpy array of shape (num results, stamp width, stamp width)
+  - "median" generates a stamp median coadded stamp for each result.
+     The output is a 3-d numpy array of shape (num results, stamp width, stamp width)
+  - "sum" generates a stamp sum coadded stamp for each result.
+     The output is a 3-d numpy array of shape (num results, stamp width, stamp width)
+
+You can specify a subset of indices (rows in the results file) using the --indices flag.
+For example "--indices=1,3,5" will generate stamps from rows 1, 3, and 5.
+"""
 
 import argparse
 import logging
