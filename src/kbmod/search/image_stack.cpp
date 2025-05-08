@@ -65,11 +65,6 @@ double ImageStack::get_obstime(int index) const {
     return images[index].get_obstime();
 }
 
-double ImageStack::get_zeroed_time(int index) const {
-    if (index < 0 || index >= images.size()) throw std::out_of_range("ImageStack index out of bounds.");
-    return images[index].get_obstime() - images[0].get_obstime();
-}
-
 std::vector<double> ImageStack::build_zeroed_times() const {
     std::vector<double> zeroed_times = std::vector<double>();
     if (images.size() > 0) {

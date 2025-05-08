@@ -92,7 +92,7 @@ class test_stamp_filters(unittest.TestCase):
         # Check that we get the coadd values if we use a Python image stack.
         keep2 = Results.from_trajectories([self.trj, trj2])
         keep2.update_obs_valid(np.array([valid1, valid2]))
-        append_coadds(keep2, self.stack_py, coadd_types, 5)
+        append_coadds(keep2, self.stack_py, ["mean"], 5)
         self.assertTrue("mean" in keep2.colnames)
         self.assertEqual(len(keep2), 2)
 
@@ -163,7 +163,7 @@ class test_stamp_filters(unittest.TestCase):
 
         # Check that everything works if the results are empty.
         keep2 = Results.from_trajectories([])
-        append_all_stamps(keep2, self.stack, 5)
+        append_all_stamps(keep2, self.ds.stack, 5)
         self.assertTrue("all_stamps" in keep2.colnames)
 
         # Check that everything works with a Python image stack.

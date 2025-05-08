@@ -363,6 +363,37 @@ class test_image_stack_py(unittest.TestCase):
         self.assertTrue(np.all(stack.var[0][is_unmasked] > 0.0))
         self.assertTrue(np.all(stack.var[0][is_unmasked] <= 200.0))
 
+    def test_image_stack_py_sort_by_time(self):
+        """Test that we can sort an ImageStackPy by time."""
+        num_times = 5
+
+        times = [1, 3, 5, 4, 2]
+        sci = [np.full((3, 3), float(i)) for i in range(num_times)]
+        var = [np.full((3, 3), float(i)) for i in range(num_times)]
+        psf = [np.array([[float(i)]]) for i in range(num_times)]
+        stack = ImageStackPy(times, sci, var, psfs=psf)
+
+        # All images are in the original order.
+        for idx in range(num_times):
+            self.assertTrue(np.all(stack.sci[idx] == float(idx)))
+            self.assertTrue(np.all(stack.var[idx] == float(idx)))
+            self.assertTrue(np.all(stack.psfs[idx] == np.array([[float(idx)]])))
+            self.assertEqual(stack.get_obstime(idx), times[idx])
+        self.assertTrue(np.allclose(stack.times, times))
+        self.assertTrue(np.allclose(stack.zeroed_times, [0, 2, 4, 3, 1]))
+
+        # Sort the images by time.
+        stack.sort_by_time()
+
+        # Check that the images are now in sorted order.
+        expected_order = [0, 4, 1, 3, 2]
+        for idx, org_time in enumerate(expected_order):
+            self.assertTrue(np.all(stack.sci[idx] == float(org_time)))
+            self.assertTrue(np.all(stack.var[idx] == float(org_time)))
+            self.assertTrue(np.all(stack.psfs[idx] == np.array([[float(org_time)]])))
+        self.assertTrue(np.allclose(stack.times, times, [1, 2, 3, 4, 5]))
+        self.assertTrue(np.allclose(stack.zeroed_times, [0, 1, 2, 3, 4]))
+
     def test_image_stack_py_validate(self):
         """Tests that we can validate an ImageStackPy."""
         # Turn off the warnings for this test.
