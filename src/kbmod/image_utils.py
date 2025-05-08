@@ -151,7 +151,12 @@ def create_stamps_from_image_stack_xy(stack, radius, xvals, yvals, to_include=No
     num_times = stack.num_times
 
     # Copy the references to the raw image data.
-    img_data = [stack.get_single_image(i).sci for i in range(num_times)]
+    if isinstance(stack, ImageStackPy):
+        img_data = stack.sci
+    elif isinstance(stack, ImageStack):
+        img_data = [stack.get_single_image(i).sci for i in range(num_times)]
+    else:
+        raise ValueError("Invalid image stack type. Must be ImageStack or ImageStackPy.")
 
     # Create the stamps.
     stamps = extract_stamp_stack(img_data, xvals, yvals, radius, to_include=to_include)

@@ -203,6 +203,10 @@ class ImageStackPy:
         """Return the total number of pixels in the stack."""
         return self.height * self.width * self.num_times
 
+    def get_total_pixels(self):
+        """Return the total number of pixels in the stack."""
+        return self.height * self.width * self.num_times
+
     def get_obstime(self, index):
         """Retrieve the time stamp for a given image.
 

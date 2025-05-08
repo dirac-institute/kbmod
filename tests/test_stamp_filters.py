@@ -93,7 +93,7 @@ class test_stamp_filters(unittest.TestCase):
         keep2 = Results.from_trajectories([self.trj, trj2])
         keep2.update_obs_valid(np.array([valid1, valid2]))
         append_coadds(keep2, self.stack_py, ["mean"], 5)
-        self.assertTrue("mean" in keep2.colnames)
+        self.assertTrue("coadd_mean" in keep2.colnames)
         self.assertEqual(len(keep2), 2)
 
     def test_append_coadds(self):
