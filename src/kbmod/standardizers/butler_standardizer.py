@@ -513,8 +513,6 @@ class ButlerStandardizer(Standardizer):
 
     def toLayeredImage(self):
         masks = self.standardizeMaskImage()
-        # This is required atm because RawImage can not
-        # support different types, TODO: update when fixed
         mask = masks[0].astype(np.float32)
         imgs = [
             LayeredImagePy(

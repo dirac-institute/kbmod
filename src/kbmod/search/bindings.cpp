@@ -8,9 +8,7 @@ namespace py = pybind11;
 
 #include "logging.h"
 #include "common.h"
-#include "geom.h"
 
-#include "raw_image.cpp"
 #include "layered_image.cpp"
 #include "image_stack.cpp"
 #include "cpu_search_algorithms.cpp"
@@ -31,12 +29,7 @@ PYBIND11_MODULE(search, m) {
             .value("STAMP_VAR_WEIGHTED", search::StampType::STAMP_VAR_WEIGHTED)
             .export_values();
     logging::logging_bindings(m);
-    indexing::index_bindings(m);
-    indexing::point_bindings(m);
-    indexing::rectangle_bindings(m);
-    indexing::geom_functions(m);
     search::cpu_search_algorithms_bindings(m);
-    search::raw_image_bindings(m);
     search::layered_image_bindings(m);
     search::image_stack_bindings(m);
     search::stack_search_bindings(m);

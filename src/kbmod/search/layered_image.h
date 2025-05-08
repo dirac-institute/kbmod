@@ -7,7 +7,6 @@
 #include <random>
 #include <stdexcept>
 
-#include "raw_image.h"
 #include "common.h"
 #include "pydocs/layered_image_docs.h"
 #include "logging.h"
@@ -16,9 +15,6 @@
 namespace search {
 class LayeredImage {
 public:
-    explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const Image& psf,
-                          double obs_time = -1.0);
-
     // Build a layered image from the underlying matrices, taking ownership of the image data.
     explicit LayeredImage(Image& sci, Image& var, Image& msk, Image& psf, double obs_time);
 
@@ -40,13 +36,11 @@ public:
     void set_obstime(double new_obstime) { obstime = new_obstime; }
 
     // Getter functions for the data in the individual layers as Images.
-    Image& get_science_array() { return science.get_image(); }
-    Image& get_mask_array() { return mask.get_image(); }
-    Image& get_variance_array() { return variance.get_image(); }
+    Image& get_science_array() { return science; }
+    Image& get_mask_array() { return mask; }
+    Image& get_variance_array() { return variance; }
 
     // Masking functions.
-    void mask_pixel(const Index& idx);
-    void binarize_mask(int flags_to_keep);
     void apply_mask(int flags);
 
     // Convolve with a given PSF or the default one.
@@ -66,9 +60,9 @@ private:
     double obstime;
 
     Image psf;
-    RawImage science;
-    RawImage mask;
-    RawImage variance;
+    Image science;
+    Image mask;
+    Image variance;
 };
 
 } /* namespace search */

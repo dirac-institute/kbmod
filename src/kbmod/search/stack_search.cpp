@@ -329,7 +329,6 @@ void StackSearch::clear_results() {
 #ifdef Py_PYTHON_H
 static void stack_search_bindings(py::module& m) {
     using tj = search::Trajectory;
-    using ri = search::RawImage;
     using is = search::ImageStack;
     using ks = search::StackSearch;
 

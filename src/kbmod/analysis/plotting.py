@@ -12,7 +12,7 @@ from astropy.visualization import simple_norm, ZScaleInterval, AsinhStretch, Ima
 import matplotlib.pyplot as plt
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
-from kbmod.search import ImageStack, LayeredImage, RawImage
+from kbmod.search import ImageStack, LayeredImage
 from kbmod.results import Results
 from kbmod.trajectory_generator import TrajectoryGenerator
 
@@ -358,7 +358,7 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
 
     Parameters
     ----------
-    img : `np.ndarray`, `RawImage`, or `LayeredImage`
+    img : `np.ndarray` or `LayeredImage`
         The image data.
     ax : `matplotlib.pyplot.Axes` or `None`
         Axes, `None` by default.
@@ -394,9 +394,7 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
         pass
 
     # Check the image's type and convert to an numpy array.
-    if type(img) is RawImage:
-        img = img.image
-    elif type(img) is LayeredImage:
+    if type(img) is LayeredImage:
         img = img.sci
 
     # If the image array is 1-dimensional, see if it can be unpacked into a square

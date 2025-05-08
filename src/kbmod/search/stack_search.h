@@ -16,7 +16,6 @@
 #include "common.h"
 #include "cpu_search_algorithms.h"
 #include "debug_timer.h"
-#include "geom.h"
 #include "image_stack.h"
 #include "psi_phi_array_ds.h"
 #include "psi_phi_array_utils.h"

@@ -79,7 +79,7 @@ def make_fake_layered_image(
 
 
 def add_fake_object(img, x, y, flux, psf=None):
-    """Add a fake object to a LayeredImage or RawImage
+    """Add a fake object to a LayeredImage or numpy array.
 
     Parameters
     ----------

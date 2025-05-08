@@ -2,10 +2,8 @@ import math
 import numpy as np
 import unittest
 
-from astropy.io import fits
-
 from kbmod.core.psf import PSF
-from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
+from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 from kbmod.search import *
 
 
@@ -60,8 +58,16 @@ class test_LayeredImage(unittest.TestCase):
         mask = np.full((40, 30), 0, dtype=np.float32)
         mask[10, 12] = 1
 
-        # Create the layered image.
-        img2 = LayeredImage(sci, var, mask, PSF.make_gaussian_kernel(2.0).astype(np.float32), 1.0)
+        # Create the layered image. We use a copy of the
+        # arrays so that LayeredImage can take ownership.
+        img2 = LayeredImage(
+            np.copy(sci),
+            np.copy(var),
+            np.copy(mask),
+            PSF.make_gaussian_kernel(2.0).astype(np.float32),
+            1.0,
+        )
+
         self.assertEqual(img2.width, 30)
         self.assertEqual(img2.height, 40)
         self.assertEqual(img2.get_npixels(), 30.0 * 40.0)
@@ -77,8 +83,15 @@ class test_LayeredImage(unittest.TestCase):
         var0 = self.image.var
         msk0 = self.image.mask
 
-        # Create a copy of the image.
-        img_b = LayeredImage(sci0, var0, msk0, self.p, 1.0)
+        # Create a copy of the image.  We use a copy of the
+        # arrays so that LayeredImage can take ownership.
+        img_b = LayeredImage(
+            np.copy(sci0),
+            np.copy(var0),
+            np.copy(msk0),
+            self.p,
+            1.0,
+        )
 
         # A no-op PSF does not change the image.
         img_b.convolve_given_psf(np.array([[1.0]]))
@@ -104,34 +117,6 @@ class test_LayeredImage(unittest.TestCase):
         # Check that we retrieve the correct PSF.
         p2 = self.image.get_psf()
         self.assertEqual(p2.shape, (1, 1))
-
-    def test_mask_pixel(self):
-        self.image.mask_pixel(10, 15)
-        self.image.mask_pixel(22, 23)
-        sci = self.image.sci
-        for y in range(self.image.height):
-            for x in range(self.image.width):
-                expected = not ((x == 15 and y == 10) or (x == 23 and y == 22))
-                self.assertEqual(pixel_value_valid(sci[y, x]), expected)
-
-    def test_binarize_mask(self):
-        # Mask out a range of pixels.
-        mask = self.image.mask
-        for x in range(9):
-            mask[10, x] = x
-
-        # Only keep the mask for pixels with flags at
-        # bit positions 0 and 2 (1 + 4 = 5).
-        self.image.binarize_mask(5)
-        self.assertEqual(mask[10, 0], 0)
-        self.assertEqual(mask[10, 1], 1)
-        self.assertEqual(mask[10, 2], 0)
-        self.assertEqual(mask[10, 3], 1)
-        self.assertEqual(mask[10, 4], 1)
-        self.assertEqual(mask[10, 5], 1)
-        self.assertEqual(mask[10, 6], 1)
-        self.assertEqual(mask[10, 7], 1)
-        self.assertEqual(mask[10, 8], 0)
 
     def test_apply_mask(self):
         # Nothing is initially masked.
