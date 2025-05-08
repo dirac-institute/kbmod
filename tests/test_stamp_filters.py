@@ -2,8 +2,9 @@ import numpy as np
 import pathlib
 import unittest
 
-from kbmod.configuration import SearchConfiguration
+from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
+from kbmod.image_utils import extract_sci_images_from_stack, extract_var_images_from_stack
 from kbmod.filters.stamp_filters import *
 from kbmod.results import Results
 from kbmod.search import *
@@ -26,6 +27,13 @@ class test_stamp_filters(unittest.TestCase):
         # Insert a single fake object with known parameters.
         self.trj = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
         self.ds.insert_object(self.trj)
+
+        # Create a Python version of the image stack.
+        self.stack_py = ImageStackPy(
+            times=self.fake_times,
+            sci=extract_sci_images_from_stack(self.ds.stack),
+            var=extract_var_images_from_stack(self.ds.stack),
+        )
 
         current_dir = pathlib.Path(__file__).parent.resolve()
         self.model_path = pathlib.Path(current_dir, "data/test_model.keras")
@@ -51,6 +59,17 @@ class test_stamp_filters(unittest.TestCase):
         self.assertEqual(len(keep), 4)
         self.assertEqual(keep["coadd_mean"][0].shape, (11, 11))
 
+        # Check that we get the same coadd values if we use a Python image stack.
+        keep2 = Results.from_trajectories(trj_list)
+        append_coadds(keep2, self.stack_py, coadd_types, 5)
+        self.assertTrue("coadd_mean" in keep2.colnames)
+        self.assertEqual(len(keep2), 4)
+        self.assertEqual(keep2["coadd_mean"][0].shape, (11, 11))
+
+        # Check that the coadd values are the same.
+        for i in range(len(keep)):
+            np.testing.assert_allclose(keep["coadd_mean"][i], keep2["coadd_mean"][i])
+
     def test_get_coadds_and_filter_with_invalid(self):
         valid1 = [True] * self.image_count
         valid2 = [True] * self.image_count
@@ -69,6 +88,13 @@ class test_stamp_filters(unittest.TestCase):
         append_coadds(keep, self.ds.stack, ["mean"], 5)
         self.assertTrue("coadd_mean" in keep.colnames)
         self.assertEqual(len(keep), 2)
+
+        # Check that we get the coadd values if we use a Python image stack.
+        keep2 = Results.from_trajectories([self.trj, trj2])
+        keep2.update_obs_valid(np.array([valid1, valid2]))
+        append_coadds(keep2, self.stack_py, ["mean"], 5)
+        self.assertTrue("coadd_mean" in keep2.colnames)
+        self.assertEqual(len(keep2), 2)
 
     def test_append_coadds(self):
         # Create trajectories to test: 0) known good, 1) completely wrong
@@ -139,6 +165,16 @@ class test_stamp_filters(unittest.TestCase):
         keep2 = Results.from_trajectories([])
         append_all_stamps(keep2, self.ds.stack, 5)
         self.assertTrue("all_stamps" in keep2.colnames)
+
+        # Check that everything works with a Python image stack.
+        keep3 = Results.from_trajectories(trj_list)
+        append_all_stamps(keep3, self.stack_py, 5)
+        self.assertTrue("all_stamps" in keep3.colnames)
+        for i in range(len(keep3)):
+            stamps_array = keep3["all_stamps"][i]
+            self.assertEqual(stamps_array.shape[0], self.image_count)
+            self.assertEqual(stamps_array.shape[1], 11)
+            self.assertEqual(stamps_array.shape[2], 11)
 
     def test_filter_stamps_by_cnn(self):
         trj_list = [

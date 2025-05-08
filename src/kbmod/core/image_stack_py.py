@@ -203,6 +203,32 @@ class ImageStackPy:
         """Return the total number of pixels in the stack."""
         return self.height * self.width * self.num_times
 
+    def get_total_pixels(self):
+        """Return the total number of pixels in the stack."""
+        return self.height * self.width * self.num_times
+
+    def get_obstime(self, index):
+        """Retrieve the time stamp for a given image.
+
+        Notes
+        -----
+        This is a temporary bridge function to make the Python code look
+        more like the C++ code.
+
+        Parameters
+        ----------
+        index : int
+            The index of the image.
+
+        Returns
+        -------
+        obstime : float
+            The time stamp (in UTC MJD).
+        """
+        if index < 0 or index >= self.num_times:
+            raise IndexError(f"Index {index} out of range for ImageStack.")
+        return self.times[index]
+
     def num_masked_pixels(self):
         """Compute the number of masked pixels."""
         total = 0
@@ -396,6 +422,18 @@ class ImageStackPy:
         self.psfs[index] = img.psf
         self.times[index] = img.time
         self.zeroed_times[index] = img.time - self.times[0]
+
+    def sort_by_time(self):
+        """Sort the images in the stack by time."""
+        # Get the sorted indices.
+        sorted_indices = np.argsort(self.times)
+
+        # Sort the images.
+        self.sci = [self.sci[i] for i in sorted_indices]
+        self.var = [self.var[i] for i in sorted_indices]
+        self.psfs = [self.psfs[i] for i in sorted_indices]
+        self.times = self.times[sorted_indices]
+        self.zeroed_times = self.times - self.times[0]
 
     def get_matched_obstimes(self, query_times, threshold=0.0007):
         """Given a list of times, returns the indices of images that are close

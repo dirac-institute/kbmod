@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
-from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
+from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.image_utils import image_stack_from_components, stat_image_stack, validate_image_stack
 from kbmod.reprojection_utils import invert_correct_parallax
 from kbmod.search import ImageStack, LayeredImage, Logging, Trajectory
@@ -29,7 +29,6 @@ from kbmod.wcs_utils import (
     deserialize_wcs,
     extract_wcs_from_hdu_header,
     serialize_wcs,
-    wcs_fits_equal,
 )
 
 

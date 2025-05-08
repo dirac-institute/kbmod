@@ -19,6 +19,10 @@ static const auto DOC_ImageStack = R"doc(
       Image width, in pixels.
   num_times : `int`
       The number of images (times) in the stack.
+  zeroed_times : `list` of `float`
+      The times of the images in the stack, relative to the first image.
+      This is computed on the fly, so it has linear cost for access.
+      The attribute is provided for convenience in converting code to python.
   )doc";
 
 static const auto DOC_ImageStack_get_images = R"doc(
@@ -102,28 +106,6 @@ static const auto DOC_ImageStack_get_obstime = R"doc(
   -------
   time : `double`
       The observation time (in UTC MJD).
-
-  Raises
-  ------
-  Raises a ``IndexError`` if the index is out of bounds.
-  )doc";
-
-static const auto DOC_ImageStack_get_zeroed_time = R"doc(
-  Returns a single image's observation time relative to that
-  of the first image. This can return negative times if the
-  images are not sorted by time.
-
-  zeroed_time[i] = time[i] - time[0] 
-
-  Parameters
-  ----------
-  index : `int`
-      The index of the LayeredImage to retrieve.
-
-  Returns
-  -------
-  time : `double`
-      The zeroed observation time (in days).
 
   Raises
   ------

@@ -521,7 +521,7 @@ def append_positions_to_results(workunit, results):
         return  # Nothing to do
 
     num_times = workunit.im_stack.num_times
-    times = workunit.im_stack.build_zeroed_times()
+    times = workunit.im_stack.zeroed_times  # linear cost
 
     # Predict where each candidate trajectory will be at each time step in the
     # common WCS frame. These are the pixel locations used to assess the trajectory.

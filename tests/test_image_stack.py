@@ -90,7 +90,6 @@ class test_ImageStack(unittest.TestCase):
         """Check that we can access specific times.
         Check that we can build the full zeroed times list."""
         self.assertEqual(self.im_stack.get_obstime(1), 3.0)
-        self.assertEqual(self.im_stack.get_zeroed_time(1), 2.0)
 
         # Check that we can build the full zeroed times list.
         times = self.im_stack.build_zeroed_times()
@@ -120,10 +119,10 @@ class test_ImageStack(unittest.TestCase):
             make_fake_layered_image(10, 15, 0.0, 0.0, 2.0, local_psf),
         ]
         im_stack = ImageStack(images)
-        self.assertListEqual(im_stack.build_zeroed_times(), [0.0, -2.0, 1.0, 2.0, -1.0])
+        self.assertListEqual(im_stack.zeroed_times, [0.0, -2.0, 1.0, 2.0, -1.0])
 
         im_stack.sort_by_time()
-        self.assertListEqual(im_stack.build_zeroed_times(), [0.0, 1.0, 2.0, 3.0, 4.0])
+        self.assertListEqual(im_stack.zeroed_times, [0.0, 1.0, 2.0, 3.0, 4.0])
 
 
 if __name__ == "__main__":
