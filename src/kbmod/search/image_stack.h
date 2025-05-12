@@ -40,7 +40,6 @@ public:
 
     // Functions for getting or using times.
     double get_obstime(int index) const;
-    double get_zeroed_time(int index) const;
     std::vector<double> build_zeroed_times() const;  // Linear cost.
     void sort_by_time();
 
