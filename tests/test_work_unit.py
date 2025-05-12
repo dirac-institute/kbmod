@@ -4,7 +4,6 @@ from astropy.wcs import WCS
 from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
 
-import logging
 import numpy as np
 import numpy.testing as npt
 import os
@@ -61,7 +60,7 @@ class test_work_unit(unittest.TestCase):
 
         # Create a fake WCS
         self.wcs = make_fake_wcs(200.6145, -7.7888, 500, 700, 0.00027)
-        self.per_image_wcs = per_image_wcs = [self.wcs for i in range(self.num_images)]
+        self.per_image_wcs = [self.wcs for _ in range(self.num_images)]
 
         self.diff_wcs = []
         for i in range(self.num_images):
@@ -416,12 +415,11 @@ class test_work_unit(unittest.TestCase):
         work = WorkUnit(self.im_stack, self.config, self.wcs, None)
         self.assertAlmostEqual(work.compute_ecliptic_angle(), -0.381541020495931)
 
-        # If we do not have a WCS, we get None for the ecliptic angle.  We disable
-        # logging to avoid the warning that there is no WCS.
-        logging.disable(logging.CRITICAL)
-        work2 = WorkUnit(self.im_stack, self.config, None, None)
-        self.assertIsNone(work2.compute_ecliptic_angle())
-        logging.disable(logging.NOTSET)
+        # If we do not have a WCS, we get None for the ecliptic angle.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            work2 = WorkUnit(self.im_stack, self.config, None, None)
+            self.assertIsNone(work2.compute_ecliptic_angle())
 
     def test_image_positions_to_original_icrs_invalid_format(self):
         work = WorkUnit(
