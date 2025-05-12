@@ -245,7 +245,14 @@ class test_psi_phi_array(unittest.TestCase):
 
         # Create the PsiPhiArray from the ImageStack.
         arr = PsiPhiArray()
-        fill_psi_phi_array_from_image_arrays(arr, 4, im_stack.sci, im_stack.var, im_stack.psfs, im_stack.zeroed_times)
+        fill_psi_phi_array_from_image_arrays(
+            arr,
+            4,  # num_bytes
+            im_stack.sci,
+            im_stack.var,
+            im_stack.psfs,
+            im_stack.zeroed_times,
+        )
 
         # Check the meta data.
         self.assertEqual(arr.num_times, num_times)

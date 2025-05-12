@@ -500,7 +500,7 @@ class ImageStackPy:
         return is_valid
 
 
-def make_fake_image_stack(width, height, times, noise_level=2.0, psf_val=0.5, rng=None):
+def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, rng=None):
     """Create a fake ImageStack for testing.
 
     Parameters
