@@ -3,6 +3,7 @@
 import logging
 import numpy as np
 
+from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.core.stamp_utils import extract_stamp_stack
 from kbmod.search import ImageStack, LayeredImage
 
@@ -129,7 +130,7 @@ def create_stamps_from_image_stack_xy(stack, radius, xvals, yvals, to_include=No
 
     Parameters
     ----------
-    stack : `ImageStack`
+    stack : `ImageStack` or `ImageStackPy`
         The stack of images to use.
     xvals : `list` of `int`
         The x-coordinate of the stamp center at each time.
@@ -150,7 +151,12 @@ def create_stamps_from_image_stack_xy(stack, radius, xvals, yvals, to_include=No
     num_times = stack.num_times
 
     # Copy the references to the raw image data.
-    img_data = [stack.get_single_image(i).sci for i in range(num_times)]
+    if isinstance(stack, ImageStackPy):
+        img_data = stack.sci
+    elif isinstance(stack, ImageStack):
+        img_data = [stack.get_single_image(i).sci for i in range(num_times)]
+    else:
+        raise ValueError("Invalid image stack type. Must be ImageStack or ImageStackPy.")
 
     # Create the stamps.
     stamps = extract_stamp_stack(img_data, xvals, yvals, radius, to_include=to_include)
@@ -163,7 +169,7 @@ def create_stamps_from_image_stack(stack, trj, radius, to_include=None):
 
     Parameters
     ----------
-    stack : `ImageStack`
+    stack : `ImageStack` or `ImageStackPy`
         The stack of images to use.
     trj : `Trajectory`
         The trajectory to project to each time.
@@ -180,7 +186,7 @@ def create_stamps_from_image_stack(stack, trj, radius, to_include=None):
         The stamps.
     """
     # Predict the Trajectory's position.
-    times = np.asarray(stack.build_zeroed_times())
+    times = np.asarray(stack.zeroed_times)  # linear cost
     xvals = (trj.x + times * trj.vx + 0.5).astype(int)
     yvals = (trj.y + times * trj.vy + 0.5).astype(int)
 

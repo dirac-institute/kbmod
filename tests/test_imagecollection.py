@@ -6,7 +6,6 @@ import unittest
 import astropy.table as atbl
 import numpy as np
 from astropy.coordinates import EarthLocation, SkyCoord
-from astropy.time import Time
 import astropy.units as u
 
 from kbmod import ImageCollection, Standardizer

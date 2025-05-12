@@ -9,15 +9,12 @@ or used directly.
 import os
 import random
 import numpy as np
-from pathlib import Path
 
 from astropy.io import fits
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.psf import PSF
 from kbmod.search import *
-from kbmod.search import Logging
-from kbmod.wcs_utils import append_wcs_to_hdu_header
 from kbmod.work_unit import WorkUnit
 
 def make_fake_layered_image(

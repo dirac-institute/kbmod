@@ -3,7 +3,7 @@ import numpy as np
 
 from kbmod.analysis.plotting import plot_image
 from kbmod.image_utils import create_stamps_from_image_stack_xy
-from kbmod.search import Logging, Trajectory
+from kbmod.search import Logging
 from kbmod.trajectory_utils import fit_trajectory_from_pixels, evaluate_trajectory_mse
 from kbmod.util_functions import get_matched_obstimes
 
