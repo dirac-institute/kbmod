@@ -3,6 +3,8 @@ import os
 import tempfile
 import unittest
 
+from pathlib import Path
+
 from kbmod.fake_data.fake_data_creator import *
 from kbmod.search import *
 from kbmod.wcs_utils import make_fake_wcs

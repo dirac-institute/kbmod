@@ -3,7 +3,6 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 
 from kbmod.filters.clustering_grid import TrajectoryClusterGrid
-from kbmod.results import Results
 import kbmod.search as kb
 
 logger = kb.Logging.getLogger(__name__)

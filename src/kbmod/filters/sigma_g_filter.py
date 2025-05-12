@@ -7,12 +7,10 @@ by Smotherman et. al. 2021
 
 import logging
 import numpy as np
-import os
 import torch
 
 from scipy.special import erfinv
 
-from kbmod.results import Results
 from kbmod.search import DebugTimer
 
 
