@@ -83,22 +83,6 @@ class test_common(unittest.TestCase):
         self.assertEqual(trj.get_x_index(1.0), 7)
         self.assertEqual(trj.get_y_index(1.0), 9)
 
-    def test_trajectory_is_close(self):
-        trj = Trajectory(x=5, y=10, vx=2.0, vy=-1.0)
-
-        trj2 = Trajectory(x=5, y=10, vx=2.0, vy=-1.0)
-        self.assertTrue(trj.is_close(trj2, 1e-6, 1e-6))
-
-        trj3 = Trajectory(x=6, y=9, vx=2.1, vy=-1.1)
-        self.assertFalse(trj.is_close(trj3, 0.01, 0.01))
-        self.assertFalse(trj.is_close(trj3, 1.0, 0.01))
-        self.assertFalse(trj.is_close(trj3, 10.0, 0.01))
-        self.assertTrue(trj.is_close(trj3, 2.0, 0.5))
-
-        trj3 = Trajectory(x=5, y=10, vx=2.01, vy=-0.99)
-        self.assertFalse(trj.is_close(trj3, 0.0001, 0.0001))
-        self.assertTrue(trj.is_close(trj3, 0.0001, 0.02))
-
 
 if __name__ == "__main__":
     unittest.main()

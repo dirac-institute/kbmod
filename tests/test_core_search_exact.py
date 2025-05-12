@@ -55,7 +55,6 @@ class test_search_exact(unittest.TestCase):
         config = SearchConfiguration()
         config.set("do_clustering", False)
         config.set("do_mask", False)
-        config.set("do_stamp_filter", False)
         config.set("lh_level", 0.0)
         config.set("num_obs", 1)
         config.set("sigmaG_lims", [5, 95])

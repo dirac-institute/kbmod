@@ -3,14 +3,10 @@
 import numpy as np
 
 from kbmod.search import (
-    extract_all_trajectory_flux,
-    extract_all_trajectory_lh,
-    extract_all_trajectory_obs_count,
     extract_all_trajectory_vx,
     extract_all_trajectory_vy,
     extract_all_trajectory_x,
     extract_all_trajectory_y,
-    Trajectory,
 )
 
 
