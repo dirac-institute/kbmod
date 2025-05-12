@@ -67,11 +67,6 @@ def configure_kb_search_stack(search, config):
     else:
         search.disable_gpu_sigmag_filter()
 
-    # If we are using an encoded image representation on GPU, enable it and
-    # set the parameters.
-    if config["encode_num_bytes"] > 0:
-        search.enable_gpu_encoding(config["encode_num_bytes"])
-
     # Clear the cached results.
     search.clear_results()
 
@@ -310,7 +305,7 @@ class SearchRunner:
             raise ValueError("Insufficient GPU memory to conduct the search.")
 
         # Create the search object which will hold intermediate data and results.
-        search = kb.StackSearch(stack)
+        search = kb.StackSearch(stack, config["encode_num_bytes"])
         configure_kb_search_stack(search, config)
 
         # Do the actual search.
@@ -328,8 +323,9 @@ class SearchRunner:
         # Load the results.
         keep = self.load_and_filter_results(search, config)
 
-        # Force the deletion of the psi and phi data.
-        search.clear_psi_phi()
+        # Delete the search object to force the memory cleanup.
+        # Of the psi/phi images on CPU and GPU.
+        del search
 
         self._end_phase("do_core_search")
         return keep

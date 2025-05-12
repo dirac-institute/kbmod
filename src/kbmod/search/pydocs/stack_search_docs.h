@@ -17,6 +17,16 @@ static const auto DOC_StackSearch = R"doc(
       The width of each image in pixels.
   zeroed_times : `list`
       The times shift so the first time is at 0.0.
+
+  Parameters
+  ----------
+  imstack : `ImageStack`
+      The image stack to search.
+  num_bytes : `int`
+      The number of bytes to use for encoding the data. This is used
+      to set the encoding level for the data copied to the GPU. The
+      default value is -1, which means no encoding is done.
+      The other options are 1 (uint8), 2 (uint16), and 4 (float).
   )doc";
 
 static const auto DOC_StackSearch_search = R"doc(
@@ -70,18 +80,6 @@ static const auto DOC_StackSearch_enable_gpu_sigmag_filter = R"doc(
   Raises
   ------
   Raises a ``RunTimeError`` if invalid values are provided.
-  )doc";
-
-static const auto DOC_StackSearch_enable_gpu_encoding = R"doc(
-  Set the encoding level for the data copied to the GPU.
-      1 = uint8
-      2 = uint16
-      4 or -1 = float
-
-  Parameters
-  ----------
-  encode_num_bytes : `int`
-      The number of bytes to use for encoding the data.
   )doc";
 
 static const auto DOC_StackSearch_set_start_bounds_x = R"doc(
@@ -157,14 +155,6 @@ static const auto DOC_StackSearch_get_all_psi_phi_curves = R"doc(
      A shape (R, 2T) matrix where R is the number of trajectories and
      T is the number of time steps. The first T columns contain the psi
      values and the second T columns contain the phi columns.
-  )doc";
-
-static const auto DOC_StackSearch_clear_psi_phi = R"doc(
-  Clear the pre-computed psi and phi data.
-  )doc";
-
-static const auto DOC_StackSearch_prepare_psi_phi = R"doc(
-  Compute the cached psi and phi data.
   )doc";
 
 static const auto DOC_StackSearch_get_number_total_results = R"doc(
