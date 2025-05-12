@@ -129,7 +129,7 @@ class test_trajectory_generator(unittest.TestCase):
         )
         self.assertRaises(
             ValueError, EclipticCenteredSearch, [0.0, 3.0, 0], [-0.25, 0.25, 2], given_ecliptic=0.0
-	    )
+        )
         self.assertRaises(
             ValueError, EclipticCenteredSearch, [3.5, 3.0, 3], [-0.25, 0.25, 2], given_ecliptic=0.0
         )
