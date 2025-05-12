@@ -8,9 +8,10 @@ from kbmod.search import (
     KB_NO_DATA,
     convolve_image_cpu,
     convolve_image_gpu,
-    generate_phi_image,
-    generate_psi_image,
+    generate_phi,
+    generate_psi,
     pixel_value_valid,
+    square_psf_values,
 )
 
 
@@ -243,7 +244,18 @@ class test_image_utils_cpp(unittest.TestCase):
                 # Compute the manually computed result with the convolution.
                 self.assertAlmostEqual(result[y, x], ave, delta=0.001)
 
-    def test_psi_and_phi_image(self):
+    def test_square_psf_values(self):
+        """Test that we can square the values of a PSF."""
+        psf = PSF.make_gaussian_kernel(1.0)
+
+        psf_sq = square_psf_values(psf)
+
+        self.assertEqual(psf.shape, psf_sq.shape)
+        for row in range(psf.shape[0]):
+            for col in range(psf.shape[1]):
+                self.assertAlmostEqual(psf_sq[row, col], psf[row, col] ** 2, delta=1e-5)
+
+    def test_psi_and_phi(self):
         # Create fake science and variance images.
         height = 5
         width = 6
@@ -267,10 +279,10 @@ class test_image_utils_cpp(unittest.TestCase):
         p = np.array([[1.0]], dtype=np.float32)
 
         # Generate and check psi and phi images.
-        psi = generate_psi_image(sci, var, p)
+        psi = generate_psi(sci, var, p)
         self.assertEqual(psi.shape, (5, 6))
 
-        phi = generate_phi_image(var, p)
+        phi = generate_phi(var, p)
         self.assertEqual(phi.shape, (5, 6))
 
         for y in range(height):

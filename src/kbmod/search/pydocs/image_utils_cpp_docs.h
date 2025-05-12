@@ -52,8 +52,9 @@ static const auto DOC_image_utils_cpp_convolve = R"doc(
       The resulting image.
 )doc";
 
-static const auto DOC_image_utils_square_psf = R"doc(
-  Compute the (unnormalized) square of a psf.
+static const auto DOC_image_utils_square_psf_values = R"doc(
+  Compute the (unnormalized) square of a psf. This squares each
+  value in the PSF kernel.
 
   Parameters
   ----------
@@ -66,7 +67,7 @@ static const auto DOC_image_utils_square_psf = R"doc(
       The resulting kernel.
 )doc";
 
-static const auto DOC_image_utils_generate_psi_image = R"doc(
+static const auto DOC_image_utils_generate_psi = R"doc(
   Generates the full psi image where the value of each pixel p in the
   resulting image is science[p] / variance[p], skipping masked pixels.
   Convolves the resulting image with the PSF.
@@ -86,7 +87,7 @@ static const auto DOC_image_utils_generate_psi_image = R"doc(
       A numpy array the same shape as the input image.
   )doc";
 
-static const auto DOC_image_utils_generate_phi_image = R"doc(
+static const auto DOC_image_utils_generate_phi = R"doc(
   Generates the full psi image where the value of each pixel p in the
   resulting image is 1.0 / variance[p], skipping masked pixels.
 

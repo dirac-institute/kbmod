@@ -526,8 +526,8 @@ def make_fake_image_stack(width, height, times, noise_level=2.0, psf_val=0.5, rn
     times = np.asarray(times)
 
     # Create the science and variance images.
-    sci = rng.normal(0.0, noise_level, (len(times), height, width)).astype(np.float32)
-    var = np.full((len(times), height, width), noise_level**2).astype(np.float32)
+    sci = [rng.normal(0.0, noise_level, (height, width)).astype(np.float32) for i in range(len(times))]
+    var = [np.full((height, width), noise_level**2).astype(np.float32) for i in range(len(times))]
 
     # Create the PSF information.
     psf_kernel = PSF.make_gaussian_kernel(psf_val)

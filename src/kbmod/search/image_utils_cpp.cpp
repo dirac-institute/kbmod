@@ -105,7 +105,7 @@ Image convolve_image(Image& image, Image& psf) {
     return result;
 }
 
-Image square_psf(Image& given_psf) {
+Image square_psf_values(Image& given_psf) {
     // Make a copy of the PSF.
     Image psf_sq = given_psf;
 
@@ -121,7 +121,7 @@ Image square_psf(Image& given_psf) {
 // --- Functions for Psi and Phi Generation --------------
 // -------------------------------------------------------
 
-Image generate_psi_image(Image& sci, Image& var, Image& psf) {
+Image generate_psi(Image& sci, Image& var, Image& psf) {
     const uint64_t height = sci.rows();
     const uint64_t width = sci.cols();
     const uint64_t num_pixels = height * width;
@@ -148,7 +148,7 @@ Image generate_psi_image(Image& sci, Image& var, Image& psf) {
     return convolve_image(result, psf);
 }
 
-Image generate_phi_image(Image& var, Image& psf) {
+Image generate_phi(Image& var, Image& psf) {
     const uint64_t height = var.rows();
     const uint64_t width = var.cols();
     const uint64_t num_pixels = height * width;
@@ -180,13 +180,13 @@ static void image_utils_cpp(py::module& m) {
           py::arg("psf").noconvert(true), pydocs::DOC_image_utils_cpp_convolve_gpu);
     m.def("convolve_image", &search::convolve_image, py::arg("image").noconvert(true),
           py::arg("psf").noconvert(true), pydocs::DOC_image_utils_cpp_convolve);
-    m.def("square_psf", &search::square_psf, py::arg("given_psf").noconvert(true),
-          pydocs::DOC_image_utils_square_psf);
-    m.def("generate_psi_image", &search::generate_psi_image, py::arg("sci").noconvert(true),
+    m.def("square_psf_values", &search::square_psf_values, py::arg("given_psf").noconvert(true),
+          pydocs::DOC_image_utils_square_psf_values);
+    m.def("generate_psi", &search::generate_psi, py::arg("sci").noconvert(true),
           py::arg("var").noconvert(true), py::arg("psf").noconvert(true),
-          pydocs::DOC_image_utils_generate_psi_image);
-    m.def("generate_phi_image", &search::generate_phi_image, py::arg("var").noconvert(true),
-          py::arg("psf").noconvert(true), pydocs::DOC_image_utils_generate_phi_image);
+          pydocs::DOC_image_utils_generate_psi);
+    m.def("generate_phi", &search::generate_phi, py::arg("var").noconvert(true),
+          py::arg("psf").noconvert(true), pydocs::DOC_image_utils_generate_phi);
 }
 #endif /* Py_PYTHON_H */
 
