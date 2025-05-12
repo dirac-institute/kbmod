@@ -132,8 +132,7 @@ def perform_search(im_stack, res_filename, default_psf):
     # warning about missing WCS.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        im_stack = ImageStack(im_stack)
-    wu = WorkUnit(im_stack=im_stack, config=config)
+        wu = WorkUnit(im_stack=im_stack, config=config)
     wu.org_img_meta["visit"] = [f"img_{i}" for i in range(im_stack.num_times)]
 
     rs = SearchRunner()
