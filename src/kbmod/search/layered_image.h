@@ -46,7 +46,6 @@ public:
     // Convolve with a given PSF or the default one.
     void convolve_psf();
     void convolve_given_psf(Image& psf);
-    Image square_psf(Image& psf);
 
     virtual ~LayeredImage(){};
 
