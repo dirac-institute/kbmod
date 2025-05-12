@@ -6,6 +6,10 @@
 
 namespace search {
 
+// -------------------------------------------------------
+// --- Convolution Functions -----------------------------
+// -------------------------------------------------------
+
 #ifdef HAVE_CUDA
 // Performs convolution between an image represented as an array of floats
 // and a PSF on a GPU device.
@@ -101,11 +105,88 @@ Image convolve_image(Image& image, Image& psf) {
     return result;
 }
 
+Image square_psf_values(Image& given_psf) {
+    // Make a copy of the PSF.
+    Image psf_sq = given_psf;
+
+    for (int r = 0; r < given_psf.rows(); ++r) {
+        for (int c = 0; c < given_psf.cols(); ++c) {
+            psf_sq(r, c) = given_psf(r, c) * given_psf(r, c);
+        }
+    }
+    return psf_sq;
+}
+
+// -------------------------------------------------------
+// --- Functions for Psi and Phi Generation --------------
+// -------------------------------------------------------
+
+Image generate_psi(Image& sci, Image& var, Image& psf) {
+    const uint64_t height = sci.rows();
+    const uint64_t width = sci.cols();
+    const uint64_t num_pixels = height * width;
+    if ((height != var.rows()) || (width != var.cols())) {
+        throw std::runtime_error("Science and Variance images must be the same dimensions.");
+    }
+
+    Image result = Image::Zero(height, width);
+    float* result_arr = result.data();
+    float* sci_array = sci.data();
+    float* var_array = var.data();
+
+    // Set each of the result pixels.
+    for (uint64_t p = 0; p < num_pixels; ++p) {
+        float var_pix = var_array[p];
+        if (std::isfinite(var_pix) && var_pix != 0.0 && std::isfinite(sci_array[p])) {
+            result_arr[p] = sci_array[p] / var_pix;
+        } else {
+            result_arr[p] = NO_DATA;
+        }
+    }
+
+    // Convolve with the PSF.
+    return convolve_image(result, psf);
+}
+
+Image generate_phi(Image& var, Image& psf) {
+    const uint64_t height = var.rows();
+    const uint64_t width = var.cols();
+    const uint64_t num_pixels = height * width;
+
+    Image result = Image::Zero(height, width);
+    float* result_arr = result.data();
+    float* var_array = var.data();
+
+    // Set each of the result pixels.
+    for (uint64_t p = 0; p < num_pixels; ++p) {
+        float var_pix = var_array[p];
+        if (std::isfinite(var_pix) && var_pix != 0.0) {
+            result_arr[p] = 1.0 / var_pix;
+        } else {
+            result_arr[p] = NO_DATA;
+        }
+    }
+
+    // Convolve with the PSF squared.
+    Image psfsq = square_psf_values(psf);  // Copy
+    return convolve_image(result, psfsq);
+}
+
 #ifdef Py_PYTHON_H
 static void image_utils_cpp(py::module& m) {
-    m.def("convolve_image_cpu", &search::convolve_image_cpu, pydocs::DOC_image_utils_cpp_convolve_cpu);
-    m.def("convolve_image_gpu", &search::convolve_image_gpu, pydocs::DOC_image_utils_cpp_convolve_gpu);
-    m.def("convolve_image", &search::convolve_image, pydocs::DOC_image_utils_cpp_convolve);
+    m.def("convolve_image_cpu", &search::convolve_image_cpu, py::arg("image").noconvert(true),
+          py::arg("psf").noconvert(true), pydocs::DOC_image_utils_cpp_convolve_cpu);
+    m.def("convolve_image_gpu", &search::convolve_image_gpu, py::arg("image").noconvert(true),
+          py::arg("psf").noconvert(true), pydocs::DOC_image_utils_cpp_convolve_gpu);
+    m.def("convolve_image", &search::convolve_image, py::arg("image").noconvert(true),
+          py::arg("psf").noconvert(true), pydocs::DOC_image_utils_cpp_convolve);
+    m.def("square_psf_values", &search::square_psf_values, py::arg("given_psf").noconvert(true),
+          pydocs::DOC_image_utils_square_psf_values);
+    m.def("generate_psi", &search::generate_psi, py::arg("sci").noconvert(true),
+          py::arg("var").noconvert(true), py::arg("psf").noconvert(true),
+          pydocs::DOC_image_utils_generate_psi);
+    m.def("generate_phi", &search::generate_phi, py::arg("var").noconvert(true),
+          py::arg("psf").noconvert(true), pydocs::DOC_image_utils_generate_phi);
 }
 #endif /* Py_PYTHON_H */
 

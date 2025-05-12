@@ -70,23 +70,11 @@ void LayeredImage::convolve_given_psf(Image& given_psf) {
     science = std::move(convolve_image(science, given_psf));
 
     // Square the PSF use that on the variance image.
-    Image psfsq = square_psf(given_psf);
+    Image psfsq = square_psf_values(given_psf);
     variance = std::move(convolve_image(variance, psfsq));
 }
 
 void LayeredImage::convolve_psf() { convolve_given_psf(psf); }
-
-Image LayeredImage::square_psf(Image& given_psf) {
-    // Make a copy of the PSF.
-    Image psf_sq = given_psf;
-
-    for (int r = 0; r < given_psf.rows(); ++r) {
-        for (int c = 0; c < given_psf.cols(); ++c) {
-            psf_sq(r, c) = given_psf(r, c) * given_psf(r, c);
-        }
-    }
-    return psf_sq;
-}
 
 void LayeredImage::apply_mask(int flags) {
     for (unsigned int r = 0; r < height; ++r) {
@@ -101,49 +89,13 @@ void LayeredImage::apply_mask(int flags) {
 }
 
 Image LayeredImage::generate_psi_image() {
-    Image result = Image::Zero(height, width);
-    float* result_arr = result.data();
-    float* sci_array = science.data();
-    float* var_array = variance.data();
-
-    // Set each of the result pixels.
-    const uint64_t num_pixels = get_npixels();
-    uint64_t no_data_count = 0;
-    for (uint64_t p = 0; p < num_pixels; ++p) {
-        float var_pix = var_array[p];
-        if (pixel_value_valid(var_pix) && var_pix != 0.0 && pixel_value_valid(sci_array[p])) {
-            result_arr[p] = sci_array[p] / var_pix;
-        } else {
-            result_arr[p] = NO_DATA;
-            no_data_count += 1;
-        }
-    }
-    // Convolve with the PSF.
-    return convolve_image(result, psf);
+    return generate_psi(science, variance, psf);
 }
 
 Image LayeredImage::generate_phi_image() {
-    Image result = Image::Zero(height, width);
-    float* result_arr = result.data();
-    float* var_array = variance.data();
-
-    // Set each of the result pixels.
-    const uint64_t num_pixels = get_npixels();
-    uint64_t no_data_count = 0;
-    for (uint64_t p = 0; p < num_pixels; ++p) {
-        float var_pix = var_array[p];
-        if (pixel_value_valid(var_pix) && var_pix != 0.0) {
-            result_arr[p] = 1.0 / var_pix;
-        } else {
-            result_arr[p] = NO_DATA;
-            no_data_count += 1;
-        }
-    }
-
-    // Convolve with the PSF squared.
-    Image psfsq = square_psf(psf);  // Copy
-    return convolve_image(result, psfsq);
+    return generate_phi(variance, psf);
 }
+
 
 #ifdef Py_PYTHON_H
 static void layered_image_bindings(py::module& m) {

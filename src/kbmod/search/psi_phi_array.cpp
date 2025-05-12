@@ -355,6 +355,46 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
     result_data.set_time_array(zeroed_times);
 }
 
+
+void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_bytes,
+                                          std::vector<Image>& sci_imgs,
+                                          std::vector<Image>& var_imgs,
+                                          std::vector<Image>& psf_kernels,
+                                          std::vector<double>& zeroed_times) {
+    const uint64_t num_images = sci_imgs.size();
+    if (num_images == 0) {
+        throw std::runtime_error("Trying to fill PsiPhi from empty vectors.");
+    }
+    if (num_images != var_imgs.size()) {
+        throw std::runtime_error("Number of images in sci and var do not match.");
+    }
+    const uint64_t height = sci_imgs[0].rows();
+    const uint64_t width = sci_imgs[0].cols();
+    const uint64_t total_bytes = 2 * height * width * num_images * sizeof(float);
+
+    logging::getLogger("kbmod.search.psi_phi_array")
+            ->info("Building " + std::to_string(num_images * 2) + " temporary " +
+                   std::to_string(height) + " by " + std::to_string(width) +
+                   " images, requiring " + std::to_string(total_bytes) + " bytes.");     
+
+    // Build the psi and phi images first.
+    std::vector<Image> psi_images;
+    std::vector<Image> phi_images;
+    for (uint64_t i = 0; i < num_images; ++i) {
+        Image& sci = sci_imgs[i];
+        Image& var = var_imgs[i];
+        Image& psf = psf_kernels[i];
+ 
+        psi_images.push_back(generate_psi(sci, var, psf));
+        phi_images.push_back(generate_phi(var, psf));
+    }
+
+    // Convert these into an array form. Needs the full psi and phi computed first so the
+    // encoding can compute the bounds of each array.
+    fill_psi_phi_array(result_data, num_bytes, psi_images, phi_images, zeroed_times);
+}
+
+
 void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes) {
     // Compute Phi and Psi from convolved images while leaving masked pixels alone
     // Reinsert 0s for NO_DATA?
@@ -433,6 +473,8 @@ static void psi_phi_array_binding(py::module& m) {
     m.def("decode_uint_scalar", &search::decode_uint_scalar);
     m.def("encode_uint_scalar", &search::encode_uint_scalar);
     m.def("fill_psi_phi_array", &search::fill_psi_phi_array, pydocs::DOC_PsiPhiArray_fill_psi_phi_array);
+    m.def("fill_psi_phi_array_from_image_arrays", &search::fill_psi_phi_array_from_image_arrays,
+          pydocs::DOC_PsiPhiArray_fill_psi_phi_array_from_image_arrays);
     m.def("fill_psi_phi_array_from_image_stack", &search::fill_psi_phi_array_from_image_stack,
           pydocs::DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack);
 }
