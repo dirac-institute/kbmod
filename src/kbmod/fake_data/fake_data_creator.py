@@ -10,6 +10,7 @@ import os
 import random
 import numpy as np
 from pathlib import Path
+import warnings
 
 from astropy.io import fits
 
@@ -293,7 +294,11 @@ class FakeDataSet:
         """
         if config is None:
             config = SearchConfiguration()
-        work = WorkUnit(im_stack=self.stack, config=config, wcs=self.fake_wcs)
+        
+        # Create the WorkUnit, but disable warnings about no WCS since this if fake data.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            work = WorkUnit(im_stack=self.stack, config=config, wcs=self.fake_wcs)
         return work
     
     def save_fake_data_to_work_unit(self, filename, config=None):
