@@ -45,18 +45,43 @@ StackSearch::StackSearch(ImageStack& imstack, int num_bytes) : results(0) {
     zeroed_times = imstack.build_zeroed_times();
 
     // Set the parameters for the search.
-    set_default_parameters();
-    if (num_bytes == 1 || num_bytes == 2) {
-        params.encode_num_bytes = num_bytes;
-    } else if (num_bytes == -1 || num_bytes == 4) {
-        params.encode_num_bytes = -1;
-    } else {
-        throw std::runtime_error("Invalid encoding size. Must be -1, 1, 2 or 4.");
-    }
+    set_default_parameters(num_bytes);
 
     // Compute the psi/phi array.
     DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
     fill_psi_phi_array_from_image_stack(psi_phi_array, imstack, params.encode_num_bytes);
+    timer.stop();
+}
+
+StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
+                         std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times,
+                         int num_bytes) : results(0), zeroed_times(zeroed_times) {
+    // Get the logger for this module.
+    rs_logger = logging::getLogger("kbmod.search.run_search");
+
+    // Get the image size data.
+    num_imgs = sci_imgs.size();
+    if (num_imgs == 0) {
+        throw std::runtime_error("No images in the to process.");
+    }
+    if (sci_imgs.size() != var_imgs.size()) {
+        throw std::runtime_error("The number of science and variance images do not match.");
+    }
+    if (sci_imgs.size() != psf_kernels.size()) {
+        throw std::runtime_error("The number of science and PSF kernel images do not match.");
+    }
+    if (sci_imgs.size() != zeroed_times.size()) {
+        throw std::runtime_error("The number of science images and zeroed times do not match.");
+    }
+    width = sci_imgs[0].get_width();
+    height = sci_imgs[0].get_height();
+
+    // Set the parameters for the search.
+    set_default_parameters(num_bytes);
+
+    // Compute the psi/phi array.
+    DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
+    fill_psi_phi_array_from_sci_var(psi_phi_array, num_bytes, sci_imgs, var_imgs, zeroed_times);
     timer.stop();
 }
 
@@ -69,7 +94,7 @@ StackSearch::~StackSearch() {
 // Configuration functions
 // --------------------------------------------
 
-void StackSearch::set_default_parameters() {
+void StackSearch::set_default_parameters(int num_bytes) {
     // Default The Thresholds.
     params.min_observations = 0;
     params.min_lh = 0.0;
@@ -81,7 +106,13 @@ void StackSearch::set_default_parameters() {
     params.sigmag_coeff = -1.0;
 
     // Default the encoding parameters.
-    params.encode_num_bytes = -1;
+    if (num_bytes == 1 || num_bytes == 2) {
+        params.encode_num_bytes = num_bytes;
+    } else if (num_bytes == -1 || num_bytes == 4) {
+        params.encode_num_bytes = -1;
+    } else {
+        throw std::runtime_error("Invalid encoding size. Must be -1, 1, 2 or 4.");
+    }
 
     // Default the results per pixel.
     params.results_per_pixel = 8;
@@ -293,12 +324,16 @@ void StackSearch::clear_results() {
 
 #ifdef Py_PYTHON_H
 static void stack_search_bindings(py::module& m) {
+    using iv = std::vector<search::Image>;
+    using dv = std::vector<double>;
     using tj = search::Trajectory;
     using is = search::ImageStack;
     using ks = search::StackSearch;
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
             .def(py::init<is&, int>(), py::arg("imstack"), py::arg("num_bytes") = -1)
+            .def(py::init<iv&, iv&, iv&, dv&, int>(), py::arg("sci_imgs"), py::arg("var_imgs"), 
+                 py::arg("psf_kernels"), py::arg("zeroed_times"), py::arg("num_bytes") = -1)
             .def_property_readonly("num_images", &ks::num_images)
             .def_property_readonly("height", &ks::get_image_height)
             .def_property_readonly("width", &ks::get_image_width)
