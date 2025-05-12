@@ -72,12 +72,6 @@ struct Trajectory {
     inline int get_x_index(double time) const { return (int)floor(get_x_pos(time, true)); }
     inline int get_y_index(double time) const { return (int)floor(get_y_pos(time, true)); }
 
-    // A helper function to test if two trajectories are close in pixel space.
-    bool is_close(Trajectory &trj_b, float pos_thresh, float vel_thresh) {
-        return ((abs(x - trj_b.x) <= pos_thresh) && (abs(y - trj_b.y) <= pos_thresh) &&
-                (fabs(vx - trj_b.vx) <= vel_thresh) && (fabs(vy - trj_b.vy) <= vel_thresh));
-    }
-
     const std::string to_string() const {
         return "lh: " + std::to_string(lh) + " flux: " + std::to_string(flux) + " x: " + std::to_string(x) +
                " y: " + std::to_string(y) + " vx: " + std::to_string(vx) + " vy: " + std::to_string(vy) +
@@ -163,7 +157,6 @@ static void trajectory_bindings(py::module &m) {
                  pydocs::DOC_Trajectory_get_y_pos)
             .def("get_x_index", &tj::get_x_index, pydocs::DOC_Trajectory_get_x_index)
             .def("get_y_index", &tj::get_y_index, pydocs::DOC_Trajectory_get_y_index)
-            .def("is_close", &tj::is_close, pydocs::DOC_Trajectory_is_close)
             .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
             .def("__str__", &tj::to_string)
             .def(py::pickle(
