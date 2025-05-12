@@ -15,7 +15,7 @@ from kbmod.work_unit import ImageStack, WorkUnit
 class test_reprojection(unittest.TestCase):
     def setUp(self):
         self.data_path = get_absolute_data_path("shifted_wcs_diff_dimms_tiled.fits")
-        self.test_wunit = WorkUnit.from_fits(self.data_path)
+        self.test_wunit = WorkUnit.from_fits(self.data_path, show_progress=False)
         self.common_wcs = self.test_wunit.get_wcs(0)
 
     def test_reproject(self):

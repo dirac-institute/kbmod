@@ -3,6 +3,8 @@ from astropy.table import Table
 from astropy.wcs import WCS
 from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
+
+import logging
 import numpy as np
 import numpy.testing as npt
 import os
@@ -234,7 +236,7 @@ class test_work_unit(unittest.TestCase):
             self.assertTrue(Path(file_path).is_file())
 
             # Read in the file and check that the values agree.
-            work2 = WorkUnit.from_fits(file_path)
+            work2 = WorkUnit.from_fits(file_path, show_progress=False)
             self.assertEqual(work2.im_stack.num_times, self.num_images)
             self.assertIsNone(work2.wcs)
             for i in range(self.num_images):
@@ -372,7 +374,7 @@ class test_work_unit(unittest.TestCase):
             work.to_fits(file_path)
 
             # Read in the file and check that the values agree.
-            work2 = WorkUnit.from_fits(file_path)
+            work2 = WorkUnit.from_fits(file_path, show_progress=False)
             self.assertIsNotNone(work2.wcs)
             self.assertTrue(work2.reprojected)
             self.assertIsNotNone(work2.reprojection_frame)
@@ -414,9 +416,12 @@ class test_work_unit(unittest.TestCase):
         work = WorkUnit(self.im_stack, self.config, self.wcs, None)
         self.assertAlmostEqual(work.compute_ecliptic_angle(), -0.381541020495931)
 
-        # If we do not have a WCS, we get None for the ecliptic angle.
+        # If we do not have a WCS, we get None for the ecliptic angle.  We disable
+        # logging to avoid the warning that there is no WCS.
+        logging.disable(logging.CRITICAL)
         work2 = WorkUnit(self.im_stack, self.config, None, None)
         self.assertIsNone(work2.compute_ecliptic_angle())
+        logging.disable(logging.NOTSET)
 
     def test_image_positions_to_original_icrs_invalid_format(self):
         work = WorkUnit(
