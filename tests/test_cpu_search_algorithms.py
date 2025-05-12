@@ -80,8 +80,8 @@ class test_cpu_search_algorithms(unittest.TestCase):
             # If this result corresponds to a fake, check that it has a high likelihood
             # and is the first result returned for that pixel.
             for fake in self.fake_trjs:
-                trj_vals = [trj.x, trj.y, trj.vx, trj.vy]
-                fake_vals = [fake.x, fake.y, fake.vx, fake.vy]
+                trj_vals = np.array([trj.x, trj.y, trj.vx, trj.vy])
+                fake_vals = np.array([fake.x, fake.y, fake.vx, fake.vy])
                 if np.all(np.abs(trj_vals - fake_vals) <= 0.5):
                     self.assertEqual(counts[trj.y, trj.x], 1)
                     self.assertGreater(trj.lh, 10.0)
