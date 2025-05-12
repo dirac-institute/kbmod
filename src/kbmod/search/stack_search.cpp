@@ -54,8 +54,8 @@ StackSearch::StackSearch(ImageStack& imstack, int num_bytes) : results(0) {
 }
 
 StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
-                         std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times,
-                         int num_bytes) : results(0), zeroed_times(zeroed_times) {
+                         std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times, int num_bytes)
+        : results(0), zeroed_times(zeroed_times) {
     // Get the logger for this module.
     rs_logger = logging::getLogger("kbmod.search.run_search");
 
@@ -73,15 +73,16 @@ StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_i
     if (sci_imgs.size() != zeroed_times.size()) {
         throw std::runtime_error("The number of science images and zeroed times do not match.");
     }
-    width = sci_imgs[0].get_width();
-    height = sci_imgs[0].get_height();
+    width = sci_imgs[0].cols();
+    height = sci_imgs[0].rows();
 
     // Set the parameters for the search.
     set_default_parameters(num_bytes);
 
     // Compute the psi/phi array.
     DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
-    fill_psi_phi_array_from_sci_var(psi_phi_array, num_bytes, sci_imgs, var_imgs, zeroed_times);
+    fill_psi_phi_array_from_image_arrays(psi_phi_array, num_bytes, sci_imgs, var_imgs, psf_kernels,
+                                         zeroed_times);
     timer.stop();
 }
 
@@ -174,7 +175,6 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
     params.y_start_min = y_min;
     params.y_start_max = y_max;
 }
-
 
 // --------------------------------------------
 // Core search functions
@@ -332,7 +332,7 @@ static void stack_search_bindings(py::module& m) {
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
             .def(py::init<is&, int>(), py::arg("imstack"), py::arg("num_bytes") = -1)
-            .def(py::init<iv&, iv&, iv&, dv&, int>(), py::arg("sci_imgs"), py::arg("var_imgs"), 
+            .def(py::init<iv&, iv&, iv&, dv&, int>(), py::arg("sci_imgs"), py::arg("var_imgs"),
                  py::arg("psf_kernels"), py::arg("zeroed_times"), py::arg("num_bytes") = -1)
             .def_property_readonly("num_images", &ks::num_images)
             .def_property_readonly("height", &ks::get_image_height)

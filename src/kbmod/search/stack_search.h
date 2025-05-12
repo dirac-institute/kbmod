@@ -28,9 +28,8 @@ using Image = search::Image;
 class StackSearch {
 public:
     StackSearch(ImageStack& imstack, int num_bytes = -1);
-    StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
-                std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times,
-                int num_bytes = -1);
+    StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs, std::vector<Image>& psf_kernels,
+                std::vector<double>& zeroed_times, int num_bytes = -1);
 
     // Getters
     uint64_t compute_max_results();
