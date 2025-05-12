@@ -168,7 +168,7 @@ Image generate_phi(Image& var, Image& psf) {
     }
 
     // Convolve with the PSF squared.
-    Image psfsq = square_psf(psf);  // Copy
+    Image psfsq = square_psf_values(psf);  // Copy
     return convolve_image(result, psfsq);
 }
 
