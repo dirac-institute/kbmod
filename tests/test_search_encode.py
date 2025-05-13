@@ -68,8 +68,7 @@ class test_search_filter(unittest.TestCase):
     def test_different_encodings(self):
         for encoding_bytes in [-1, 1, 2]:
             with self.subTest(i=encoding_bytes):
-                search = StackSearch(self.stack)
-                search.enable_gpu_encoding(encoding_bytes)
+                search = StackSearch(self.stack, encoding_bytes)
                 search.set_min_obs(int(self.img_count / 2))
                 candidates = [trj for trj in self.trj_gen]
                 search.search_all(candidates, True)

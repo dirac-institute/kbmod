@@ -88,14 +88,9 @@ void LayeredImage::apply_mask(int flags) {
     }      // for c
 }
 
-Image LayeredImage::generate_psi_image() {
-    return generate_psi(science, variance, psf);
-}
+Image LayeredImage::generate_psi_image() { return generate_psi(science, variance, psf); }
 
-Image LayeredImage::generate_phi_image() {
-    return generate_phi(variance, psf);
-}
-
+Image LayeredImage::generate_phi_image() { return generate_phi(variance, psf); }
 
 #ifdef Py_PYTHON_H
 static void layered_image_bindings(py::module& m) {

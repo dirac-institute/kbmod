@@ -88,6 +88,26 @@ class test_search(unittest.TestCase):
             self.max_angle,
         )
 
+    def test_stack_search_create_lists(self):
+        sci_imgs = [self.stack.get_single_image(i).sci for i in range(self.img_count)]
+        var_imgs = [self.stack.get_single_image(i).var for i in range(self.img_count)]
+        psf_imgs = [self.stack.get_single_image(i).get_psf() for i in range(self.img_count)]
+        times = self.stack.build_zeroed_times()
+
+        search_py = StackSearch(sci_imgs, var_imgs, psf_imgs, times, -1)
+
+        # Check that the psi and phi images are the same, by using motionless
+        # trajectories from each pixel.
+        trjs = []
+        for y in range(self.dim_y):
+            for x in range(self.dim_x):
+                trjs.append(Trajectory(x, y, 0.0, 0.0))
+        psi_phi_1 = self.search.get_all_psi_phi_curves(trjs)
+        psi_phi_2 = search_py.get_all_psi_phi_curves(trjs)
+
+        # Check that all the curves match (all times for allm pixels).
+        self.assertTrue(np.allclose(psi_phi_1, psi_phi_2))
+
     def test_evaluate_single_trajectory(self):
         test_trj = Trajectory(
             x=self.start_x,
@@ -265,10 +285,6 @@ class test_search(unittest.TestCase):
             self.search.set_min_obs(-1)
         with self.assertRaises(RuntimeError):
             self.search.set_min_obs(self.img_count + 1)
-
-    @staticmethod
-    def result_hash(res):
-        return hash((res.x, res.y, res.vx, res.vy, res.lh, res.obs_count))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_search_too_many_images(self):

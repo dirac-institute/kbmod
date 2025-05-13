@@ -34,9 +34,7 @@ std::vector<float> extract_joint_psi_phi_curve(const PsiPhiArray& psi_phi, const
 // StackSearch
 // --------------------------------------------
 
-StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0) {
-    psi_phi_generated = false;
-
+StackSearch::StackSearch(ImageStack& imstack, int num_bytes) : results(0) {
     // Get the logger for this module.
     rs_logger = logging::getLogger("kbmod.search.run_search");
 
@@ -46,19 +44,58 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0) {
     num_imgs = imstack.img_count();
     zeroed_times = imstack.build_zeroed_times();
 
-    set_default_parameters();
+    // Set the parameters for the search.
+    set_default_parameters(num_bytes);
+
+    // Compute the psi/phi array.
+    DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
+    fill_psi_phi_array_from_image_stack(psi_phi_array, imstack, params.encode_num_bytes);
+    timer.stop();
+}
+
+StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
+                         std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times, int num_bytes)
+        : results(0), zeroed_times(zeroed_times) {
+    // Get the logger for this module.
+    rs_logger = logging::getLogger("kbmod.search.run_search");
+
+    // Get the image size data.
+    num_imgs = sci_imgs.size();
+    if (num_imgs == 0) {
+        throw std::runtime_error("No images in the to process.");
+    }
+    if (sci_imgs.size() != var_imgs.size()) {
+        throw std::runtime_error("The number of science and variance images do not match.");
+    }
+    if (sci_imgs.size() != psf_kernels.size()) {
+        throw std::runtime_error("The number of science and PSF kernel images do not match.");
+    }
+    if (sci_imgs.size() != zeroed_times.size()) {
+        throw std::runtime_error("The number of science images and zeroed times do not match.");
+    }
+    width = sci_imgs[0].cols();
+    height = sci_imgs[0].rows();
+
+    // Set the parameters for the search.
+    set_default_parameters(num_bytes);
+
+    // Compute the psi/phi array.
+    DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
+    fill_psi_phi_array_from_image_arrays(psi_phi_array, num_bytes, sci_imgs, var_imgs, psf_kernels,
+                                         zeroed_times);
+    timer.stop();
 }
 
 StackSearch::~StackSearch() {
     // Clear the memory allocated for psi and phi.
-    clear_psi_phi();
+    psi_phi_array.clear();
 }
 
 // --------------------------------------------
 // Configuration functions
 // --------------------------------------------
 
-void StackSearch::set_default_parameters() {
+void StackSearch::set_default_parameters(int num_bytes) {
     // Default The Thresholds.
     params.min_observations = 0;
     params.min_lh = 0.0;
@@ -70,7 +107,13 @@ void StackSearch::set_default_parameters() {
     params.sigmag_coeff = -1.0;
 
     // Default the encoding parameters.
-    params.encode_num_bytes = -1;
+    if (num_bytes == 1 || num_bytes == 2) {
+        params.encode_num_bytes = num_bytes;
+    } else if (num_bytes == -1 || num_bytes == 4) {
+        params.encode_num_bytes = -1;
+    } else {
+        throw std::runtime_error("Invalid encoding size. Must be -1, 1, 2 or 4.");
+    }
 
     // Default the results per pixel.
     params.results_per_pixel = 8;
@@ -115,21 +158,6 @@ void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float
 
 void StackSearch::disable_gpu_sigmag_filter() { params.do_sigmag_filter = false; }
 
-void StackSearch::enable_gpu_encoding(int encode_num_bytes) {
-    // If changing a setting that would impact the search data encoding, clear the cached values.
-    if (params.encode_num_bytes != encode_num_bytes) {
-        clear_psi_phi();
-    }
-
-    // Make sure the encoding is one of the supported options.
-    // Otherwise use default float (aka no encoding).
-    if (encode_num_bytes == 1 || encode_num_bytes == 2) {
-        params.encode_num_bytes = encode_num_bytes;
-    } else {
-        params.encode_num_bytes = -1;
-    }
-}
-
 void StackSearch::set_start_bounds_x(int x_min, int x_max) {
     if (x_min >= x_max) {
         throw std::runtime_error("Invalid search bounds for the x pixel [" + std::to_string(x_min) + ", " +
@@ -149,39 +177,10 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
 }
 
 // --------------------------------------------
-// Data precomputation functions
-// --------------------------------------------
-
-void StackSearch::prepare_psi_phi() {
-    if (!psi_phi_generated) {
-        DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
-        fill_psi_phi_array_from_image_stack(psi_phi_array, stack, params.encode_num_bytes);
-        timer.stop();
-        psi_phi_generated = true;
-    }
-
-    // Perform additional error checking that the arrays are allocated (checked even if
-    // using the cached values).
-    if (!psi_phi_array.cpu_array_allocated()) {
-        throw std::runtime_error("PsiPhiArray array unallocated after prepare_psi_phi_array.");
-    }
-}
-
-void StackSearch::clear_psi_phi() {
-    if (psi_phi_generated) {
-        psi_phi_array.clear();
-        psi_phi_generated = false;
-    }
-}
-
-// --------------------------------------------
 // Core search functions
 // --------------------------------------------
 
 void StackSearch::evaluate_single_trajectory(Trajectory& trj, bool use_kernel) {
-    prepare_psi_phi();
-    if (!psi_phi_array.cpu_array_allocated()) std::runtime_error("Data not allocated.");
-
     if (!use_kernel) {
         evaluate_trajectory_cpu(psi_phi_array, trj);
     } else {
@@ -213,7 +212,6 @@ Trajectory StackSearch::search_linear_trajectory(int x, int y, float vx, float v
 
 void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) {
     // Prepare the input data (psi/phi and candidate lists).
-    prepare_psi_phi();
     TrajectoryList candidate_list = TrajectoryList(search_list);
     uint64_t max_results = compute_max_results();
 
@@ -291,8 +289,6 @@ Image StackSearch::get_all_psi_phi_curves(const std::vector<Trajectory>& traject
     const unsigned int num_trj = trajectories.size();
     Image results = Image::Zero(num_trj, 2 * num_imgs);
 
-    prepare_psi_phi();
-
 #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < num_trj; ++i) {
         std::vector<float> curve = extract_joint_psi_phi_curve(psi_phi_array, trajectories[i]);
@@ -328,12 +324,16 @@ void StackSearch::clear_results() {
 
 #ifdef Py_PYTHON_H
 static void stack_search_bindings(py::module& m) {
+    using iv = std::vector<search::Image>;
+    using dv = std::vector<double>;
     using tj = search::Trajectory;
     using is = search::ImageStack;
     using ks = search::StackSearch;
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
-            .def(py::init<is&>())
+            .def(py::init<is&, int>(), py::arg("imstack"), py::arg("num_bytes") = -1)
+            .def(py::init<iv&, iv&, iv&, dv&, int>(), py::arg("sci_imgs"), py::arg("var_imgs"),
+                 py::arg("psf_kernels"), py::arg("zeroed_times"), py::arg("num_bytes") = -1)
             .def_property_readonly("num_images", &ks::num_images)
             .def_property_readonly("height", &ks::get_image_height)
             .def_property_readonly("width", &ks::get_image_width)
@@ -351,7 +351,6 @@ static void stack_search_bindings(py::module& m) {
                  pydocs::DOC_StackSearch_disable_gpu_sigmag_filter)
             .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter,
                  pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)
-            .def("enable_gpu_encoding", &ks::enable_gpu_encoding, pydocs::DOC_StackSearch_enable_gpu_encoding)
             .def("set_start_bounds_x", &ks::set_start_bounds_x, pydocs::DOC_StackSearch_set_start_bounds_x)
             .def("set_start_bounds_y", &ks::set_start_bounds_y, pydocs::DOC_StackSearch_set_start_bounds_y)
             .def("get_num_images", &ks::num_images, pydocs::DOC_StackSearch_get_num_images)
@@ -360,8 +359,6 @@ static void stack_search_bindings(py::module& m) {
             .def("get_all_psi_phi_curves", &ks::get_all_psi_phi_curves,
                  pydocs::DOC_StackSearch_get_all_psi_phi_curves)
             // For testings
-            .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
-            .def("clear_psi_phi", &ks::clear_psi_phi, pydocs::DOC_StackSearch_clear_psi_phi)
             .def("get_number_total_results", &ks::get_number_total_results,
                  pydocs::DOC_StackSearch_get_number_total_results)
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)

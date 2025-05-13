@@ -65,21 +65,15 @@ class TrajectoryExplorer:
             config = self.config
 
         if self._data_initalized:
-            # Always reapply the configuration parameters if in case we used custom
-            # ones on a previous search.
+            # Always reapply the configuration parameters (except image encoding)
+            # in case we used different parameters on a previous search.
             configure_kb_search_stack(self.search, config)
 
             # Nothing else to do
             return
 
-        # If we are using an encoded image representation on GPU, enable it and
-        # set the parameters.
-        if self.config["encode_num_bytes"] > 0:
-            self.search.enable_gpu_encoding(self.config["encode_num_bytes"])
-            logger.debug(f"Setting encoding = {self.config['encode_num_bytes']}")
-
         # Allocate the search structure.
-        self.search = StackSearch(self.im_stack)
+        self.search = StackSearch(self.im_stack, self.config["encode_num_bytes"])
         configure_kb_search_stack(self.search, config)
 
         self._data_initalized = True

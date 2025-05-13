@@ -29,8 +29,9 @@ std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<Imag
 void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<Image>& psi_imgs,
                         const std::vector<Image>& phi_imgs, const std::vector<double> zeroed_times);
 
-void fill_psi_phi_array_from_sci_var(PsiPhiArray& result_data, int num_bytes, const std::vector<Image>& sci_imgs,
-                                    const std::vector<Image>& var_imgs, const std::vector<double> zeroed_times);
+void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_bytes,
+                                          std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
+                                          std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times);
 
 void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes);
 
