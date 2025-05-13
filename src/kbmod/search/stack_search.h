@@ -27,7 +27,11 @@ using Image = search::Image;
 
 class StackSearch {
 public:
-    StackSearch(ImageStack& imstack);
+    StackSearch(ImageStack& imstack, int num_bytes = -1);
+    StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs, std::vector<Image>& psf_kernels,
+                std::vector<double>& zeroed_times, int num_bytes = -1);
+
+    // Getters
     uint64_t compute_max_results();
     unsigned int num_images() const { return num_imgs; }
     unsigned int get_image_width() const { return width; }
@@ -35,12 +39,11 @@ public:
     std::vector<double>& get_zeroed_times() { return zeroed_times; }
 
     // Parameter setters used to control the searches.
-    void set_default_parameters();
+    void set_default_parameters(int num_bytes = -1);
     void set_min_obs(int new_value);
     void set_min_lh(float new_value);
     void disable_gpu_sigmag_filter();
     void enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh);
-    void enable_gpu_encoding(int num_bytes);
     void set_start_bounds_x(int x_min, int x_max);
     void set_start_bounds_y(int y_min, int y_max);
     void set_results_per_pixel(int new_value);
@@ -59,10 +62,6 @@ public:
     // Getters for the Psi and Phi data.
     Image get_all_psi_phi_curves(const std::vector<Trajectory>& trajectories);
 
-    // Helper functions for computing Psi and Phi
-    void prepare_psi_phi();
-    void clear_psi_phi();
-
     // Helper functions for testing
     void set_results(const std::vector<Trajectory>& new_results);
 
@@ -77,10 +76,7 @@ protected:
     unsigned int num_imgs;
     std::vector<double> zeroed_times;
 
-    ImageStack& stack;
-
     // Precomputed and cached search data
-    bool psi_phi_generated;
     PsiPhiArray psi_phi_array;
 
     // Results from the grid search.

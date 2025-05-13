@@ -355,10 +355,8 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
     result_data.set_time_array(zeroed_times);
 }
 
-
 void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_bytes,
-                                          std::vector<Image>& sci_imgs,
-                                          std::vector<Image>& var_imgs,
+                                          std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
                                           std::vector<Image>& psf_kernels,
                                           std::vector<double>& zeroed_times) {
     const uint64_t num_images = sci_imgs.size();
@@ -373,9 +371,9 @@ void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_byte
     const uint64_t total_bytes = 2 * height * width * num_images * sizeof(float);
 
     logging::getLogger("kbmod.search.psi_phi_array")
-            ->info("Building " + std::to_string(num_images * 2) + " temporary " +
-                   std::to_string(height) + " by " + std::to_string(width) +
-                   " images, requiring " + std::to_string(total_bytes) + " bytes.");     
+            ->info("Building " + std::to_string(num_images * 2) + " temporary " + std::to_string(height) +
+                   " by " + std::to_string(width) + " images, requiring " + std::to_string(total_bytes) +
+                   " bytes.");
 
     // Build the psi and phi images first.
     std::vector<Image> psi_images;
@@ -384,7 +382,7 @@ void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_byte
         Image& sci = sci_imgs[i];
         Image& var = var_imgs[i];
         Image& psf = psf_kernels[i];
- 
+
         psi_images.push_back(generate_psi(sci, var, psf));
         phi_images.push_back(generate_phi(var, psf));
     }
@@ -393,7 +391,6 @@ void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_byte
     // encoding can compute the bounds of each array.
     fill_psi_phi_array(result_data, num_bytes, psi_images, phi_images, zeroed_times);
 }
-
 
 void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes) {
     // Compute Phi and Psi from convolved images while leaving masked pixels alone
