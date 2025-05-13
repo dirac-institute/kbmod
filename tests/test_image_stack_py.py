@@ -108,7 +108,7 @@ class test_image_stack_py(unittest.TestCase):
         var = [np.full((height, width), 0.1 * i) for i in range(num_times)]
         self.assertRaises(ValueError, ImageStackPy, None, sci, var)
 
-    def test_create_image_stack_from_nparray_py(self):
+    def test_create_image_stack__pyfrom_nparray(self):
         """Test that we can create an ImageStackPy from a single 3-d numpy array."""
         num_times = 10
         height = 20
@@ -207,7 +207,7 @@ class test_image_stack_py(unittest.TestCase):
         self.assertEqual(stack.times[5], 10.0)
         self.assertEqual(stack.zeroed_times[5], 10.0)
 
-    def test_filter_image_stack_ph(self):
+    def test_filter_image_stack_py(self):
         """Test that we can filter an ImageStackPy"""
         num_times = 10
         height = 20
@@ -236,6 +236,41 @@ class test_image_stack_py(unittest.TestCase):
         # Check the times. Note the zeroed times shift because we removed index 0.
         self.assertTrue(np.allclose(stack.times, [4.0, 6.0, 8.0, 9.0, 10.0, 11.0]))
         self.assertTrue(np.allclose(stack.zeroed_times, [0.0, 2.0, 4.0, 5.0, 6.0, 7.0]))
+
+    def test_image_stack_py_copy(self):
+        """Test that we can copy an ImageStackPy"""
+        num_times = 5
+        height = 10
+        width = 15
+
+        times = np.arange(num_times)
+        sci = np.arange(num_times * height * width).reshape((num_times, height, width))
+        var = 0.01 * np.arange(num_times * height * width).reshape((num_times, height, width))
+        stack = ImageStackPy(times, sci, var)
+
+        stack2 = stack.copy()
+        self.assertEqual(stack.num_times, stack2.num_times)
+        self.assertEqual(stack.width, stack2.width)
+        self.assertEqual(stack.height, stack2.height)
+        for i in range(stack.num_times):
+            self.assertTrue(np.allclose(stack.sci[i], stack2.sci[i]))
+            self.assertTrue(np.allclose(stack.var[i], stack2.var[i]))
+            self.assertTrue(np.allclose(stack.psfs[i], stack2.psfs[i]))
+        self.assertTrue(np.allclose(stack.times, stack2.times))
+        self.assertTrue(np.allclose(stack.zeroed_times, stack2.zeroed_times))
+
+        # Check equal
+        self.assertTrue(stack == stack2)
+
+        # We can change the new copy without changing the old (its a deep copy).
+        stack2.sci[0][0, 0] = -1
+        self.assertEqual(stack.sci[0][0, 0], 0)
+        self.assertFalse(stack == stack2)
+        stack2.sci[0][0, 0] = 0
+
+        stack2.var[1][3, 3] = 100.0
+        self.assertNotEqual(stack.var[1][3, 3], 100.0)
+        self.assertFalse(stack == stack2)
 
     def test_get_matched_obstimes(self):
         obstimes = [1.0, 2.0, 3.0, 4.0, 6.0, 7.5, 9.0, 10.1]
