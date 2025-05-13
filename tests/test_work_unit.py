@@ -13,8 +13,8 @@ import unittest
 import warnings
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.core.image_stack_py import make_fake_image_stack
 from kbmod.core.psf import PSF
-from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
@@ -33,24 +33,22 @@ class test_work_unit(unittest.TestCase):
         self.num_images = 5
         self.width = 50
         self.height = 70
-        self.images = [None] * self.num_images
-        self.p = [None] * self.num_images
+
+        self.psfs = [PSF.make_gaussian_kernel(5.0 / float(2 * i + 1)) for i in range(self.num_images)]
+        self.times = [59000.0 + (2.0 * i + 1.0) for i in range(self.num_images)]
+
+        self.im_stack = make_fake_image_stack(
+            self.height,
+            self.width,
+            self.times,
+            noise_level=2.0,
+            psfs=self.psfs,
+        )
+
+        # Mask one of the pixels in each image.
         for i in range(self.num_images):
-            self.p[i] = PSF.make_gaussian_kernel(5.0 / float(2 * i + 1))
-            self.images[i] = make_fake_layered_image(
-                self.width,
-                self.height,
-                2.0,  # noise_level
-                4.0,  # variance
-                59000.0 + (2.0 * i + 1.0),  # time
-                self.p[i],
-            )
-
-            # Include one masked pixel per time step at (10, 10 + i).
-            mask = self.images[i].mask
-            mask[10, 10 + i] = 1
-
-        self.im_stack = kb.ImageStack(self.images)
+            self.im_stack.sci[i][10, 10 + i] = np.nan
+            self.im_stack.var[i][10, 10 + i] = np.nan
 
         self.config = SearchConfiguration()
         self.config.set("result_filename", "Here")
@@ -249,7 +247,7 @@ class test_work_unit(unittest.TestCase):
                 self.assertTrue(np.allclose(li.mask, li_org.mask, atol=0.001, equal_nan=True))
 
                 # Check the PSF layer matches.
-                p1 = self.p[i]
+                p1 = self.psfs[i]
                 p2 = li.get_psf()
                 npt.assert_array_almost_equal(p1, p2, decimal=3)
 
@@ -309,7 +307,7 @@ class test_work_unit(unittest.TestCase):
                 self.assertTrue(np.allclose(li.mask, li_org.mask, atol=0.001, equal_nan=True))
 
                 # Check the PSF layer matches.
-                p1 = self.p[i]
+                p1 = self.psfs[i]
                 p2 = li.get_psf()
                 npt.assert_array_almost_equal(p1, p2, decimal=3)
 
