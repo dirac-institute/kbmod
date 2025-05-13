@@ -25,8 +25,6 @@ from kbmod.work_unit import (
     WorkUnit,
 )
 
-import numpy.testing as npt
-
 
 class test_work_unit(unittest.TestCase):
     def setUp(self):
@@ -37,12 +35,14 @@ class test_work_unit(unittest.TestCase):
         self.psfs = [PSF.make_gaussian_kernel(5.0 / float(2 * i + 1)) for i in range(self.num_images)]
         self.times = [59000.0 + (2.0 * i + 1.0) for i in range(self.num_images)]
 
+        rng = np.random.default_rng(1002)
         self.im_stack = make_fake_image_stack(
             self.height,
             self.width,
             self.times,
             noise_level=2.0,
             psfs=self.psfs,
+            rng=rng,
         )
 
         # Mask one of the pixels in each image.
