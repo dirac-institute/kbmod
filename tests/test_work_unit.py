@@ -13,8 +13,9 @@ import unittest
 import warnings
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.core.image_stack_py import make_fake_image_stack
 from kbmod.core.psf import PSF
-from kbmod.fake_data.fake_data_creator import make_fake_layered_image
+from kbmod.image_utils import image_stack_py_to_cpp
 import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
@@ -35,21 +36,18 @@ class test_work_unit(unittest.TestCase):
         self.psfs = [PSF.make_gaussian_kernel(5.0 / float(2 * i + 1)) for i in range(self.num_images)]
         self.times = [59000.0 + (2.0 * i + 1.0) for i in range(self.num_images)]
 
-        for i in range(self.num_images):
-            self.images[i] = make_fake_layered_image(
-                self.width,
-                self.height,
-                2.0,  # noise_level
-                4.0,  # variance
-                self.times[i],
-                self.psfs[i],
-            )
+        rng = np.random.default_rng(1002)
+        self.im_stack_py = make_fake_image_stack(
+            self.height,
+            self.width,
+            self.times,
+            noise_level=2.0,
+            psfs=self.psfs,
+            rng=rng,
+        )
 
-            # Include one masked pixel per time step at (10, 10 + i).
-            mask = self.images[i].mask
-            mask[10, 10 + i] = 1
-
-        self.im_stack = kb.ImageStack(self.images)
+        # Create a C++ image stack using a copy of the Python image stack.
+        self.im_stack = image_stack_py_to_cpp(self.im_stack_py.copy())
 
         self.config = SearchConfiguration()
         self.config.set("result_filename", "Here")
