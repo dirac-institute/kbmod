@@ -32,16 +32,17 @@ class test_work_unit(unittest.TestCase):
         self.width = 50
         self.height = 70
         self.images = [None] * self.num_images
-        self.p = [None] * self.num_images
+        self.psfs = [PSF.make_gaussian_kernel(5.0 / float(2 * i + 1)) for i in range(self.num_images)]
+        self.times = [59000.0 + (2.0 * i + 1.0) for i in range(self.num_images)]
+
         for i in range(self.num_images):
-            self.p[i] = PSF.make_gaussian_kernel(5.0 / float(2 * i + 1))
             self.images[i] = make_fake_layered_image(
                 self.width,
                 self.height,
                 2.0,  # noise_level
                 4.0,  # variance
-                59000.0 + (2.0 * i + 1.0),  # time
-                self.p[i],
+                self.times[i],
+                self.psfs[i],
             )
 
             # Include one masked pixel per time step at (10, 10 + i).
@@ -247,7 +248,7 @@ class test_work_unit(unittest.TestCase):
                 self.assertTrue(np.allclose(li.mask, li_org.mask, atol=0.001, equal_nan=True))
 
                 # Check the PSF layer matches.
-                p1 = self.p[i]
+                p1 = self.psfs[i]
                 p2 = li.get_psf()
                 npt.assert_array_almost_equal(p1, p2, decimal=3)
 
@@ -307,7 +308,7 @@ class test_work_unit(unittest.TestCase):
                 self.assertTrue(np.allclose(li.mask, li_org.mask, atol=0.001, equal_nan=True))
 
                 # Check the PSF layer matches.
-                p1 = self.p[i]
+                p1 = self.psfs[i]
                 p2 = li.get_psf()
                 npt.assert_array_almost_equal(p1, p2, decimal=3)
 
