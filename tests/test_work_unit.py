@@ -46,7 +46,8 @@ class test_work_unit(unittest.TestCase):
             rng=rng,
         )
 
-        # Mask one of the pixels in each image.
+        # Mask one of the pixels in each image.  This is done directly to the science
+        # and variance layers since ImageStackPy does not have a separate mask layer.
         for i in range(self.num_images):
             self.im_stack_py.sci[i][10, 10 + i] = np.nan
             self.im_stack_py.var[i][10, 10 + i] = np.nan
