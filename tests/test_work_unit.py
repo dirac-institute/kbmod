@@ -46,6 +46,11 @@ class test_work_unit(unittest.TestCase):
             rng=rng,
         )
 
+        # Mask one of the pixels in each image.
+        for i in range(self.num_images):
+            self.im_stack_py.sci[i][10, 10 + i] = np.nan
+            self.im_stack_py.var[i][10, 10 + i] = np.nan
+
         # Create a C++ image stack using a copy of the Python image stack.
         self.im_stack = image_stack_py_to_cpp(self.im_stack_py.copy())
 
