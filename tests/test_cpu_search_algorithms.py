@@ -5,7 +5,7 @@ import numpy as np
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.search import (
     evaluate_trajectory_cpu,
-    fill_psi_phi_array_from_image_stack,
+    fill_psi_phi_array_from_image_arrays,
     search_cpu_only,
     PsiPhiArray,
     SearchParameters,
@@ -30,7 +30,14 @@ class test_cpu_search_algorithms(unittest.TestCase):
 
         # Create the phi and psi data.
         self.psi_phi = PsiPhiArray()
-        fill_psi_phi_array_from_image_stack(self.psi_phi, self.fake_ds.stack, 4)
+        fill_psi_phi_array_from_image_arrays(
+            self.psi_phi,
+            4,
+            self.fake_ds.stack_py.sci,
+            self.fake_ds.stack_py.var,
+            self.fake_ds.stack_py.psfs,
+            self.fake_ds.stack_py.zeroed_times,
+        )
 
     def test_evaluate_trajectory_cpu(self):
         candidate = Trajectory(

@@ -52,7 +52,7 @@ def make_demo_data(filename=None):
     config = SearchConfiguration.from_dict(settings)
 
     # Create a WorkUnit and save it if needed.
-    work = WorkUnit(im_stack=ds.stack, config=config, wcs=ds.fake_wcs)
+    work = WorkUnit(im_stack=ds.stack_py, config=config, wcs=ds.fake_wcs)
     if filename is not None:
         work.to_fits(filename)
     return work

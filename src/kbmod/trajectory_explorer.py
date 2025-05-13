@@ -1,10 +1,11 @@
 import numpy as np
 
+from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.configuration import SearchConfiguration
 from kbmod.filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from kbmod.results import Results
 from kbmod.run_search import configure_kb_search_stack
-from kbmod.search import DebugTimer, StackSearch, Logging
+from kbmod.search import DebugTimer, ImageStack, StackSearch, Logging
 from kbmod.filters.stamp_filters import append_all_stamps, append_coadds
 from kbmod.trajectory_generator import PencilSearch
 from kbmod.trajectory_utils import make_trajectory_from_ra_dec
@@ -28,7 +29,7 @@ class TrajectoryExplorer:
         """
         Parameters
         ----------
-        im_stack : `ImageStack`
+        im_stack : `ImageStack` or `ImageStackPy`
             The images to search.
         config : `SearchConfiguration`, optional
             The configuration parameters. If ``None`` uses the default
@@ -73,7 +74,19 @@ class TrajectoryExplorer:
             return
 
         # Allocate the search structure.
-        self.search = StackSearch(self.im_stack, self.config["encode_num_bytes"])
+        if isinstance(self.im_stack, ImageStack):
+            self.search = StackSearch(self.im_stack, self.config["encode_num_bytes"])
+        elif isinstance(self.im_stack, ImageStackPy):
+            self.search = StackSearch(
+                self.im_stack.sci,
+                self.im_stack.var,
+                self.im_stack.psfs,
+                self.im_stack.zeroed_times,
+                self.config["encode_num_bytes"],
+            )
+        else:
+            raise TypeError("Unsupported image stack type.")
+
         configure_kb_search_stack(self.search, config)
 
         self._data_initalized = True

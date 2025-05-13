@@ -1,7 +1,7 @@
 import unittest
 
 from kbmod.core.psf import PSF
-from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
+from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 from kbmod.search import *
 
 
@@ -96,18 +96,6 @@ class test_ImageStack(unittest.TestCase):
         self.assertEqual(len(times), self.num_images)
         for i in range(self.num_images):
             self.assertEqual(times[i], 2.0 * i)
-
-    def test_different_psfs(self):
-        # Add a stationary fake object to each image. Then test that
-        # the flux at each time is monotonically increasing (because
-        # the PSF is getting tighter).
-        last_val = -100.0
-        for i in range(self.num_images):
-            img = self.im_stack.get_single_image(i)
-            add_fake_object(img, 10, 20, 500.0, self.p[i])
-            pix_val = img.sci[20, 10]
-            self.assertGreater(pix_val, last_val)
-            last_val = pix_val
 
     def test_sort_by_time(self):
         local_psf = PSF.make_gaussian_kernel(1.0)

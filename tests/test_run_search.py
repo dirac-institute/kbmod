@@ -11,6 +11,7 @@ import numpy as np
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
+from kbmod.image_utils import image_stack_py_to_cpp
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.results import Results
 from kbmod.run_search import append_positions_to_results, configure_kb_search_stack, SearchRunner
@@ -30,6 +31,7 @@ class test_run_search(unittest.TestCase):
 
         fake_times = create_fake_times(num_times, t0=60676.0)
         fake_ds = FakeDataSet(width, height, fake_times)
+        stack_cpp = image_stack_py_to_cpp(fake_ds.stack_py)
 
         runner = SearchRunner()
 
@@ -39,16 +41,16 @@ class test_run_search(unittest.TestCase):
         # Bad results_per_pixel.
         config = SearchConfiguration()
         config.set("results_per_pixel", -1)
-        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
+        self.assertRaises(ValueError, runner.run_search, config, stack_cpp)
 
         # Bad search bounds.
         config = SearchConfiguration()
         config.set("x_pixel_bounds", [20, 10])
-        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
+        self.assertRaises(ValueError, runner.run_search, config, stack_cpp)
 
         config = SearchConfiguration()
         config.set("y_pixel_bounds", [20, 10])
-        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
+        self.assertRaises(ValueError, runner.run_search, config, stack_cpp)
 
         # Re-enable warnings.
         logging.disable(logging.NOTSET)
@@ -61,11 +63,12 @@ class test_run_search(unittest.TestCase):
 
         fake_times = create_fake_times(num_times, t0=60676.0)
         fake_ds = FakeDataSet(width, height, fake_times)
+        stack_cpp = image_stack_py_to_cpp(fake_ds.stack_py)
         runner = SearchRunner()
 
         config = SearchConfiguration()
         config.set("num_obs", 21)
-        _ = runner.run_search(config, fake_ds.stack)
+        _ = runner.run_search(config, stack_cpp)
         self.assertEqual(config["num_obs"], 10)
 
     def test_load_and_filter_results(self):
@@ -80,11 +83,10 @@ class test_run_search(unittest.TestCase):
         # Create a fake dataset.
         fake_times = create_fake_times(num_times, t0=60676.0)
         fake_ds = FakeDataSet(width, height, fake_times)
-        im_stack = fake_ds.stack
 
         # Trajectory x is given x outliers.
         for i in range(num_times):
-            sci = im_stack.get_single_image(i).sci
+            sci = fake_ds.stack_py.sci[i]
             for x, trj in enumerate(trjs):
                 if i < 2 * x:
                     sci[trj.y, trj.x] = 2000.0
@@ -100,7 +102,12 @@ class test_run_search(unittest.TestCase):
         config.set("sigmaG_lims", [10, 90])
         config.set("near_dup_thresh", None)
 
-        search = StackSearch(fake_ds.stack)
+        search = StackSearch(
+            fake_ds.stack_py.sci,
+            fake_ds.stack_py.var,
+            fake_ds.stack_py.psfs,
+            fake_ds.stack_py.zeroed_times,
+        )
         configure_kb_search_stack(search, config)
 
         # Try extracting before we have inserted any results. We should get an empty Results.
@@ -140,7 +147,7 @@ class test_run_search(unittest.TestCase):
         self.assertFalse("phi_curve" in results.colnames)
 
     def test_append_positions_to_results_global(self):
-        # Create a fake WorkUnit with 20 times, a completely random ImageStack,
+        # Create a fake WorkUnit with 20 times, a completely random image stack,
         # and no trajectories.
         num_times = 20
         width = 800
@@ -180,7 +187,7 @@ class test_run_search(unittest.TestCase):
             }
         )
         fake_wu = WorkUnit(
-            im_stack=fake_ds.stack,
+            im_stack=fake_ds.stack_py,
             config=SearchConfiguration(),
             wcs=ebd_wcs,
             reprojected=True,
@@ -256,7 +263,7 @@ class test_run_search(unittest.TestCase):
             self.assertTrue(np.all(y_diffs < 1000.0))
 
     def test_append_positions_to_results_no_global(self):
-        # Create a fake WorkUnit with 20 times, a completely random ImageStack,
+        # Create a fake WorkUnit with 20 times, a completely random image stack,
         # and no trajectories.
         num_times = 20
         fake_times = create_fake_times(num_times, t0=60676.0)
@@ -271,7 +278,7 @@ class test_run_search(unittest.TestCase):
             all_wcs.append(curr)
 
         fake_wu = WorkUnit(
-            im_stack=fake_ds.stack,
+            im_stack=fake_ds.stack_py,
             config=SearchConfiguration(),
             wcs=None,
             per_image_wcs=all_wcs,
@@ -345,7 +352,8 @@ class test_run_search(unittest.TestCase):
 
         # Run the core search algorithm and confirm we find the inserted fake.
         runner = SearchRunner()
-        keep = runner.do_core_search(config, fake_ds.stack, trj_gen)
+        stack_cpp = image_stack_py_to_cpp(fake_ds.stack_py)
+        keep = runner.do_core_search(config, stack_cpp, trj_gen)
 
         self.assertGreater(len(keep), 0)
         self.assertEqual(keep["x"][0], 17)
@@ -372,7 +380,8 @@ class test_run_search(unittest.TestCase):
 
         # Run the core search algorithm and confirm we find the inserted fake.
         runner = SearchRunner()
-        keep = runner.do_core_search(config, fake_ds.stack, trj_gen)
+        stack_cpp = image_stack_py_to_cpp(fake_ds.stack_py)
+        keep = runner.do_core_search(config, stack_cpp, trj_gen)
         self.assertGreater(len(keep), 0)
         self.assertEqual(keep["x"][0], 17)
         self.assertEqual(keep["y"][0], 12)

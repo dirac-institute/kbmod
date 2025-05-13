@@ -25,59 +25,24 @@ class test_fake_image_creator(unittest.TestCase):
         for i in range(7):
             self.assertAlmostEqual(times2[i], expected[i])
 
-    def test_add_fake_object(self):
-        p = np.full((3, 3), 1.0 / 9.0, dtype=np.float32)  # Equal PSF.
-
-        width = 40
-        height = 20
-        img = LayeredImage(
-            np.zeros((height, width), dtype=np.float32),  # sci
-            np.full((height, width), 0.1, dtype=np.float32),  # var
-            np.zeros((height, width), dtype=np.float32),  # mask
-            p,
-            0.0,
-        )
-        add_fake_object(img, 5.5, 3.5, 100.0, p)
-
-        sci = img.sci
-        for r in range(10):
-            for c in range(20):
-                if abs(c - 5) <= 1 and abs(r - 3) <= 1:
-                    self.assertAlmostEqual(sci[r, c], 100.0 / 9.0, delta=0.001)
-                else:
-                    self.assertEqual(sci[r, c], 0.0)
-
-        # Add a fake object with no PSF (right on the edge of the image).
-        add_fake_object(img, 39, 19, 100.0, None)
-        self.assertAlmostEqual(sci[19, 39], 100.0)
-
-        # We don't fail, but do nothing, when we try to insert something
-        # off the edge of the image.
-        add_fake_object(img, 50.1, 10.0, 100.0, None)
-
     def test_create(self):
         times = create_fake_times(10)
         ds = FakeDataSet(256, 128, times)
-        self.assertEqual(ds.stack.num_times, 10)
+        self.assertEqual(ds.stack_py.num_times, 10)
 
         last_time = -1.0
-        for i in range(ds.stack.num_times):
-            layered = ds.stack.get_single_image(i)
-            self.assertEqual(layered.width, 256)
-            self.assertEqual(layered.height, 128)
+        for i in range(ds.stack_py.num_times):
+            self.assertEqual(ds.stack_py.sci[i].shape, (128, 256))
+            self.assertEqual(ds.stack_py.var[i].shape, (128, 256))
 
-            t = layered.time
+            t = ds.stack_py.times[i]
             self.assertGreater(t, last_time)
             last_time = t
-
-    def test_create_empty_times(self):
-        ds = FakeDataSet(256, 128, [])
-        self.assertEqual(ds.stack.num_times, 0)
 
     def test_insert_object(self):
         times = create_fake_times(5, 57130.2, 3, 0.01, 1)
         ds = FakeDataSet(128, 128, times, use_seed=True)
-        self.assertEqual(ds.stack.num_times, 5)
+        self.assertEqual(ds.stack_py.num_times, 5)
         self.assertEqual(len(ds.trajectories), 0)
 
         # Create and insert a random object.
@@ -85,9 +50,9 @@ class test_fake_image_creator(unittest.TestCase):
         self.assertEqual(len(ds.trajectories), 1)
 
         # Check the object was inserted correctly.
-        t0 = ds.stack.get_single_image(0).time
-        for i in range(ds.stack.num_times):
-            dt = ds.stack.get_single_image(i).time - t0
+        t0 = ds.stack_py.times[0]
+        for i in range(ds.stack_py.num_times):
+            dt = ds.stack_py.times[i] - t0
             px = trj.get_x_index(dt)
             py = trj.get_y_index(dt)
 
@@ -98,7 +63,7 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertLess(py, 256)
 
             # Check that there is a bright spot at the predicted position.
-            pix_val = ds.stack.get_single_image(i).sci[py, px]
+            pix_val = ds.stack_py.sci[i][py, px]
             self.assertGreaterEqual(pix_val, 50.0)
 
     def test_save_work_unit(self):

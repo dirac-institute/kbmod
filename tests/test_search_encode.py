@@ -53,7 +53,7 @@ class test_search_filter(unittest.TestCase):
             use_seed=True,
         )
         fake_ds.insert_object(self.trj)
-        self.stack = fake_ds.stack
+        self.stack = fake_ds.stack_py
 
         self.trj_gen = KBMODV1Search(
             self.velocity_steps,
@@ -68,7 +68,13 @@ class test_search_filter(unittest.TestCase):
     def test_different_encodings(self):
         for encoding_bytes in [-1, 1, 2]:
             with self.subTest(i=encoding_bytes):
-                search = StackSearch(self.stack, encoding_bytes)
+                search = StackSearch(
+                    self.stack.sci,
+                    self.stack.var,
+                    self.stack.psfs,
+                    self.stack.zeroed_times,
+                    encoding_bytes,
+                )
                 search.set_min_obs(int(self.img_count / 2))
                 candidates = [trj for trj in self.trj_gen]
                 search.search_all(candidates, True)

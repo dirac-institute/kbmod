@@ -20,7 +20,12 @@ class test_search(unittest.TestCase):
         for _ in range(self.num_objs):
             self.fake_ds.insert_random_object(500)
 
-        self.search = StackSearch(self.fake_ds.stack)
+        self.search = StackSearch(
+            self.fake_ds.stack_py.sci,
+            self.fake_ds.stack_py.var,
+            self.fake_ds.stack_py.psfs,
+            self.fake_ds.stack_py.zeroed_times,
+        )
         self.fake_trjs = self.fake_ds.trajectories
 
     def test_set_get_results(self):
@@ -127,7 +132,12 @@ class test_search(unittest.TestCase):
             fake_ds.insert_object(trj)
 
         # Create the stack search and insert the fake results.
-        search = StackSearch(fake_ds.stack)
+        search = StackSearch(
+            fake_ds.stack_py.sci,
+            fake_ds.stack_py.var,
+            fake_ds.stack_py.psfs,
+            fake_ds.stack_py.zeroed_times,
+        )
         search.set_results(trjs)
 
         # Do the loading and filtering.
