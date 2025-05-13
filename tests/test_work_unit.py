@@ -59,7 +59,7 @@ class test_work_unit(unittest.TestCase):
 
         # Create a fake WCS
         self.wcs = make_fake_wcs(200.6145, -7.7888, 500, 700, 0.00027)
-        self.per_image_wcs = per_image_wcs = [self.wcs for i in range(self.num_images)]
+        self.per_image_wcs = [self.wcs for i in range(self.num_images)]
 
         self.diff_wcs = []
         for i in range(self.num_images):

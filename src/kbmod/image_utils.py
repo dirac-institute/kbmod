@@ -10,52 +10,56 @@ from kbmod.search import ImageStack, LayeredImage
 logger = logging.getLogger(__name__)
 
 
-def extract_sci_images_from_stack(im_stack):
-    """Extract the science images in an ImageStack into a single T x H x W numpy array
-    where T is the number of times (images), H is the image height in pixels, and W is
-    the image width in pixels.
+def image_stack_py_to_cpp(im_stack_py):
+    """Convert an ImageStackPy to an ImageStack.
 
-    This is useful when converting from an ImageStack (C++) to an ImageStackPy (Python).
+    Parameters
+    ----------
+    im_stack_py : `ImageStackPy`
+        The images to convert.
+
+    Returns
+    -------
+    im_stack : `ImageStack`
+        The converted images.
+    """
+    return image_stack_from_components(
+        im_stack_py.times,
+        im_stack_py.sci,
+        im_stack_py.var,
+        psfs=im_stack_py.psfs,
+    )
+
+
+def image_stack_cpp_to_py(im_stack):
+    """Convert an ImageStack to an ImageStackPy.
 
     Parameters
     ----------
     im_stack : `ImageStack`
-        The images from which to build the co-added stamps.
+        The images to convert.
 
     Returns
     -------
-    img_array : `np.array`
-        The T x H x W numpy array of science data.
+    im_stack_py : `ImageStackPy`
+        The converted images.
     """
-    num_images = im_stack.num_times
-    img_array = np.empty((num_images, im_stack.height, im_stack.width))
-    for idx in range(num_images):
-        img_array[idx, :, :] = im_stack.get_single_image(idx).sci
-    return img_array
+    num_times = im_stack.num_times
+    sci = []
+    var = []
+    mask = []
+    psfs = []
+    times = []
 
+    for idx in range(num_times):
+        img = im_stack.get_single_image(idx)
+        sci.append(img.sci)
+        var.append(img.var)
+        mask.append(img.mask)
+        psfs.append(img.psf)
+        times.append(img.time)
 
-def extract_var_images_from_stack(im_stack):
-    """Extract the variance images in an ImageStack into a single T x H x W numpy array
-    where T is the number of times (images), H is the image height in pixels, and W is
-    the image width in pixels.
-
-    This is useful when converting from an ImageStack (C++) to an ImageStackPy (Python).
-
-    Parameters
-    ----------
-    im_stack : `ImageStack`
-        The images from which to build the co-added stamps.
-
-    Returns
-    -------
-    img_array : `np.array`
-        The T x H x W numpy array of variance data.
-    """
-    num_images = im_stack.num_times
-    img_array = np.empty((num_images, im_stack.height, im_stack.width))
-    for idx in range(num_images):
-        img_array[idx, :, :] = im_stack.get_single_image(idx).var
-    return img_array
+    return ImageStackPy(times=times, sci=sci, var=var, mask=mask, psfs=psfs)
 
 
 def image_stack_from_components(times, sci, var, mask=None, psfs=None):

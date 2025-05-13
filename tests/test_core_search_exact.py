@@ -1,11 +1,12 @@
 """Test that the core search can perfectly recover an object with linear motion. This test turns off
 all filtering and just checks the GPU search code."""
 
+import numpy as np
 import unittest
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.core.psf import PSF
-from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
+from kbmod.core.image_stack_py import image_stack_add_fake_object, make_fake_image_stack
+from kbmod.image_utils import image_stack_py_to_cpp
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
 from kbmod.trajectory_generator import VelocityGridSearch
@@ -19,8 +20,6 @@ class test_search_exact(unittest.TestCase):
         dim_y = 200
         dim_x = 300
         noise_level = 1.0
-        variance = noise_level**2
-        p = PSF.make_gaussian_kernel(1.0)
 
         # object properties -- The object is moving in a straight line
         object_flux = 250.0
@@ -28,27 +27,22 @@ class test_search_exact(unittest.TestCase):
         start_y = 45
         xvel = 40.0
         yvel = -10.0
-        trj = Trajectory(
-            x=start_x,
-            y=start_y,
-            vx=xvel,
-            vy=yvel,
-        )
 
-        # create image set with single moving object
-        imlist = []
-        for i in range(img_count):
-            time = i / img_count
-            im = make_fake_layered_image(dim_x, dim_y, noise_level, variance, time, p, seed=i)
-            add_fake_object(
-                im,
-                trj.get_x_pos(time),
-                trj.get_y_pos(time),
-                object_flux,
-                p,
-            )
-            imlist.append(im)
-        stack = ImageStack(imlist)
+        # Create image stack with single moving object.
+        self.times = np.array([i / img_count for i in range(img_count)])
+        rng = np.random.default_rng(100)
+        image_stack_py = make_fake_image_stack(
+            dim_y,
+            dim_x,
+            self.times,
+            noise_level=noise_level,
+            psf_val=1.0,
+            rng=rng,
+        )
+        image_stack_add_fake_object(image_stack_py, start_x, start_y, xvel, yvel, object_flux)
+
+        # Convert to the C++ image stack.
+        stack = image_stack_py_to_cpp(image_stack_py)
 
         # Turn off all filtering and use a custom trajectory generator that
         # tests 1681 velocities per pixel and includes the true velocity.

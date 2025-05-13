@@ -538,7 +538,7 @@ class ImageStackPy:
         return is_valid
 
 
-def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, rng=None):
+def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, psfs=None, rng=None):
     """Create a fake ImageStack for testing.
 
     Parameters
@@ -553,8 +553,10 @@ def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, rn
         The level of the background noise.
         Default: 2.0
     psf_val : float
-        The value of the default PSF.
+        The value of the default PSF.  Used if individual psfs are not specified.
         Default: 0.5
+    psfs : `list` of `numpy.ndarray`, optional
+        A list of PSF kernels. If none, Gaussian PSFs from with std=psf_val are used.
     rng : np.random.Generator
         The random number generator to use. If None creates a new random generator.
         Default: None
@@ -568,8 +570,11 @@ def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, rn
     var = [np.full((height, width), noise_level**2).astype(np.float32) for i in range(len(times))]
 
     # Create the PSF information.
-    psf_kernel = PSF.make_gaussian_kernel(psf_val)
-    psfs = [psf_kernel for i in range(len(times))]
+    if psfs is None:
+        psf_kernel = PSF.make_gaussian_kernel(psf_val)
+        psfs = [psf_kernel for i in range(len(times))]
+    elif len(psfs) != len(times):
+        raise ValueError(f"The number of PSFs ({len(psfs)}) must be the same as times ({len(times)}).")
 
     return ImageStackPy(times, sci, var, psfs=psfs)
 

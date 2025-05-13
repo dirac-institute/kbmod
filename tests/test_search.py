@@ -2,8 +2,8 @@ import unittest
 
 import numpy as np
 
+from kbmod.core.image_stack_py import image_stack_add_fake_object, make_fake_image_stack
 from kbmod.core.psf import PSF
-from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
 from kbmod.trajectory_generator import KBMODV1Search
 
@@ -53,31 +53,39 @@ class test_search(unittest.TestCase):
         self.masked_y = 5
         self.masked_x = 6
 
-        # create image set with single moving object
-        self.imlist = []
+        # Create image stack with single moving object.
+        self.times = np.array([i / self.img_count for i in range(self.img_count)])
+        rng = np.random.default_rng(100)
+        image_stack_py = make_fake_image_stack(
+            self.dim_y,
+            self.dim_x,
+            self.times,
+            noise_level=self.noise_level,
+            psf_val=1.0,
+            rng=rng,
+        )
+
+        image_stack_add_fake_object(
+            image_stack_py,
+            self.start_x,
+            self.start_y,
+            self.vxel,
+            self.vyel,
+            self.object_flux,
+        )
+
+        # Mask a pixel in every other image.
         for i in range(self.img_count):
-            time = i / self.img_count
-            im = make_fake_layered_image(
-                self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, seed=i
-            )
-            add_fake_object(
-                im,
-                self.trj.get_x_pos(time),
-                self.trj.get_y_pos(time),
-                self.object_flux,
-                self.p,
-            )
-
-            # Mask a pixel in half the images.
             if i % 2 == 0:
-                mask = im.mask
-                mask[self.masked_y, self.masked_x] = 1
-                im.apply_mask(1)
+                image_stack_py.sci[i][self.masked_y, self.masked_x] = np.nan
+                image_stack_py.var[i][self.masked_y, self.masked_x] = np.nan
 
-            self.imlist.append(im)
-        self.stack = ImageStack(self.imlist)
-        self.search = StackSearch(self.stack)
-        self.search.set_min_obs(int(self.img_count / 2))
+        self.search = StackSearch(
+            image_stack_py.sci,
+            image_stack_py.var,
+            image_stack_py.psfs,
+            image_stack_py.zeroed_times,
+        )
 
         self.trj_gen = KBMODV1Search(
             self.velocity_steps,
@@ -87,26 +95,6 @@ class test_search(unittest.TestCase):
             self.min_angle,
             self.max_angle,
         )
-
-    def test_stack_search_create_lists(self):
-        sci_imgs = [self.stack.get_single_image(i).sci for i in range(self.img_count)]
-        var_imgs = [self.stack.get_single_image(i).var for i in range(self.img_count)]
-        psf_imgs = [self.stack.get_single_image(i).get_psf() for i in range(self.img_count)]
-        times = self.stack.build_zeroed_times()
-
-        search_py = StackSearch(sci_imgs, var_imgs, psf_imgs, times, -1)
-
-        # Check that the psi and phi images are the same, by using motionless
-        # trajectories from each pixel.
-        trjs = []
-        for y in range(self.dim_y):
-            for x in range(self.dim_x):
-                trjs.append(Trajectory(x, y, 0.0, 0.0))
-        psi_phi_1 = self.search.get_all_psi_phi_curves(trjs)
-        psi_phi_2 = search_py.get_all_psi_phi_curves(trjs)
-
-        # Check that all the curves match (all times for allm pixels).
-        self.assertTrue(np.allclose(psi_phi_1, psi_phi_2))
 
     def test_evaluate_single_trajectory(self):
         test_trj = Trajectory(
@@ -247,22 +235,24 @@ class test_search(unittest.TestCase):
         trj = Trajectory(x=-3, y=12, vx=25.0, vy=10.0)
 
         # Create images with this fake object.
-        imlist = []
-        for i in range(self.img_count):
-            time = i / self.img_count
-            im = make_fake_layered_image(
-                self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, seed=i
-            )
-            add_fake_object(
-                im,
-                trj.get_x_index(time),
-                trj.get_y_index(time),
-                self.object_flux,
-                self.p,
-            )
-            imlist.append(im)
-        stack = ImageStack(imlist)
-        search = StackSearch(stack)
+        times = np.array([i / self.img_count for i in range(self.img_count)])
+        rng = np.random.default_rng(100)
+        image_stack_py = make_fake_image_stack(
+            self.dim_y,
+            self.dim_x,
+            times,
+            noise_level=self.noise_level,
+            psf_val=1.0,
+            rng=rng,
+        )
+        image_stack_add_fake_object(image_stack_py, -3, 12, 25.0, 10.0, self.object_flux)
+
+        search = StackSearch(
+            image_stack_py.sci,
+            image_stack_py.var,
+            image_stack_py.psfs,
+            image_stack_py.zeroed_times,
+        )
 
         # Do the extended search.
         search.set_start_bounds_x(-10, self.dim_x + 10)
@@ -288,22 +278,27 @@ class test_search(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_search_too_many_images(self):
-        # Simple average PSF
-        p = np.zeros((5, 5), dtype=np.single)
-        p[1:4, 1:4] = 0.1111111
-
         # Create a very large image stack.
         width = 10
         height = 20
         num_times = 1_000
-        imlist = [
-            make_fake_layered_image(width, height, 5.0, 25.0, n / num_times, p) for n in range(num_times)
-        ]
-        self.assertEqual(len(imlist), num_times)
-        stack = ImageStack(imlist)
+        times = np.array([i / num_times for i in range(num_times)])
+        image_stack_py = make_fake_image_stack(
+            height,
+            width,
+            times,
+            noise_level=0.5,
+            psf_val=1.0,
+        )
+        self.assertEqual(len(image_stack_py), num_times)
 
         # Create the search stack and try to evaluate.
-        search = StackSearch(stack)
+        search = StackSearch(
+            image_stack_py.sci,
+            image_stack_py.var,
+            image_stack_py.psfs,
+            image_stack_py.zeroed_times,
+        )
         test_trj = Trajectory(x=0, y=0, vx=0.0, vy=0.0)
         self.assertRaises(RuntimeError, search.search_all, [test_trj], True)
         self.assertRaises(RuntimeError, search.evaluate_single_trajectory, test_trj, True)

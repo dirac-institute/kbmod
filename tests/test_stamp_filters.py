@@ -2,9 +2,8 @@ import numpy as np
 import pathlib
 import unittest
 
-from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
-from kbmod.image_utils import extract_sci_images_from_stack, extract_var_images_from_stack
+from kbmod.image_utils import image_stack_cpp_to_py
 from kbmod.filters.stamp_filters import *
 from kbmod.results import Results
 from kbmod.search import *
@@ -29,11 +28,7 @@ class test_stamp_filters(unittest.TestCase):
         self.ds.insert_object(self.trj)
 
         # Create a Python version of the image stack.
-        self.stack_py = ImageStackPy(
-            times=self.fake_times,
-            sci=extract_sci_images_from_stack(self.ds.stack),
-            var=extract_var_images_from_stack(self.ds.stack),
-        )
+        self.stack_py = image_stack_cpp_to_py(self.ds.stack)
 
         current_dir = pathlib.Path(__file__).parent.resolve()
         self.model_path = pathlib.Path(current_dir, "data/test_model.keras")

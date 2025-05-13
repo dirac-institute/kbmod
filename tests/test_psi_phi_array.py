@@ -187,7 +187,6 @@ class test_psi_phi_array(unittest.TestCase):
         num_times = 5
         width = 21
         height = 15
-        im_stack = make_fake_layered_image
         images = [None] * num_times
         p = PSF.make_gaussian_kernel(1.0)
         for i in range(num_times):

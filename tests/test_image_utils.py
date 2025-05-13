@@ -11,16 +11,16 @@ from kbmod.image_utils import (
     count_valid_images,
     create_stamps_from_image_stack,
     create_stamps_from_image_stack_xy,
-    extract_sci_images_from_stack,
-    extract_var_images_from_stack,
+    image_stack_cpp_to_py,
     image_stack_from_components,
+    image_stack_py_to_cpp,
     validate_image_stack,
 )
 
 
 class test_image_utils(unittest.TestCase):
-    def test_extract_images_from_stack(self):
-        """Tests that we can transform an ImageStack into a single numpy array."""
+    def test_image_stack_cpp_to_py(self):
+        """Tests that we can transform an ImageStack into a ImageStackPy."""
         num_times = 5
         width = 10
         height = 12
@@ -28,19 +28,23 @@ class test_image_utils(unittest.TestCase):
         fake_times = np.arange(num_times)
         fake_ds = FakeDataSet(width, height, fake_times, use_seed=True)
 
-        # Check that we can extract the science pixels.
-        sci_array = extract_sci_images_from_stack(fake_ds.stack)
-        self.assertEqual(sci_array.shape, (num_times, height, width))
-        for idx in range(num_times):
-            img_data = fake_ds.stack.get_single_image(idx).sci
-            self.assertTrue(np.allclose(sci_array[idx, :, :], img_data))
+        image_stack_py = image_stack_cpp_to_py(fake_ds.stack)
 
-        # Check that we can extract the variance pixels.
-        var_array = extract_var_images_from_stack(fake_ds.stack)
-        self.assertEqual(var_array.shape, (num_times, height, width))
+        # Check that we extracted the layers for each image.
         for idx in range(num_times):
-            img_data = fake_ds.stack.get_single_image(idx).var
-            self.assertTrue(np.allclose(var_array[idx, :, :], img_data))
+            sci_array = image_stack_py.sci[idx]
+            var_array = image_stack_py.var[idx]
+            psf_array = image_stack_py.psfs[idx]
+            self.assertEqual(sci_array.shape, (height, width))
+            self.assertEqual(var_array.shape, (height, width))
+
+            # Compare to the C++ version.
+            img = fake_ds.stack.get_single_image(idx)
+            self.assertTrue(np.allclose(sci_array, img.sci))
+            self.assertTrue(np.allclose(var_array, img.var))
+            self.assertTrue(np.allclose(psf_array, img.get_psf()))
+
+            self.assertAlmostEqual(image_stack_py.times[idx], fake_times[idx])
 
     def test_image_stack_from_components(self):
         """Tests that we can transform numpy arrays into an ImageStack."""
@@ -48,21 +52,20 @@ class test_image_utils(unittest.TestCase):
         width = 10
         height = 12
 
-        # Create data as a list of numpy arrays (instead of a 3-d array)
-        # to test auto-conversion.
         fake_times = np.arange(num_times)
         fake_sci = [90.0 * np.random.random((height, width)) + 10.0 for _ in range(num_times)]
         fake_var = [0.49 * np.random.random((height, width)) + 0.01 for _ in range(num_times)]
         fake_mask = [np.zeros((height, width)) for _ in range(num_times)]
         fake_psf = [PSF.make_gaussian_kernel(2.0 * (i + 0.1)) for i in range(num_times)]
-
-        im_stack = image_stack_from_components(
-            fake_times,
-            fake_sci,
-            fake_var,
-            fake_mask,
-            fake_psf,
+        im_stack_py = ImageStackPy(
+            times=fake_times,
+            sci=fake_sci,
+            var=fake_var,
+            mask=fake_mask,
+            psfs=fake_psf,
         )
+
+        im_stack = image_stack_py_to_cpp(im_stack_py)
         self.assertEqual(len(im_stack), num_times)
         self.assertEqual(im_stack.height, height)
         self.assertEqual(im_stack.width, width)
@@ -191,11 +194,7 @@ class test_image_utils(unittest.TestCase):
         fake_ds.insert_object(trj)
 
         # Create a Python version of the image stack.
-        stack_py = ImageStackPy(
-            times=fake_times,
-            sci=extract_sci_images_from_stack(fake_ds.stack),
-            var=extract_var_images_from_stack(fake_ds.stack),
-        )
+        stack_py = image_stack_cpp_to_py(fake_ds.stack)
 
         # Create stamps from the fake data set and Trajectory.
         stamps = create_stamps_from_image_stack(fake_ds.stack, trj, 1)
@@ -260,11 +259,7 @@ class test_image_utils(unittest.TestCase):
         fake_ds.insert_object(trj)
 
         # Create a Python version of the image stack.
-        stack_py = ImageStackPy(
-            times=fake_times,
-            sci=extract_sci_images_from_stack(fake_ds.stack),
-            var=extract_var_images_from_stack(fake_ds.stack),
-        )
+        stack_py = image_stack_cpp_to_py(fake_ds.stack)
 
         zeroed_times = np.array(fake_ds.stack.zeroed_times)
         xvals = (trj.x + trj.vx * zeroed_times + 0.5).astype(int)
