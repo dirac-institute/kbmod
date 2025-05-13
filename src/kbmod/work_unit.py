@@ -1026,7 +1026,8 @@ def add_image_data_to_hdul(
     wcs=None,
 ):
     """Add the image data for a single time step to a fits file's HDUL as individual
-    layers for science, variance, etc.
+    layers for science, variance, etc.  Masked pixels in the science and variance
+    layers are added to the masked bits.
 
     Parameters
     ----------
@@ -1095,6 +1096,7 @@ def add_image_data_to_hdul(
 
 def read_image_data_from_hdul(hdul, idx):
     """Read the image data for a single time step to a fits file's HDUL.
+    The mask is auto-applied to the science and variance layers.
 
     Parameters
     ----------
