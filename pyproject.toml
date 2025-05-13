@@ -32,7 +32,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "astropy>=7.0",
+    "astropy>=5.1",
     "joblib>=1.4",
     "jplephem",
     "matplotlib>=3.5",
