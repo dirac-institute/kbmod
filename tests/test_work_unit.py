@@ -55,6 +55,11 @@ class test_work_unit(unittest.TestCase):
         # Create a C++ image stack using a copy of the Python image stack.
         self.im_stack = image_stack_py_to_cpp(self.im_stack_py.copy())
 
+        # Manually set the mask layer to be the same as the science and variance layers.
+        # We use this for testing loaded WorkUnits.
+        for i in range(self.num_images):
+            self.im_stack.mask[i][10, 10 + i] = 1
+
         self.config = SearchConfiguration()
         self.config.set("result_filename", "Here")
         self.config.set("num_obs", self.num_images)
