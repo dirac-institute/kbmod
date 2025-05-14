@@ -383,8 +383,8 @@ class WorkUnit:
     def disorder_obstimes(self):
         """Reorders the timestamps in the WorkUnit to be random. Random offsets
         are chosen for each unique obstime and added to the original obstime.
-        The maximum offset should not be greater than the original the maximum
-        time difference among the images in the WorkUnit.
+        The maximum offset is the number of time in the ImageStack or
+        the difference between the maximum and minimum obstime.
 
         The offsets are applied such that images will have a shared
         obstime if they did so before this method was called.
@@ -401,7 +401,9 @@ class WorkUnit:
 
         # Randomly select an offset between 0 and the max time difference
         # which can be added to the minimum time. This should be randomly
-        # sampled *without* replacement so that we don't have duplicate times
+        # sampled *without* replacement so that we don't have duplicate times. Note
+        # if the max time difference is less than the number of times in the im_stack,
+        # we will use the number of times in the im_stack as the max offset.
         max_offset = max(np.max(unique_obstimes) - np.min(unique_obstimes) + 1, self.im_stack.num_times)
         random_offsets = np.random.choice(
             np.arange(0, max_offset),
