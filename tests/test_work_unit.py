@@ -58,7 +58,7 @@ class test_work_unit(unittest.TestCase):
         # Manually set the mask layer to be the same as the science and variance layers.
         # We use this for testing loaded WorkUnits.
         for i in range(self.num_images):
-            self.im_stack.mask[i][10, 10 + i] = 1
+            self.im_stack.get_single_image(i).mask[10, 10 + i] = 1
 
         self.config = SearchConfiguration()
         self.config.set("result_filename", "Here")
