@@ -380,6 +380,57 @@ class WorkUnit:
         unique_indices = [list(np.where(all_obstimes == time)[0]) for time in unique_obstimes]
         return unique_obstimes, unique_indices
 
+    def disorder_obstimes(self):
+        """Reorders the timestamps in the WorkUnit to be random. Random offsets
+        are chosen for each unique obstime and added to the original obstime.
+        The maximum offset should not be greater than the original the maximum
+        time difference among the images in the WorkUnit.
+
+        The offsets are applied such that images will have a shared
+        obstime if they did so before this method was called.
+        The WorkUnit's ImageStack is then sorted in ascending order of the
+        updated obstimes.
+
+        This is useful for testing and ML training purposes where we might
+        want to perform a search on a WorkUnit that would produce unlikely
+        KBMOD results.
+        """
+        unique_obstimes = np.unique(self.get_all_obstimes())
+        if len(unique_obstimes) == 0:
+            raise ValueError("No obstimes provided for WorkUnit.")
+
+        # Randomly select an offset between 0 and the max time difference
+        # which can be added to the minimum time. This should be randomly
+        # sampled *without* replacement so that we don't have duplicate times
+        max_offset = np.max(unique_obstimes) - np.min(unique_obstimes)
+        random_offsets = np.random.choice(
+            np.arange(0, max_offset),
+            len(unique_obstimes),  # Generate an offset for each unique obstime
+            replace=False,  # Sample without to avoid changing uniqueness
+        )
+
+        # Map each unique obstime to a given offset
+        new_obstimes_map = {}
+        for i, obstime in enumerate(unique_obstimes):
+            new_obstimes_map[obstime] = obstime + random_offsets[i]
+
+        # Apply the mapping of offsets to obstimes for all timestamps in the workunit.
+        new_obstimes = [new_obstimes_map[obstime] for obstime in self.get_all_obstimes()]
+
+        # Update the times depending on the type of ImageStack used.
+        if isinstance(self.im_stack, ImageStackPy):
+            self.im_stack.times = new_obstimes
+        else:
+            for i in range(self.im_stack.num_times):
+                self.im_stack.get_single_image(i).set_obstime(new_obstimes[i])
+
+        # Sort our ImageStack by our updated obstimes. This WorkUnit may have already
+        # been sorted so we do this to preserve that expectation after reordering.
+        self.im_stack.sort_by_time()
+
+        # Reset the cached obstimes to use what was sorted in the ImageStack.
+        self._obstimes = None
+
     @classmethod
     def from_fits(cls, filename, show_progress=None):
         """Create a WorkUnit from a single FITS file.

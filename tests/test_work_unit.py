@@ -690,6 +690,47 @@ class test_work_unit(unittest.TestCase):
             np.array([1.0, 300.0]),  # time
         )
 
+    def test_disorder_obstimes(self):
+        # Check that we can disorder the obstimes.
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
+            barycentric_distance=41.0,
+            org_image_meta=self.org_image_meta,
+        )
+        # Set numpy random seed
+        np.random.seed(0)
+
+        # Check that the obstimes are in order.
+        obstimes = work.get_all_obstimes()
+        # Disorder the obstimes.
+        work.disorder_obstimes()
+
+        # Check that the obstimes have changed
+        disordered_obstimes = work.get_all_obstimes()
+        self.assertNotEqual(disordered_obstimes, obstimes)
+
+        # Check that the range of obstimes is unchanged
+        self.assertGreaterEqual(min(disordered_obstimes), min(obstimes))
+        time_range = max(obstimes) - min(obstimes)
+        self.assertLessEqual(max(disordered_obstimes), max(obstimes) + time_range)
+
+        # Check that uniqueness is preserved by comparing the frequency maps of obstimes
+        disordered_obstimes_freq = {}
+        obstime_freq = {}
+        for obstime in obstimes:
+            if obstime not in obstime_freq:
+                obstime_freq[obstime] = 0
+            obstime_freq[obstime] += 1
+
+        for obstime in disordered_obstimes:
+            if obstime not in disordered_obstimes_freq:
+                disordered_obstimes_freq[obstime] = 0
+            disordered_obstimes_freq[obstime] += 1
+
+        self.assertEqual(sorted(obstime_freq.values()), sorted(disordered_obstimes_freq.values()))
+
 
 if __name__ == "__main__":
     unittest.main()
