@@ -692,44 +692,60 @@ class test_work_unit(unittest.TestCase):
 
     def test_disorder_obstimes(self):
         # Check that we can disorder the obstimes.
-        work = WorkUnit(
-            im_stack=self.im_stack,
-            config=self.config,
-            wcs=self.per_image_ebd_wcs,
-            barycentric_distance=41.0,
-            org_image_meta=self.org_image_meta,
-        )
-        # Set numpy random seed
-        np.random.seed(0)
+        test_times = [
+            [59000.0 + (2 * i + 1) for i in range(self.num_images)],
+            [59000.0, 59001.0, 59002.0, 59003.0, 59004.0],
+            [59000.0, 59004.0, 59002.0, 59001.0, 59004.0],  # Duplicates
+            [59000.0, 59001.62, 59002.0, 59001.62, 59002.8],  # Duplicates
+        ]
+        for curr_times in test_times:
+            # Update the obstimes in the ImageStack
+            # assert that the number of times is the same
+            self.assertEqual(len(curr_times), self.num_images)
+            for i in range(self.num_images):
+                self.im_stack.get_single_image(i).time = curr_times[i]
 
-        # Check that the obstimes are in order.
-        obstimes = work.get_all_obstimes()
-        # Disorder the obstimes.
-        work.disorder_obstimes()
+            work = WorkUnit(
+                im_stack=self.im_stack,
+                config=self.config,
+                wcs=self.per_image_ebd_wcs,
+                barycentric_distance=41.0,
+                org_image_meta=self.org_image_meta,
+            )
+            # Set numpy random seed
+            np.random.seed(0)
 
-        # Check that the obstimes have changed
-        disordered_obstimes = work.get_all_obstimes()
-        self.assertNotEqual(disordered_obstimes, obstimes)
+            # Check that the obstimes are in order.
+            obstimes = work.get_all_obstimes()
+            # Disorder the obstimes.
+            work.disorder_obstimes()
 
-        # Check that the range of obstimes is unchanged
-        self.assertGreaterEqual(min(disordered_obstimes), min(obstimes))
-        time_range = max(obstimes) - min(obstimes)
-        self.assertLessEqual(max(disordered_obstimes), max(obstimes) + time_range)
+            # Check that the obstimes have changed
+            disordered_obstimes = work.get_all_obstimes()
+            self.assertNotEqual(disordered_obstimes, obstimes)
 
-        # Check that uniqueness is preserved by comparing the frequency maps of obstimes
-        disordered_obstimes_freq = {}
-        obstime_freq = {}
-        for obstime in obstimes:
-            if obstime not in obstime_freq:
-                obstime_freq[obstime] = 0
-            obstime_freq[obstime] += 1
+            # Check that the range of obstimes is unchanged
+            self.assertGreaterEqual(min(disordered_obstimes), min(obstimes))
+            time_range = max(max(obstimes) - min(obstimes), self.num_images)
+            self.assertLessEqual(max(disordered_obstimes), max(obstimes) + time_range)
 
-        for obstime in disordered_obstimes:
-            if obstime not in disordered_obstimes_freq:
-                disordered_obstimes_freq[obstime] = 0
-            disordered_obstimes_freq[obstime] += 1
+            # Assert that the disordered obstimes are now sorted
+            self.assertEqual(sorted(disordered_obstimes), disordered_obstimes)
 
-        self.assertEqual(sorted(obstime_freq.values()), sorted(disordered_obstimes_freq.values()))
+            # Check that uniqueness is preserved by comparing the frequency maps of obstimes
+            disordered_obstimes_freq = {}
+            obstime_freq = {}
+            for obstime in obstimes:
+                if obstime not in obstime_freq:
+                    obstime_freq[obstime] = 0
+                obstime_freq[obstime] += 1
+
+            for obstime in disordered_obstimes:
+                if obstime not in disordered_obstimes_freq:
+                    disordered_obstimes_freq[obstime] = 0
+                disordered_obstimes_freq[obstime] += 1
+
+            self.assertEqual(sorted(obstime_freq.values()), sorted(disordered_obstimes_freq.values()))
 
 
 if __name__ == "__main__":

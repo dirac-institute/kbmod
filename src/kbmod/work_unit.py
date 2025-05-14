@@ -402,7 +402,7 @@ class WorkUnit:
         # Randomly select an offset between 0 and the max time difference
         # which can be added to the minimum time. This should be randomly
         # sampled *without* replacement so that we don't have duplicate times
-        max_offset = np.max(unique_obstimes) - np.min(unique_obstimes)
+        max_offset = max(np.max(unique_obstimes) - np.min(unique_obstimes) + 1, self.im_stack.num_times)
         random_offsets = np.random.choice(
             np.arange(0, max_offset),
             len(unique_obstimes),  # Generate an offset for each unique obstime
