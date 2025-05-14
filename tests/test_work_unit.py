@@ -690,6 +690,99 @@ class test_work_unit(unittest.TestCase):
             np.array([1.0, 300.0]),  # time
         )
 
+    def test_clear_metadata(self):
+        """Test that we can clear the metadata from a WorkUnit."""
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
+            barycentric_distance=41.0,
+            org_image_meta=self.org_image_meta,
+        )
+        # Change the per image metadata to something other than the default
+        work._per_image_indices[3] = [3, 4]
+        default_img_indices = [[i] for i in range(self.num_images)]
+
+        # Check that the metadata is present.
+        self.assertEqual(len(work.org_img_meta), self.num_images)
+
+        # Check thet the per_image_idices are not a single single mapping
+        # to the original image.
+        self.assertNotEqual(work._per_image_indices, default_img_indices)
+
+        # Clear the metadata.
+        work.clear_metadata()
+
+        # Check that the metadata has been cleared.
+        self.assertEqual(len(work.org_img_meta), 0)
+        self.assertEqual(len(work.org_img_meta.columns), 0)
+        self.assertEqual(work._per_image_indices, default_img_indices)
+
+    def test_disorder_obstimes(self):
+        # Check that we can disorder the obstimes.
+        test_times = [
+            [59000.0 + (2 * i + 1) for i in range(self.num_images)],
+            [59000.0, 59001.0, 59002.0, 59003.0, 59004.0],
+            [59000.0, 59004.0, 59002.0, 59001.0, 59004.0],  # Duplicates
+            [59000.0, 59001.62, 59002.0, 59001.62, 59002.8],  # Duplicates
+        ]
+        for curr_times in test_times:
+            # Update the obstimes in the ImageStack
+            # assert that the number of times is the same
+            self.assertEqual(len(curr_times), self.num_images)
+            for i in range(self.num_images):
+                self.im_stack.get_single_image(i).time = curr_times[i]
+
+            work = WorkUnit(
+                im_stack=self.im_stack,
+                config=self.config,
+                wcs=self.per_image_ebd_wcs,
+                barycentric_distance=41.0,
+                org_image_meta=self.org_image_meta,
+            )
+            # Change the per image metadata to something other than the default
+            work._per_image_indices[3] = [3, 4]
+
+            # Set numpy random seed
+            np.random.seed(0)
+
+            # Check that the obstimes are in order.
+            obstimes = work.get_all_obstimes()
+            # Disorder the obstimes.
+            work.disorder_obstimes()
+
+            # Check that the obstimes have changed
+            disordered_obstimes = work.get_all_obstimes()
+            self.assertNotEqual(disordered_obstimes, obstimes)
+
+            # Check that the range of obstimes is unchanged
+            self.assertGreaterEqual(min(disordered_obstimes), min(obstimes))
+            time_range = max(max(obstimes) - min(obstimes), self.num_images)
+            self.assertLessEqual(max(disordered_obstimes), max(obstimes) + time_range)
+
+            # Assert that the disordered obstimes are now sorted
+            self.assertEqual(sorted(disordered_obstimes), disordered_obstimes)
+
+            # Check that uniqueness is preserved by comparing the frequency maps of obstimes
+            disordered_obstimes_freq = {}
+            obstime_freq = {}
+            for obstime in obstimes:
+                if obstime not in obstime_freq:
+                    obstime_freq[obstime] = 0
+                obstime_freq[obstime] += 1
+
+            for obstime in disordered_obstimes:
+                if obstime not in disordered_obstimes_freq:
+                    disordered_obstimes_freq[obstime] = 0
+                disordered_obstimes_freq[obstime] += 1
+
+            self.assertEqual(sorted(obstime_freq.values()), sorted(disordered_obstimes_freq.values()))
+
+            # Check that old metadata was cleared
+            self.assertEqual(len(work.org_img_meta), 0)
+            self.assertEqual(len(work.org_img_meta.columns), 0)
+            self.assertEqual(work._per_image_indices, [[i] for i in range(self.num_images)])
+
 
 if __name__ == "__main__":
     unittest.main()
