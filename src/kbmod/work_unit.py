@@ -383,7 +383,7 @@ class WorkUnit:
     def disorder_obstimes(self):
         """Reorders the timestamps in the WorkUnit to be random. Random offsets
         are chosen for each unique obstime and added to the original obstime.
-        The maximum offset is the number of time in the ImageStack or
+        The maximum offset is the number of images/times in the ImageStack or
         the difference between the maximum and minimum obstime.
 
         The offsets are applied such that images will have a shared
