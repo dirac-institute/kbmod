@@ -1026,7 +1026,8 @@ def add_image_data_to_hdul(
     wcs=None,
 ):
     """Add the image data for a single time step to a fits file's HDUL as individual
-    layers for science, variance, etc.
+    layers for science, variance, etc.  Masked pixels in the science and variance
+    layers are added to the masked bits.
 
     Parameters
     ----------
@@ -1047,18 +1048,30 @@ def add_image_data_to_hdul(
     wcs : `astropy.wcs.WCS`, optional
         An optional WCS to include in the header.
     """
+    # Certain compression schemes can have trouble with NaNs. So we mask
+    # those out in science and variance and replace them with zeros.
+    sci_valid = np.isfinite(sci)
+    sci_masked = np.copy(sci)
+    sci_masked[~sci_valid] = 0.0
+
+    var_valid = np.isfinite(var)
+    var_masked = np.copy(var)
+    var_masked[~var_valid] = 0.0
+
     # Use a high quantize_level to preserve most of the image information.
     # In the tests a level of 100.0 did not add much noise, but we use
     # 500.0 here to be conservative.
-    sci_hdu = fits.CompImageHDU(sci, compression_type="RICE_1", quantize_level=500.0)
+    sci_hdu = fits.CompImageHDU(sci_masked, compression_type="RICE_1", quantize_level=500.0)
     sci_hdu.name = f"SCI_{idx}"
     sci_hdu.header["MJD"] = obstime
 
-    var_hdu = fits.CompImageHDU(var, compression_type="RICE_1", quantize_level=500.0)
+    var_hdu = fits.CompImageHDU(var_masked, compression_type="RICE_1", quantize_level=500.0)
     var_hdu.name = f"VAR_{idx}"
     var_hdu.header["MJD"] = obstime
 
-    mask_hdu = fits.ImageHDU((mask > 0).astype(np.int8))
+    # The saved mask is a binarized version of which pixels are valid.
+    mask_full = (mask > 0) | (~sci_valid) | (~var_valid)
+    mask_hdu = fits.ImageHDU(mask_full.astype(np.int8))
     mask_hdu.name = f"MSK_{idx}"
     mask_hdu.header["MJD"] = obstime
 
@@ -1083,6 +1096,7 @@ def add_image_data_to_hdul(
 
 def read_image_data_from_hdul(hdul, idx):
     """Read the image data for a single time step to a fits file's HDUL.
+    The mask is auto-applied to the science and variance layers.
 
     Parameters
     ----------
@@ -1116,9 +1130,12 @@ def read_image_data_from_hdul(hdul, idx):
     # Get the variance layer.
     var = hdul[f"VAR_{idx}"].data.astype(np.single)
 
-    # Allow the mask to be optional. Use an empty mask if none is present.
+    # Allow the mask to be optional. Apply the mask if it is present
+    # and use an empty mask if there is no mask layer.
     if f"MSK_{idx}" in hdul:
         mask = hdul[f"MSK_{idx}"].data.astype(np.single)
+        sci[mask > 0] = np.nan
+        var[mask > 0] = np.nan
     else:
         mask = np.zeros_like(sci)
 

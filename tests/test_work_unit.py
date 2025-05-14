@@ -47,8 +47,8 @@ class test_work_unit(unittest.TestCase):
             )
 
             # Include one masked pixel per time step at (10, 10 + i).
-            mask = self.images[i].mask
-            mask[10, 10 + i] = 1
+            self.images[i].mask[10, 10 + i] = 1
+            self.images[i].apply_mask(0xFFFFFF)
 
         self.im_stack = kb.ImageStack(self.images)
 
