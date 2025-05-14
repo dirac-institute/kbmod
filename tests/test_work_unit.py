@@ -690,6 +690,34 @@ class test_work_unit(unittest.TestCase):
             np.array([1.0, 300.0]),  # time
         )
 
+    def test_clear_metadata(self):
+        """Test that we can clear the metadata from a WorkUnit."""
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
+            barycentric_distance=41.0,
+            org_image_meta=self.org_image_meta,
+        )
+        # Change the per image metadata to something other than the default
+        work._per_image_indices[3] = [3, 4]
+        default_img_indices = [[i] for i in range(self.num_images)]
+
+        # Check that the metadata is present.
+        self.assertEqual(len(work.org_img_meta), self.num_images)
+
+        # Check thet the per_image_idices are not a single single mapping
+        # to the original image.
+        self.assertNotEqual(work._per_image_indices, default_img_indices)
+
+        # Clear the metadata.
+        work.clear_metadata()
+
+        # Check that the metadata has been cleared.
+        self.assertEqual(len(work.org_img_meta), 0)
+        self.assertEqual(len(work.org_img_meta.columns), 0)
+        self.assertEqual(work._per_image_indices, default_img_indices)
+
     def test_disorder_obstimes(self):
         # Check that we can disorder the obstimes.
         test_times = [
@@ -712,6 +740,9 @@ class test_work_unit(unittest.TestCase):
                 barycentric_distance=41.0,
                 org_image_meta=self.org_image_meta,
             )
+            # Change the per image metadata to something other than the default
+            work._per_image_indices[3] = [3, 4]
+
             # Set numpy random seed
             np.random.seed(0)
 
@@ -746,6 +777,11 @@ class test_work_unit(unittest.TestCase):
                 disordered_obstimes_freq[obstime] += 1
 
             self.assertEqual(sorted(obstime_freq.values()), sorted(disordered_obstimes_freq.values()))
+
+            # Check that old metadata was cleared
+            self.assertEqual(len(work.org_img_meta), 0)
+            self.assertEqual(len(work.org_img_meta.columns), 0)
+            self.assertEqual(work._per_image_indices, [[i] for i in range(self.num_images)])
 
 
 if __name__ == "__main__":
