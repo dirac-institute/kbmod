@@ -568,6 +568,47 @@ class ImageStackPy:
 
         return is_valid
 
+    def print_stats(self):
+        """Compute the basic statistics of an image stack and display in a table."""
+        total_pixels = self.height * self.width
+        num_times = self.num_times
+
+        print("Image Stack Statistics:")
+        print(f"  Image Count: {num_times}")
+        print(f"  Image Size: {self.height} x {self.width} = {total_pixels}")
+
+        sep_line = (
+            "+------+------------+------------+------------+------------+----------+"
+            "----------+----------+--------+"
+        )
+        print(sep_line)
+        print(
+            "|  idx |     Time   |  Flux Min  |  Flux Max  |  Flux Mean |  Var Min |"
+            "  Var Max | Var Mean | Masked |"
+        )
+        print(sep_line)
+
+        for idx in range(self.num_times):
+            time = self.times[idx]
+
+            # Count the masked pixels.
+            is_masked = np.isnan(self.sci[idx]) | np.isnan(self.var[idx]) | (self.var[idx] <= 0.0)
+            percent_masked = (np.count_nonzero(is_masked) / total_pixels) * 100.0
+
+            # Compute the basic statistics.
+            flux_min = np.nanmin(self.sci[idx])
+            flux_max = np.nanmax(self.sci[idx])
+            flux_mean = np.nanmean(self.sci[idx])
+            var_min = np.nanmin(self.var[idx])
+            var_max = np.nanmax(self.var[idx])
+            var_mean = np.nanmean(self.var[idx])
+
+            print(
+                f"| {idx:4d} | {time:10.3f} | {flux_min:10.2f} | {flux_max:10.2f} | {flux_mean:10.2f} "
+                f"| {var_min:8.2f} | {var_max:8.2f} | {var_mean:8.2f} | {percent_masked:6.2f} |"
+            )
+            print(sep_line)
+
 
 def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, psfs=None, rng=None):
     """Create a fake ImageStack for testing.
