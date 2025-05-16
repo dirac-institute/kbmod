@@ -15,7 +15,7 @@ from kbmod.work_unit import ImageStack, WorkUnit
 class test_reprojection(unittest.TestCase):
     def setUp(self):
         self.data_path = get_absolute_data_path("shifted_wcs_diff_dimms_tiled.fits")
-        self.test_wunit = WorkUnit.from_fits(self.data_path)
+        self.test_wunit = WorkUnit.from_fits(self.data_path, show_progress=False)
         self.common_wcs = self.test_wunit.get_wcs(0)
 
     def test_reproject(self):
@@ -26,6 +26,7 @@ class test_reprojection(unittest.TestCase):
             work_unit=self.test_wunit,
             common_wcs=self.common_wcs,
             write_output=True,
+            show_progress=False,
         )
 
         self.test_wunit.lazy = True
@@ -34,6 +35,7 @@ class test_reprojection(unittest.TestCase):
             reproject_work_unit,
             work_unit=self.test_wunit,
             common_wcs=self.common_wcs,
+            show_progress=False,
         )
         self.test_wunit.lazy = False
 
@@ -61,11 +63,12 @@ class test_reprojection(unittest.TestCase):
                             write_output=write_out,
                             directory=tmpdir,
                             filename="repr_wu.fits",
+                            show_progress=False,
                         )
                         reprojected_wunit = WorkUnit.from_sharded_fits("repr_wu.fits", tmpdir)
                 else:
                     reprojected_wunit = reproject_work_unit(
-                        self.test_wunit, self.common_wcs, parallelize=parallelize
+                        self.test_wunit, self.common_wcs, parallelize=parallelize, show_progress=False
                     )
 
                 assert reprojected_wunit.wcs != None
@@ -130,7 +133,12 @@ class test_reprojection(unittest.TestCase):
         for parallelize in [True, False]:
             with self.subTest(parallelize=parallelize):
                 try:
-                    reproject_work_unit(self.test_wunit, self.common_wcs, parallelize=parallelize)
+                    reproject_work_unit(
+                        self.test_wunit,
+                        self.common_wcs,
+                        parallelize=parallelize,
+                        show_progress=False,
+                    )
                 except ValueError as e:
                     assert str(e) == "Images with the same obstime are overlapping."
 

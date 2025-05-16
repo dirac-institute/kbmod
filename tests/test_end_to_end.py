@@ -5,6 +5,7 @@
 import os
 import tempfile
 import unittest
+import warnings
 
 from kbmod.fake_data.demo_helper import make_demo_data
 from kbmod.run_search import SearchRunner
@@ -20,8 +21,10 @@ class test_end_to_end(unittest.TestCase):
             filename = os.path.join(dir_name, "test_workunit1.fits")
             make_demo_data(filename)
 
-            # Load the WorkUnit.
-            input_data = WorkUnit.from_fits(filename)
+            # Load the WorkUnit. Ignore the warning about invalid WCS.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                input_data = WorkUnit.from_fits(filename, show_progress=False)
             input_data.config.set("coadds", ["mean"])
 
             rs = SearchRunner()
@@ -39,8 +42,10 @@ class test_end_to_end(unittest.TestCase):
             filename = os.path.join(dir_name, "test_workunit2.fits")
             make_demo_data(filename)
 
-            # Load the WorkUnit.
-            input_data = WorkUnit.from_fits(filename)
+            # Load the WorkUnit. Ignore the warning about invalid WCS.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                input_data = WorkUnit.from_fits(filename, show_progress=False)
 
             # Override the stamp settings of the configuration
             input_data.config.set("stamp_radius", 15)
@@ -68,8 +73,10 @@ class test_end_to_end(unittest.TestCase):
             filename = os.path.join(dir_name, "test_workunit3.fits")
             make_demo_data(filename)
 
-            # Load the WorkUnit.
-            input_data = WorkUnit.from_fits(filename)
+            # Load the WorkUnit. Ignore the warning about invalid WCS.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                input_data = WorkUnit.from_fits(filename, show_progress=False)
             input_data.config.set("result_filename", os.path.join(dir_name, "demo_res.ecsv"))
             input_data.config.set("save_config", True)
 
