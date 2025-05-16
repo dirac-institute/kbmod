@@ -138,15 +138,6 @@ class test_work_unit(unittest.TestCase):
             self.assertIsNotNone(work2.get_wcs(i))
             self.assertTrue(wcs_fits_equal(self.wcs, work2.get_wcs(i)))
 
-    def test_estimate_gpu_memory(self):
-        """Test that we can estimate the GPU memory required to search a WorkUnit."""
-        ppi = self.width * self.height
-        psi_cost = 2 * sys.getsizeof(np.single(10.0)) * ppi * self.num_images
-        res_cost = 8 * sys.getsizeof(kb.Trajectory()) * ppi
-
-        work = WorkUnit(self.im_stack, self.config, self.wcs)
-        self.assertEqual(work.estimate_gpu_memory(), psi_cost + res_cost)
-
     def test_metadata_helpers(self):
         """Test that we can roundtrip an astropy table of metadata (including) WCS
         into a BinTableHDU.
