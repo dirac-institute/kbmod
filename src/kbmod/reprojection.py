@@ -7,7 +7,11 @@ from tqdm.asyncio import tqdm
 
 from kbmod import is_interactive
 from kbmod.search import KB_NO_DATA, ImageStack, LayeredImage
-from kbmod.work_unit import WorkUnit
+from kbmod.work_unit import (
+    add_image_data_to_hdul,
+    read_image_data_from_hdul,
+    WorkUnit,
+)
 from kbmod.wcs_utils import append_wcs_to_hdu_header
 from astropy.io import fits
 import os
@@ -676,10 +680,11 @@ def _load_images_and_reproject(
 
     for file_path, index in zip(file_paths, indices):
         with fits.open(file_path) as hdul:
-            science_images.append(hdul[f"SCI_{index}"].data.astype(np.single))
-            variance_images.append(hdul[f"VAR_{index}"].data.astype(np.single))
-            mask_images.append(hdul[f"MSK_{index}"].data.astype(bool))
-            psfs.append(hdul[f"PSF_{index}"].data.astype(np.single))
+            sci, var, mask, _, psf, _ = read_image_data_from_hdul(hdul, index)
+            science_images.append(sci.astype(np.single))
+            variance_images.append(var.astype(np.single))
+            mask_images.append(mask.astype(bool))
+            psfs.append(psf.astype(np.single))
 
     return _reproject_and_write(
         science_images=science_images,
@@ -872,50 +877,24 @@ def _write_images_to_shard(
     n_indices = len(indices)
     sub_hdul = fits.HDUList()
 
-    sci_hdu = image_add_to_hdu(science_add, f"SCI_{obstime_index}", obstime, wcs)
+    # Append all of the image data to the sub_hdul.
+    add_image_data_to_hdul(
+        sub_hdul,
+        obstime_index,
+        science_add,
+        variance_add,
+        mask_add,
+        obstime,
+        psf_kernel=psf,
+        wcs=wcs,
+    )
+
+    # Add the indexing information.
+    sci_hdu = sub_hdul[f"SCI_{obstime_index}"]
     sci_hdu.header["NIND"] = n_indices
     for j in range(n_indices):
         sci_hdu.header[f"IND_{j}"] = indices[j]
     sub_hdul.append(sci_hdu)
 
-    var_hdu = image_add_to_hdu(variance_add, f"VAR_{obstime_index}", obstime)
-    sub_hdul.append(var_hdu)
-
-    msk_hdu = image_add_to_hdu(mask_add, f"MSK_{obstime_index}", obstime)
-    sub_hdul.append(msk_hdu)
-
-    psf_hdu = fits.hdu.image.ImageHDU(psf)
-    psf_hdu.name = f"PSF_{obstime_index}"
-    sub_hdul.append(psf_hdu)
+    # Write out the file.
     sub_hdul.writeto(os.path.join(directory, f"{obstime_index}_{filename}"))
-
-
-def image_add_to_hdu(add, name, obstime, wcs=None):
-    """Helper function that creates a HDU out of post reproject added image.
-
-    Parameters
-    ----------
-    add : `np.ndarray`
-        The image to convert.
-    name : `str`
-        The name of the image (type + index).
-    obstime : `float`
-        The observation time.
-    wcs : `astropy.wcs.WCS`
-        An optional WCS to include in the header.
-
-    Returns
-    -------
-    hdu : `astropy.io.fits.hdu.image.ImageHDU`
-        The image extension.
-    """
-    hdu = fits.hdu.image.ImageHDU(add)
-
-    # If the WCS is given, copy each entry into the header.
-    if wcs is not None:
-        append_wcs_to_hdu_header(wcs, hdu.header)
-
-    # Set the time stamp.
-    hdu.header["MJD"] = obstime
-    hdu.name = name
-    return hdu
