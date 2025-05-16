@@ -7,6 +7,7 @@ import logging
 import os
 import tempfile
 import unittest
+import warnings
 
 import numpy as np
 
@@ -120,8 +121,11 @@ def perform_search(im_stack, res_filename, default_psf):
     }
     config = SearchConfiguration.from_dict(input_parameters)
 
-    # Create fake visit metadata to confirm we pass it along.
-    wu = WorkUnit(im_stack=im_stack, config=config)
+    # Create fake visit metadata to confirm we pass it along.  We catch the
+    # warning about missing WCS.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        wu = WorkUnit(im_stack=im_stack, config=config)
     wu.org_img_meta["visit"] = [f"img_{i}" for i in range(im_stack.num_times)]
 
     rs = SearchRunner()

@@ -68,6 +68,19 @@ class test_run_search(unittest.TestCase):
 
         config = SearchConfiguration()
         config.set("num_obs", 21)
+
+        # We also set the generator config so we do not get warnings about
+        # a lack of ecliptic angles.
+        generator_config = {
+            "name": "EclipticCenteredSearch",
+            "velocities": [92.0, 526.0, 257],
+            "angles": [-np.pi / 15, np.pi / 15, 129],
+            "angle_units": "radian",
+            "velocity_units": "pix / d",
+            "given_ecliptic": 0.0,
+        }
+        config.set("generator_config", generator_config)
+
         _ = runner.run_search(config, stack_cpp)
         self.assertEqual(config["num_obs"], 10)
 

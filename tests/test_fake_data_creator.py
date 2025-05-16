@@ -76,7 +76,7 @@ class test_fake_image_creator(unittest.TestCase):
             ds.save_fake_data_to_work_unit(file_name)
             self.assertTrue(Path(file_name).exists())
 
-            work2 = WorkUnit.from_fits(file_name)
+            work2 = WorkUnit.from_fits(file_name, show_progress=False)
             self.assertEqual(work2.im_stack.num_times, num_images)
             for i in range(num_images):
                 li = work2.im_stack.get_single_image(i)
