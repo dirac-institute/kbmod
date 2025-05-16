@@ -12,8 +12,9 @@ import warnings
 import numpy as np
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.core.image_stack_py import image_stack_add_fake_object, make_fake_image_stack
 from kbmod.core.psf import PSF
-from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
+from kbmod.image_utils import image_stack_py_to_cpp
 from kbmod.results import Results
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
@@ -23,7 +24,7 @@ from kbmod.work_unit import WorkUnit
 logger = logging.getLogger(__name__)
 
 
-def make_fake_ImageStack(times, trjs, psf_vals):
+def make_fake_images(times, trjs, psf_vals):
     """Make a stack of fake layered images.
 
     Parameters
@@ -43,23 +44,15 @@ def make_fake_ImageStack(times, trjs, psf_vals):
     t0 = times[0]
     dim_x = 512
     dim_y = 1024
-    noise_level = 4.0
-    variance = noise_level**2
 
-    imlist = []
-    for i in range(imCount):
-        p = PSF.make_gaussian_kernel(psf_vals[i])
-        time = times[i] - t0
+    # Create the array of PSF kernels.
+    psfs = [PSF.make_gaussian_kernel(psf_vals[i]) for i in range(imCount)]
 
-        img = make_fake_layered_image(dim_x, dim_y, noise_level, variance, times[i], p, seed=i)
-
-        for trj in trjs:
-            px = trj.x + time * trj.vx + 0.5
-            py = trj.y + time * trj.vy + 0.5
-            add_fake_object(img, px, py, trj.flux, p)
-
-        imlist.append(img)
-    stack = ImageStack(imlist)
+    # Create the data, including fake objects.
+    rng = np.random.default_rng(1001)
+    stack = make_fake_image_stack(dim_y, dim_x, times, noise_level=4.0, psfs=psfs, rng=rng)
+    for trj in trjs:
+        image_stack_add_fake_object(stack, trj.x, trj.y, trj.vx, trj.vy, trj.flux)
     return stack
 
 
@@ -193,7 +186,8 @@ def run_full_test():
             # Set PSF values between +/- 0.1 around the default value.
             psf_vals.append(default_psf - 0.1 + 0.1 * (i % 3))
 
-        stack = make_fake_ImageStack(times, trjs, psf_vals)
+        stack_py = make_fake_images(times, trjs, psf_vals)
+        stack = image_stack_py_to_cpp(stack_py)
 
         # Do the search.
         result_filename = os.path.join(dir_name, "results.ecsv")

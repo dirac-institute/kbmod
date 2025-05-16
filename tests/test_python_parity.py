@@ -8,6 +8,7 @@ import numpy as np
 
 from kbmod.core.psf import convolve_psf_and_image, PSF
 from kbmod.fake_data.fake_data_creator import FakeDataSet
+from kbmod.image_utils import image_stack_py_to_cpp
 from kbmod.search import (
     convolve_image,
     fill_psi_phi_array,
@@ -101,16 +102,17 @@ class test_python_parity(unittest.TestCase):
         height = 300
         times = np.arange(num_times)
         fake_ds = FakeDataSet(width, height, times)
+        im_stack = image_stack_py_to_cpp(fake_ds.stack_py)
 
         # Create the PsiPhiArray from the ImageStack.
         arr_c = PsiPhiArray()
-        fill_psi_phi_array_from_image_stack(arr_c, fake_ds.stack, 2)
+        fill_psi_phi_array_from_image_stack(arr_c, im_stack, 2)
 
         # Process the images using the Python functions.
         psi_arr = []
         phi_arr = []
         for idx in range(num_times):
-            layered_img = fake_ds.stack.get_single_image(idx)
+            layered_img = im_stack.get_single_image(idx)
             psi, phi = generate_psi_phi_images(
                 layered_img.sci,
                 layered_img.var,

@@ -92,40 +92,17 @@ A short example injecting a simulated object into a stack of images, and then re
 ```python
 
 import kbmod.search as kb
-from kbmod.candidate_generator import KBMODV1Search
-import numpy as np
-
-# Create a point spread function
-psf = kb.PSF(1.5)
+from kbmod.trajectory_generator import KBMODV1Search
+from kbmod.fake_data.fake_data_creator import *
 
 # Create fake data with ten 512x512 pixel images and starting at MJD of 57130.2.
-from kbmod.fake_data.fake_data_creator import *
 fake_times = create_fake_times(10, t0=57130.2)
 ds = FakeDataSet(512, 512, fake_times)
-imgs = ds.stack.get_images()
 
-# Get the timestamp of the first image.
-t0 = imgs[0].get_obstime()
-print(f"Image times start at {t0}.")
-
-# Specify an artificial object
-flux = 275.0
-position = (10.7, 15.3)
-velocity = (2, 0)
-
-# Inject object into images
-for im in imgs:
-    dt = im.get_obstime() - t0
-    add_fake_object(
-        im,
-        position[0] + dt * velocity[0],
-        position[1] + dt * velocity[1],
-        flux,
-        psf,
-    )
-
-# Create a new image stack with the inserted object.
-stack = kb.ImageStack(imgs)
+# Insert an artificial object with starting position x=2, y=0,
+# velocity vx=10.7, vy=15.3, and flux = 275.0.
+trj = kb.Trajectory(x=2, y=0, vx=10.7, vy=15.3, flux=275.0)
+ds.insert_object(trj)
 
 # Generate a set of trajectories to test from each pixel.
 gen = KBMODV1Search(
@@ -138,8 +115,14 @@ gen = KBMODV1Search(
 )
 candidates = [trj for trj in gen]
 
-# Do the actual search (on CPU).
-search = kb.StackSearch(stack)
+# Do the actual search (on CPU).  This requires passing in the science
+# images, the variance images, the PSF information, and the times.
+search = kb.StackSearch(
+    ds.stack_py.sci,
+    ds.stack_py.var,
+    ds.stack_py.psfs,
+    ds.stack_py.zeroed_times,
+)
 search.set_min_obs(7)
 search.search_all(candidates, False)
 

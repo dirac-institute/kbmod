@@ -37,12 +37,12 @@ class test_trajectory_explorer(unittest.TestCase):
         # Remove at least one observation from the trajectory.
         pred_x = self.trj.get_x_index(fake_times[10])
         pred_y = self.trj.get_y_index(fake_times[10])
-        sci_t10 = self.fake_ds.stack.get_single_image(10).sci
+        sci_t10 = self.fake_ds.stack_py.sci[10]
         for dy in [-1, 0, 1]:
             for dx in [-1, 0, 1]:
                 sci_t10[pred_y + dy, pred_x + dx] = 0.0001
 
-        self.explorer = TrajectoryExplorer(self.fake_ds.stack)
+        self.explorer = TrajectoryExplorer(self.fake_ds.stack_py)
 
     def test_evaluate_trajectory(self):
         result = self.explorer.evaluate_linear_trajectory(self.x0, self.y0, self.vx, self.vy, False)
@@ -85,7 +85,7 @@ class test_trajectory_explorer(unittest.TestCase):
         """Test that we get the same results with GPU or CPU-only code."""
         config = SearchConfiguration()
         config.set("gpu_filter", False)
-        explorer2 = TrajectoryExplorer(self.fake_ds.stack, config=config)
+        explorer2 = TrajectoryExplorer(self.fake_ds.stack_py, config=config)
         result1 = explorer2.evaluate_linear_trajectory(self.x0, self.y0, self.vx, self.vy, True)
         result2 = explorer2.evaluate_linear_trajectory(self.x0, self.y0, self.vx, self.vy, False)
 

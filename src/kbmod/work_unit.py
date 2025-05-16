@@ -19,7 +19,7 @@ from tqdm import tqdm
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.image_stack_py import ImageStackPy
-from kbmod.image_utils import image_stack_from_components, stat_image_stack, validate_image_stack
+from kbmod.image_utils import image_stack_py_to_cpp, stat_image_stack, validate_image_stack
 from kbmod.reprojection_utils import invert_correct_parallax
 from kbmod.search import ImageStack, LayeredImage, Logging, Trajectory
 from kbmod.util_functions import get_matched_obstimes
@@ -132,12 +132,7 @@ class WorkUnit:
         # Add a temporary bridge to convert the Python ImageStackPy into the C++
         # version. This uses force_move and destroys the original im_stack.
         if isinstance(im_stack, ImageStackPy):
-            im_stack = image_stack_from_components(
-                im_stack.times,
-                im_stack.sci,
-                im_stack.var,
-                psfs=im_stack.psfs,
-            )
+            im_stack = image_stack_py_to_cpp(im_stack)
 
         # Assign the core components.
         self.im_stack = im_stack

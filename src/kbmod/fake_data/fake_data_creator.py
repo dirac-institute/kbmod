@@ -14,6 +14,10 @@ import warnings
 from astropy.io import fits
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.core.image_stack_py import (
+    make_fake_image_stack,
+    image_stack_add_fake_object,
+)
 from kbmod.core.psf import PSF
 from kbmod.search import *
 from kbmod.work_unit import WorkUnit
@@ -76,49 +80,6 @@ def make_fake_layered_image(
     return img
 
 
-def add_fake_object(img, x, y, flux, psf=None):
-    """Add a fake object to a LayeredImage or numpy array.
-
-    Parameters
-    ----------
-    img : `LayeredImage` or `np.ndarray`
-        The image to modify.
-    x : `int` or `float`
-        The x pixel location of the fake object.
-    y : `int` or `float`
-        The y pixel location of the fake object.
-    flux : `float`
-        The flux value.
-    psf : `numpy.ndarray`
-            The PSF's kernel for the image.
-    """
-    if type(img) is LayeredImage:
-        sci = img.sci
-    elif type(img) is np.ndarray:
-        sci = img
-    else:
-        raise TypeError("Expected a LayeredImage or np.ndarray")
-
-    # Explicitly cast to float because the indexing uses different order
-    # float integer and float.
-    x = int(x)
-    y = int(y)
-
-    if psf is None:
-        if (x >= 0) and (y >= 0) and (x < sci.shape[1]) and (y < sci.shape[0]):
-            sci[y, x] = flux + sci[y, x]
-    else:
-        radius = int((psf.shape[0] - 1) / 2)
-        initial_x = int(x - radius)
-        initial_y = int(y - radius)
-        for i in range(psf.shape[0]):
-            for j in range(psf.shape[0]):
-                xp = initial_x + i
-                yp = initial_y + j
-                if (xp >= 0) and (yp >= 0) and (xp < sci.shape[1]) and (yp < sci.shape[0]):
-                    sci[yp, xp] = flux * psf[i, j] + sci[yp, xp]
-
-
 def create_fake_times(num_times, t0=0.0, obs_per_day=1, intra_night_gap=0.01, inter_night_gap=1):
     """Create a list of times based on a cluster of ``obs_per_day`` observations
     each night spaced out ``intra_night_gap`` within a night and ``inter_night_gap`` data between
@@ -161,7 +122,7 @@ def create_fake_times(num_times, t0=0.0, obs_per_day=1, intra_night_gap=0.01, in
 class FakeDataSet:
     """This class creates fake data sets for testing and demo notebooks."""
 
-    def __init__(self, width, height, times, noise_level=2.0, psf_val=0.5, use_seed=False):
+    def __init__(self, width, height, times, noise_level=2.0, psf_val=0.5, psfs=None, use_seed=False):
         """The constructor.
 
         Parameters
@@ -174,8 +135,12 @@ class FakeDataSet:
             A list of time stamps, such as produced by ``create_fake_times``.
         noise_level : `float`
             The level of the background noise.
+            Default: 2.0
         psf_val : `float`
-            The value of the default PSF std.
+            The value of the default PSF std.  Used if individual psfs are not specified.
+            Default: 0.5
+        psfs : `list` of `numpy.ndarray`, optional
+            A list of PSF kernels. If none, Gaussian PSFs from with std=psf_val are used.
         use_seed : `bool`
             Use a deterministic seed to avoid flaky tests.
         """
@@ -188,9 +153,22 @@ class FakeDataSet:
         self.trajectories = []
         self.times = times
         self.fake_wcs = None
+        
+        if use_seed:
+            rng = np.random.default_rng(101)
+        else:
+            rng = np.random.default_rng()
 
         # Make the image stack.
-        self.stack = self.make_fake_ImageStack()
+        self.stack_py = make_fake_image_stack(
+            height,
+            width,
+            times,
+            noise_level=noise_level,
+            psf_val=psf_val,
+            psfs=psfs,
+            rng=rng,
+        )
 
     def set_wcs(self, new_wcs):
         """Set a new fake WCS to be used for this data.
@@ -202,28 +180,6 @@ class FakeDataSet:
         """
         self.fake_wcs = new_wcs
 
-    def make_fake_ImageStack(self):
-        """Make a stack of fake layered images.
-
-        Returns
-        -------
-        stack : `ImageStack`
-        """
-        p = PSF.make_gaussian_kernel(self.psf_val)
-        stack = ImageStack()
-        for i in range(self.num_times):
-            img = make_fake_layered_image(
-                self.width,
-                self.height,
-                self.noise_level,
-                self.noise_level**2,
-                self.times[i],
-                p,
-                i if self.use_seed else -1,
-            )
-            stack.append_image(img, force_move=True)
-        return stack
-
     def insert_object(self, trj):
         """Insert a fake object given the trajectory.
 
@@ -232,18 +188,15 @@ class FakeDataSet:
         trj : `Trajectory`
             The trajectory of the fake object to insert.
         """
-        t0 = self.times[0]
-
-        for i in range(self.num_times):
-            dt = self.times[i] - t0
-            px = trj.get_x_pos(dt)
-            py = trj.get_y_pos(dt)
-
-            # Get the image for the timestep, add the object, and
-            # re-set the image. This last step needs to be done
-            # explicitly because of how pybind handles references.
-            current = self.stack.get_single_image(i)
-            add_fake_object(current, px, py, trj.flux, current.get_psf())
+        # Insert the object into the images.
+        image_stack_add_fake_object(
+            self.stack_py,
+            trj.x,
+            trj.y,
+            trj.vx,
+            trj.vy,
+            trj.flux,
+        )
 
         # Save the trajectory into the internal list.
         self.trajectories.append(trj)
@@ -295,7 +248,7 @@ class FakeDataSet:
         # Create the WorkUnit, but disable warnings about no WCS since this if fake data.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            work = WorkUnit(im_stack=self.stack, config=config, wcs=self.fake_wcs)
+            work = WorkUnit(im_stack=self.stack_py, config=config, wcs=self.fake_wcs)
         return work
     
     def save_fake_data_to_work_unit(self, filename, config=None):

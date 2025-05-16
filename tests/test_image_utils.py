@@ -5,42 +5,54 @@ import unittest
 from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
-from kbmod.search import Trajectory
+from kbmod.search import ImageStack, LayeredImage, Trajectory
 
 from kbmod.image_utils import (
     count_valid_images,
     create_stamps_from_image_stack,
     create_stamps_from_image_stack_xy,
-    extract_sci_images_from_stack,
-    extract_var_images_from_stack,
+    image_stack_cpp_to_py,
     image_stack_from_components,
+    image_stack_py_to_cpp,
     validate_image_stack,
 )
 
 
 class test_image_utils(unittest.TestCase):
-    def test_extract_images_from_stack(self):
-        """Tests that we can transform an ImageStack into a single numpy array."""
+    def test_image_stack_cpp_to_py(self):
+        """Tests that we can transform an ImageStack into a ImageStackPy."""
         num_times = 5
         width = 10
         height = 12
 
-        fake_times = np.arange(num_times)
-        fake_ds = FakeDataSet(width, height, fake_times, use_seed=True)
+        img_list = []
+        for i in range(num_times):
+            img = LayeredImage(
+                np.random.normal(0.0, 0.5, (height, width)).astype(np.float32),
+                np.full((height, width), 0.1).astype(np.float32),
+                np.zeros((height, width)).astype(np.float32),
+                np.array([[1.0]]),
+                float(i),
+            )
+            img_list.append(img)
+        im_stack = ImageStack(img_list)
 
-        # Check that we can extract the science pixels.
-        sci_array = extract_sci_images_from_stack(fake_ds.stack)
-        self.assertEqual(sci_array.shape, (num_times, height, width))
-        for idx in range(num_times):
-            img_data = fake_ds.stack.get_single_image(idx).sci
-            self.assertTrue(np.allclose(sci_array[idx, :, :], img_data))
+        # Do the conversion.
+        image_stack_py = image_stack_cpp_to_py(im_stack)
 
-        # Check that we can extract the variance pixels.
-        var_array = extract_var_images_from_stack(fake_ds.stack)
-        self.assertEqual(var_array.shape, (num_times, height, width))
+        # Check that we extracted the layers for each image.
         for idx in range(num_times):
-            img_data = fake_ds.stack.get_single_image(idx).var
-            self.assertTrue(np.allclose(var_array[idx, :, :], img_data))
+            sci_array = image_stack_py.sci[idx]
+            var_array = image_stack_py.var[idx]
+            psf_array = image_stack_py.psfs[idx]
+            self.assertEqual(sci_array.shape, (height, width))
+            self.assertEqual(var_array.shape, (height, width))
+
+            # Compare to the C++ version.
+            img = im_stack.get_single_image(idx)
+            self.assertTrue(np.allclose(sci_array, img.sci))
+            self.assertTrue(np.allclose(var_array, img.var))
+            self.assertTrue(np.allclose(psf_array, img.get_psf()))
 
     def test_image_stack_from_components(self):
         """Tests that we can transform numpy arrays into an ImageStack."""
@@ -48,21 +60,20 @@ class test_image_utils(unittest.TestCase):
         width = 10
         height = 12
 
-        # Create data as a list of numpy arrays (instead of a 3-d array)
-        # to test auto-conversion.
         fake_times = np.arange(num_times)
         fake_sci = [90.0 * np.random.random((height, width)) + 10.0 for _ in range(num_times)]
         fake_var = [0.49 * np.random.random((height, width)) + 0.01 for _ in range(num_times)]
         fake_mask = [np.zeros((height, width)) for _ in range(num_times)]
         fake_psf = [PSF.make_gaussian_kernel(2.0 * (i + 0.1)) for i in range(num_times)]
-
-        im_stack = image_stack_from_components(
-            fake_times,
-            fake_sci,
-            fake_var,
-            fake_mask,
-            fake_psf,
+        im_stack_py = ImageStackPy(
+            times=fake_times,
+            sci=fake_sci,
+            var=fake_var,
+            mask=fake_mask,
+            psfs=fake_psf,
         )
+
+        im_stack = image_stack_py_to_cpp(im_stack_py)
         self.assertEqual(len(im_stack), num_times)
         self.assertEqual(im_stack.height, height)
         self.assertEqual(im_stack.width, width)
@@ -181,64 +192,47 @@ class test_image_utils(unittest.TestCase):
             25,  # width
             35,  # height
             fake_times,  # time stamps
-            1.0,  # noise level
-            0.5,  # psf value
-            True,  # Use a fixed seed for testing
+            noise_level=1.0,  # noise level
+            psf_val=0.5,  # psf value
+            use_seed=True,  # Use a fixed seed for testing
         )
 
         # Insert a single fake object with known parameters.
         trj = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
         fake_ds.insert_object(trj)
 
-        # Create a Python version of the image stack.
-        stack_py = ImageStackPy(
-            times=fake_times,
-            sci=extract_sci_images_from_stack(fake_ds.stack),
-            var=extract_var_images_from_stack(fake_ds.stack),
-        )
-
         # Create stamps from the fake data set and Trajectory.
-        stamps = create_stamps_from_image_stack(fake_ds.stack, trj, 1)
-        stamps_py = create_stamps_from_image_stack(stack_py, trj, 1)
+        stamps = create_stamps_from_image_stack(fake_ds.stack_py, trj, 1)
         self.assertEqual(len(stamps), num_times)
-        self.assertEqual(len(stamps_py), num_times)
         for i in range(num_times):
             self.assertEqual(stamps[i].shape, (3, 3))
-            self.assertEqual(stamps_py[i].shape, (3, 3))
 
             # Compare to the (manually computed) trajectory location.
             xp = 8 + 2 * i
             yp = 7 + i
             if xp < 25 and yp < 35:
-                center_val = fake_ds.stack.get_single_image(i).sci[yp, xp]
+                center_val = fake_ds.stack_py.sci[i][yp, xp]
                 self.assertAlmostEqual(center_val, stamps[i][1, 1])
-                self.assertAlmostEqual(center_val, stamps_py[i][1, 1])
             else:
                 self.assertTrue(np.isnan(stamps[i][1, 1]))
-                self.assertTrue(np.isnan(stamps_py[i][1, 1]))
 
         # Check that we can set use_indices to produce only some stamps.
         use_times = [False, True, False, True, True, False, False, False, True, False]
-        stamps = create_stamps_from_image_stack(fake_ds.stack, trj, 1, use_times)
-        stamps_py = create_stamps_from_image_stack(stack_py, trj, 1, use_times)
+        stamps = create_stamps_from_image_stack(fake_ds.stack_py, trj, 1, to_include=use_times)
         self.assertEqual(len(stamps), np.count_nonzero(use_times))
-        self.assertEqual(len(stamps_py), np.count_nonzero(use_times))
 
         stamp_count = 0
         for i in range(num_times):
             if use_times[i]:
                 self.assertEqual(stamps[stamp_count].shape, (3, 3))
-                self.assertEqual(stamps_py[stamp_count].shape, (3, 3))
 
                 xp = 8 + 2 * i
                 yp = 7 + i
                 if xp < 25 and yp < 35:
-                    center_val = fake_ds.stack.get_single_image(i).sci[yp, xp]
-                    self.assertAlmostEqual(center_val, stamps[stamp_count][1, 1])
+                    center_val = fake_ds.stack_py.sci[i][yp, xp]
                     self.assertAlmostEqual(center_val, stamps[stamp_count][1, 1])
                 else:
-                    self.assertTrue(np.isnan(stamps_py[stamp_count][1, 1]))
-                    self.assertTrue(np.isnan(stamps_py[stamp_count][1, 1]))
+                    self.assertTrue(np.isnan(stamps[stamp_count][1, 1]))
 
                 stamp_count += 1
 
@@ -250,64 +244,47 @@ class test_image_utils(unittest.TestCase):
             25,  # width
             35,  # height
             fake_times,  # time stamps
-            1.0,  # noise level
-            0.5,  # psf value
-            True,  # Use a fixed seed for testing
+            noise_level=1.0,  # noise level
+            psf_val=0.5,  # psf value
+            use_seed=True,  # Use a fixed seed for testing
         )
 
         # Insert a single fake object with known parameters.
         trj = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
         fake_ds.insert_object(trj)
 
-        # Create a Python version of the image stack.
-        stack_py = ImageStackPy(
-            times=fake_times,
-            sci=extract_sci_images_from_stack(fake_ds.stack),
-            var=extract_var_images_from_stack(fake_ds.stack),
-        )
-
-        zeroed_times = np.array(fake_ds.stack.zeroed_times)
+        zeroed_times = np.array(fake_ds.stack_py.zeroed_times)
         xvals = (trj.x + trj.vx * zeroed_times + 0.5).astype(int)
         yvals = (trj.y + trj.vy * zeroed_times + 0.5).astype(int)
-        stamps = create_stamps_from_image_stack_xy(fake_ds.stack, 1, xvals, yvals)
-        stamps_py = create_stamps_from_image_stack_xy(stack_py, 1, xvals, yvals)
+        stamps = create_stamps_from_image_stack_xy(fake_ds.stack_py, 1, xvals, yvals)
         self.assertEqual(len(stamps), num_times)
-        self.assertEqual(len(stamps_py), num_times)
         for i in range(num_times):
             self.assertEqual(stamps[i].shape, (3, 3))
-            self.assertEqual(stamps_py[i].shape, (3, 3))
 
             # Compare to the (manually computed) trajectory location.
             xp = 8 + 2 * i
             yp = 7 + i
             if xp < 25 and yp < 35:
-                center_val = fake_ds.stack.get_single_image(i).sci[yp, xp]
+                center_val = fake_ds.stack_py.sci[i][yp, xp]
                 self.assertAlmostEqual(center_val, stamps[i][1, 1])
-                self.assertAlmostEqual(center_val, stamps_py[i][1, 1])
             else:
                 self.assertTrue(np.isnan(stamps[i][1, 1]))
-                self.assertTrue(np.isnan(stamps_py[i][1, 1]))
 
         # Check that we can set use_indices to produce only some stamps.
         use_inds = np.array([1, 2, 3, 5, 6])
-        stamps = create_stamps_from_image_stack_xy(fake_ds.stack, 1, xvals, yvals, to_include=use_inds)
-        stamps_py = create_stamps_from_image_stack_xy(stack_py, 1, xvals, yvals, to_include=use_inds)
+        stamps = create_stamps_from_image_stack_xy(fake_ds.stack_py, 1, xvals, yvals, to_include=use_inds)
         self.assertEqual(len(stamps), len(use_inds))
-        self.assertEqual(len(stamps_py), len(use_inds))
 
         for stamp_i, image_i in enumerate(use_inds):
             self.assertEqual(stamps[stamp_i].shape, (3, 3))
-            self.assertEqual(stamps_py[stamp_i].shape, (3, 3))
 
             xp = 8 + 2 * image_i
             yp = 7 + image_i
             if xp < 25 and yp < 35:
-                center_val = fake_ds.stack.get_single_image(image_i).sci[yp, xp]
+                center_val = fake_ds.stack_py.sci[image_i][yp, xp]
                 self.assertAlmostEqual(center_val, stamps[stamp_i][1, 1])
-                self.assertAlmostEqual(center_val, stamps_py[stamp_i][1, 1])
             else:
                 self.assertTrue(np.isnan(stamps[stamp_i][1, 1]))
-                self.assertTrue(np.isnan(stamps_py[stamp_i][1, 1]))
 
 
 if __name__ == "__main__":

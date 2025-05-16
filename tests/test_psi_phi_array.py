@@ -187,7 +187,6 @@ class test_psi_phi_array(unittest.TestCase):
         num_times = 5
         width = 21
         height = 15
-        im_stack = make_fake_layered_image
         images = [None] * num_times
         p = PSF.make_gaussian_kernel(1.0)
         for i in range(num_times):
@@ -291,15 +290,22 @@ class test_psi_phi_array(unittest.TestCase):
         num_times = 5
         width = 10
         height = 12
-        fake_ds = FakeDataSet(width, height, np.arange(num_times))
+        times = 2.0 * np.arange(num_times)
+        im_stack = make_fake_image_stack(height, width, times)
 
         # Set all pixels in one of the images to NO_DATA.
-        science = fake_ds.stack.get_single_image(1).sci
-        science[:, :] = KB_NO_DATA
+        science = im_stack.sci[1][:, :] = KB_NO_DATA
 
-        # Create the PsiPhiArray from the ImageStack and 2 byte encoding.
+        # Create the PsiPhiArray from the ImageStack.
         arr = PsiPhiArray()
-        fill_psi_phi_array_from_image_stack(arr, fake_ds.stack, 2)
+        fill_psi_phi_array_from_image_arrays(
+            arr,
+            2,  # num_bytes
+            im_stack.sci,
+            im_stack.var,
+            im_stack.psfs,
+            im_stack.zeroed_times,
+        )
 
         # Check the meta data.
         self.assertEqual(arr.num_times, num_times)

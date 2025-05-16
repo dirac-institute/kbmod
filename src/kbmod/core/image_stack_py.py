@@ -193,6 +193,26 @@ class ImageStackPy:
     def __len__(self):
         return self.num_times
 
+    def __eq__(self, other):
+        if self.num_times != other.num_times:
+            return False
+        if self.height != other.height or self.width != other.width:
+            return False
+        if not np.allclose(self.times, other.times):
+            return False
+        if not np.allclose(self.zeroed_times, other.zeroed_times):
+            return False
+
+        # Check the image data at each time.
+        for i in range(self.num_times):
+            if not np.allclose(self.sci[i], other.sci[i]):
+                return False
+            if not np.allclose(self.var[i], other.var[i]):
+                return False
+            if not np.allclose(self.psfs[i], other.psfs[i]):
+                return False
+        return True
+
     @property
     def npixels(self):
         """Return the number of pixels in each image."""
@@ -228,6 +248,17 @@ class ImageStackPy:
         if index < 0 or index >= self.num_times:
             raise IndexError(f"Index {index} out of range for ImageStack.")
         return self.times[index]
+
+    def copy(self):
+        """Make a deep copy of the image stack."""
+        new_stack = ImageStackPy(
+            times=[self.times[i] for i in range(self.num_times)],
+            sci=[np.copy(self.sci[i]) for i in range(self.num_times)],
+            var=[np.copy(self.var[i]) for i in range(self.num_times)],
+            mask=None,
+            psfs=[np.copy(self.psfs[i]) for i in range(self.num_times)],
+        )
+        return new_stack
 
     def num_masked_pixels(self):
         """Compute the number of masked pixels."""
@@ -538,7 +569,7 @@ class ImageStackPy:
         return is_valid
 
 
-def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, rng=None):
+def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, psfs=None, rng=None):
     """Create a fake ImageStack for testing.
 
     Parameters
@@ -553,8 +584,10 @@ def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, rn
         The level of the background noise.
         Default: 2.0
     psf_val : float
-        The value of the default PSF.
+        The value of the default PSF.  Used if individual psfs are not specified.
         Default: 0.5
+    psfs : `list` of `numpy.ndarray`, optional
+        A list of PSF kernels. If none, Gaussian PSFs from with std=psf_val are used.
     rng : np.random.Generator
         The random number generator to use. If None creates a new random generator.
         Default: None
@@ -568,8 +601,11 @@ def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, rn
     var = [np.full((height, width), noise_level**2).astype(np.float32) for i in range(len(times))]
 
     # Create the PSF information.
-    psf_kernel = PSF.make_gaussian_kernel(psf_val)
-    psfs = [psf_kernel for i in range(len(times))]
+    if psfs is None:
+        psf_kernel = PSF.make_gaussian_kernel(psf_val)
+        psfs = [psf_kernel for i in range(len(times))]
+    elif len(psfs) != len(times):
+        raise ValueError(f"The number of PSFs ({len(psfs)}) must be the same as times ({len(times)}).")
 
     return ImageStackPy(times, sci, var, psfs=psfs)
 
