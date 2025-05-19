@@ -16,7 +16,6 @@ import warnings
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.image_stack_py import make_fake_image_stack
 from kbmod.core.psf import PSF
-from kbmod.image_utils import image_stack_py_to_cpp
 import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal

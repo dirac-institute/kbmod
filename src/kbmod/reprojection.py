@@ -363,7 +363,7 @@ def _reproject_work_unit_in_parallel(
             obstime, indices = o_i
             original_wcs = _validate_original_wcs(work_unit, indices, frame)
 
-            # Get the list of cience, variance, or mask images for each unique obstime.
+            # Get the list of science, variance, or mask images for each unique obstime.
             # We create a mask since we implicitly store it in the
             science_images_at_obstime = []
             variance_images_at_obstime = []

@@ -570,7 +570,8 @@ class WorkUnit:
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
 
-            # Append all of the image data to the main hdu list.
+            # Append all of the image data to the main hdu list. We create
+            # the mask layer because we do not store it in the image stack.
             add_image_data_to_hdul(
                 hdul,
                 i,
@@ -645,7 +646,8 @@ class WorkUnit:
             n_indices = len(c_indices)
             sub_hdul = fits.HDUList()
 
-            # Append all of the image data to the sub_hdul.
+            # Append all of the image data to the sub_hdul. We create
+            # the mask layer because we do not store it in the image stack.
             add_image_data_to_hdul(
                 sub_hdul,
                 i,

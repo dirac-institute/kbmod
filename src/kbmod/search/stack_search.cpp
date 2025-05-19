@@ -311,7 +311,6 @@ static void stack_search_bindings(py::module& m) {
     using ks = search::StackSearch;
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
-            .def(py::init<is&, int>(), py::arg("imstack"), py::arg("num_bytes") = -1)
             .def(py::init<iv&, iv&, iv&, dv&, int>(), py::arg("sci_imgs"), py::arg("var_imgs"),
                  py::arg("psf_kernels"), py::arg("zeroed_times"), py::arg("num_bytes") = -1)
             .def_property_readonly("num_images", &ks::num_images)

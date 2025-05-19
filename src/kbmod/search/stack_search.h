@@ -16,6 +16,7 @@
 #include "common.h"
 #include "cpu_search_algorithms.h"
 #include "debug_timer.h"
+#include "image_utils_cpp.h"
 #include "psi_phi_array_ds.h"
 #include "psi_phi_array_utils.h"
 #include "pydocs/stack_search_docs.h"

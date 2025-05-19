@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "common.h"
+#include "image_utils_cpp.h"
 #include "psi_phi_array_ds.h"
 
 namespace search {
