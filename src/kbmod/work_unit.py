@@ -391,7 +391,7 @@ class WorkUnit:
 
         # Apply the mapping of offsets to obstimes for all timestamps in the workunit.
         new_obstimes = [new_obstimes_map[obstime] for obstime in self.get_all_obstimes()]
-        self.im_stack.times = new_obstimes
+        self.im_stack.times = np.asanyarray(new_obstimes)
 
         # Sort our ImageStack by our updated obstimes. This WorkUnit may have already
         # been sorted so we do this to preserve that expectation after reordering.

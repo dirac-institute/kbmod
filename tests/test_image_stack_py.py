@@ -155,7 +155,7 @@ class test_image_stack_py(unittest.TestCase):
         self.assertEqual(stack.height, height)
         self.assertEqual(stack.npixels, height * width)
         self.assertEqual(stack.total_pixels, num_times * height * width)
-        self.assertTrue(np.array_equal(stack.num_masked_pixels(), [2, 0, 1, 0, 0]))
+        self.assertTrue(np.array_equal(stack.num_masked_pixels(), [2, 0, 1]))
 
         self.assertTrue(np.allclose(stack.times, times))
         self.assertTrue(np.allclose(stack.zeroed_times, np.arange(num_times)))

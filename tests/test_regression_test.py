@@ -14,7 +14,6 @@ import numpy as np
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.image_stack_py import image_stack_add_fake_object, make_fake_image_stack
 from kbmod.core.psf import PSF
-from kbmod.image_utils import image_stack_py_to_cpp
 from kbmod.results import Results
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
@@ -186,8 +185,7 @@ def run_full_test():
             # Set PSF values between +/- 0.1 around the default value.
             psf_vals.append(default_psf - 0.1 + 0.1 * (i % 3))
 
-        stack_py = make_fake_images(times, trjs, psf_vals)
-        stack = image_stack_py_to_cpp(stack_py)
+        stack = make_fake_images(times, trjs, psf_vals)
 
         # Do the search.
         result_filename = os.path.join(dir_name, "results.ecsv")

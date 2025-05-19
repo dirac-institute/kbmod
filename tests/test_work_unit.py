@@ -53,14 +53,6 @@ class test_work_unit(unittest.TestCase):
             self.im_stack_py.sci[i][10, 10 + i] = np.nan
             self.im_stack_py.var[i][10, 10 + i] = np.nan
 
-        # Create a C++ image stack using a copy of the Python image stack.
-        self.im_stack = image_stack_py_to_cpp(self.im_stack_py.copy())
-
-        # Manually set the mask layer to be the same as the science and variance layers.
-        # We use this for testing loaded WorkUnits.
-        for i in range(self.num_images):
-            self.im_stack.get_single_image(i).mask[10, 10 + i] = 1
-
         self.config = SearchConfiguration()
         self.config.set("result_filename", "Here")
         self.config.set("num_obs", self.num_images)
@@ -127,7 +119,7 @@ class test_work_unit(unittest.TestCase):
         # Test the creation of a WorkUnit with no WCS. Should throw a warning.
         with warnings.catch_warnings(record=True) as wrn:
             warnings.simplefilter("always")
-            work = WorkUnit(self.im_stack, self.config)
+            work = WorkUnit(self.im_stack_py, self.config)
 
             self.assertIsNotNone(work)
             self.assertEqual(work.im_stack.num_times, 5)
@@ -139,7 +131,7 @@ class test_work_unit(unittest.TestCase):
                 self.assertIsNone(work.get_wcs(i))
 
         # Create with a global WCS
-        work2 = WorkUnit(self.im_stack, self.config, self.wcs)
+        work2 = WorkUnit(self.im_stack_py, self.config, self.wcs)
         self.assertEqual(work2.im_stack.num_times, 5)
         self.assertIsNotNone(work2.wcs)
         for i in range(self.num_images):
@@ -216,15 +208,13 @@ class test_work_unit(unittest.TestCase):
             self.assertRaises(ValueError, WorkUnit.from_fits, file_path)
 
             # Write out the existing WorkUnit with a different per-image wcs for all the entries.
-            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs).
-            # Include extra per-image metadata.
             extra_meta = {
                 "data_loc": np.array(self.constituent_images),
                 "int_index": np.arange(self.num_images),
                 "uri": np.array([f"file_loc_{i}" for i in range(self.num_images)]),
             }
             work = WorkUnit(
-                im_stack=self.im_stack,
+                im_stack=self.im_stack_py,
                 config=self.config,
                 wcs=None,
                 per_image_wcs=self.diff_wcs,
@@ -238,19 +228,25 @@ class test_work_unit(unittest.TestCase):
             self.assertEqual(work2.im_stack.num_times, self.num_images)
             self.assertIsNone(work2.wcs)
             for i in range(self.num_images):
-                li = work2.im_stack.get_single_image(i)
-                self.assertEqual(li.time, 59000.0 + (2 * i + 1))
+                self.assertEqual(work2.im_stack.times[i], 59000.0 + (2 * i + 1))
 
                 # Check the three image layers match. We use more permissive values for science and
                 # variance because of quantization during compression.
-                li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(np.allclose(li.sci, li_org.sci, atol=0.05, equal_nan=True))
-                self.assertTrue(np.allclose(li.var, li_org.var, atol=0.05, equal_nan=True))
-                self.assertTrue(np.allclose(li.mask, li_org.mask, atol=0.001, equal_nan=True))
+                self.assertTrue(
+                    np.allclose(work2.im_stack.sci[i], self.im_stack_py.sci[i], atol=0.05, equal_nan=True)
+                )
+                self.assertTrue(
+                    np.allclose(work2.im_stack.var[i], self.im_stack_py.var[i], atol=0.05, equal_nan=True)
+                )
+                self.assertTrue(
+                    np.allclose(
+                        work2.im_stack.get_mask(i), self.im_stack_py.get_mask(i), atol=0.001, equal_nan=True
+                    )
+                )
 
                 # Check the PSF layer matches.
                 p1 = self.psfs[i]
-                p2 = li.get_psf()
+                p2 = work2.im_stack.psfs[i]
                 npt.assert_array_almost_equal(p1, p2, decimal=3)
 
                 # No per-image WCS on the odd entries
@@ -288,8 +284,9 @@ class test_work_unit(unittest.TestCase):
             self.assertRaises(ValueError, WorkUnit.from_sharded_fits, "test_workunit.fits", dir_name)
 
             # Write out the existing WorkUnit with a different per-image wcs for all the entries.
-            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
-            work = WorkUnit(im_stack=self.im_stack, config=self.config, wcs=None, per_image_wcs=self.diff_wcs)
+            work = WorkUnit(
+                im_stack=self.im_stack_py, config=self.config, wcs=None, per_image_wcs=self.diff_wcs
+            )
             work.to_sharded_fits("test_workunit.fits", dir_name)
             self.assertTrue(Path(file_path).is_file())
 
@@ -298,19 +295,25 @@ class test_work_unit(unittest.TestCase):
             self.assertEqual(work2.im_stack.num_times, self.num_images)
             self.assertIsNone(work2.wcs)
             for i in range(self.num_images):
-                li = work2.im_stack.get_single_image(i)
-                self.assertEqual(li.time, 59000.0 + (2 * i + 1))
+                self.assertEqual(work2.im_stack.times[i], 59000.0 + (2 * i + 1))
 
                 # Check the three image layers match. We use more permissive values for science and
                 # variance because of quantization during compression.
-                li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(np.allclose(li.sci, li_org.sci, atol=0.05, equal_nan=True))
-                self.assertTrue(np.allclose(li.var, li_org.var, atol=0.05, equal_nan=True))
-                self.assertTrue(np.allclose(li.mask, li_org.mask, atol=0.001, equal_nan=True))
+                self.assertTrue(
+                    np.allclose(work2.im_stack.sci[i], self.im_stack_py.sci[i], atol=0.05, equal_nan=True)
+                )
+                self.assertTrue(
+                    np.allclose(work2.im_stack.var[i], self.im_stack_py.var[i], atol=0.05, equal_nan=True)
+                )
+                self.assertTrue(
+                    np.allclose(
+                        work2.im_stack.get_mask(i), self.im_stack_py.get_mask(i), atol=0.001, equal_nan=True
+                    )
+                )
 
                 # Check the PSF layer matches.
                 p1 = self.psfs[i]
-                p2 = li.get_psf()
+                p2 = work2.im_stack.psfs[i]
                 npt.assert_array_almost_equal(p1, p2, decimal=3)
 
                 # No per-image WCS on the odd entries
@@ -336,8 +339,9 @@ class test_work_unit(unittest.TestCase):
             self.assertRaises(ValueError, WorkUnit.from_sharded_fits, "test_workunit.fits", dir_name)
 
             # Write out the existing WorkUnit with a different per-image wcs for all the entries.
-            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
-            work = WorkUnit(im_stack=self.im_stack, config=self.config, wcs=None, per_image_wcs=self.diff_wcs)
+            work = WorkUnit(
+                im_stack=self.im_stack_py, config=self.config, wcs=None, per_image_wcs=self.diff_wcs
+            )
             work.to_sharded_fits("test_workunit.fits", dir_name)
             self.assertTrue(Path(file_path).is_file())
 
@@ -362,7 +366,7 @@ class test_work_unit(unittest.TestCase):
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "test_workunit_b.fits")
             work = WorkUnit(
-                self.im_stack,
+                self.im_stack_py,
                 self.config,
                 self.wcs,
                 None,
@@ -390,9 +394,8 @@ class test_work_unit(unittest.TestCase):
             self.assertRaises(ValueError, WorkUnit.from_sharded_fits, "test_workunit.fits", dir_name)
 
             # Write out the existing WorkUnit with a different per-image wcs for all the entries.
-            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
             work = WorkUnit(
-                im_stack=self.im_stack,
+                im_stack=self.im_stack_py,
                 config=self.config,
                 wcs=self.wcs,
                 per_image_wcs=self.diff_wcs,
@@ -411,18 +414,18 @@ class test_work_unit(unittest.TestCase):
 
     def test_get_ecliptic_angle(self):
         """Check that we can compute an ecliptic angle."""
-        work = WorkUnit(self.im_stack, self.config, self.wcs, None)
+        work = WorkUnit(self.im_stack_py, self.config, self.wcs, None)
         self.assertAlmostEqual(work.compute_ecliptic_angle(), -0.381541020495931)
 
         # If we do not have a WCS, we get None for the ecliptic angle.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            work2 = WorkUnit(self.im_stack, self.config, None, None)
+            work2 = WorkUnit(self.im_stack_py, self.config, None, None)
             self.assertIsNone(work2.compute_ecliptic_angle())
 
     def test_image_positions_to_original_icrs_invalid_format(self):
         work = WorkUnit(
-            im_stack=self.im_stack,
+            im_stack=self.im_stack_py,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
             barycentric_distance=41.0,
@@ -459,7 +462,7 @@ class test_work_unit(unittest.TestCase):
 
     def test_image_positions_to_original_icrs_basic_inputs(self):
         work = WorkUnit(
-            im_stack=self.im_stack,
+            im_stack=self.im_stack_py,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
             barycentric_distance=41.0,
@@ -506,7 +509,7 @@ class test_work_unit(unittest.TestCase):
 
     def test_image_positions_to_original_icrs_filtering(self):
         work = WorkUnit(
-            im_stack=self.im_stack,
+            im_stack=self.im_stack_py,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
             barycentric_distance=41.0,
@@ -532,7 +535,7 @@ class test_work_unit(unittest.TestCase):
 
     def test_image_positions_to_original_icrs_mosaicking(self):
         work = WorkUnit(
-            im_stack=self.im_stack,
+            im_stack=self.im_stack_py,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
             barycentric_distance=41.0,
@@ -586,7 +589,7 @@ class test_work_unit(unittest.TestCase):
 
     def test_image_positions_to_original_icrs_non_ebd(self):
         work = WorkUnit(
-            im_stack=self.im_stack,
+            im_stack=self.im_stack_py,
             config=self.config,
             wcs=self.wcs,
             barycentric_distance=41.0,
@@ -616,7 +619,7 @@ class test_work_unit(unittest.TestCase):
 
     def test_get_unique_obstimes_and_indices(self):
         work = WorkUnit(
-            im_stack=self.im_stack,
+            im_stack=self.im_stack_py,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
             barycentric_distance=41.0,
@@ -635,7 +638,7 @@ class test_work_unit(unittest.TestCase):
     def test_get_pixel_coordinates_global(self):
         simple_wcs = make_fake_wcs(200.5, -7.5, 500, 700, 0.01)
         work = WorkUnit(
-            im_stack=self.im_stack,
+            im_stack=self.im_stack_py,
             config=self.config,
             wcs=simple_wcs,
         )
@@ -657,7 +660,7 @@ class test_work_unit(unittest.TestCase):
         per_wcs = [make_fake_wcs(200.5 + 0.5 * i, -7.5, 500, 700, 0.01) for i in range(self.num_images)]
         obstimes = [float(i) for i in range(self.num_images)]
         work = WorkUnit(
-            im_stack=self.im_stack,
+            im_stack=self.im_stack_py,
             config=self.config,
             per_image_wcs=per_wcs,
             obstimes=obstimes,
@@ -695,7 +698,7 @@ class test_work_unit(unittest.TestCase):
     def test_clear_metadata(self):
         """Test that we can clear the metadata from a WorkUnit."""
         work = WorkUnit(
-            im_stack=self.im_stack,
+            im_stack=self.im_stack_py,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
             barycentric_distance=41.0,
@@ -733,10 +736,10 @@ class test_work_unit(unittest.TestCase):
             # assert that the number of times is the same
             self.assertEqual(len(curr_times), self.num_images)
             for i in range(self.num_images):
-                self.im_stack.get_single_image(i).time = curr_times[i]
+                self.im_stack_py.times[i] = curr_times[i]
 
             work = WorkUnit(
-                im_stack=self.im_stack,
+                im_stack=self.im_stack_py,
                 config=self.config,
                 wcs=self.per_image_ebd_wcs,
                 barycentric_distance=41.0,
@@ -755,7 +758,7 @@ class test_work_unit(unittest.TestCase):
 
             # Check that the obstimes have changed
             disordered_obstimes = work.get_all_obstimes()
-            self.assertNotEqual(disordered_obstimes, obstimes)
+            self.assertFalse(np.array_equal(disordered_obstimes, obstimes))
 
             # Check that the range of obstimes is unchanged
             self.assertGreaterEqual(min(disordered_obstimes), min(obstimes))
@@ -763,7 +766,12 @@ class test_work_unit(unittest.TestCase):
             self.assertLessEqual(max(disordered_obstimes), max(obstimes) + time_range)
 
             # Assert that the disordered obstimes are now sorted
-            self.assertEqual(sorted(disordered_obstimes), disordered_obstimes)
+            self.assertTrue(
+                np.array_equal(
+                    sorted(disordered_obstimes),
+                    disordered_obstimes,
+                )
+            )
 
             # Check that uniqueness is preserved by comparing the frequency maps of obstimes
             disordered_obstimes_freq = {}
@@ -778,7 +786,12 @@ class test_work_unit(unittest.TestCase):
                     disordered_obstimes_freq[obstime] = 0
                 disordered_obstimes_freq[obstime] += 1
 
-            self.assertEqual(sorted(obstime_freq.values()), sorted(disordered_obstimes_freq.values()))
+            self.assertTrue(
+                np.array_equal(
+                    sorted(obstime_freq.values()),
+                    sorted(disordered_obstimes_freq.values()),
+                )
+            )
 
             # Check that old metadata was cleared
             self.assertEqual(len(work.org_img_meta), 0)
