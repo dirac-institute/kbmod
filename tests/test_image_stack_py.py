@@ -161,6 +161,7 @@ class test_image_stack_py(unittest.TestCase):
         self.assertTrue(np.allclose(stack.zeroed_times, np.arange(num_times)))
 
         for idx in range(num_times):
+            img_mask = stack.get_mask(idx)
             mask_mask = mask[idx] > 0
 
             self.assertTrue(np.all(stack.sci[idx][~mask_mask] == 1.0))
@@ -168,6 +169,8 @@ class test_image_stack_py(unittest.TestCase):
 
             self.assertTrue(np.all(stack.var[idx][~mask_mask] == 0.1))
             self.assertTrue(np.all(np.isnan(stack.var[idx][mask_mask])))
+
+            self.assertTrue(np.array_equal(img_mask, mask_mask))
 
     def test_get_set_image_stack_py(self):
         """Test that we can get and set the data at a single time step of ImageStackPy"""

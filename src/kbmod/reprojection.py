@@ -2,7 +2,6 @@ import numpy as np
 import concurrent.futures
 import reproject
 from astropy.nddata import CCDData
-from astropy.wcs import WCS
 from tqdm.asyncio import tqdm
 
 from kbmod import is_interactive
@@ -12,7 +11,6 @@ from kbmod.work_unit import (
     read_image_data_from_hdul,
     WorkUnit,
 )
-from kbmod.wcs_utils import append_wcs_to_hdu_header
 from astropy.io import fits
 import os
 from copy import copy

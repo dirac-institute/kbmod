@@ -7,7 +7,7 @@ from astropy.io import fits
 from astropy.time import Time
 from itertools import product
 
-from kbmod.search import LayeredImage
+from kbmod.core.image_stack_py import LayeredImagePy
 
 
 def get_matched_obstimes(obs_times, query_times, threshold=0.0007):
@@ -71,12 +71,12 @@ def load_deccam_layered_image(filename, psf):
     ----------
     filename : `str`
         The name of the file to load.
-    psf : `np.ndarray`
+    psf : `np.ndarray`, optional
         The PSF to use for the image.
 
     Returns
     -------
-    img : `LayeredImage`
+    img : `LayeredImagePy`
         The loaded image.
 
     Raises
@@ -105,12 +105,12 @@ def load_deccam_layered_image(filename, psf):
                     obstime = Time(value, scale=timesys).mjd
                     break
 
-        img = LayeredImage(
+        img = LayeredImagePy(
             hdul[1].data.astype(np.float32),  # Science
             hdul[3].data.astype(np.float32),  # Variance
-            hdul[2].data.astype(np.float32),  # Mask
-            psf,
-            obstime,
+            mask=hdul[2].data.astype(np.float32),  # Mask
+            time=obstime,
+            psf=psf,
         )
 
     return img

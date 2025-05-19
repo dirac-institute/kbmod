@@ -267,6 +267,23 @@ class ImageStackPy:
             total += np.sum(np.isnan(img))
         return total
 
+    def get_mask(self, index):
+        """Get the mask for a given time step.  Creates the mask on the fly.
+
+        Parameters
+        ----------
+        index : int
+            The index of the image.
+
+        Returns
+        -------
+        mask : np.array
+            The mask for the image.
+        """
+        if index < 0 or index >= self.num_times:
+            raise IndexError(f"Index {index} out of range for image stack.")
+        return np.isnan(self.sci[index]) | np.isnan(self.var[index])
+
     def append_image(self, time, sci, var, mask=None, psf=None):
         """Append an image onto the back of the stack.
 

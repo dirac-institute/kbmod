@@ -334,7 +334,7 @@ class TestKBMODV1(unittest.TestCase):
         self.assertNotEqual(std2.config, std.config)
 
     def test_to_layered_image(self):
-        """Test that KBMODV1 standardizer can create LayeredImages."""
+        """Test that KBMODV1 standardizer can create LayeredImagePys."""
         conf = KBMODV1Config({"greedy_export": True})
         std = Standardizer.get(self.fits, force=KBMODV1, config=conf)
         self.assertIsInstance(std, KBMODV1)

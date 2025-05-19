@@ -4,7 +4,7 @@ and some of the tests.
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import *
-from kbmod.search import *
+from kbmod.search import Trajectory
 
 def make_demo_data(filename=None):
     """Make the fake demo data.
