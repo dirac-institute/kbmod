@@ -393,9 +393,7 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
         pass
 
     # Check the image's type and convert to an numpy array.
-    if isinstance(img, LayeredImage):
-        img = img.sci
-    elif isinstance(img, LayeredImagePy):
+    if isinstance(img, LayeredImage) or isinstance(img, LayeredImagePy):
         img = img.sci
 
     # If the image array is 1-dimensional, see if it can be unpacked into a square
