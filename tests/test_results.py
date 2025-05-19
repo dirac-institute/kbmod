@@ -445,18 +445,7 @@ class test_results(unittest.TestCase):
         table.revert_filter(add_column="reason")
         self.assertEqual(len(table), 10)
         expected_order = [3, 4, 5, 6, 9, 0, 2, 1, 7, 8]
-        expected_reason = [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "filter1",
-            "filter1",
-            "filter2",
-            "filter2",
-            "filter2",
-        ]
+        expected_reason = ["", "", "", "", "", "filter1", "filter1", "filter2", "filter2", "filter2"]
         for i, value in enumerate(expected_order):
             self.assertEqual(table["x"][i], value)
             self.assertEqual(table["reason"][i], expected_reason[i])
@@ -505,16 +494,7 @@ class test_results(unittest.TestCase):
             table2 = Results.read_table(file_path)
             self.assertEqual(len(table2), max_save)
             self.assertTrue("other" in table2.colnames)
-            for col in [
-                "x",
-                "y",
-                "vx",
-                "vy",
-                "likelihood",
-                "flux",
-                "obs_count",
-                "other",
-            ]:
+            for col in ["x", "y", "vx", "vy", "likelihood", "flux", "obs_count", "other"]:
                 self.assertTrue(np.allclose(table[col], table2[col]))
 
             # Check that we reloaded the WCS's, including the correct shape.
