@@ -1,6 +1,5 @@
 from collections.abc import Iterable
 import os
-import sys
 import warnings
 from pathlib import Path
 
@@ -18,10 +17,10 @@ from tqdm import tqdm
 
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
-from kbmod.core.image_stack_py import ImageStackPy
-from kbmod.image_utils import image_stack_py_to_cpp, stat_image_stack, validate_image_stack
+from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
+from kbmod.image_utils import validate_image_stack
 from kbmod.reprojection_utils import invert_correct_parallax
-from kbmod.search import ImageStack, LayeredImage, Logging, Trajectory
+from kbmod.search import Logging
 from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
@@ -45,7 +44,7 @@ class WorkUnit:
 
     Attributes
     ----------
-    im_stack : `kbmod.search.ImageStack`
+    im_stack : `ImageStackPy`
         The image data for the KBMOD run.
     config : `kbmod.configuration.SearchConfiguration`
         The configuration for the KBMOD run.
@@ -81,7 +80,7 @@ class WorkUnit:
 
     Parameters
     ----------
-    im_stack : `kbmod.search.ImageStack`
+    im_stack : `ImageStackPy`
         The image data for the KBMOD run.
     config : `kbmod.configuration.SearchConfiguration`
         The configuration for the KBMOD run.
@@ -129,11 +128,6 @@ class WorkUnit:
         obstimes=None,
         org_image_meta=None,
     ):
-        # Add a temporary bridge to convert the Python ImageStackPy into the C++
-        # version. This uses force_move and destroys the original im_stack.
-        if isinstance(im_stack, ImageStackPy):
-            im_stack = image_stack_py_to_cpp(im_stack)
-
         # Assign the core components.
         self.im_stack = im_stack
         self.config = config
@@ -207,7 +201,7 @@ class WorkUnit:
             print(f"  Reprojected Frame: {self.reprojection_frame}")
             print(f"  Barycentric Distance: {self.barycentric_distance}")
 
-        stat_image_stack(self.im_stack)
+        self.im_stack.print_stats()
 
     def get_constituent_meta(self, column):
         """Get the metadata values of a given column or a list of columns
@@ -342,7 +336,7 @@ class WorkUnit:
         if self._obstimes is not None:
             return self._obstimes
 
-        self._obstimes = [self.im_stack.get_obstime(i) for i in range(self.im_stack.num_times)]
+        self._obstimes = np.copy(self.im_stack.times)
         return self._obstimes
 
     def get_unique_obstimes_and_indices(self):
@@ -445,7 +439,7 @@ class WorkUnit:
         if not Path(filename).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
 
-        im_stack = ImageStack()
+        im_stack = ImageStackPy()
         with fits.open(filename) as hdul:
             num_layers = len(hdul)
             if num_layers < 5:
@@ -508,10 +502,7 @@ class WorkUnit:
 
                 # Read in the layered image from different extensions.
                 sci, var, mask, obstime, psf_kernel, _ = read_image_data_from_hdul(hdul, i)
-                img = LayeredImage(sci, var, mask, psf_kernel, obstime)
-
-                # force_move destroys img object, but avoids a copy.
-                im_stack.append_image(img, force_move=True)
+                im_stack.append_image(obstime, sci, var, mask=mask, psf=psf_kernel)
 
                 # Read the mapping of current image to constituent image from the header info.
                 # TODO: Serialize this into its own table.
@@ -582,20 +573,20 @@ class WorkUnit:
 
         # Create each image layer.
         for i in range(self.im_stack.num_times):
-            layered = self.im_stack.get_single_image(i)
-            obstime = layered.time
+            obstime = self.im_stack.times[i]
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
 
             # Append all of the image data to the main hdu list.
+            mask = np.zeros_like(self.im_stack.sci[i])
             add_image_data_to_hdul(
                 hdul,
                 i,
-                layered.sci,
-                layered.var,
-                layered.mask,
+                self.im_stack.sci[i],
+                self.im_stack.var[i],
+                mask,
                 obstime,
-                psf_kernel=layered.get_psf(),
+                psf_kernel=self.im_stack.psfs[i],
                 wcs=self.get_wcs(i),
             )
 
@@ -610,12 +601,13 @@ class WorkUnit:
 
     def to_sharded_fits(self, filename, directory, overwrite=False):
         """Write the WorkUnit to a multiple FITS files.
+
         Will create:
             - One "primary" file, containing the main WorkUnit metadata
             (see below) as well as the per_image_wcs information for
             the whole set. This will have the given filename.
-            -One image fits file containing all of the image data for
-            every LayeredImage in the ImageStack. This will have the
+            - One image fits file containing all of the image data for
+            every time step in the image stack. This will have the
             image index infront of the given filename, e.g.
             "0_filename.fits".
 
@@ -656,21 +648,21 @@ class WorkUnit:
             )
 
         for i in range(self.im_stack.num_times):
-            layered = self.im_stack.get_single_image(i)
-            obstime = layered.time
+            obstime = self.im_stack.times[i]
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
             sub_hdul = fits.HDUList()
 
             # Append all of the image data to the sub_hdul.
+            mask = np.zeros_like(self.im_stack.sci[i])
             add_image_data_to_hdul(
                 sub_hdul,
                 i,
-                layered.sci,
-                layered.var,
-                layered.mask,
+                self.im_stack.sci[i],
+                self.im_stack.var[i],
+                mask,
                 obstime,
-                psf_kernel=layered.get_psf(),
+                psf_kernel=self.im_stack.psfs[i],
                 wcs=self.get_wcs(i),
             )
 
@@ -723,7 +715,7 @@ class WorkUnit:
         if not Path(os.path.join(directory, filename)).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
 
-        im_stack = ImageStack()
+        im_stack = ImageStackPy()
 
         # open the main header
         with fits.open(os.path.join(directory, filename)) as primary:
@@ -796,8 +788,7 @@ class WorkUnit:
                 # Read in the layered image from different extensions.
                 if not lazy:
                     img = load_layered_image_from_shard(shard_path)
-                    # force_move destroys img object, but avoids a copy.
-                    im_stack.append_image(img, force_move=True)
+                    im_stack.append_layered_image(img)
                 else:
                     file_paths.append(shard_path)
 
@@ -984,17 +975,16 @@ class WorkUnit:
         return positions
 
     def load_images(self):
-        """Function for loading in `ImageStack` data when `WorkUnit`
+        """Function for loading in `ImageStackPy` data when `WorkUnit`
         was created lazily.
         """
         if not self.lazy:
             raise ValueError("ImageStack has already been loaded.")
-        im_stack = ImageStack()
+        im_stack = ImageStackPy()
 
         for file_path in self.file_paths:
             img = load_layered_image_from_shard(file_path)
-            # force_move destroys img object, but avoids a copy.
-            im_stack.append_image(img, force_move=True)
+            im_stack.append_layered_image(img)
 
         self.im_stack = im_stack
         self.lazy = False
@@ -1026,8 +1016,7 @@ class WorkUnit:
 
 
 def load_layered_image_from_shard(file_path):
-    """Function for loading a `LayeredImage` from
-    a `WorkUnit` shard.
+    """Function for loading a `LayeredImagePy` from a `WorkUnit` shard.
 
     Parameters
     ----------
@@ -1036,8 +1025,8 @@ def load_layered_image_from_shard(file_path):
 
     Returns
     -------
-    img : `LayeredImage`
-        The materialized `LayeredImage`.
+    img : `LayeredImagePy`
+        The materialized `LayeredImagePy`.
     """
     if not Path(file_path).is_file():
         raise ValueError(f"provided file_path '{file_path}' is not an existing file.")
@@ -1045,7 +1034,7 @@ def load_layered_image_from_shard(file_path):
     index = int(file_path.split("/")[-1].split("_")[0])
     with fits.open(file_path) as hdul:
         sci, var, mask, obstime, psf_kernel, _ = read_image_data_from_hdul(hdul, index)
-        img = LayeredImage(sci, var, mask, psf_kernel, obstime)
+        img = LayeredImagePy(sci, var, mask, time=obstime, psf=psf_kernel)
         return img
 
 
