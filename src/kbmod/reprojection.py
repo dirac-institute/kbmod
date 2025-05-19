@@ -219,7 +219,7 @@ def _reproject_work_unit(
         for index in indices:
             science = work_unit.im_stack.sci[index]
             variance = work_unit.im_stack.var[index]
-            mask = np.zeros_like(science, dtype=np.float32)
+            mask = work_unit.im_stack.get_mask(index)
 
             original_wcs = wcs_list[index]
             if original_wcs is None:
@@ -364,24 +364,18 @@ def _reproject_work_unit_in_parallel(
             original_wcs = _validate_original_wcs(work_unit, indices, frame)
 
             # Get the list of cience, variance, or mask images for each unique obstime.
-            # We create a mask since we implicitly store it in the 
+            # We create a mask since we implicitly store it in the
             science_images_at_obstime = []
             variance_images_at_obstime = []
             mask_images_at_obstime = []
             for i in indices:
                 sci = work_unit.im_stack.sci[i]
                 var = work_unit.im_stack.var[i]
-                mask = np.isnan(sci) | np.isnan(var)
+                mask = work_unit.im_stack.get_mask(i)
 
                 science_images_at_obstime.append(sci)
                 variance_images_at_obstime.append(var)
                 mask_images_at_obstime.append(mask)
-
-
-            # convert each image into a science, variance, or mask "image", i.e. a list of numpy arrays.
-            science_images_at_obstime = [work_unit.im_stack.sci[i] for i in indices]
-            variance_images_at_obstime = [work_unit.im_stack.var[i] for i in indices]
-            mask_images_at_obstime = [np.zeros_like(work_unit.im_stack.sci[i]) for i in indices]
 
             if write_output:
                 psf_array = _get_first_psf_at_time(work_unit, obstime)
@@ -644,9 +638,8 @@ def _get_first_psf_at_time(work_unit, time):
     if time not in obstimes:
         raise ValueError(f"Observation time {time} not found in work unit.")
 
-    images = work_unit.im_stack.get_images()
     index = np.where(obstimes == time)[0][0]
-    return images[index].get_psf()
+    return work_unit.im_stack.psfs[index]
 
 
 def _load_images_and_reproject(

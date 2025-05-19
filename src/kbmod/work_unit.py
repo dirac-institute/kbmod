@@ -18,7 +18,6 @@ from tqdm import tqdm
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
-from kbmod.image_utils import validate_image_stack
 from kbmod.reprojection_utils import invert_correct_parallax
 from kbmod.search import Logging
 from kbmod.util_functions import get_matched_obstimes
@@ -137,7 +136,7 @@ class WorkUnit:
 
         # Validate the image stack (in warning only mode).
         if not lazy:
-            validate_image_stack(im_stack)
+            im_stack.validate()
 
         # Determine the number of constituent images. If we are given metadata for the
         # of constituent_images, use that. Otherwise use the size of the image stack.
@@ -392,13 +391,7 @@ class WorkUnit:
 
         # Apply the mapping of offsets to obstimes for all timestamps in the workunit.
         new_obstimes = [new_obstimes_map[obstime] for obstime in self.get_all_obstimes()]
-
-        # Update the times depending on the type of ImageStack used.
-        if isinstance(self.im_stack, ImageStackPy):
-            self.im_stack.times = new_obstimes
-        else:
-            for i in range(self.im_stack.num_times):
-                self.im_stack.get_single_image(i).set_obstime(new_obstimes[i])
+        self.im_stack.times = new_obstimes
 
         # Sort our ImageStack by our updated obstimes. This WorkUnit may have already
         # been sorted so we do this to preserve that expectation after reordering.
@@ -578,13 +571,12 @@ class WorkUnit:
             n_indices = len(c_indices)
 
             # Append all of the image data to the main hdu list.
-            mask = np.zeros_like(self.im_stack.sci[i])
             add_image_data_to_hdul(
                 hdul,
                 i,
                 self.im_stack.sci[i],
                 self.im_stack.var[i],
-                mask,
+                self.im_stack.get_mask(i),
                 obstime,
                 psf_kernel=self.im_stack.psfs[i],
                 wcs=self.get_wcs(i),
@@ -654,13 +646,12 @@ class WorkUnit:
             sub_hdul = fits.HDUList()
 
             # Append all of the image data to the sub_hdul.
-            mask = np.zeros_like(self.im_stack.sci[i])
             add_image_data_to_hdul(
                 sub_hdul,
                 i,
                 self.im_stack.sci[i],
                 self.im_stack.var[i],
-                mask,
+                self.im_stack.get_mask(i),
                 obstime,
                 psf_kernel=self.im_stack.psfs[i],
                 wcs=self.get_wcs(i),
