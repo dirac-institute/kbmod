@@ -93,18 +93,18 @@ void search_cpu_only(PsiPhiArray& psi_phi_array, SearchParameters params, Trajec
     uint64_t total_results = params.results_per_pixel * search_height * search_width;
     results.resize(total_results);
 
-    // Test each pixel using a giant nested loop.  Allow omp to dynamically
-    // thread the computations.
-    #pragma omp parallel for collapse(2) schedule(dynamic)
+// Test each pixel using a giant nested loop.  Allow omp to dynamically
+// thread the computations.
+#pragma omp parallel for collapse(2) schedule(dynamic)
     for (int y_i = 0; y_i < search_height; ++y_i) {
         for (int x_i = 0; x_i < search_width; ++x_i) {
             std::vector<Trajectory> pixel_res =
                     evaluate_single_pixel(y_i + params.y_start_min, x_i + params.x_start_min, psi_phi_array,
                                           trj_to_search, params.results_per_pixel);
 
-            // We restrict the writing of results to a single thread.  The batch of results
-            // is inserted into a specific location within the full results list.
-            #pragma omp critical
+// We restrict the writing of results to a single thread.  The batch of results
+// is inserted into a specific location within the full results list.
+#pragma omp critical
             {
                 uint64_t start_ind = (y_i * search_width + x_i) * params.results_per_pixel;
                 for (uint64_t i = 0; i < params.results_per_pixel; ++i) {

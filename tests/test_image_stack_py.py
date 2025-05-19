@@ -47,7 +47,7 @@ class test_image_stack_py(unittest.TestCase):
         self.assertEqual(stack.height, height)
         self.assertEqual(stack.npixels, height * width)
         self.assertEqual(stack.total_pixels, num_times * height * width)
-        self.assertEqual(stack.num_masked_pixels(), 0)
+        self.assertTrue(np.all(stack.num_masked_pixels() == 0))
 
         self.assertTrue(np.allclose(stack.times, times))
         self.assertTrue(np.allclose(stack.zeroed_times, np.arange(num_times)))
@@ -125,7 +125,7 @@ class test_image_stack_py(unittest.TestCase):
         self.assertEqual(stack.npixels, height * width)
         self.assertEqual(stack.total_pixels, num_times * height * width)
         self.assertEqual(stack.get_total_pixels(), num_times * height * width)
-        self.assertEqual(stack.num_masked_pixels(), 0)
+        self.assertTrue(np.all(stack.num_masked_pixels() == 0))
 
         self.assertTrue(np.allclose(stack.times, times))
         self.assertTrue(np.allclose(stack.zeroed_times, np.arange(num_times)))
@@ -155,7 +155,7 @@ class test_image_stack_py(unittest.TestCase):
         self.assertEqual(stack.height, height)
         self.assertEqual(stack.npixels, height * width)
         self.assertEqual(stack.total_pixels, num_times * height * width)
-        self.assertEqual(stack.num_masked_pixels(), 3)
+        self.assertTrue(np.array_equal(stack.num_masked_pixels(), [2, 0, 1, 0, 0]))
 
         self.assertTrue(np.allclose(stack.times, times))
         self.assertTrue(np.allclose(stack.zeroed_times, np.arange(num_times)))
@@ -300,7 +300,7 @@ class test_image_stack_py(unittest.TestCase):
         self.assertEqual(fake_stack.height, 200)
         self.assertEqual(fake_stack.npixels, 200 * 300)
         self.assertEqual(fake_stack.total_pixels, 10 * 200 * 300)
-        self.assertEqual(fake_stack.num_masked_pixels(), 0)
+        self.assertTrue(np.all(fake_stack.num_masked_pixels() == 0))
         self.assertEqual(len(fake_stack.sci), 10)
         self.assertEqual(len(fake_stack.var), 10)
         for idx in range(10):
