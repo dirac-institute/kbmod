@@ -67,7 +67,7 @@ class WorkUnit:
         Whether or not the WorkUnit image data has been reprojected.
     per_image_indices : `list` of `list`
         A list of lists containing the indicies of `constituent_images` at each layer
-        of the `ImageStack`. Used for finding corresponding original images when we
+        of the image stack. Used for finding corresponding original images when we
         stitch images together during reprojection.
     lazy : `bool`
         Whether or not to load the image data for the `WorkUnit`.
@@ -97,7 +97,7 @@ class WorkUnit:
         "original" or "ebd" for a parallax corrected reprojection.
     per_image_indices : `list` of `list`, optional
         A list of lists containing the indicies of `constituent_images` at each layer
-        of the `ImageStack`. Used for finding corresponding original images when we
+        of the image stack. Used for finding corresponding original images when we
         stitch images together during reprojection.
     barycentric_distance : `float`, optional
         The barycentric distance that was used when creating the `per_image_ebd_wcs` (in AU).
@@ -316,7 +316,7 @@ class WorkUnit:
 
         wcs = self.get_wcs(0)
         if wcs is None or self.im_stack is None:
-            logger.warning(f"A valid wcs and ImageStack is needed to compute the ecliptic angle.")
+            logger.warning(f"A valid wcs and ImageStackPy is needed to compute the ecliptic angle.")
             return None
         center_pixel = (self.im_stack.width / 2, self.im_stack.height / 2)
         return calc_ecliptic_angle(wcs, center_pixel)
@@ -325,7 +325,7 @@ class WorkUnit:
         """Return a list of the observation times in MJD.
 
         If the `WorkUnit` was lazily loaded, then the obstimes have already been preloaded.
-        Otherwise, grab them from the `ImageStack.
+        Otherwise, grab them from the `ImageStackPy`.
 
         Returns
         -------
@@ -356,12 +356,12 @@ class WorkUnit:
     def disorder_obstimes(self):
         """Reorders the timestamps in the WorkUnit to be random. Random offsets
         are chosen for each unique obstime and added to the original obstime.
-        The maximum offset is the number of images/times in the ImageStack or
+        The maximum offset is the number of images/times in the image stack or
         the difference between the maximum and minimum obstime.
 
         The offsets are applied such that images will have a shared
         obstime if they did so before this method was called.
-        The WorkUnit's ImageStack is then sorted in ascending order of the
+        The WorkUnit's image stack is then sorted in ascending order of the
         updated obstimes.
 
         This is useful for testing and ML training purposes where we might
@@ -393,11 +393,11 @@ class WorkUnit:
         new_obstimes = [new_obstimes_map[obstime] for obstime in self.get_all_obstimes()]
         self.im_stack.times = np.asanyarray(new_obstimes)
 
-        # Sort our ImageStack by our updated obstimes. This WorkUnit may have already
+        # Sort our image stack by our updated obstimes. This WorkUnit may have already
         # been sorted so we do this to preserve that expectation after reordering.
         self.im_stack.sort_by_time()
 
-        # Clear metadata and reset the cached obstimes to use what was sorted in the ImageStack.
+        # Clear metadata and reset the cached obstimes to use what was sorted in the image stack.
         self.clear_metadata()
         self._obstimes = None
 
@@ -636,7 +636,7 @@ class WorkUnit:
             raise FileExistsError(f"WorkUnit file {filename} already exists.")
         if self.lazy:
             raise ValueError(
-                "WorkUnit was lazy loaded, must load all ImageStack data to output new WorkUnit."
+                "WorkUnit was lazy loaded, must load all ImageStackPy data to output new WorkUnit."
             )
 
         for i in range(self.im_stack.num_times):
@@ -848,7 +848,7 @@ class WorkUnit:
         Parameters
         ----------
         image_indices : `numpy.array`
-            The `ImageStack` indices to transform coordinates.
+            The `ImageStackPy` indices to transform coordinates.
         positions : `list` of `astropy.coordinates.SkyCoord`s or `tuple`s
             The positions to be transformed.
         input_format : `str`
@@ -970,7 +970,7 @@ class WorkUnit:
         was created lazily.
         """
         if not self.lazy:
-            raise ValueError("ImageStack has already been loaded.")
+            raise ValueError("ImageStackPy has already been loaded.")
         im_stack = ImageStackPy()
 
         for file_path in self.file_paths:

@@ -392,31 +392,6 @@ void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_byte
     fill_psi_phi_array(result_data, num_bytes, psi_images, phi_images, zeroed_times);
 }
 
-void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes) {
-    // Compute Phi and Psi from convolved images while leaving masked pixels alone
-    // Reinsert 0s for NO_DATA?
-    std::vector<Image> psi_images;
-    std::vector<Image> phi_images;
-    const uint64_t num_images = stack.img_count();
-
-    uint64_t total_bytes = 2 * stack.get_height() * stack.get_width() * num_images * sizeof(float);
-    logging::getLogger("kbmod.search.psi_phi_array")
-            ->info("Building " + std::to_string(num_images * 2) + " temporary " +
-                   std::to_string(stack.get_height()) + " by " + std::to_string(stack.get_width()) +
-                   " images, requiring " + std::to_string(total_bytes) + " bytes.");
-
-    // Build the psi and phi images first.
-    for (uint64_t i = 0; i < num_images; ++i) {
-        LayeredImage& img = stack.get_single_image(i);
-        psi_images.push_back(img.generate_psi_image());
-        phi_images.push_back(img.generate_phi_image());
-    }
-
-    // Convert these into an array form. Needs the full psi and phi computed first so the
-    // encoding can compute the bounds of each array.
-    std::vector<double> zeroed_times = stack.build_zeroed_times();
-    fill_psi_phi_array(result_data, num_bytes, psi_images, phi_images, zeroed_times);
-}
 
 // -------------------------------------------
 // --- Python definitions --------------------
@@ -472,8 +447,6 @@ static void psi_phi_array_binding(py::module& m) {
     m.def("fill_psi_phi_array", &search::fill_psi_phi_array, pydocs::DOC_PsiPhiArray_fill_psi_phi_array);
     m.def("fill_psi_phi_array_from_image_arrays", &search::fill_psi_phi_array_from_image_arrays,
           pydocs::DOC_PsiPhiArray_fill_psi_phi_array_from_image_arrays);
-    m.def("fill_psi_phi_array_from_image_stack", &search::fill_psi_phi_array_from_image_stack,
-          pydocs::DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack);
 }
 #endif
 

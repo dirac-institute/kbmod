@@ -19,8 +19,14 @@ static const auto DOC_StackSearch = R"doc(
 
   Parameters
   ----------
-  imstack : `ImageStack`
-      The image stack to search.
+  sci_imgs : `list`
+      A list of science images as numpy arrays.
+  var_imgs : `list`
+      A list of variance images as numpy arrays.
+  psf_kernels : `list`
+      A list of PSF kernels as numpy arrays.
+  zeroed_times : `list`
+      A list of floating point times starting at zero.
   num_bytes : `int`
       The number of bytes to use for encoding the data. This is used
       to set the encoding level for the data copied to the GPU. The

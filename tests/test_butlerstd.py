@@ -240,7 +240,7 @@ class TestButlerStandardizer(unittest.TestCase):
         self.assertTrue(np.allclose(psf, expected_psf))
 
     def test_to_layered_image(self):
-        """Test ButlerStandardizer can create a LayeredImage."""
+        """Test ButlerStandardizer can create a LayeredImagePy."""
         std = Standardizer.get(DatasetId(8), butler=self.butler)
         self.assertIsInstance(std, ButlerStandardizer)
 

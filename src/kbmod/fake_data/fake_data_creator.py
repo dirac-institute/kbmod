@@ -18,66 +18,9 @@ from kbmod.core.image_stack_py import (
     make_fake_image_stack,
     image_stack_add_fake_object,
 )
-from kbmod.core.psf import PSF
+
 from kbmod.search import *
 from kbmod.work_unit import WorkUnit
-
-def make_fake_layered_image(
-    width,
-    height,
-    noise_stdev,
-    pixel_variance,
-    obstime,
-    psf,
-    seed=None,
-):
-    """Create a fake LayeredImage with a noisy background.
-
-    Parameters
-    ----------
-        width : `int`
-            Width of the images (in pixels).
-        height : `int
-            Height of the images (in pixels).
-        noise_stdev: `float`
-            Standard deviation of the image.
-        pixel_variance: `float`
-            Variance of the pixels, assumed uniform.
-        obstime : `float`
-            Observation time.
-        psf : `numpy.ndarray`
-            The PSF's kernel for the image.
-        seed : `int`, optional
-            The seed for the pseudorandom number generator.
-
-    Returns
-    -------
-    img : `LayeredImage`
-        The fake image.
-
-    Raises
-    ------
-    Raises ``ValueError`` if any of the parameters are invalid.    
-    """
-    if width <= 0 or height <= 0:
-        raise ValueError(f"Invalid dimensions width={width}, height={height}")
-    if noise_stdev < 0 or pixel_variance < 0:
-        raise ValueError(f"Invalid noise parameters.")
-
-    # Use a set seed if needed.
-    if seed is None or seed == -1:
-        seed = int.from_bytes(os.urandom(4), "big")
-    rng = np.random.default_rng(seed)
-
-    # Create the LayeredImage directly from the layers.
-    img = LayeredImage(
-        rng.normal(0.0, noise_stdev, (height, width)).astype(np.float32),
-        np.full((height, width), pixel_variance).astype(np.float32),
-        np.zeros((height, width)).astype(np.float32),
-        psf,
-        obstime,
-    )
-    return img
 
 
 def create_fake_times(num_times, t0=0.0, obs_per_day=1, intra_night_gap=0.01, inter_night_gap=1):

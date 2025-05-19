@@ -37,10 +37,9 @@ def make_fake_images(times, trjs, psf_vals):
 
     Returns
     -------
-        A ImageStack
+        An ImageStackPy
     """
     imCount = len(times)
-    t0 = times[0]
     dim_x = 512
     dim_y = 1024
 
@@ -86,7 +85,7 @@ def perform_search(im_stack, res_filename, default_psf):
 
     Parameters
     ----------
-    im_stack : `ImageStack`
+    im_stack : `ImageStackPy`
         The images to search.
     res_filename : `str`
         The path (directory) for the new result files.

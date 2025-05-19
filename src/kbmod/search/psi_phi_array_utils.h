@@ -17,8 +17,6 @@
 #include <vector>
 
 #include "common.h"
-#include "image_stack.h"
-#include "layered_image.h"
 #include "psi_phi_array_ds.h"
 
 namespace search {
@@ -32,8 +30,6 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
 void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_bytes,
                                           std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
                                           std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times);
-
-void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes);
 
 } /* namespace search */
 

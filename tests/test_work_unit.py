@@ -732,7 +732,7 @@ class test_work_unit(unittest.TestCase):
             [59000.0, 59001.62, 59002.0, 59001.62, 59002.8],  # Duplicates
         ]
         for curr_times in test_times:
-            # Update the obstimes in the ImageStack
+            # Update the obstimes
             # assert that the number of times is the same
             self.assertEqual(len(curr_times), self.num_images)
             for i in range(self.num_images):

@@ -221,23 +221,6 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array_from_image_arrays = R"doc(
     Raises a `RuntimeError` if invalid values are found.
   )doc";
 
-static const auto DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack = R"doc(
-    Fill the PsiPhiArray an ImageStack.
-
-    Parameters
-    ----------
-    result_data : `PsiPhiArray`
-        The location to store the data.
-    num_bytes : `int`
-        The type of encoding to use (1, 2, or 4).
-    stack : `ImageStack`
-        The stack of LayeredImages from which to build the psi and phi images.
-
-    Raises
-    ------
-    Raises a `RuntimeError` if invalid values are found.
-  )doc";
-
 }  // namespace pydocs
 
 #endif /* PSI_PHI_ARRAY_DOCS */

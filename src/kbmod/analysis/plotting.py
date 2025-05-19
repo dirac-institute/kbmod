@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 
 from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
-from kbmod.search import ImageStack, LayeredImage
 
 __all__ = [
     "iter_over_obj",
@@ -357,7 +356,7 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
 
     Parameters
     ----------
-    img : `np.ndarray`, `LayeredImage`, or `LayeredImagePy`
+    img : `np.ndarray` or `LayeredImagePy`
         The image data.
     ax : `matplotlib.pyplot.Axes` or `None`
         Axes, `None` by default.
@@ -393,9 +392,7 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
         pass
 
     # Check the image's type and convert to an numpy array.
-    if isinstance(img, LayeredImage):
-        img = img.sci
-    elif isinstance(img, LayeredImagePy):
+    if isinstance(img, LayeredImagePy):
         img = img.sci
 
     # If the image array is 1-dimensional, see if it can be unpacked into a square
@@ -438,7 +435,7 @@ def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False
 
     Parameters
     ----------
-    images : a `list`, `numpy.ndarray`, `ImageStack`, or `ImageStackPy` of images.
+    images : a `list`, `numpy.ndarray` or `ImageStackPy` of images.
         The series of images to plot.
     figure : `matplotlib.pyplot.Figure` or `None`
         Figure, ``None`` by default.
@@ -455,13 +452,8 @@ def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False
     clim: `tuple` or `list(tuple)` or `None`
         The minimum and maximum values for the colormap (vmin, vmax).
     """
-    # Automatically unpack an ImageStack and ImageStackPy.
-    if isinstance(images, ImageStack):
-        num_imgs = images.num_times
-        if labels is None:
-            labels = [f"{images.get_obstime(i)}" for i in range(num_imgs)]
-        images = [images.get_single_image(i).sci for i in range(num_imgs)]
-    elif isinstance(images, ImageStackPy):
+    # Automatically unpack an ImageStackPy.
+    if isinstance(images, ImageStackPy):
         num_imgs = images.num_times
         if labels is None:
             labels = [f"{images.times[i]}" for i in range(num_imgs)]

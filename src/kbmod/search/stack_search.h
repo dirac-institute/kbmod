@@ -16,7 +16,6 @@
 #include "common.h"
 #include "cpu_search_algorithms.h"
 #include "debug_timer.h"
-#include "image_stack.h"
 #include "psi_phi_array_ds.h"
 #include "psi_phi_array_utils.h"
 #include "pydocs/stack_search_docs.h"
@@ -27,7 +26,6 @@ using Image = search::Image;
 
 class StackSearch {
 public:
-    StackSearch(ImageStack& imstack, int num_bytes = -1);
     StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs, std::vector<Image>& psf_kernels,
                 std::vector<double>& zeroed_times, int num_bytes = -1);
 
@@ -68,8 +66,7 @@ public:
     virtual ~StackSearch();
 
 protected:
-    // Core data and search parameters. Note the StackSearch does not own
-    // the ImageStack and it must exist for the duration of the object's life.
+    // Core data and search parameters.
     SearchParameters params;
     unsigned int height;
     unsigned int width;
