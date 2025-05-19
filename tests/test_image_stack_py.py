@@ -220,8 +220,8 @@ class test_image_stack_py(unittest.TestCase):
         self.assertEqual(stack.times[5], 10.0)
         self.assertEqual(stack.zeroed_times[5], 10.0)
 
-        # Check that this did not change the original data.
-        self.assertTrue(np.all(stack.sci[5] == 1.0))
+        # Check that this did not change the original data. We linked to a new matrix.
+        self.assertTrue(np.all(sci[5] == 1.0))
 
         # But that we used a reference to the sci5 matrix.
         sci5[0, 0] = -1.0
