@@ -5,7 +5,7 @@ import numpy as np
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.run_search import SearchRunner
-from kbmod.search import ImageStack, LayeredImage, StackSearch, Trajectory
+from kbmod.search import StackSearch, Trajectory
 
 
 class test_search(unittest.TestCase):
@@ -81,23 +81,27 @@ class test_search(unittest.TestCase):
         width = 4
         num_times = 5
 
-        images = []
+        times = np.arange(num_times, dtype=np.float32)
+        sci_imgs = []
+        var_imgs = []
+        psf = []
         expected_psi = []
         expected_phi = []
+
         for i in range(num_times):
-            img = LayeredImage(
-                np.full((height, width), float(i), dtype=np.float32),  # sci
-                np.full((height, width), 0.1, dtype=np.float32),  # var
-                np.zeros((height, width), dtype=np.float32),  # mask
-                np.array([[1.0]], dtype=np.float32),  # no-op PSF
-                float(i),
-            )
-            images.append(img)
+            sci_imgs.append(np.full((height, width), float(i), dtype=np.float32))
+            var_imgs.append(np.full((height, width), 0.1, dtype=np.float32))
+            psf.append(np.array([[1.0]], dtype=np.float32))  # no-op PSF
+
             expected_psi.append(float(i) / 0.1)
             expected_phi.append(1.0 / 0.1)
 
-        stack = ImageStack(images)
-        search = StackSearch(stack)
+        search = StackSearch(
+            sci_imgs,
+            var_imgs,
+            psf,
+            times - times[0],  # zeroed times
+        )
 
         trj = Trajectory(x=2, y=2, vx=0.0, vy=0.0)
         psi_phi = search.get_all_psi_phi_curves([trj])

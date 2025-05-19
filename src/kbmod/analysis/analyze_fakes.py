@@ -28,7 +28,7 @@ class FakeInfo:
         The name of the object.
     image_inds : `np.ndarray`
         For each observation of the fake the corresponding image index in the
-        WorkUnit's ImageStack.
+        WorkUnit's image stack.
         Initially None until join_with_workunit() is called.
     x_pos_fakes : `np.ndarray`
         The x pixel position of the fakes.

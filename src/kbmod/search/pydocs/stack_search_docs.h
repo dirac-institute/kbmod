@@ -3,9 +3,8 @@
 
 namespace pydocs {
 static const auto DOC_StackSearch = R"doc(
-  The data and configuration needed for KBMOD's core search. It is created
-  using a *reference* to the ``ImageStack``. The underlying ``ImageStack``
-  must exist for the life of the ``StackSearch`` object's life.
+  The data and configuration needed for KBMOD's core search. It is created using either
+  a *reference* to the ``ImageStack`` or lists of science, variance, and PSF information.
 
   Attributes
   ----------

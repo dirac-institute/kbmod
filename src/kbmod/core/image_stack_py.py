@@ -261,11 +261,46 @@ class ImageStackPy:
         return new_stack
 
     def num_masked_pixels(self):
-        """Compute the number of masked pixels."""
-        total = 0
-        for img in self.sci:
-            total += np.sum(np.isnan(img))
-        return total
+        """Compute the number of masked pixels at each time step.
+
+        Returns
+        -------
+        num_masked : `np.ndarray`
+            The count of masked pixels at each time step.
+        """
+        num_masked = np.zeros(self.num_times)
+        for idx in range(self.num_times):
+            num_masked[idx] = np.count_nonzero(np.isnan(self.sci[idx]) | np.isnan(self.var[idx]))
+        return num_masked
+
+    def get_masked_fractions(self):
+        """Compute the fraction of masked pixels for each image.
+
+        Returns
+        -------
+        masked_fraction : np.ndarray
+            An array of the fraction of pixels that are masked.
+        """
+        total_pixels = float(self.width * self.height)
+        num_masked = self.num_masked_pixels()
+        return num_masked / total_pixels
+
+    def get_mask(self, index):
+        """Get the mask for a given time step.  Creates the mask on the fly.
+
+        Parameters
+        ----------
+        index : int
+            The index of the image.
+
+        Returns
+        -------
+        mask : np.array
+            The mask for the image.
+        """
+        if index < 0 or index >= self.num_times:
+            raise IndexError(f"Index {index} out of range for image stack.")
+        return np.isnan(self.sci[index]) | np.isnan(self.var[index])
 
     def append_image(self, time, sci, var, mask=None, psf=None):
         """Append an image onto the back of the stack.
@@ -351,23 +386,6 @@ class ImageStackPy:
             self.zeroed_times = self.times - self.times[0]
         else:
             self.zeroed_times = []
-
-    def get_masked_fractions(self):
-        """Compute the fraction of masked pixels for each image.
-
-        Returns
-        -------
-        masked_fraction : np.ndarray
-            An array of the fraction of pixels that are masked.
-        """
-        masked_fraction = np.zeros(self.num_times)
-        total_pixels = float(self.width * self.height)
-
-        # Iterate through the list checking each image.
-        for idx in range(self.num_times):
-            is_masked = np.isnan(self.sci[idx]) | np.isnan(self.var[idx])
-            masked_fraction[idx] = np.count_nonzero(is_masked) / total_pixels
-        return masked_fraction
 
     def mask_by_science_bounds(self, min_val=-1e20, max_val=1e20):
         """Mask pixels whose value in the science layer lies outside the given bounds.

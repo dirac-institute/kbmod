@@ -3,8 +3,8 @@ import unittest
 
 from pathlib import Path
 
+from kbmod.core.image_stack_py import LayeredImagePy
 from kbmod.core.psf import PSF
-from kbmod.search import LayeredImage
 from kbmod.util_functions import (
     get_matched_obstimes,
     load_deccam_layered_image,
@@ -30,7 +30,7 @@ class test_util_functions(unittest.TestCase):
         img_path = base_path / "data" / "demo_image.fits"
         img = load_deccam_layered_image(img_path, PSF.make_gaussian_kernel(1.0))
 
-        self.assertTrue(isinstance(img, LayeredImage))
+        self.assertTrue(isinstance(img, LayeredImagePy))
         self.assertGreater(img.width, 0)
         self.assertGreater(img.height, 0)
 
