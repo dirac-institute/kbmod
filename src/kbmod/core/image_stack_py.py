@@ -1,7 +1,5 @@
 """A data structure for storing image data for multiple times along with
 helper functions to operate on these stacks of images.
-
-Note: This is a numpy-based implementation of KBMOD's ImageStack.
 """
 
 import logging
@@ -159,8 +157,8 @@ class ImageStackPy:
                     raise ValueError("PSF data must be a PSF object or a numpy array.")
 
     def _standardize_image(self, img):
-        """Validate that an image is in the form that is expected,
-        transforming it if not.
+        """Validate that an image is in the form that is expected, transforming it if not.
+        The function avoid copying the image data if it is already in the correct format.
 
         Parameters
         ----------
@@ -173,7 +171,8 @@ class ImageStackPy:
             The standardized image.
         """
         # All images should be a numpy array in single precision floating point.
-        img = np.asanyarray(img)
+        if not isinstance(img, np.ndarray):
+            img = np.asanyarray(img)
         if img.dtype != np.single:
             img = img.astype(np.single)
 
@@ -305,6 +304,10 @@ class ImageStackPy:
     def append_image(self, time, sci, var, mask=None, psf=None):
         """Append an image onto the back of the stack.
 
+        Notes
+        -----
+        The function avoids copying the image data if it is already in the correct format.
+
         Parameters
         ----------
         time : float
@@ -344,6 +347,11 @@ class ImageStackPy:
     def append_layered_image(self, layered_image):
         """Append a LayeredImagePy object to the stack.
         This is a wrapper for append_image.
+
+        Notes
+        -----
+        The function avoids copying the image data and uses the references within
+        LayeredImagePy if they are already in the correct format.
 
         Parameters
         ----------
@@ -423,6 +431,11 @@ class ImageStackPy:
 
     def get_single_image(self, index):
         """Get a single image from the stack.
+
+        Notes
+        -----
+        The function avoids copying the image data and uses the references within
+        LayeredImagePy if they are already in the correct format.
 
         Parameters
         ----------
