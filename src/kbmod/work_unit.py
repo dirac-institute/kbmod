@@ -550,7 +550,13 @@ class WorkUnit:
         )
         return result
 
-    def to_fits(self, filename, overwrite=False):
+    def to_fits(
+        self,
+        filename,
+        overwrite=False,
+        compression_type="RICE_1",
+        quantize_level=-0.01,
+    ):
         """Write the WorkUnit to a single FITS file.
 
         Uses the following extensions:
@@ -572,6 +578,14 @@ class WorkUnit:
             The file to which to write the data.
         overwrite : bool
             Indicates whether to overwrite an existing file.
+        compression_type : `str`
+            The compression type to use for the image layers (sci and var). Must be
+            one of "NOCOMPRESS", "RICE_1", "GZIP_1", "GZIP_2", or "HCOMPRESS_1".
+            Default: "RICE_1"
+        quantize_level : `float`
+            The level at which to quantize the floats before compression.
+            See https://docs.astropy.org/en/stable/io/fits/api/images.html for details.
+            Default: -0.01
         """
         logger.info(f"Writing WorkUnit with {self.im_stack.num_times} images to file {filename}")
         if Path(filename).is_file() and not overwrite:
@@ -597,6 +611,8 @@ class WorkUnit:
                 obstime,
                 psf_kernel=layered.get_psf(),
                 wcs=self.get_wcs(i),
+                compression_type=compression_type,
+                quantize_level=quantize_level,
             )
 
             # Append the index values onto the science header.
@@ -608,7 +624,14 @@ class WorkUnit:
 
         hdul.writeto(filename, overwrite=overwrite)
 
-    def to_sharded_fits(self, filename, directory, overwrite=False):
+    def to_sharded_fits(
+        self,
+        filename,
+        directory,
+        overwrite=False,
+        compression_type="RICE_1",
+        quantize_level=-0.01,
+    ):
         """Write the WorkUnit to a multiple FITS files.
         Will create:
             - One "primary" file, containing the main WorkUnit metadata
@@ -643,6 +666,14 @@ class WorkUnit:
             sharded file to avoid confusion.
         overwrite : `bool`
             Indicates whether to overwrite an existing file.
+        compression_type : `str`
+            The compression type to use for the image layers (sci and var). Must be
+            one of "NOCOMPRESS", "RICE_1", "GZIP_1", "GZIP_2", or "HCOMPRESS_1".
+            Default: "RICE_1"
+        quantize_level : `float`
+            The level at which to quantize the floats before compression.
+            See https://docs.astropy.org/en/stable/io/fits/api/images.html for details.
+            Default: -0.01
         """
         logger.info(
             f"Writing WorkUnit shards with {self.im_stack.num_times} images with main file {filename} in {directory}"
@@ -672,6 +703,8 @@ class WorkUnit:
                 obstime,
                 psf_kernel=layered.get_psf(),
                 wcs=self.get_wcs(i),
+                compression_type=compression_type,
+                quantize_level=quantize_level,
             )
 
             # Append the index values onto the science header.
@@ -1063,6 +1096,8 @@ def add_image_data_to_hdul(
     obstime,
     psf_kernel=None,
     wcs=None,
+    compression_type="RICE_1",
+    quantize_level=-0.01,
 ):
     """Add the image data for a single time step to a fits file's HDUL as individual
     layers for science, variance, etc.  Masked pixels in the science and variance
@@ -1086,19 +1121,36 @@ def add_image_data_to_hdul(
         The kernel values of the PSF.
     wcs : `astropy.wcs.WCS`, optional
         An optional WCS to include in the header.
+    compression_type : `str`
+        The compression type to use for the image layers (sci and var). Must be
+        one of "NOCOMPRESS", "RICE_1", "GZIP_1", "GZIP_2", or "HCOMPRESS_1".
+        Default: "RICE_1"
+    quantize_level : `float`
+        The level at which to quantize the floats before compression.
+        See https://docs.astropy.org/en/stable/io/fits/api/images.html for details.
+        Default: -0.01
     """
     # Use a high quantize_level to preserve most of the image information.
     # A value of -0.01 indicates that we have at least 0.01 difference between
     # quantized values.
-    sci_hdu = fits.CompImageHDU(sci, compression_type="RICE_1", quantize_level=-0.01)
+    sci_hdu = fits.CompImageHDU(
+        sci,
+        compression_type=compression_type,
+        quantize_level=quantize_level,
+    )
     sci_hdu.name = f"SCI_{idx}"
     sci_hdu.header["MJD"] = obstime
 
-    var_hdu = fits.CompImageHDU(var, compression_type="RICE_1", quantize_level=-0.01)
+    var_hdu = fits.CompImageHDU(
+        var,
+        compression_type=compression_type,
+        quantize_level=quantize_level,
+    )
     var_hdu.name = f"VAR_{idx}"
     var_hdu.header["MJD"] = obstime
 
-    # The saved mask is a binarized version of which pixels are valid.
+    # The saved mask is a binarized version of which pixels are valid.  We compress
+    # with HCOMPRESS_1 which works well for integers.
     mask_full = (mask > 0) | (~np.isfinite(sci)) | (~np.isfinite(var))
     mask_hdu = fits.ImageHDU(mask_full.astype(np.int8))
     mask_hdu.name = f"MSK_{idx}"
