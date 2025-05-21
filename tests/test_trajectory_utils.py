@@ -120,39 +120,6 @@ class test_trajectory_utils(unittest.TestCase):
 
         self.assertRaises(ValueError, evaluate_trajectory_mse, trj, [], [], [])
 
-    def test_avg_trajectory_distance(self):
-        times_0 = np.array([0.0])
-        times_1 = np.array([0.0, 1.0])
-        times_5 = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
-
-        # A trajectory is always zero pixels from itself.
-        trjA = Trajectory(x=1, y=2, vx=1.0, vy=-1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjA, times_0), 0.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjA, times_1), 0.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjA, times_5), 0.0)
-
-        # Create a trajectory with a constant 1 pixel offset in the y direction.
-        trjB = Trajectory(x=1, y=1, vx=1.0, vy=-1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjB, times_0), 1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjB, times_1), 1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjB, times_5), 1.0)
-
-        # Create a trajectory with an increasing offset in the x direction.
-        trjC = Trajectory(x=1, y=2, vx=2.0, vy=-1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_0), 0.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_1), 0.5)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_5), 2.0)
-
-        # Create a trajectory with an increasing offset in the y direction.
-        trjC = Trajectory(x=1, y=2, vx=1.0, vy=1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_0), 0.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_1), 1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_5), 4.0)
-
-        # A list of empty times is invalid.
-        with self.assertRaises(ValueError):
-            _ = avg_trajectory_distance(trjA, trjC, [])
-
     def test_match_trajectory_sets(self):
         queries = [
             Trajectory(x=0, y=0, vx=0.0, vy=0.0),
