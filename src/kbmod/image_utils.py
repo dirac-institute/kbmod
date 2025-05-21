@@ -324,13 +324,13 @@ def validate_image_stack(
             is_valid = False
         if np.nanmin(var) < min_var:
             _im_stack_validation_error(
-                f"Image {idx} has invalid flux values: {np.nanmin(var)} < {min_var}",
+                f"Image {idx} has invalid variance values: {np.nanmin(var)} < {min_var}",
                 warn_only,
             )
             is_valid = False
         if np.nanmax(var) > max_var:
             _im_stack_validation_error(
-                f"Image {idx} has invalid flux values: {np.nanmax(var)} > {max_var}",
+                f"Image {idx} has invalid variance values: {np.nanmax(var)} > {max_var}",
                 warn_only,
             )
             is_valid = False
