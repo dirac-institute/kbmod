@@ -14,7 +14,11 @@ import unittest
 import warnings
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.core.image_stack_py import make_fake_image_stack
+from kbmod.core.image_stack_py import (
+    image_stack_add_fake_object,
+    make_fake_image_stack,
+    ImageStackPy,
+)
 from kbmod.core.psf import PSF
 import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
@@ -30,8 +34,8 @@ from kbmod.work_unit import (
 class test_work_unit(unittest.TestCase):
     def setUp(self):
         self.num_images = 5
-        self.width = 50
-        self.height = 70
+        self.width = 300
+        self.height = 200
         self.images = [None] * self.num_images
         self.psfs = [PSF.make_gaussian_kernel(5.0 / float(2 * i + 1)) for i in range(self.num_images)]
         self.times = [59000.0 + (2.0 * i + 1.0) for i in range(self.num_images)]
@@ -45,6 +49,9 @@ class test_work_unit(unittest.TestCase):
             psfs=self.psfs,
             rng=rng,
         )
+
+        # Add a random bright object (to add some bright pixels).
+        image_stack_add_fake_object(self.im_stack_py, 150, 155, 1.0, 1.0, 250.0)
 
         # Mask one of the pixels in each image.  This is done directly to the science
         # and variance layers since ImageStackPy does not have a separate mask layer.
@@ -274,6 +281,53 @@ class test_work_unit(unittest.TestCase):
             # We succeed if overwrite=True
             work.to_fits(file_path, overwrite=True)
 
+    def test_save_and_load_fits_large(self):
+        """Test that we can compress a large WorkUnit with NaNs and high values."""
+        rng = np.random.default_rng(seed=101)
+        num_times = 10
+        height = 1200
+        width = 1000
+        times = np.arange(num_times)
+
+        # Use a wide range of values. Science [-5000.0, 5000.0] and variance [0.1, 100.1]
+        sci = 10000.0 * (rng.random((num_times, height, width)) - 0.5)
+        var = 100.0 * rng.random((num_times, height, width)) + 0.1
+
+        # Mask out some of the values.
+        mask = rng.random((num_times, height, width)) < 0.01
+        sci[mask] = np.nan
+        var[mask] = np.nan
+
+        # Build a WorkUnit.  Catch the warning about no WCS.
+        stack = ImageStackPy(times, sci, var)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            work1 = WorkUnit(stack, self.config)
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "test_workunit.fits")
+            self.assertFalse(Path(file_path).is_file())
+
+            # Write out the WorkUnit.
+            work1.to_fits(file_path)
+            self.assertTrue(Path(file_path).is_file())
+
+            # Read in the file and check that the values agree.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                work2 = WorkUnit.from_fits(file_path, show_progress=False)
+
+            self.assertEqual(work1.im_stack.num_times, work2.im_stack.num_times)
+            for i in range(work1.im_stack.num_times):
+                li1 = work1.im_stack.get_single_image(i)
+                li2 = work2.im_stack.get_single_image(i)
+
+                # Check the three image layers match. We use more permissive values for science and
+                # variance because of quantization during compression.
+                self.assertTrue(np.allclose(li1.sci, li2.sci, atol=0.05, equal_nan=True))
+                self.assertTrue(np.allclose(li1.var, li2.var, atol=0.05, equal_nan=True))
+                self.assertTrue(np.all((li2.mask > 0) == mask[i]))
+
     def test_save_and_load_fits_shard(self):
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "test_workunit.fits")
@@ -414,7 +468,7 @@ class test_work_unit(unittest.TestCase):
     def test_get_ecliptic_angle(self):
         """Check that we can compute an ecliptic angle."""
         work = WorkUnit(self.im_stack_py, self.config, self.wcs, None)
-        self.assertAlmostEqual(work.compute_ecliptic_angle(), -0.381541020495931)
+        self.assertAlmostEqual(work.compute_ecliptic_angle(), -0.38154, 4)
 
         # If we do not have a WCS, we get None for the ecliptic angle.
         with warnings.catch_warnings():

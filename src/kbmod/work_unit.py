@@ -534,7 +534,13 @@ class WorkUnit:
         )
         return result
 
-    def to_fits(self, filename, overwrite=False):
+    def to_fits(
+        self,
+        filename,
+        overwrite=False,
+        compression_type="RICE_1",
+        quantize_level=-0.01,
+    ):
         """Write the WorkUnit to a single FITS file.
 
         Uses the following extensions:
@@ -556,6 +562,14 @@ class WorkUnit:
             The file to which to write the data.
         overwrite : bool
             Indicates whether to overwrite an existing file.
+        compression_type : `str`
+            The compression type to use for the image layers (sci and var). Must be
+            one of "NOCOMPRESS", "RICE_1", "GZIP_1", "GZIP_2", or "HCOMPRESS_1".
+            Default: "RICE_1"
+        quantize_level : `float`
+            The level at which to quantize the floats before compression.
+            See https://docs.astropy.org/en/stable/io/fits/api/images.html for details.
+            Default: -0.01
         """
         logger.info(f"Writing WorkUnit with {self.im_stack.num_times} images to file {filename}")
         if Path(filename).is_file() and not overwrite:
@@ -581,6 +595,8 @@ class WorkUnit:
                 obstime,
                 psf_kernel=self.im_stack.psfs[i],
                 wcs=self.get_wcs(i),
+                compression_type=compression_type,
+                quantize_level=quantize_level,
             )
 
             # Append the index values onto the science header.
@@ -592,7 +608,14 @@ class WorkUnit:
 
         hdul.writeto(filename, overwrite=overwrite)
 
-    def to_sharded_fits(self, filename, directory, overwrite=False):
+    def to_sharded_fits(
+        self,
+        filename,
+        directory,
+        overwrite=False,
+        compression_type="RICE_1",
+        quantize_level=-0.01,
+    ):
         """Write the WorkUnit to a multiple FITS files.
 
         Will create:
@@ -628,6 +651,14 @@ class WorkUnit:
             sharded file to avoid confusion.
         overwrite : `bool`
             Indicates whether to overwrite an existing file.
+        compression_type : `str`
+            The compression type to use for the image layers (sci and var). Must be
+            one of "NOCOMPRESS", "RICE_1", "GZIP_1", "GZIP_2", or "HCOMPRESS_1".
+            Default: "RICE_1"
+        quantize_level : `float`
+            The level at which to quantize the floats before compression.
+            See https://docs.astropy.org/en/stable/io/fits/api/images.html for details.
+            Default: -0.01
         """
         logger.info(
             f"Writing WorkUnit shards with {self.im_stack.num_times} images with main file {filename} in {directory}"
@@ -657,6 +688,8 @@ class WorkUnit:
                 obstime,
                 psf_kernel=self.im_stack.psfs[i],
                 wcs=self.get_wcs(i),
+                compression_type=compression_type,
+                quantize_level=quantize_level,
             )
 
             # Append the index values onto the science header.
@@ -1045,6 +1078,8 @@ def add_image_data_to_hdul(
     obstime,
     psf_kernel=None,
     wcs=None,
+    compression_type="RICE_1",
+    quantize_level=-0.01,
 ):
     """Add the image data for a single time step to a fits file's HDUL as individual
     layers for science, variance, etc.  Masked pixels in the science and variance
@@ -1068,30 +1103,37 @@ def add_image_data_to_hdul(
         The kernel values of the PSF.
     wcs : `astropy.wcs.WCS`, optional
         An optional WCS to include in the header.
+    compression_type : `str`
+        The compression type to use for the image layers (sci and var). Must be
+        one of "NOCOMPRESS", "RICE_1", "GZIP_1", "GZIP_2", or "HCOMPRESS_1".
+        Default: "RICE_1"
+    quantize_level : `float`
+        The level at which to quantize the floats before compression.
+        See https://docs.astropy.org/en/stable/io/fits/api/images.html for details.
+        Default: -0.01
     """
-    # Certain compression schemes can have trouble with NaNs. So we mask
-    # those out in science and variance and replace them with zeros.
-    sci_valid = np.isfinite(sci)
-    sci_masked = np.copy(sci)
-    sci_masked[~sci_valid] = 0.0
-
-    var_valid = np.isfinite(var)
-    var_masked = np.copy(var)
-    var_masked[~var_valid] = 0.0
-
     # Use a high quantize_level to preserve most of the image information.
-    # In the tests a level of 100.0 did not add much noise, but we use
-    # 500.0 here to be conservative.
-    sci_hdu = fits.CompImageHDU(sci_masked, compression_type="RICE_1", quantize_level=500.0)
+    # A value of -0.01 indicates that we have at least 0.01 difference between
+    # quantized values.
+    sci_hdu = fits.CompImageHDU(
+        sci,
+        compression_type=compression_type,
+        quantize_level=quantize_level,
+    )
     sci_hdu.name = f"SCI_{idx}"
     sci_hdu.header["MJD"] = obstime
 
-    var_hdu = fits.CompImageHDU(var_masked, compression_type="RICE_1", quantize_level=500.0)
+    var_hdu = fits.CompImageHDU(
+        var,
+        compression_type=compression_type,
+        quantize_level=quantize_level,
+    )
     var_hdu.name = f"VAR_{idx}"
     var_hdu.header["MJD"] = obstime
 
-    # The saved mask is a binarized version of which pixels are valid.
-    mask_full = (mask > 0) | (~sci_valid) | (~var_valid)
+    # The saved mask is a binarized version of which pixels are valid.  We compress
+    # with HCOMPRESS_1 which works well for integers.
+    mask_full = (mask > 0) | (~np.isfinite(sci)) | (~np.isfinite(var))
     mask_hdu = fits.ImageHDU(mask_full.astype(np.int8))
     mask_hdu.name = f"MSK_{idx}"
     mask_hdu.header["MJD"] = obstime
@@ -1154,11 +1196,11 @@ def read_image_data_from_hdul(hdul, idx):
     # Allow the mask to be optional. Apply the mask if it is present
     # and use an empty mask if there is no mask layer.
     if f"MSK_{idx}" in hdul:
-        mask = hdul[f"MSK_{idx}"].data.astype(np.single)
+        mask = hdul[f"MSK_{idx}"].data.astype(np.float32)
         sci[mask > 0] = np.nan
         var[mask > 0] = np.nan
     else:
-        mask = np.zeros_like(sci)
+        mask = np.zeros_like(sci, dtype=np.float32)
 
     # Allow the PSF to be optional. Use an identity PSF if none is present.
     if f"PSF_{idx}" in hdul:

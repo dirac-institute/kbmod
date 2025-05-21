@@ -38,8 +38,8 @@ class test_image_stack_py(unittest.TestCase):
         width = 15
 
         times = np.arange(num_times)
-        sci = [np.full((height, width), 1.0) for _ in range(num_times)]
-        var = [np.full((height, width), 0.1) for _ in range(num_times)]
+        sci = [np.full((height, width), 1.0, dtype=np.float32) for _ in range(num_times)]
+        var = [np.full((height, width), 0.1, dtype=np.float32) for _ in range(num_times)]
 
         stack = ImageStackPy(times, sci, var)
         self.assertEqual(stack.num_times, num_times)
@@ -56,6 +56,12 @@ class test_image_stack_py(unittest.TestCase):
             self.assertTrue(np.all(stack.sci[idx] == 1.0))
             self.assertTrue(np.all(stack.var[idx] == 0.1))
         self.assertEqual(len(stack.psfs), num_times)
+
+        # Check that we used references when creating the .
+        sci[0][0, 0] = -1.0
+        var[0][2, 1] = 2.0
+        self.assertTrue(np.allclose(stack.sci[0], sci[0]))
+        self.assertTrue(np.allclose(stack.var[0], var[0]))
 
         # We can append an image and a LayeredImage.
         stack.append_image(0, sci[0], var[0])
@@ -89,10 +95,12 @@ class test_image_stack_py(unittest.TestCase):
         num_times = 5
         height = 20
         width = 15
+        all_sci = []
         for idx in range(num_times):
-            sci = np.full((height, width), float(idx))
-            var = np.full((height, width), 0.1 * float(idx))
+            sci = np.full((height, width), float(idx), dtype=np.float32)
+            var = np.full((height, width), 0.1 * float(idx), dtype=np.float32)
             stack.append_image(float(idx + 5.0), sci, var)
+            all_sci.append(sci)
 
             self.assertEqual(stack.num_times, idx + 1)
             self.assertEqual(stack.width, width)
@@ -102,21 +110,26 @@ class test_image_stack_py(unittest.TestCase):
         self.assertTrue(np.allclose(stack.times, [5.0, 6.0, 7.0, 8.0, 9.0]))
         self.assertTrue(np.allclose(stack.zeroed_times, [0.0, 1.0, 2.0, 3.0, 4.0]))
 
+        # Check that we used references when appending.
+        for idx in range(num_times):
+            stack.sci[idx][0, 0] = -1.0
+            all_sci[idx][2, 1] = -2.0
+            self.assertTrue(np.allclose(stack.sci[idx], all_sci[idx]))
+
         # We fail if we try to create an ImageStackPy with no times but other data.
-        times = np.arange(num_times)
         sci = [np.full((height, width), float(i)) for i in range(num_times)]
         var = [np.full((height, width), 0.1 * i) for i in range(num_times)]
         self.assertRaises(ValueError, ImageStackPy, None, sci, var)
 
-    def test_create_image_stack__pyfrom_nparray(self):
+    def test_create_image_stack_py_from_nparray(self):
         """Test that we can create an ImageStackPy from a single 3-d numpy array."""
         num_times = 10
         height = 20
         width = 15
 
         times = np.arange(num_times)
-        sci = np.full((num_times, height, width), 1.0)
-        var = np.full((num_times, height, width), 0.1)
+        sci = np.full((num_times, height, width), 1.0, dtype=np.float32)
+        var = np.full((num_times, height, width), 0.1, dtype=np.float32)
 
         stack = ImageStackPy(times, sci, var)
         self.assertEqual(stack.num_times, num_times)
@@ -142,8 +155,8 @@ class test_image_stack_py(unittest.TestCase):
         width = 5
 
         times = np.arange(num_times) + 5
-        sci = np.full((num_times, height, width), 1.0)
-        var = np.full((num_times, height, width), 0.1)
+        sci = np.full((num_times, height, width), 1.0, dtype=np.float32)
+        var = np.full((num_times, height, width), 0.1, dtype=np.float32)
         mask = np.zeros_like(sci)
         mask[0, 1, 2] = 1
         mask[0, 1, 3] = 1
@@ -209,6 +222,13 @@ class test_image_stack_py(unittest.TestCase):
         self.assertTrue(np.allclose(stack.var[5], expected_var, equal_nan=True))
         self.assertEqual(stack.times[5], 10.0)
         self.assertEqual(stack.zeroed_times[5], 10.0)
+
+        # Check that this did not change the original data. We linked to a new matrix.
+        self.assertTrue(np.all(sci[5] == 1.0))
+
+        # But that we used a reference to the sci5 matrix.
+        sci5[0, 0] = -1.0
+        self.assertTrue(np.allclose(stack.sci[5], sci5, equal_nan=True))
 
     def test_filter_image_stack_py(self):
         """Test that we can filter an ImageStackPy"""
