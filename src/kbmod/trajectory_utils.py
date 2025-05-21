@@ -224,43 +224,6 @@ def evaluate_trajectory_mse(trj, x_vals, y_vals, zeroed_times, centered=True):
     return np.mean(sq_err)
 
 
-def avg_trajectory_distance(trjA, trjB, times=[0.0]):
-    """Evaluate the average distance between two trajectories (in pixels)
-    across different times.
-
-    Parameters
-    ----------
-    trjA : `Trajectory`
-        The first Trajectory to evaluate.
-    trjB : `Trajectory`
-        The second Trajectory to evaluate.
-    times : `list` or `numpy.ndarray`
-        The zero-shifted times at which to evaluate the matches (in days).
-        The average of the distances at these times are used.
-
-    Returns
-    -------
-    ave_dist : `float`
-        The average distance in pixels.
-    """
-    times = np.asarray(times)
-    if len(times) == 0:
-        raise ValueError("Empty times array.")
-
-    # Compute the predicted x and y positions for the first trajectory.
-    px_a = trjA.x + times * trjA.vx
-    py_a = trjA.y + times * trjA.vy
-
-    # Compute the predicted x and y positions for the second trajectory.
-    px_b = trjB.x + times * trjB.vx
-    py_b = trjB.y + times * trjB.vy
-
-    # Compute the Euclidean distance at each point and then the average distance.
-    dists = np.sqrt((px_a - px_b) ** 2 + (py_a - py_b) ** 2)
-    ave_dist = np.mean(dists)
-    return ave_dist
-
-
 def find_closest_trajectory(query, trj_list, times=[0.0]):
     """For a given trajectory (query) find the closest trajectory in a list.
 
