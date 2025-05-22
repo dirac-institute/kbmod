@@ -2,17 +2,20 @@ import numpy as np
 import pathlib
 import unittest
 
+from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.filters.stamp_filters import *
 from kbmod.results import Results
-from kbmod.search import *
+from kbmod.search import Trajectory
 
 
 class test_stamp_filters(unittest.TestCase):
     def setUp(self):
         # Create a fake data set to use in the tests.
         self.image_count = 10
-        self.fake_times = create_fake_times(self.image_count, 57130.2, 1, 0.01, 1)
+
+        # 4 observations per day with a 1 day gap between nights.
+        self.fake_times = create_fake_times(self.image_count, 57130.2, 4, 0.01, 1)
         self.ds = FakeDataSet(
             25,  # width
             35,  # height
@@ -30,32 +33,55 @@ class test_stamp_filters(unittest.TestCase):
         current_dir = pathlib.Path(__file__).parent.resolve()
         self.model_path = pathlib.Path(current_dir, "data/test_model.keras")
 
+        # Create a second simpler fake data set where each science layer is constant
+        # according the the time index.
+        height = 25
+        width = 35
+        self.known_stack = ImageStackPy(
+            times=self.fake_times,
+            sci=[np.full((height, width), float(i)) for i in range(self.image_count)],
+            var=[np.full((height, width), 0.5) for i in range(self.image_count)],
+        )
+
     def test_make_coadds(self):
-        # Create trajectories to test: 0) known good, 1) completely wrong
-        # 2) close to good, but offset], and 3) just close enough.
+        # Three trajectories: One in the image the whole time, the second off the edge,
+        # and the third off the edge at the end.
         trj_list = [
             self.trj,
             Trajectory(1, 1, 0.0, 0.0),
-            Trajectory(self.trj.x + 2, self.trj.y + 2, self.trj.vx, self.trj.vy),
-            Trajectory(self.trj.x + 1, self.trj.y + 1, self.trj.vx, self.trj.vy),
+            Trajectory(15, 25, 2.0, 3.0),
         ]
         keep = Results.from_trajectories(trj_list)
         self.assertFalse("stamp" in keep.colnames)
 
         # Make the stamps.
         coadd_types = ["mean"]
-        append_coadds(keep, self.ds.stack_py, coadd_types, 5)
+        append_coadds(keep, self.known_stack, coadd_types, 5)
 
-        # We do not filter, so everything should be saved.
+        # We do not filter, so everything should be saved and have the same mean.
         self.assertTrue("coadd_mean" in keep.colnames)
-        self.assertEqual(len(keep), 4)
+        self.assertEqual(len(keep), 3)
+
+        # The first stamp should be the mean of all the images.
         self.assertEqual(keep["coadd_mean"][0].shape, (11, 11))
+        self.assertTrue(np.allclose(keep["coadd_mean"][0], np.full((11, 11), 4.5)))
+
+        # The second stamp should have zeros where it is off the edge.
+        self.assertEqual(keep["coadd_mean"][1].shape, (11, 11))
+        expected = np.zeros((11, 11))
+        expected[4:, 4:] = 4.5
+        self.assertTrue(np.allclose(keep["coadd_mean"][1], expected))
+
+        # The second stamp should be different since it runs off the edge
+        # at different points.
+        self.assertEqual(keep["coadd_mean"][2].shape, (11, 11))
+        self.assertGreater(len(np.unique(keep["coadd_mean"][2])), 2)
 
     def test_get_coadds_and_filter_with_invalid(self):
         valid1 = [True] * self.image_count
         valid2 = [True] * self.image_count
         # Completely mess up some of the images.
-        for i in [1, 3, 6, 7, 9]:
+        for i in [1, 4, 6, 7, 9]:
             self.ds.stack_py.sci[i][:, :] = 1000.0
             valid2[i] = False
 
@@ -65,10 +91,54 @@ class test_stamp_filters(unittest.TestCase):
         keep = Results.from_trajectories([self.trj, trj2])
         keep.update_obs_valid(np.array([valid1, valid2]))
 
-        # Make the stamps and check that there were saved.
-        append_coadds(keep, self.ds.stack_py, ["mean"], 5)
+        # Make the stamps, check that there were saved, and check they are correct.
+        append_coadds(keep, self.known_stack, ["mean", "median"], 5)
         self.assertTrue("coadd_mean" in keep.colnames)
+        self.assertTrue("coadd_median" in keep.colnames)
         self.assertEqual(len(keep), 2)
+
+        self.assertEqual(keep["coadd_mean"][0].shape, (11, 11))
+        self.assertTrue(np.allclose(keep["coadd_mean"][0], np.full((11, 11), 4.5)))
+
+        self.assertEqual(keep["coadd_mean"][1].shape, (11, 11))
+        self.assertTrue(np.allclose(keep["coadd_mean"][1], np.full((11, 11), 3.6)))
+
+        # The median is 4.0 instead of 4.5 because pytorch's median takes the
+        # lower of the two middle values (instead of the average) when there is
+        # an even number of samples.
+        self.assertEqual(keep["coadd_median"][0].shape, (11, 11))
+        self.assertTrue(np.allclose(keep["coadd_median"][0], np.full((11, 11), 4.0)))
+
+        self.assertEqual(keep["coadd_median"][1].shape, (11, 11))
+        self.assertTrue(np.allclose(keep["coadd_median"][1], np.full((11, 11), 3.0)))
+
+    def test_make_coadds_nightly(self):
+        valid1 = [True] * self.image_count
+        valid2 = [True] * self.image_count
+        # Completely mess up some of the images.
+        for i in [1, 4, 6, 7, 9]:
+            self.ds.stack_py.sci[i][:, :] = 1000.0
+            valid2[i] = False
+
+        # Make the stamps for a single trajectory.
+        keep = Results.from_trajectories([self.trj, self.trj])
+        keep.update_obs_valid(np.array([valid1, valid2]))
+        append_coadds(keep, self.known_stack, ["mean"], 1, nightly=True)
+
+        # Check we have coadds for each night.
+        self.assertFalse("coadd_mean" in keep.colnames)
+        self.assertTrue("coadd_mean_2015-04-18" in keep.colnames)
+        self.assertTrue("coadd_mean_2015-04-19" in keep.colnames)
+        self.assertTrue("coadd_mean_2015-04-20" in keep.colnames)
+        self.assertEqual(len(keep), 2)
+
+        # Check the values are correct.
+        self.assertTrue(np.allclose(keep["coadd_mean_2015-04-18"][0], np.full((3, 3), 1.5)))
+        self.assertTrue(np.allclose(keep["coadd_mean_2015-04-19"][0], np.full((3, 3), 5.5)))
+        self.assertTrue(np.allclose(keep["coadd_mean_2015-04-20"][0], np.full((3, 3), 8.5)))
+        self.assertTrue(np.allclose(keep["coadd_mean_2015-04-18"][1], np.full((3, 3), 5.0 / 3.0)))
+        self.assertTrue(np.allclose(keep["coadd_mean_2015-04-19"][1], np.full((3, 3), 5.0)))
+        self.assertTrue(np.allclose(keep["coadd_mean_2015-04-20"][1], np.full((3, 3), 8.0)))
 
     def test_append_coadds(self):
         # Create trajectories to test: 0) known good, 1) completely wrong
