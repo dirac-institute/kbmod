@@ -319,14 +319,13 @@ class test_work_unit(unittest.TestCase):
 
             self.assertEqual(work1.im_stack.num_times, work2.im_stack.num_times)
             for i in range(work1.im_stack.num_times):
-                li1 = work1.im_stack.get_single_image(i)
                 li2 = work2.im_stack.get_single_image(i)
 
                 # Check the three image layers match. We use more permissive values for science and
                 # variance because of quantization during compression.
-                self.assertTrue(np.allclose(li1.sci, li2.sci, atol=0.05, equal_nan=True))
-                self.assertTrue(np.allclose(li1.var, li2.var, atol=0.05, equal_nan=True))
-                self.assertTrue(np.all((li2.mask > 0) == mask[i]))
+                self.assertTrue(np.allclose(li2.sci, sci[i], atol=0.05, equal_nan=True))
+                self.assertTrue(np.allclose(li2.var, var[i], atol=0.05, equal_nan=True))
+                self.assertTrue(np.all(li2.mask == mask[i]))
 
     def test_save_and_load_fits_shard(self):
         with tempfile.TemporaryDirectory() as dir_name:
