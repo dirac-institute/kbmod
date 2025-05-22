@@ -44,7 +44,6 @@ class test_search_exact(unittest.TestCase):
         # tests 1681 velocities per pixel and includes the true velocity.
         config = SearchConfiguration()
         config.set("do_clustering", False)
-        config.set("do_mask", False)
         config.set("lh_level", 0.0)
         config.set("num_obs", 1)
         config.set("sigmaG_lims", [5, 95])
