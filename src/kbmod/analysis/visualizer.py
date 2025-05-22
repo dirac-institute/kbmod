@@ -3,7 +3,7 @@ import numpy as np
 
 from kbmod.analysis.plotting import plot_multiple_images
 from kbmod.core.image_stack_py import ImageStackPy
-from kbmod.image_utils import create_stamps_from_image_stack
+from kbmod.core.stamp_utils import create_stamps_from_image_stack
 from kbmod.util_functions import mjd_to_day
 
 
