@@ -1,6 +1,5 @@
 from collections.abc import Iterable
 import os
-import sys
 import warnings
 from pathlib import Path
 
@@ -18,10 +17,9 @@ from tqdm import tqdm
 
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
-from kbmod.core.image_stack_py import ImageStackPy
-from kbmod.image_utils import image_stack_py_to_cpp, stat_image_stack, validate_image_stack
+from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
 from kbmod.reprojection_utils import invert_correct_parallax
-from kbmod.search import ImageStack, LayeredImage, Logging, Trajectory
+from kbmod.search import Logging
 from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
@@ -45,7 +43,7 @@ class WorkUnit:
 
     Attributes
     ----------
-    im_stack : `kbmod.search.ImageStack`
+    im_stack : `ImageStackPy`
         The image data for the KBMOD run.
     config : `kbmod.configuration.SearchConfiguration`
         The configuration for the KBMOD run.
@@ -69,7 +67,7 @@ class WorkUnit:
         Whether or not the WorkUnit image data has been reprojected.
     per_image_indices : `list` of `list`
         A list of lists containing the indicies of `constituent_images` at each layer
-        of the `ImageStack`. Used for finding corresponding original images when we
+        of the image stack. Used for finding corresponding original images when we
         stitch images together during reprojection.
     lazy : `bool`
         Whether or not to load the image data for the `WorkUnit`.
@@ -81,7 +79,7 @@ class WorkUnit:
 
     Parameters
     ----------
-    im_stack : `kbmod.search.ImageStack`
+    im_stack : `ImageStackPy`
         The image data for the KBMOD run.
     config : `kbmod.configuration.SearchConfiguration`
         The configuration for the KBMOD run.
@@ -99,7 +97,7 @@ class WorkUnit:
         "original" or "ebd" for a parallax corrected reprojection.
     per_image_indices : `list` of `list`, optional
         A list of lists containing the indicies of `constituent_images` at each layer
-        of the `ImageStack`. Used for finding corresponding original images when we
+        of the image stack. Used for finding corresponding original images when we
         stitch images together during reprojection.
     barycentric_distance : `float`, optional
         The barycentric distance that was used when creating the `per_image_ebd_wcs` (in AU).
@@ -129,11 +127,6 @@ class WorkUnit:
         obstimes=None,
         org_image_meta=None,
     ):
-        # Add a temporary bridge to convert the Python ImageStackPy into the C++
-        # version. This uses force_move and destroys the original im_stack.
-        if isinstance(im_stack, ImageStackPy):
-            im_stack = image_stack_py_to_cpp(im_stack)
-
         # Assign the core components.
         self.im_stack = im_stack
         self.config = config
@@ -143,7 +136,7 @@ class WorkUnit:
 
         # Validate the image stack (in warning only mode).
         if not lazy:
-            validate_image_stack(im_stack)
+            im_stack.validate()
 
         # Determine the number of constituent images. If we are given metadata for the
         # of constituent_images, use that. Otherwise use the size of the image stack.
@@ -207,7 +200,7 @@ class WorkUnit:
             print(f"  Reprojected Frame: {self.reprojection_frame}")
             print(f"  Barycentric Distance: {self.barycentric_distance}")
 
-        stat_image_stack(self.im_stack)
+        self.im_stack.print_stats()
 
     def get_constituent_meta(self, column):
         """Get the metadata values of a given column or a list of columns
@@ -323,7 +316,7 @@ class WorkUnit:
 
         wcs = self.get_wcs(0)
         if wcs is None or self.im_stack is None:
-            logger.warning(f"A valid wcs and ImageStack is needed to compute the ecliptic angle.")
+            logger.warning(f"A valid wcs and ImageStackPy is needed to compute the ecliptic angle.")
             return None
         center_pixel = (self.im_stack.width / 2, self.im_stack.height / 2)
         return calc_ecliptic_angle(wcs, center_pixel)
@@ -332,7 +325,7 @@ class WorkUnit:
         """Return a list of the observation times in MJD.
 
         If the `WorkUnit` was lazily loaded, then the obstimes have already been preloaded.
-        Otherwise, grab them from the `ImageStack.
+        Otherwise, grab them from the `ImageStackPy`.
 
         Returns
         -------
@@ -342,7 +335,7 @@ class WorkUnit:
         if self._obstimes is not None:
             return self._obstimes
 
-        self._obstimes = [self.im_stack.get_obstime(i) for i in range(self.im_stack.num_times)]
+        self._obstimes = np.copy(self.im_stack.times)
         return self._obstimes
 
     def get_unique_obstimes_and_indices(self):
@@ -363,12 +356,12 @@ class WorkUnit:
     def disorder_obstimes(self):
         """Reorders the timestamps in the WorkUnit to be random. Random offsets
         are chosen for each unique obstime and added to the original obstime.
-        The maximum offset is the number of images/times in the ImageStack or
+        The maximum offset is the number of images/times in the image stack or
         the difference between the maximum and minimum obstime.
 
         The offsets are applied such that images will have a shared
         obstime if they did so before this method was called.
-        The WorkUnit's ImageStack is then sorted in ascending order of the
+        The WorkUnit's image stack is then sorted in ascending order of the
         updated obstimes.
 
         This is useful for testing and ML training purposes where we might
@@ -398,19 +391,13 @@ class WorkUnit:
 
         # Apply the mapping of offsets to obstimes for all timestamps in the workunit.
         new_obstimes = [new_obstimes_map[obstime] for obstime in self.get_all_obstimes()]
+        self.im_stack.times = np.asanyarray(new_obstimes)
 
-        # Update the times depending on the type of ImageStack used.
-        if isinstance(self.im_stack, ImageStackPy):
-            self.im_stack.times = new_obstimes
-        else:
-            for i in range(self.im_stack.num_times):
-                self.im_stack.get_single_image(i).set_obstime(new_obstimes[i])
-
-        # Sort our ImageStack by our updated obstimes. This WorkUnit may have already
+        # Sort our image stack by our updated obstimes. This WorkUnit may have already
         # been sorted so we do this to preserve that expectation after reordering.
         self.im_stack.sort_by_time()
 
-        # Clear metadata and reset the cached obstimes to use what was sorted in the ImageStack.
+        # Clear metadata and reset the cached obstimes to use what was sorted in the image stack.
         self.clear_metadata()
         self._obstimes = None
 
@@ -445,7 +432,7 @@ class WorkUnit:
         if not Path(filename).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
 
-        im_stack = ImageStack()
+        im_stack = ImageStackPy()
         with fits.open(filename) as hdul:
             num_layers = len(hdul)
             if num_layers < 5:
@@ -508,10 +495,7 @@ class WorkUnit:
 
                 # Read in the layered image from different extensions.
                 sci, var, mask, obstime, psf_kernel, _ = read_image_data_from_hdul(hdul, i)
-                img = LayeredImage(sci, var, mask, psf_kernel, obstime)
-
-                # force_move destroys img object, but avoids a copy.
-                im_stack.append_image(img, force_move=True)
+                im_stack.append_image(obstime, sci, var, mask=mask, psf=psf_kernel)
 
                 # Read the mapping of current image to constituent image from the header info.
                 # TODO: Serialize this into its own table.
@@ -596,20 +580,20 @@ class WorkUnit:
 
         # Create each image layer.
         for i in range(self.im_stack.num_times):
-            layered = self.im_stack.get_single_image(i)
-            obstime = layered.time
+            obstime = self.im_stack.times[i]
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
 
-            # Append all of the image data to the main hdu list.
+            # Append all of the image data to the main hdu list. We create
+            # the mask layer because we do not store it in the image stack.
             add_image_data_to_hdul(
                 hdul,
                 i,
-                layered.sci,
-                layered.var,
-                layered.mask,
+                self.im_stack.sci[i],
+                self.im_stack.var[i],
+                self.im_stack.get_mask(i),
                 obstime,
-                psf_kernel=layered.get_psf(),
+                psf_kernel=self.im_stack.psfs[i],
                 wcs=self.get_wcs(i),
                 compression_type=compression_type,
                 quantize_level=quantize_level,
@@ -633,12 +617,13 @@ class WorkUnit:
         quantize_level=-0.01,
     ):
         """Write the WorkUnit to a multiple FITS files.
+
         Will create:
             - One "primary" file, containing the main WorkUnit metadata
             (see below) as well as the per_image_wcs information for
             the whole set. This will have the given filename.
-            -One image fits file containing all of the image data for
-            every LayeredImage in the ImageStack. This will have the
+            - One image fits file containing all of the image data for
+            every time step in the image stack. This will have the
             image index infront of the given filename, e.g.
             "0_filename.fits".
 
@@ -683,25 +668,25 @@ class WorkUnit:
             raise FileExistsError(f"WorkUnit file {filename} already exists.")
         if self.lazy:
             raise ValueError(
-                "WorkUnit was lazy loaded, must load all ImageStack data to output new WorkUnit."
+                "WorkUnit was lazy loaded, must load all ImageStackPy data to output new WorkUnit."
             )
 
         for i in range(self.im_stack.num_times):
-            layered = self.im_stack.get_single_image(i)
-            obstime = layered.time
+            obstime = self.im_stack.times[i]
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
             sub_hdul = fits.HDUList()
 
-            # Append all of the image data to the sub_hdul.
+            # Append all of the image data to the sub_hdul. We create
+            # the mask layer because we do not store it in the image stack.
             add_image_data_to_hdul(
                 sub_hdul,
                 i,
-                layered.sci,
-                layered.var,
-                layered.mask,
+                self.im_stack.sci[i],
+                self.im_stack.var[i],
+                self.im_stack.get_mask(i),
                 obstime,
-                psf_kernel=layered.get_psf(),
+                psf_kernel=self.im_stack.psfs[i],
                 wcs=self.get_wcs(i),
                 compression_type=compression_type,
                 quantize_level=quantize_level,
@@ -756,7 +741,7 @@ class WorkUnit:
         if not Path(os.path.join(directory, filename)).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
 
-        im_stack = ImageStack()
+        im_stack = ImageStackPy()
 
         # open the main header
         with fits.open(os.path.join(directory, filename)) as primary:
@@ -829,8 +814,7 @@ class WorkUnit:
                 # Read in the layered image from different extensions.
                 if not lazy:
                     img = load_layered_image_from_shard(shard_path)
-                    # force_move destroys img object, but avoids a copy.
-                    im_stack.append_image(img, force_move=True)
+                    im_stack.append_layered_image(img)
                 else:
                     file_paths.append(shard_path)
 
@@ -899,7 +883,7 @@ class WorkUnit:
         Parameters
         ----------
         image_indices : `numpy.array`
-            The `ImageStack` indices to transform coordinates.
+            The `ImageStackPy` indices to transform coordinates.
         positions : `list` of `astropy.coordinates.SkyCoord`s or `tuple`s
             The positions to be transformed.
         input_format : `str`
@@ -1017,17 +1001,16 @@ class WorkUnit:
         return positions
 
     def load_images(self):
-        """Function for loading in `ImageStack` data when `WorkUnit`
+        """Function for loading in `ImageStackPy` data when `WorkUnit`
         was created lazily.
         """
         if not self.lazy:
-            raise ValueError("ImageStack has already been loaded.")
-        im_stack = ImageStack()
+            raise ValueError("ImageStackPy has already been loaded.")
+        im_stack = ImageStackPy()
 
         for file_path in self.file_paths:
             img = load_layered_image_from_shard(file_path)
-            # force_move destroys img object, but avoids a copy.
-            im_stack.append_image(img, force_move=True)
+            im_stack.append_layered_image(img)
 
         self.im_stack = im_stack
         self.lazy = False
@@ -1059,8 +1042,7 @@ class WorkUnit:
 
 
 def load_layered_image_from_shard(file_path):
-    """Function for loading a `LayeredImage` from
-    a `WorkUnit` shard.
+    """Function for loading a `LayeredImagePy` from a `WorkUnit` shard.
 
     Parameters
     ----------
@@ -1069,8 +1051,8 @@ def load_layered_image_from_shard(file_path):
 
     Returns
     -------
-    img : `LayeredImage`
-        The materialized `LayeredImage`.
+    img : `LayeredImagePy`
+        The materialized `LayeredImagePy`.
     """
     if not Path(file_path).is_file():
         raise ValueError(f"provided file_path '{file_path}' is not an existing file.")
@@ -1078,7 +1060,7 @@ def load_layered_image_from_shard(file_path):
     index = int(file_path.split("/")[-1].split("_")[0])
     with fits.open(file_path) as hdul:
         sci, var, mask, obstime, psf_kernel, _ = read_image_data_from_hdul(hdul, index)
-        img = LayeredImage(sci, var, mask, psf_kernel, obstime)
+        img = LayeredImagePy(sci, var, mask, time=obstime, psf=psf_kernel)
         return img
 
 

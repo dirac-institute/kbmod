@@ -4,17 +4,16 @@ import numpy as np
 from kbmod.analysis.plotting import plot_multiple_images
 from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.image_utils import create_stamps_from_image_stack
-from kbmod.search import ImageStack
 from kbmod.util_functions import mjd_to_day
 
 
 class Visualizer:
-    """A class for visualizing from a given `ImageStack` and `Results` set.
+    """A class for visualizing from a given `ImageStackPy` and `Results` set.
 
     Attributes
     ----------
-    im_stack : `kbmod.search.ImageStack` or `ImageStackPy`
-        `ImageStack` associated with the results.
+    im_stack : `ImageStackPy`
+        `ImageStackPy` associated with the results.
     obstimes : `np.ndarray`
         The observation times for the images in the images.
     results : `kbmod.Results`
@@ -26,8 +25,6 @@ class Visualizer:
     def __init__(self, im_stack, results):
         if isinstance(im_stack, ImageStackPy):
             self.obstimes = im_stack.times
-        elif isinstance(im_stack, ImageStack):
-            self.obstimes = np.array([im_stack.get_obstime(i) for i in range(im_stack.num_times)])
         self.results = results
         self.trajectories = results.make_trajectory_list()
 

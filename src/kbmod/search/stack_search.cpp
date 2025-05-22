@@ -34,25 +34,6 @@ std::vector<float> extract_joint_psi_phi_curve(const PsiPhiArray& psi_phi, const
 // StackSearch
 // --------------------------------------------
 
-StackSearch::StackSearch(ImageStack& imstack, int num_bytes) : results(0) {
-    // Get the logger for this module.
-    rs_logger = logging::getLogger("kbmod.search.run_search");
-
-    // Get the cached stats for the images.
-    width = imstack.get_width();
-    height = imstack.get_height();
-    num_imgs = imstack.img_count();
-    zeroed_times = imstack.build_zeroed_times();
-
-    // Set the parameters for the search.
-    set_default_parameters(num_bytes);
-
-    // Compute the psi/phi array.
-    DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
-    fill_psi_phi_array_from_image_stack(psi_phi_array, imstack, params.encode_num_bytes);
-    timer.stop();
-}
-
 StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
                          std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times, int num_bytes)
         : results(0), zeroed_times(zeroed_times) {
@@ -327,11 +308,9 @@ static void stack_search_bindings(py::module& m) {
     using iv = std::vector<search::Image>;
     using dv = std::vector<double>;
     using tj = search::Trajectory;
-    using is = search::ImageStack;
     using ks = search::StackSearch;
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
-            .def(py::init<is&, int>(), py::arg("imstack"), py::arg("num_bytes") = -1)
             .def(py::init<iv&, iv&, iv&, dv&, int>(), py::arg("sci_imgs"), py::arg("var_imgs"),
                  py::arg("psf_kernels"), py::arg("zeroed_times"), py::arg("num_bytes") = -1)
             .def_property_readonly("num_images", &ks::num_images)

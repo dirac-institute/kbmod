@@ -2,7 +2,7 @@ import unittest
 
 from kbmod.filters.clustering_filters import *
 from kbmod.results import Results
-from kbmod.search import *
+from kbmod.search import Trajectory
 
 
 class test_clustering_filters(unittest.TestCase):

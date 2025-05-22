@@ -30,7 +30,6 @@ from kbmod.core.stamp_utils import (
     extract_stamp_stack,
 )
 from kbmod.results import Results
-from kbmod.search import ImageStack
 from kbmod.trajectory_utils import predict_pixel_locations
 from kbmod.work_unit import WorkUnit
 
@@ -42,7 +41,7 @@ def generate_all_stamps(results, images, radius=10, indices=None):
     ----------
     results : `Results`
         The results file.
-    images : `ImageStack` or `ImageStackPy`
+    images : `ImageStackPy`
         The full set of images to use for the stamps.
     radius : `int`
         The stamp radius.
@@ -72,11 +71,8 @@ def generate_all_stamps(results, images, radius=10, indices=None):
 
     # Extract the image data we need to build stamps.
     num_times = images.num_times
-    times = images.zeroed_times  # Linear cost for C++ ImageStack object.
-    if isinstance(images, ImageStack):
-        sci_data = [images.get_single_image(i).sci for i in range(num_times)]
-    else:
-        sci_data = images.sci
+    times = images.zeroed_times
+    sci_data = images.sci
 
     # Generate the stamps.
     xvals = predict_pixel_locations(times, results["x"], results["vx"], centered=True, as_int=True)

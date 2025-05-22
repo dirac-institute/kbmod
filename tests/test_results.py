@@ -28,7 +28,15 @@ class test_results(unittest.TestCase):
         self.trj_list = []
 
         for i in range(self.num_entries):
-            trj = Trajectory(x=i, y=i + 0, vx=i - 2.0, vy=i + 5.0, flux=5.0 * i, lh=100.0 + i, obs_count=i)
+            trj = Trajectory(
+                x=i,
+                y=i + 0,
+                vx=i - 2.0,
+                vy=i + 5.0,
+                flux=5.0 * i,
+                lh=100.0 + i,
+                obs_count=i,
+            )
             self.trj_list.append(trj)
             self.input_dict["x"].append(trj.x)
             self.input_dict["y"].append(trj.y)

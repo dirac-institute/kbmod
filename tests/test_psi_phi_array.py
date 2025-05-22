@@ -3,19 +3,15 @@ import numpy as np
 import unittest
 
 from kbmod.core.image_stack_py import make_fake_image_stack
-from kbmod.core.psf import PSF
-from kbmod.fake_data.fake_data_creator import make_fake_layered_image, FakeDataSet
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
-    ImageStack,
     PsiPhiArray,
     compute_scale_params_from_image_vect,
     decode_uint_scalar,
     encode_uint_scalar,
     fill_psi_phi_array,
     fill_psi_phi_array_from_image_arrays,
-    fill_psi_phi_array_from_image_stack,
     pixel_value_valid,
 )
 
@@ -182,58 +178,6 @@ class test_psi_phi_array(unittest.TestCase):
             arr.clear()
             self.assertFalse(arr.cpu_array_allocated)
 
-    def test_fill_psi_phi_array_from_image_stack(self):
-        # Build a fake image stack.
-        num_times = 5
-        width = 21
-        height = 15
-        images = [None] * num_times
-        p = PSF.make_gaussian_kernel(1.0)
-        for i in range(num_times):
-            images[i] = make_fake_layered_image(
-                width,
-                height,
-                2.0,  # noise_level
-                4.0,  # variance
-                2.0 * i + 1.0,  # time
-                p,
-            )
-        im_stack = ImageStack(images)
-
-        # Create the PsiPhiArray from the ImageStack.
-        arr = PsiPhiArray()
-        fill_psi_phi_array_from_image_stack(arr, im_stack, 4)
-
-        # Check the meta data.
-        self.assertEqual(arr.num_times, num_times)
-        self.assertEqual(arr.num_bytes, 4)
-        self.assertEqual(arr.width, width)
-        self.assertEqual(arr.height, height)
-        self.assertEqual(arr.pixels_per_image, width * height)
-        self.assertEqual(arr.num_entries, 2 * arr.pixels_per_image * num_times)
-        self.assertEqual(arr.block_size, 4)
-        self.assertEqual(arr.total_array_size, arr.num_entries * arr.block_size)
-
-        # Check that we allocated the correct arrays.
-        self.assertTrue(arr.cpu_array_allocated)
-        self.assertFalse(arr.on_gpu)
-        self.assertFalse(arr.gpu_array_allocated)
-
-        if HAS_GPU:
-            arr.move_to_gpu()
-            self.assertTrue(arr.on_gpu)
-            self.assertTrue(arr.gpu_array_allocated)
-
-        # Since we filled the images with random data, we only test the times.
-        for time in range(num_times):
-            self.assertAlmostEqual(arr.read_time(time), 2.0 * time)
-
-        # Clear clears everything.
-        arr.clear()
-        self.assertFalse(arr.cpu_array_allocated)
-        self.assertFalse(arr.on_gpu)
-        self.assertFalse(arr.gpu_array_allocated)
-
     def test_fill_psi_phi_array_from_image_arrays(self):
         # Build a fake image stack.
         num_times = 5
@@ -242,7 +186,7 @@ class test_psi_phi_array(unittest.TestCase):
         times = 2.0 * np.arange(num_times)
         im_stack = make_fake_image_stack(height, width, times)
 
-        # Create the PsiPhiArray from the ImageStack.
+        # Create the PsiPhiArray from the image data.
         arr = PsiPhiArray()
         fill_psi_phi_array_from_image_arrays(
             arr,
@@ -296,7 +240,7 @@ class test_psi_phi_array(unittest.TestCase):
         # Set all pixels in one of the images to NO_DATA.
         science = im_stack.sci[1][:, :] = KB_NO_DATA
 
-        # Create the PsiPhiArray from the ImageStack.
+        # Create the PsiPhiArray from the image data.
         arr = PsiPhiArray()
         fill_psi_phi_array_from_image_arrays(
             arr,

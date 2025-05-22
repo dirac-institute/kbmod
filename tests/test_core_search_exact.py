@@ -6,7 +6,6 @@ import unittest
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.image_stack_py import image_stack_add_fake_object, make_fake_image_stack
-from kbmod.image_utils import image_stack_py_to_cpp
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
 from kbmod.trajectory_generator import VelocityGridSearch
@@ -41,9 +40,6 @@ class test_search_exact(unittest.TestCase):
         )
         image_stack_add_fake_object(image_stack_py, start_x, start_y, xvel, yvel, object_flux)
 
-        # Convert to the C++ image stack.
-        stack = image_stack_py_to_cpp(image_stack_py)
-
         # Turn off all filtering and use a custom trajectory generator that
         # tests 1681 velocities per pixel and includes the true velocity.
         config = SearchConfiguration()
@@ -56,7 +52,7 @@ class test_search_exact(unittest.TestCase):
 
         # Run the search.
         runner = SearchRunner()
-        results = runner.do_core_search(config, stack, gen)
+        results = runner.do_core_search(config, image_stack_py, gen)
         self.assertGreater(len(results), 0)
 
         # Check that the best result is the true one.

@@ -9,9 +9,7 @@ from kbmod.core.psf import PSF
 
 
 class LayeredImagePy:
-    """A data class for storing all of the image components for a single
-    time step.  This is primarily used to ease the transition between
-    the numpy-based ImageStackPy and the C++ ImageStack.
+    """A data class for storing all of the image components for a single time step.
 
     Attributes
     ----------
@@ -245,7 +243,7 @@ class ImageStackPy:
             The time stamp (in UTC MJD).
         """
         if index < 0 or index >= self.num_times:
-            raise IndexError(f"Index {index} out of range for ImageStack.")
+            raise IndexError(f"Index {index} out of range for ImageStackPy.")
         return self.times[index]
 
     def copy(self):
@@ -448,7 +446,7 @@ class ImageStackPy:
             The image data at the given index.
         """
         if index < 0 or index >= self.num_times:
-            raise IndexError(f"Index {index} out of range for ImageStack.")
+            raise IndexError(f"Index {index} out of range for ImageStackPy.")
         return LayeredImagePy(self.sci[index], self.var[index], time=self.times[index], psf=self.psfs[index])
 
     def set_single_image(self, index, img):
@@ -462,10 +460,10 @@ class ImageStackPy:
             The image data to set.
         """
         if index < 0 or index >= self.num_times:
-            raise IndexError(f"Index {index} out of range for ImageStack.")
+            raise IndexError(f"Index {index} out of range for ImageStackPy.")
         if img.width != self.width or img.height != self.height:
             raise ValueError(
-                f"Image shape does not match the ImageStack size. Expected ({self.width},{self.height}). "
+                f"Image shape does not match the ImageStackPy size. Expected ({self.width},{self.height}). "
                 f"Received ({img.width}, {img.height})."
             )
 
@@ -642,7 +640,7 @@ class ImageStackPy:
 
 
 def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, psfs=None, rng=None):
-    """Create a fake ImageStack for testing.
+    """Create a fake ImageStackPy for testing.
 
     Parameters
     ----------

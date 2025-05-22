@@ -12,7 +12,6 @@ from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds
 
-from .image_utils import count_valid_images
 from .results import Results
 from .trajectory_generator import create_trajectory_generator
 from .trajectory_utils import predict_pixel_locations
@@ -78,8 +77,8 @@ def check_gpu_memory(config, stack, trj_generator=None):
     ----------
     config : `SearchConfiguration`
         The configuration parameters
-    stack : `ImageStack`
-        The stack before the masks have been applied. Modified in-place.
+    stack : `ImageStackPy`
+        The stack of image data.
     trj_generator : `TrajectoryGenerator`, optional
         The object to generate the candidate trajectories for each pixel.
 
@@ -288,8 +287,8 @@ class SearchRunner:
         ----------
         config : `SearchConfiguration`
             The configuration parameters
-        stack : `ImageStack`
-            The stack before the masks have been applied. Modified in-place.
+        stack : `ImageStackPy`
+            The stack of image data.
         trj_generator : `TrajectoryGenerator`
             The object to generate the candidate trajectories for each pixel.
 
@@ -305,7 +304,13 @@ class SearchRunner:
             raise ValueError("Insufficient GPU memory to conduct the search.")
 
         # Create the search object which will hold intermediate data and results.
-        search = kb.StackSearch(stack, config["encode_num_bytes"])
+        search = kb.StackSearch(
+            stack.sci,
+            stack.var,
+            stack.psfs,
+            stack.zeroed_times,
+            config["encode_num_bytes"],
+        )
         configure_kb_search_stack(search, config)
 
         # Do the actual search.
@@ -345,8 +350,8 @@ class SearchRunner:
         ----------
         config : `SearchConfiguration`
             The configuration parameters
-        stack : `ImageStack`
-            The stack before the masks have been applied. Modified in-place.
+        stack : `ImageStackPy`
+            The stack of image data.
         trj_generator : `TrajectoryGenerator`, optional
             The object to generate the candidate trajectories for each pixel.
             If None uses the default EclipticCenteredSearch
@@ -364,7 +369,8 @@ class SearchRunner:
 
         # Determine how many images have at least 10% valid pixels.  Make sure
         # num_obs is no larger than 80% of the valid images.
-        img_count = count_valid_images(stack, 0.9)
+
+        img_count = np.count_nonzero(stack.get_masked_fractions() < 0.9)
         if img_count == 0:
             raise ValueError("No valid images in input.")
         if config["num_obs"] == -1 or config["num_obs"] >= img_count:
@@ -384,11 +390,6 @@ class SearchRunner:
             logger.warning("Code was compiled without GPU using CPU only.")
             config.set("cpu_only", True)
 
-        # Apply the mask to the images.
-        if config["do_mask"]:
-            for i in range(stack.num_times):
-                stack.get_single_image(i).apply_mask(0xFFFFFF)
-
         # Perform the actual search.
         if trj_generator is None:
             trj_generator = create_trajectory_generator(config, work_unit=None)
@@ -396,12 +397,11 @@ class SearchRunner:
 
         if config["do_clustering"] and len(keep) > 1:
             self._start_phase("clustering")
-            mjds = [stack.get_obstime(t) for t in range(stack.num_times)]
             cluster_params = {
                 "cluster_type": config["cluster_type"],
                 "cluster_eps": config["cluster_eps"],
                 "cluster_v_scale": config["cluster_v_scale"],
-                "times": np.asarray(mjds),
+                "times": np.asarray(stack.times),
             }
             apply_clustering(keep, cluster_params)
             self._end_phase("clustering")
@@ -444,7 +444,7 @@ class SearchRunner:
             meta_to_save = {}
         meta_to_save["num_img"] = num_img
         meta_to_save["dims"] = stack.width, stack.height
-        keep.set_mjd_utc_mid(np.array([stack.get_obstime(i) for i in range(num_img)]))
+        keep.set_mjd_utc_mid(np.array(stack.times))
 
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
@@ -517,7 +517,7 @@ def append_positions_to_results(workunit, results):
         return  # Nothing to do
 
     num_times = workunit.im_stack.num_times
-    times = workunit.im_stack.zeroed_times  # linear cost
+    times = workunit.im_stack.zeroed_times
 
     # Predict where each candidate trajectory will be at each time step in the
     # common WCS frame. These are the pixel locations used to assess the trajectory.

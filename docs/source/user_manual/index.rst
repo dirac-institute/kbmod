@@ -120,16 +120,10 @@ The :py:class:`~~kbmod.work_unit.WorkUnit` is the basic data unit for KBMOD. It 
 Within the :py:class:`~~kbmod.work_unit.WorkUnit`, KBMOD uses an hierarchy of three nested data structures to store the image data over which it searches.
 
 
-ImageStack
-__________
+ImageStackPy
+------------
 
-The :py:class:`~kbmod.search.ImageStack` holds all of the image data for every time step. The main information stored is the images array, which holds one :py:class:`~kbmod.search.LayeredImage` structure for each time step.
-
-
-LayeredImage
-____________
-
-Each layered image holds the data from a single exposure, which consists of multiple layers including: a science image (the flux values), the variance image (representing the noise at each pixel), and mask image (representing per-pixel errors). In addition the :py:class:`~kbmod.search.LayeredImage` tracks per-exposure information such as the PSF for the image and the time at which the image was taken.
+The :py:class:`~kbmod.core.image_stack_py.ImageStackPy` holds all of the image data for every time step. The main information stored in a series of lists of images for each time step, including science images, variance images, and psfs.  Masking data is not explicitly stored, but rather applied to the science and variance images at time of creation. This allows the users to look up the science of variance values in a single location.
 
 Image
 -----

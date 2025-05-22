@@ -3,13 +3,14 @@ import numpy as np
 from utils.utils_for_tests import get_absolute_data_path
 import tempfile
 
+from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.reprojection import (
     reproject_work_unit,
     _get_first_psf_at_time,
     _validate_original_wcs,
 )
 from kbmod.search import pixel_value_valid
-from kbmod.work_unit import ImageStack, WorkUnit
+from kbmod.work_unit import WorkUnit
 
 
 class test_reprojection(unittest.TestCase):
@@ -68,7 +69,10 @@ class test_reprojection(unittest.TestCase):
                         reprojected_wunit = WorkUnit.from_sharded_fits("repr_wu.fits", tmpdir)
                 else:
                     reprojected_wunit = reproject_work_unit(
-                        self.test_wunit, self.common_wcs, parallelize=parallelize, show_progress=False
+                        self.test_wunit,
+                        self.common_wcs,
+                        parallelize=parallelize,
+                        show_progress=False,
                     )
 
                 assert reprojected_wunit.wcs != None
@@ -79,14 +83,18 @@ class test_reprojection(unittest.TestCase):
                 reproject_dists = reprojected_wunit.get_constituent_meta("geocentric_distance")
                 assert test_dists == reproject_dists
 
-                images = reprojected_wunit.im_stack.get_images()
-
                 # will be 3 as opposed to the four in the original `WorkUnit`,
                 # as the last two images have the same obstime and therefore
                 # get condensed to one image.
-                assert len(images) == 3
-
-                data = [[i.sci, i.var, i.mask] for i in images]
+                assert len(reprojected_wunit.im_stack) == 3
+                data = [
+                    [
+                        reprojected_wunit.im_stack.sci[i],
+                        reprojected_wunit.im_stack.var[i],
+                        reprojected_wunit.im_stack.get_mask(i),
+                    ]
+                    for i in range(3)
+                ]
 
                 for img in data:
                     # test that mask values are binary
@@ -125,10 +133,15 @@ class test_reprojection(unittest.TestCase):
     def test_except_add_overlapping_images(self):
         """Make sure that the reprojection fails when images at the same time
         have overlapping pixels."""
-        images = self.test_wunit.im_stack.get_images()
-        images[1].time = images[0].time
-        new_im_stack = ImageStack(images)
-        self.test_wunit.im_stack = new_im_stack
+        new_times = np.copy(self.test_wunit.im_stack.times)
+        new_times[1] = new_times[0]
+        new_stack = ImageStackPy(
+            new_times,
+            self.test_wunit.im_stack.sci,
+            self.test_wunit.im_stack.var,
+            psfs=self.test_wunit.im_stack.psfs,
+        )
+        self.test_wunit.im_stack = new_stack
 
         for parallelize in [True, False]:
             with self.subTest(parallelize=parallelize):
@@ -145,7 +158,7 @@ class test_reprojection(unittest.TestCase):
     def test_get_first_psf_at_time(self):
         """Make sure that the expected PSF is returned for a given time."""
         obstimes = np.array(self.test_wunit.get_all_obstimes())
-        psf = self.test_wunit.im_stack.get_images()[0].get_psf()
+        psf = self.test_wunit.im_stack.psfs[0]
 
         _psf = _get_first_psf_at_time(self.test_wunit, obstimes[0])
         assert np.allclose(psf, _psf)

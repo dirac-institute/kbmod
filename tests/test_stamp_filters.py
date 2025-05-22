@@ -3,7 +3,6 @@ import pathlib
 import unittest
 
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
-from kbmod.image_utils import image_stack_cpp_to_py
 from kbmod.filters.stamp_filters import *
 from kbmod.results import Results
 from kbmod.search import *

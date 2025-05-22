@@ -8,12 +8,10 @@ import numpy as np
 
 from kbmod.core.psf import convolve_psf_and_image, PSF
 from kbmod.fake_data.fake_data_creator import FakeDataSet
-from kbmod.image_utils import image_stack_py_to_cpp
 from kbmod.search import (
     convolve_image,
     fill_psi_phi_array,
-    fill_psi_phi_array_from_image_stack,
-    LayeredImage,
+    fill_psi_phi_array_from_image_arrays,
     PsiPhiArray,
 )
 from kbmod.core.shift_and_stack import generate_psi_phi_images
@@ -70,53 +68,32 @@ class test_python_parity(unittest.TestCase):
                 else:
                     self.assertAlmostEqual(img_c[y, x], img_p[y, x], places=4)
 
-    def test_single_psi_phi_image_generation(self):
-        height = 40
-        width = 35
-        sci = np.array([np.arange(width) for _ in range(height)], dtype=np.single)
-        var = np.array([0.1 * (h + 1) * np.ones(width) for h in range(height)], dtype=np.single)
-        msk = np.zeros_like(sci)
-
-        # Mask out a few pixels.
-        for py, px in [(3, 1), (10, 10), (10, 11), (10, 12), (15, 4), (35, 20), (35, 21), (35, 22)]:
-            sci[py, px] = np.nan
-            var[py, px] = np.nan
-
-        # Create the PSF.
-        psf = PSF.make_gaussian_kernel(1.2)
-
-        # Create a C++ version of the image and use it to generate psi and phi images.
-        img_c = LayeredImage(sci, var, msk, psf, 1.0)
-        psi_c = img_c.generate_psi_image()
-        phi_c = img_c.generate_phi_image()
-
-        # Generate psi and phi via python and compare the results.
-        psi_p, phi_p = generate_psi_phi_images(sci, var, psf)
-
-        self.assertTrue(np.allclose(psi_c, psi_p, rtol=0.001, atol=0.001, equal_nan=True))
-        self.assertTrue(np.allclose(phi_c, phi_p, rtol=0.001, atol=0.001, equal_nan=True))
-
     def test_psi_phi_array_generation(self):
         num_times = 10
         width = 200
         height = 300
         times = np.arange(num_times)
         fake_ds = FakeDataSet(width, height, times)
-        im_stack = image_stack_py_to_cpp(fake_ds.stack_py)
 
-        # Create the PsiPhiArray from the ImageStack.
+        # Create the PsiPhiArray from the image array data.
         arr_c = PsiPhiArray()
-        fill_psi_phi_array_from_image_stack(arr_c, im_stack, 2)
+        fill_psi_phi_array_from_image_arrays(
+            arr_c,
+            2,
+            fake_ds.stack_py.sci,
+            fake_ds.stack_py.var,
+            fake_ds.stack_py.psfs,
+            fake_ds.stack_py.zeroed_times,
+        )
 
         # Process the images using the Python functions.
         psi_arr = []
         phi_arr = []
         for idx in range(num_times):
-            layered_img = im_stack.get_single_image(idx)
             psi, phi = generate_psi_phi_images(
-                layered_img.sci,
-                layered_img.var,
-                layered_img.get_psf(),
+                fake_ds.stack_py.sci[idx],
+                fake_ds.stack_py.var[idx],
+                fake_ds.stack_py.psfs[idx],
             )
             psi_arr.append(psi)
             phi_arr.append(phi)

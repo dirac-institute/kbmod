@@ -358,7 +358,7 @@ class TestKBMODV1(unittest.TestCase):
         self.assertEqual(expected_mjd, img.time)
 
     def test_to_layered_image_no_greedy(self):
-        """Test that KBMODV1 standardizer can create LayeredImages. Explicitly
+        """Test that KBMODV1 standardizer can create LayeredImagePys. Explicitly
         setting `greedy_export` to False, which is the default."""
         conf = KBMODV1Config({"greedy_export": False})
         std = Standardizer.get(self.fits, force=KBMODV1, config=conf)

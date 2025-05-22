@@ -15,11 +15,7 @@ from kbmod.core.stamp_utils import (
     extract_stamp_stack,
 )
 from kbmod.trajectory_utils import predict_pixel_locations
-from kbmod.search import (
-    DebugTimer,
-    ImageStack,
-    Logging,
-)
+from kbmod.search import DebugTimer, Logging
 
 
 logger = Logging.getLogger(__name__)
@@ -30,7 +26,7 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True):
 
     result_data : `Results`
         The current set of results. Modified directly.
-    im_stack : `ImageStack` or `ImageStackPy`
+    im_stack : `ImageStackPy`
         The images from which to build the co-added stamps.
     coadd_types : `list`
         A list of coadd types to generate. Can be "sum", "mean", and "median".
@@ -49,16 +45,12 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True):
     stamp_timer = DebugTimer("computing extra coadds", logger)
 
     # Copy the image data that we need. The data only copies the references to the numpy arrays.
-    num_times = im_stack.num_times
-    times = im_stack.zeroed_times  # Linear cost for C++ ImageStack object.
-    if isinstance(im_stack, ImageStack):
-        sci_data = [im_stack.get_single_image(i).sci for i in range(num_times)]
-        var_data = [im_stack.get_single_image(i).var for i in range(num_times)]
-    elif isinstance(im_stack, ImageStackPy):
+    times = im_stack.zeroed_times
+    if isinstance(im_stack, ImageStackPy):
         sci_data = im_stack.sci
         var_data = im_stack.var
     else:
-        raise TypeError("im_stack must be an ImageStack or ImageStackPy")
+        raise TypeError("im_stack must be an ImageStackPy")
 
     # Predict the x and y locations in a giant batch.
     num_res = len(result_data)
@@ -100,7 +92,7 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
     ----------
     result_data : `Result`
         The current set of results. Modified directly.
-    im_stack : `ImageStack` or `ImageStackPy`
+    im_stack : `ImageStackPy`
         The stack of images.
     stamp_radius : `int`
         The radius of the stamps to create.
@@ -114,13 +106,11 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
 
     # Copy the image data that we need. The data only copies the references to the numpy arrays.
     num_times = im_stack.num_times
-    times = im_stack.zeroed_times  # Linear cost for C++ ImageStack object.
-    if isinstance(im_stack, ImageStack):
-        sci_data = [im_stack.get_single_image(i).sci for i in range(num_times)]
-    elif isinstance(im_stack, ImageStackPy):
+    times = im_stack.zeroed_times
+    if isinstance(im_stack, ImageStackPy):
         sci_data = im_stack.sci
     else:
-        raise TypeError("im_stack must be an ImageStack or ImageStackPy")
+        raise TypeError("im_stack must be an ImageStackPy")
 
     # Predict the x and y locations in a giant batch.
     num_res = len(result_data)
