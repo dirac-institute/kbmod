@@ -95,6 +95,9 @@ class test_stamp_filters(unittest.TestCase):
         append_coadds(keep, self.known_stack, ["mean", "median"], 5)
         self.assertTrue("coadd_mean" in keep.colnames)
         self.assertTrue("coadd_median" in keep.colnames)
+        self.assertFalse("coadd_mean_2015-04-18" in keep.colnames)
+        self.assertFalse("coadd_mean_2015-04-19" in keep.colnames)
+        self.assertFalse("coadd_mean_2015-04-20" in keep.colnames)
         self.assertEqual(len(keep), 2)
 
         self.assertEqual(keep["coadd_mean"][0].shape, (11, 11))
@@ -125,14 +128,16 @@ class test_stamp_filters(unittest.TestCase):
         keep.update_obs_valid(np.array([valid1, valid2]))
         append_coadds(keep, self.known_stack, ["mean"], 1, nightly=True)
 
-        # Check we have coadds for each night.
-        self.assertFalse("coadd_mean" in keep.colnames)
+        # Check we have coadds for each night (and overall coadds)
+        self.assertTrue("coadd_mean" in keep.colnames)
         self.assertTrue("coadd_mean_2015-04-18" in keep.colnames)
         self.assertTrue("coadd_mean_2015-04-19" in keep.colnames)
         self.assertTrue("coadd_mean_2015-04-20" in keep.colnames)
         self.assertEqual(len(keep), 2)
 
         # Check the values are correct.
+        self.assertTrue(np.allclose(keep["coadd_mean"][0], np.full((3, 3), 4.5)))
+        self.assertTrue(np.allclose(keep["coadd_mean"][1], np.full((3, 3), 3.6)))
         self.assertTrue(np.allclose(keep["coadd_mean_2015-04-18"][0], np.full((3, 3), 1.5)))
         self.assertTrue(np.allclose(keep["coadd_mean_2015-04-19"][0], np.full((3, 3), 5.5)))
         self.assertTrue(np.allclose(keep["coadd_mean_2015-04-20"][0], np.full((3, 3), 8.5)))

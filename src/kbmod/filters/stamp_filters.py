@@ -47,15 +47,14 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True, n
 
     stamp_timer = DebugTimer("computing extra coadds", logger)
 
-    # Access the time data we need. If we are not doing nightly coadds
-    # then we fake a day label that is the same for all times.
+    # Access the time data we need. If we are doing nightly, compute the
+    # strings for each time. Use "" to mean all times.
     times = im_stack.zeroed_times
+    day_strs = np.array([f"_{mjd_to_day(t)}" for t in im_stack.times])
     if nightly:
-        day_strs = np.array([f"_{mjd_to_day(t)}" for t in im_stack.times])
-        unique_days = np.unique(day_strs)
+        days_to_use = np.unique(day_strs)
     else:
-        day_strs = np.full(len(im_stack.times), "")
-        unique_days = np.array([""])
+        days_to_use = []
 
     # Predict the x and y locations in a giant batch.
     num_res = len(result_data)
@@ -64,16 +63,20 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True, n
 
     # Allocate space for the coadds in the results table.  We do this onces because we need rows
     # for entries in the table, but will only fill them in one entry (trajectory) at a time.
-    for day in day_strs:
+    for coadd_type in coadd_types:
+        result_data.table[f"coadd_{coadd_type}"] = np.zeros((num_res, width, width), dtype=np.float32)
+    for day in days_to_use:
         for coadd_type in coadd_types:
-            result_data.table[f"coadd_{coadd_type}{day}"] = np.zeros(
-                (num_res, width, width), dtype=np.float32
-            )
+            coadd_str = f"coadd_{coadd_type}{day}"
+            result_data.table[coadd_str] = np.zeros((num_res, width, width), dtype=np.float32)
 
     # Loop through each trajectory generating the coadds.  We extract the stamp stack once
     # for each trajectory and compute all the coadds from that stack.
+    to_include = np.full(len(times), True)
     for idx in range(num_res):
-        to_include = None if not valid_only else result_data["obs_valid"][idx]
+        # If we are only using valid observations, retrieve those and filter the day strings.
+        if valid_only:
+            to_include = result_data["obs_valid"][idx]
         sci_stack = extract_stamp_stack(
             im_stack.sci, xvals[idx, :], yvals[idx, :], radius, to_include=to_include
         )
@@ -86,21 +89,31 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True, n
             )
             var_stack = np.asanyarray(var_stack)
 
-        for day in day_strs:
-            if to_include is None:
-                day_mask = day == day_strs
-            else:
-                day_mask = day == day_strs[to_include]
+        # Do overall coadds.
+        if "mean" in coadd_types:
+            result_data[f"coadd_mean"][idx][:, :] = coadd_mean(sci_stack)
+        if "median" in coadd_types:
+            result_data[f"coadd_median"][idx][:, :] = coadd_median(sci_stack)
+        if "sum" in coadd_types:
+            result_data[f"coadd_sum"][idx][:, :] = coadd_sum(sci_stack)
+        if "weighted" in coadd_types:
+            result_data[f"coadd_weighted"][idx][:, :] = coadd_weighted(sci_stack, var_stack)
+
+        # Do nightly coadds if needed.
+        for day in days_to_use:
+            # Find the valid days that match the current string.
+            day_mask = day == day_strs[to_include]
+            sci_day = sci_stack[day_mask]
 
             if "mean" in coadd_types:
-                result_data[f"coadd_mean{day}"][idx][:, :] = coadd_mean(sci_stack[day_mask])
+                result_data[f"coadd_mean{day}"][idx][:, :] = coadd_mean(sci_day)
             if "median" in coadd_types:
-                result_data[f"coadd_median{day}"][idx][:, :] = coadd_median(sci_stack[day_mask])
+                result_data[f"coadd_median{day}"][idx][:, :] = coadd_median(sci_day)
             if "sum" in coadd_types:
-                result_data[f"coadd_sum{day}"][idx][:, :] = coadd_sum(sci_stack[day_mask])
+                result_data[f"coadd_sum{day}"][idx][:, :] = coadd_sum(sci_day)
             if "weighted" in coadd_types:
                 result_data[f"coadd_weighted{day}"][idx][:, :] = coadd_weighted(
-                    sci_stack[day_mask],
+                    sci_day,
                     var_stack[day_mask],
                 )
 
