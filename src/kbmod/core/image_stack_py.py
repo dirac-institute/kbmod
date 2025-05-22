@@ -583,16 +583,16 @@ class ImageStackPy:
             # one unmasked value.
             if percent_masked < 1.0:
                 if np.nanmin(sci) < min_flux:
-                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmin(sci)} < {min_flux}")
+                    logger.warning(f"Image {idx} has invalid science values: {np.nanmin(sci)} < {min_flux}")
                     is_valid = False
                 if np.nanmax(sci) > max_flux:
-                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmax(sci)} > {max_flux}")
+                    logger.warning(f"Image {idx} has invalid science values: {np.nanmax(sci)} > {max_flux}")
                     is_valid = False
                 if np.nanmin(var) < min_var:
-                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmin(var)} < {min_var}")
+                    logger.warning(f"Image {idx} has invalid variance values: {np.nanmin(var)} < {min_var}")
                     is_valid = False
                 if np.nanmax(var) > max_var:
-                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmax(var)} > {max_var}")
+                    logger.warning(f"Image {idx} has invalid variance values: {np.nanmax(var)} > {max_var}")
                     is_valid = False
 
         return is_valid

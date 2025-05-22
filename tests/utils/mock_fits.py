@@ -281,7 +281,7 @@ class DECamImdiffFactory(MockFitsFileFactory):
         # hit any of these roadblocks.
         empty_array = np.zeros((5, 5), np.float32)
         hdul["IMAGE"].data = empty_array
-        hdul["VARIANCE"].data = empty_array
+        hdul["VARIANCE"].data = empty_array + 0.01  # WorkUnits give a warning for variance 0.0
         hdul["MASK"].data = empty_array.astype(np.int32)
 
         # These are the 12 BinTableHDUs we're not using atm
