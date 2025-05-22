@@ -392,7 +392,6 @@ void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_byte
     fill_psi_phi_array(result_data, num_bytes, psi_images, phi_images, zeroed_times);
 }
 
-
 // -------------------------------------------
 // --- Python definitions --------------------
 // -------------------------------------------
