@@ -36,7 +36,7 @@ class LayeredImagePy:
             self.psf = np.asanyarray(psf, dtype=np.float32)
 
         if mask is None:
-            self.mask = np.zeros_like(sci, dtype=np.float32)
+            self.mask = np.isnan(self.sci) | np.isnan(self.var)
         else:
             self.mask = mask
 
