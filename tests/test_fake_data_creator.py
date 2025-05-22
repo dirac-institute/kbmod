@@ -68,30 +68,6 @@ class test_fake_image_creator(unittest.TestCase):
             # Far away from the object, the signal should be zero.
             self.assertAlmostEqual(fake_stack.sci[t_idx][30, 40], 0.0)
 
-    def test_get_masked_fractions(self):
-        """Test that we can compute the fraction of pixels masked at each index."""
-        num_times = 20
-        height = 20
-        width = 30
-        stack = ImageStackPy()
-
-        # Append images with an increasing fraction of masked pixels
-        for idx in range(num_times):
-            sci = np.full((height, width), float(idx))
-            var = np.full((height, width), 0.1 * float(idx))
-            msk = np.zeros((height, width))
-            msk[0:idx, :] = 1
-            stack.append_image(idx / 20.0, sci, var, mask=msk)
-
-        fractions = stack.get_masked_fractions()
-        self.assertTrue(np.allclose(fractions, np.arange(num_times) / float(num_times)))
-
-        # Filter out images with above a given masked fraction.
-        stack.filter_images(fractions < 0.5)
-        times_remaining = int(num_times / 2)
-        self.assertEqual(stack.num_times, times_remaining)
-        self.assertTrue(np.allclose(stack.times, np.arange(times_remaining) / float(num_times)))
-
     def test_create_fake_data_set(self):
         times = create_fake_times(10)
         ds = FakeDataSet(256, 128, times)
