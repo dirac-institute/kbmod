@@ -5,7 +5,7 @@ import numpy as np
 import unittest
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.core.image_stack_py import image_stack_add_fake_object, make_fake_image_stack
+from kbmod.fake_data.fake_data_creator import image_stack_add_fake_object, make_fake_image_stack
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
 from kbmod.trajectory_generator import VelocityGridSearch

@@ -6,18 +6,11 @@ adding artificial objects. The fake data can be saved to files
 or used directly.
 """
 
-import os
 import random
 import numpy as np
 import warnings
 
-from astropy.io import fits
-
 from kbmod.configuration import SearchConfiguration
-from kbmod.core.image_stack_py import (
-    make_fake_image_stack,
-    image_stack_add_fake_object,
-)
 
 from kbmod.search import *
 from kbmod.work_unit import WorkUnit
@@ -60,6 +53,80 @@ def create_fake_times(num_times, t0=0.0, obs_per_day=1, intra_night_gap=0.01, in
             seen_on_day = 0
             day_num += inter_night_gap
     return result_times
+
+
+def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, psfs=None, rng=None):
+    """Create a fake ImageStackPy for testing.
+
+    Parameters
+    ----------
+    width : int
+        The width of the images in pixels.
+    height : int
+        The height of the images in pixels.
+    times : list
+        A list of time stamps.
+    noise_level : float
+        The level of the background noise.
+        Default: 2.0
+    psf_val : float
+        The value of the default PSF.  Used if individual psfs are not specified.
+        Default: 0.5
+    psfs : `list` of `numpy.ndarray`, optional
+        A list of PSF kernels. If none, Gaussian PSFs from with std=psf_val are used.
+    rng : np.random.Generator
+        The random number generator to use. If None creates a new random generator.
+        Default: None
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    times = np.asarray(times)
+
+    # Create the science and variance images.
+    sci = [rng.normal(0.0, noise_level, (height, width)).astype(np.float32) for i in range(len(times))]
+    var = [np.full((height, width), noise_level**2).astype(np.float32) for i in range(len(times))]
+
+    # Create the PSF information.
+    if psfs is None:
+        psf_kernel = PSF.make_gaussian_kernel(psf_val)
+        psfs = [psf_kernel for i in range(len(times))]
+    elif len(psfs) != len(times):
+        raise ValueError(f"The number of PSFs ({len(psfs)}) must be the same as times ({len(times)}).")
+
+    return ImageStackPy(times, sci, var, psfs=psfs)
+
+
+def image_stack_add_fake_object(stack, x, y, vx, vy, flux):
+    """Insert a fake object given the trajectory.
+
+    Parameters
+    ----------
+    stack : ImageStackPy
+        The image stack to modify.
+    x : int
+        The x-coordinate of the object at the first time (in pixels).
+    y : int
+        The y-coordinate of the object at the first time (in pixels).
+    vx : float
+        The x-velocity of the object (in pixels per day).
+    vy : float
+        The y-velocity of the object (in pixels per day).
+    flux : float
+        The flux of the object.
+    """
+    for idx, t in enumerate(stack.zeroed_times):
+        psf_kernel = stack.psfs[idx]
+        psf_dim = psf_kernel.shape[0]
+        psf_radius = psf_dim // 2
+
+        px = int(x + vx * t + 0.5)
+        py = int(y + vy * t + 0.5)
+        for psf_y in range(psf_dim):
+            for psf_x in range(psf_dim):
+                img_x = px + psf_x - psf_radius
+                img_y = py + psf_y - psf_radius
+                if img_x >= 0 and img_x < stack.width and img_y >= 0 and img_y < stack.height:
+                    stack.sci[idx][img_y, img_x] += flux * psf_kernel[psf_y, psf_x]
 
 
 class FakeDataSet:

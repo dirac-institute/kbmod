@@ -12,7 +12,7 @@ import warnings
 import numpy as np
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.core.image_stack_py import image_stack_add_fake_object, make_fake_image_stack
+from kbmod.fake_data.fake_data_creator import image_stack_add_fake_object, make_fake_image_stack
 from kbmod.core.psf import PSF
 from kbmod.results import Results
 from kbmod.run_search import SearchRunner

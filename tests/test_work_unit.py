@@ -1,4 +1,3 @@
-from astropy.io import fits
 from astropy.table import Table
 from astropy.wcs import WCS
 from astropy.coordinates import EarthLocation, SkyCoord
@@ -8,19 +7,14 @@ import numpy as np
 import numpy.testing as npt
 import os
 from pathlib import Path
-import sys
 import tempfile
 import unittest
 import warnings
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.core.image_stack_py import (
-    image_stack_add_fake_object,
-    make_fake_image_stack,
-    ImageStackPy,
-)
+from kbmod.core.image_stack_py import ImageStackPy
+from kbmod.fake_data.fake_data_creator import image_stack_add_fake_object, make_fake_image_stack
 from kbmod.core.psf import PSF
-import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 from kbmod.work_unit import (

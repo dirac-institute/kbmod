@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from kbmod.core.image_stack_py import image_stack_add_fake_object, make_fake_image_stack
+from kbmod.fake_data.fake_data_creator import image_stack_add_fake_object, make_fake_image_stack
 from kbmod.core.psf import PSF
 from kbmod.search import *
 from kbmod.trajectory_generator import KBMODV1Search
