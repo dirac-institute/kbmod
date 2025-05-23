@@ -105,7 +105,6 @@ def perform_search(im_stack, res_filename, default_psf):
             "given_ecliptic": 1.1901106654050821,
         },
         "num_obs": 15,
-        "do_mask": True,
         "lh_level": 25.0,
         "sigmaG_lims": [25, 75],
         "chunk_size": 1000000,

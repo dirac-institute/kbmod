@@ -72,8 +72,6 @@ Configuration Parameters
 |                        |                             | remove duplicates and known objects.   |
 |                        |                             | See :ref:`Clustering` for more.        |
 +------------------------+-----------------------------+----------------------------------------+
-| ``do_mask``            | True                        | Apply the mask to the raw pixels.      |
-+------------------------+-----------------------------+----------------------------------------+
 | ``encode_num_bytes``   | -1                          | The number of bytes to use to encode   |
 |                        |                             | ``psi`` and ``phi`` images on GPU. By  |
 |                        |                             | default a ``float`` encoding is used.  |
