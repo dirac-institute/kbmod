@@ -2,7 +2,7 @@ import math
 import numpy as np
 import unittest
 
-from kbmod.core.image_stack_py import make_fake_image_stack
+from kbmod.fake_data.fake_data_creator import make_fake_image_stack
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
