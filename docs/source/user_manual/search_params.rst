@@ -96,6 +96,9 @@ Configuration Parameters
 |                        |                             | duplicate pre-filtering. Use ``None``  |
 |                        |                             | to skip this filtering step.           |
 +------------------------+-----------------------------+----------------------------------------+
+| ``nightly_coadds``     | False                       | Generate a coadd for each calendar     |
+|                        |                             | date.                                  |
++------------------------+-----------------------------+----------------------------------------+
 | ``num_obs``            | 10                          | The minimum number of non-masked       |
 |                        |                             | observations for the object to be      |
 |                        |                             | accepted. If this is greater than the  |

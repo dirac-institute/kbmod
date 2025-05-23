@@ -1,5 +1,8 @@
 """A proof of concept program for generating fake data and results
 to use for testing.
+
+Example:
+>>> kbmod-create-test-data --workunit=./fake_wu.fits --results=./fake_results.ecsv
 """
 
 import argparse
@@ -35,7 +38,7 @@ def execute(args):
         raise ValueError(f"Invalid number of trajectories: {args.num_trjs}. Must be >= 0.")
 
     # Generate and save the fake data.
-    times = create_fake_times(args.num_times)
+    times = create_fake_times(args.num_times, t0=58849.0, obs_per_day=3)
     fake_ds = FakeDataSet(args.width, args.height, times)
     for id_x in range(args.num_trjs):
         fake_ds.insert_random_object(200.0)
@@ -93,7 +96,7 @@ def main():
     )
     parser.add_argument(
         "--num_trjs",
-        default=20,
+        default=10,
         dest="num_trjs",
         type=int,
         help="The number of fake trajectories to insert into the data.",
