@@ -15,6 +15,12 @@ constexpr bool HAVE_GPU = true;
 constexpr bool HAVE_GPU = false;
 #endif
 
+#ifdef HAVE_OPENMP
+constexpr bool HAVE_OMP = true;
+#else
+constexpr bool HAVE_OMP = false;
+#endif
+
 constexpr unsigned int MAX_KERNEL_RADIUS = 15;
 constexpr unsigned short MAX_STAMP_EDGE = 64;
 constexpr unsigned short CONV_THREAD_DIM = 32;

@@ -365,11 +365,18 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
-        self._start_phase("KBMOD")
+        if config["debug"]:
+            logging.basicConfig(level=logging.DEBUG)
+
+            # Output basic binary information.
+            logger.debug(f"GPU Code Enabled: {HAS_GPU}")
+            logger.debug(f"OpenMP Enabled: {HAS_OMP}")
+            logger.debug(kb.stat_gpu_memory_mb())
+            logger.debug("Config:")
+            logger.debug(str(config))
 
         # Determine how many images have at least 10% valid pixels.  Make sure
         # num_obs is no larger than 80% of the valid images.
-
         img_count = np.count_nonzero(stack.get_masked_fractions() < 0.9)
         if img_count == 0:
             raise ValueError("No valid images in input.")
@@ -377,11 +384,7 @@ class SearchRunner:
             logger.info(f"Automatically setting num_obs = {img_count} (from {config['num_obs']}).")
             config.set("num_obs", img_count)
 
-        if config["debug"]:
-            logging.basicConfig(level=logging.DEBUG)
-            logger.debug("Starting Search")
-            logger.debug(str(config))
-            logger.debug(kb.stat_gpu_memory_mb())
+        self._start_phase("KBMOD")
 
         if not config.validate():
             raise ValueError("Invalid configuration")

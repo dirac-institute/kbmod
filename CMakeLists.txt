@@ -56,16 +56,19 @@ if(ipo_supported)
     set_property(TARGET search PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
+# Use aggressive compilation (-O3) and hidden symbol visibility.
 target_compile_options(search PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
     -O3
     -fvisibility=hidden
-    -fopenmp
 >)
 
-target_link_libraries(search PRIVATE
-  -lgomp
-)
-
+# Link in the OpenMP libraries if they are found.  As of cmake 3.9, it handles setting
+# the linking flags and as of cmake 3.12 it works on MacOS (if openmp is installed).
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(search PUBLIC OpenMP::OpenMP_CXX)
+    add_definitions(-DHAVE_OPENMP=1)
+endif()
 
 # If we have CUDA, build the kernel libraries and link them in as well.
 if(HAVE_CUDA)

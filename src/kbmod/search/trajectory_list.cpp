@@ -3,8 +3,11 @@
 #include "trajectory_list.h"
 #include "pydocs/trajectory_list_docs.h"
 
-#include <parallel/algorithm>
 #include <algorithm>
+
+#ifdef HAVE_OPENMP
+#include <parallel/algorithm>
+#endif
 
 namespace search {
 
@@ -69,8 +72,15 @@ std::vector<Trajectory> TrajectoryList::get_batch(uint64_t start, uint64_t count
 
 void TrajectoryList::sort_by_likelihood() {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
+
+        // Sort using __gnu_parallel if it is supported on the system and std::sort otherwise.
+#ifdef HAVE_OPENMP
     __gnu_parallel::sort(cpu_list.begin(), cpu_list.end(),
                          [](const Trajectory& a, const Trajectory& b) { return b.lh < a.lh; });
+#else
+    std::sort(cpu_list.begin(), cpu_list.end(),
+              [](const Trajectory& a, const Trajectory& b) { return b.lh < a.lh; });
+#endif
 }
 
 void TrajectoryList::filter_by_likelihood(float min_lh) {

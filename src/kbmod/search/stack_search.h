@@ -1,17 +1,6 @@
 #ifndef KBMODSEARCH_H_
 #define KBMODSEARCH_H_
 
-#include <parallel/algorithm>
-#include <algorithm>
-#include <functional>
-#include <iostream>
-#include <fstream>
-#include <sstream>  // formatting log msgs
-#include <chrono>
-#include <stdexcept>
-#include <float.h>
-#include <omp.h>
-
 #include "logging.h"
 #include "common.h"
 #include "cpu_search_algorithms.h"
