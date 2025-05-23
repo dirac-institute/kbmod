@@ -12,7 +12,7 @@ import warnings
 import numpy as np
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.core.image_stack_py import image_stack_add_fake_object, make_fake_image_stack
+from kbmod.fake_data.fake_data_creator import image_stack_add_fake_object, make_fake_image_stack
 from kbmod.core.psf import PSF
 from kbmod.results import Results
 from kbmod.run_search import SearchRunner
@@ -105,7 +105,6 @@ def perform_search(im_stack, res_filename, default_psf):
             "given_ecliptic": 1.1901106654050821,
         },
         "num_obs": 15,
-        "do_mask": True,
         "lh_level": 25.0,
         "sigmaG_lims": [25, 75],
         "chunk_size": 1000000,

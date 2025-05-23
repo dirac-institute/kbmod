@@ -14,14 +14,15 @@ from kbmod.core.stamp_utils import (
     coadd_weighted,
     extract_stamp_stack,
 )
-from kbmod.trajectory_utils import predict_pixel_locations
 from kbmod.search import DebugTimer, Logging
+from kbmod.trajectory_utils import predict_pixel_locations
+from kbmod.util_functions import mjd_to_day
 
 
 logger = Logging.getLogger(__name__)
 
 
-def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True):
+def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True, nightly=False):
     """Append one or more stamp coadds to the results data without filtering.
 
     result_data : `Results`
@@ -34,6 +35,8 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True):
         The stamp radius to use.
     valid_only : `bool`
         Only use stamps from the timesteps marked valid for each trajectory.
+    nightly : `bool`
+        Break up the stamps to a single coadd per-calendar day.
     """
     if radius <= 0:
         raise ValueError(f"Invalid stamp radius {radius}")
@@ -44,30 +47,49 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True):
 
     stamp_timer = DebugTimer("computing extra coadds", logger)
 
-    # Copy the image data that we need. The data only copies the references to the numpy arrays.
+    # Access the time data we need. If we are doing nightly, compute the
+    # strings for each time. Use "" to mean all times.
     times = im_stack.zeroed_times
-    if isinstance(im_stack, ImageStackPy):
-        sci_data = im_stack.sci
-        var_data = im_stack.var
+    day_strs = np.array([f"_{mjd_to_day(t)}" for t in im_stack.times])
+    if nightly:
+        days_to_use = np.unique(day_strs)
     else:
-        raise TypeError("im_stack must be an ImageStackPy")
+        days_to_use = []
 
     # Predict the x and y locations in a giant batch.
     num_res = len(result_data)
     xvals = predict_pixel_locations(times, result_data["x"], result_data["vx"], centered=True, as_int=True)
     yvals = predict_pixel_locations(times, result_data["y"], result_data["vy"], centered=True, as_int=True)
 
-    # Allocate space for the coadds in the results table.
+    # Allocate space for the coadds in the results table.  We do this onces because we need rows
+    # for entries in the table, but will only fill them in one entry (trajectory) at a time.
     for coadd_type in coadd_types:
         result_data.table[f"coadd_{coadd_type}"] = np.zeros((num_res, width, width), dtype=np.float32)
+    for day in days_to_use:
+        for coadd_type in coadd_types:
+            coadd_str = f"coadd_{coadd_type}{day}"
+            result_data.table[coadd_str] = np.zeros((num_res, width, width), dtype=np.float32)
 
     # Loop through each trajectory generating the coadds.  We extract the stamp stack once
     # for each trajectory and compute all the coadds from that stack.
+    to_include = np.full(len(times), True)
     for idx in range(num_res):
-        to_include = None if not valid_only else result_data["obs_valid"][idx]
-        sci_stack = extract_stamp_stack(sci_data, xvals[idx, :], yvals[idx, :], radius, to_include=to_include)
+        # If we are only using valid observations, retrieve those and filter the day strings.
+        if valid_only:
+            to_include = result_data["obs_valid"][idx]
+        sci_stack = extract_stamp_stack(
+            im_stack.sci, xvals[idx, :], yvals[idx, :], radius, to_include=to_include
+        )
         sci_stack = np.asanyarray(sci_stack)
 
+        # Only generate the variance stamps if we need them for a weighted co-add.
+        if "weighted" in coadd_types:
+            var_stack = extract_stamp_stack(
+                im_stack.var, xvals[idx, :], yvals[idx, :], radius, to_include=to_include
+            )
+            var_stack = np.asanyarray(var_stack)
+
+        # Do overall coadds.
         if "mean" in coadd_types:
             result_data[f"coadd_mean"][idx][:, :] = coadd_mean(sci_stack)
         if "median" in coadd_types:
@@ -75,11 +97,25 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True):
         if "sum" in coadd_types:
             result_data[f"coadd_sum"][idx][:, :] = coadd_sum(sci_stack)
         if "weighted" in coadd_types:
-            var_stack = extract_stamp_stack(
-                var_data, xvals[idx, :], yvals[idx, :], radius, to_include=to_include
-            )
-            var_stack = np.asanyarray(var_stack)
             result_data[f"coadd_weighted"][idx][:, :] = coadd_weighted(sci_stack, var_stack)
+
+        # Do nightly coadds if needed.
+        for day in days_to_use:
+            # Find the valid days that match the current string.
+            day_mask = day == day_strs[to_include]
+            sci_day = sci_stack[day_mask]
+
+            if "mean" in coadd_types:
+                result_data[f"coadd_mean{day}"][idx][:, :] = coadd_mean(sci_day)
+            if "median" in coadd_types:
+                result_data[f"coadd_median{day}"][idx][:, :] = coadd_median(sci_day)
+            if "sum" in coadd_types:
+                result_data[f"coadd_sum{day}"][idx][:, :] = coadd_sum(sci_day)
+            if "weighted" in coadd_types:
+                result_data[f"coadd_weighted{day}"][idx][:, :] = coadd_weighted(
+                    sci_day,
+                    var_stack[day_mask],
+                )
 
     stamp_timer.stop()
 

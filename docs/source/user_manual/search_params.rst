@@ -72,8 +72,6 @@ Configuration Parameters
 |                        |                             | remove duplicates and known objects.   |
 |                        |                             | See :ref:`Clustering` for more.        |
 +------------------------+-----------------------------+----------------------------------------+
-| ``do_mask``            | True                        | Apply the mask to the raw pixels.      |
-+------------------------+-----------------------------+----------------------------------------+
 | ``encode_num_bytes``   | -1                          | The number of bytes to use to encode   |
 |                        |                             | ``psi`` and ``phi`` images on GPU. By  |
 |                        |                             | default a ``float`` encoding is used.  |
@@ -97,6 +95,9 @@ Configuration Parameters
 | ``near_dup_thresh``    | 10                          | The grid size (in pixels) for near     |
 |                        |                             | duplicate pre-filtering. Use ``None``  |
 |                        |                             | to skip this filtering step.           |
++------------------------+-----------------------------+----------------------------------------+
+| ``nightly_coadds``     | False                       | Generate a coadd for each calendar     |
+|                        |                             | date.                                  |
 +------------------------+-----------------------------+----------------------------------------+
 | ``num_obs``            | 10                          | The minimum number of non-masked       |
 |                        |                             | observations for the object to be      |

@@ -14,6 +14,12 @@ The type specifies which stamp type to generate:
      The output is a 3-d numpy array of shape (num results, stamp width, stamp width)
   - "sum" generates a stamp sum coadded stamp for each result.
      The output is a 3-d numpy array of shape (num results, stamp width, stamp width)
+  - "mean-nightly" generates a stamp mean coadded stamp for each (result, night) pair.
+     The output is a 4-d numpy array of shape (num results, num nights, stamp width, stamp width)
+  - "median-nightly" generates a stamp median coadded stamp for each (result, night) pair.
+     The output is a 4-d numpy array of shape (num results, num nights, stamp width, stamp width)
+  - "sum-nightly" generates a stamp sum coadded stamp for each (result, night) pair.
+     The output is a 4-d numpy array of shape (num results, num nights, stamp width, stamp width)
 
 You can specify a subset of indices (rows in the results file) using the --indices flag.
 For example "--indices=1,3,5" will generate stamps from rows 1, 3, and 5.
@@ -22,6 +28,7 @@ For example "--indices=1,3,5" will generate stamps from rows 1, 3, and 5.
 import argparse
 import logging
 import numpy as np
+import warnings
 
 from kbmod.core.stamp_utils import (
     coadd_mean,
@@ -31,6 +38,7 @@ from kbmod.core.stamp_utils import (
 )
 from kbmod.results import Results
 from kbmod.trajectory_utils import predict_pixel_locations
+from kbmod.util_functions import mjd_to_day
 from kbmod.work_unit import WorkUnit
 
 
@@ -118,6 +126,49 @@ def coadd_all_stamps(all_stamps, coadd_type):
     return coadds
 
 
+def coadd_all_nightly(all_stamps, times, coadd_type):
+    """Coadd the (result. night) pairs into a single matrix.
+
+    Parameters
+    ----------
+    all_stamps : `np.ndarray`
+        The R x T x W x W array of stamps where R is the number of results
+        to process (from indices), T is the the number of time steps, and
+        W is the stamp radius (2 * radius + 1).
+    times : `np.ndarray`
+        An array of time stamps as UTC MJD.
+    coadd_type : `str`
+        The type of coadd to use. Must be one of 'mean', 'median', or 'sum'.
+
+    Returns
+    -------
+    coadds : `np.ndarray`
+        The R x D x W x W array of coadd stamps where R is the number of results
+        to process (from indices), D is the number of days, and W is the stamp
+        radius (2 * radius + 1).
+    """
+    num_stamps = all_stamps.shape[0]
+    width = all_stamps.shape[2]
+
+    day_strs = np.array([mjd_to_day(t) for t in times])
+    days_to_use = np.unique(day_strs)
+    day_masks = [day == day_strs for day in days_to_use]
+    num_days = len(days_to_use)
+
+    coadds = np.zeros((num_stamps, num_days, width, width))
+    for r_idx in range(num_stamps):
+        for d_idx, msk in enumerate(day_masks):
+            if coadd_type == "mean-nightly":
+                coadds[r_idx, d_idx, :] = coadd_mean(all_stamps[r_idx, msk, :, :])
+            elif coadd_type == "median-nightly":
+                coadds[r_idx, d_idx, :] = coadd_median(all_stamps[r_idx, msk, :, :])
+            elif coadd_type == "sum-nightly":
+                coadds[r_idx, d_idx, :] = coadd_sum(all_stamps[r_idx, msk, :, :])
+            else:
+                raise ValueError(f"Unrecognized coadd type {coadd_type}")
+    return coadds
+
+
 def execute(args):
     """Run the program from the given arguments.
 
@@ -132,9 +183,12 @@ def execute(args):
             print(f"  {key}: {val}")
         logging.basicConfig(level=logging.DEBUG)
 
-    # Load the results and the image data.
+    # Load the results and the image data. Ignore warnings about missing WCS since
+    # we do not use WCS in this script.
     results = Results.read_table(args.results)
-    wu = WorkUnit.from_fits(args.workunit, show_progress=args.verbose)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        wu = WorkUnit.from_fits(args.workunit, show_progress=args.verbose)
 
     # Parse the indices and validate them.
     if args.indices is None or args.indices == "":
@@ -147,10 +201,16 @@ def execute(args):
     all_stamps = generate_all_stamps(results, wu.im_stack, args.radius, indices)
 
     if args.coadd_type == "all":
-        np.save(args.outfile, all_stamps)
+        result_stamps = all_stamps
+    elif "-nightly" in args.coadd_type:
+        result_stamps = coadd_all_nightly(
+            all_stamps,
+            wu.im_stack.times,
+            args.coadd_type,
+        )
     else:
-        coadds = coadd_all_stamps(all_stamps, args.coadd_type)
-        np.save(args.outfile, coadds)
+        result_stamps = coadd_all_stamps(all_stamps, args.coadd_type)
+    np.save(args.outfile, result_stamps)
 
 
 def main():
@@ -197,7 +257,10 @@ def main():
         type=str,
         default="all",
         dest="coadd_type",
-        help="The stamp type. Must be one of 'all', 'sum', 'mean', or 'median'.",
+        help=(
+            "The stamp type. Must be one of 'all', 'sum', 'sum-nightly', 'mean', "
+            "'mean-nightly', 'median', or 'median-nightly'."
+        ),
     )
     optional.add_argument(
         "--indices",

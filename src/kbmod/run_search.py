@@ -419,7 +419,7 @@ class SearchRunner:
 
         # Add all the "coadd_*" columns and a "stamp" column. This is only
         # short term until we stop using the "stamp" column.
-        append_coadds(keep, stack, coadds, stamp_radius)
+        append_coadds(keep, stack, coadds, stamp_radius, nightly=config["nightly_coadds"])
         if f"coadd_{stamp_type}" in keep.colnames:
             keep.table["stamp"] = keep.table[f"coadd_{stamp_type}"]
 
