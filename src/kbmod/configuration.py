@@ -33,7 +33,6 @@ class SearchConfiguration:
             "cpu_only": False,
             "debug": False,
             "do_clustering": True,
-            "do_mask": True,
             "encode_num_bytes": -1,
             "generator_config": {
                 "name": "EclipticCenteredSearch",

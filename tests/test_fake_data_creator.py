@@ -25,7 +25,50 @@ class test_fake_image_creator(unittest.TestCase):
         for i in range(7):
             self.assertAlmostEqual(times2[i], expected[i])
 
-    def test_create(self):
+    def test_make_fake_image_stack(self):
+        """Test that we can create a fake ImageStackPy."""
+        fake_times = np.arange(10)
+        fake_stack = make_fake_image_stack(200, 300, fake_times)
+        self.assertEqual(fake_stack.num_times, 10)
+        self.assertEqual(fake_stack.width, 300)
+        self.assertEqual(fake_stack.height, 200)
+        self.assertEqual(fake_stack.npixels, 200 * 300)
+        self.assertEqual(fake_stack.total_pixels, 10 * 200 * 300)
+        self.assertTrue(np.all(fake_stack.num_masked_pixels() == 0))
+        self.assertEqual(len(fake_stack.sci), 10)
+        self.assertEqual(len(fake_stack.var), 10)
+        for idx in range(10):
+            self.assertEqual(fake_stack.sci[idx].shape, (200, 300))
+            self.assertEqual(fake_stack.var[idx].shape, (200, 300))
+            self.assertTrue(len(np.unique(fake_stack.sci[idx])) > 1)
+            self.assertTrue(np.allclose(fake_stack.var[idx], 4.0))
+        self.assertEqual(len(fake_stack.psfs), 10)
+
+    def test_image_stack_add_fake_object(self):
+        """Test that we can inset a fake object into an ImageStackPy."""
+        num_times = 5
+        height = 200
+        width = 300
+
+        fake_times = np.arange(num_times)
+        sci = np.full((num_times, height, width), 0.0)
+        var = np.full((num_times, height, width), 1.0)
+        psfs = [PSF.from_gaussian(0.5) for i in range(num_times)]
+        fake_stack = ImageStackPy(fake_times, sci, var, psfs=psfs)
+
+        image_stack_add_fake_object(fake_stack, 50, 60, 1.0, 2.0, 100.0)
+        for t_idx, t_val in enumerate(fake_times):
+            # Check that we receive a signal at the correct location that
+            # is non-zero but less than the flux (due to the PSF) at each time step.
+            px = int(50 + t_val + 0.5)
+            py = int(60 + 2.0 * t_val + 0.5)
+            self.assertGreater(fake_stack.sci[t_idx][py, px], 50.0)
+            self.assertLess(fake_stack.sci[t_idx][py, px], 100.0)
+
+            # Far away from the object, the signal should be zero.
+            self.assertAlmostEqual(fake_stack.sci[t_idx][30, 40], 0.0)
+
+    def test_create_fake_data_set(self):
         times = create_fake_times(10)
         ds = FakeDataSet(256, 128, times)
         self.assertEqual(ds.stack_py.num_times, 10)
