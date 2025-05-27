@@ -1,6 +1,6 @@
 #include "logging.h"
 
-#include "kernel_testing_helpers.h"
+#include "kernel_helpers.h"
 #include "psi_phi_array_ds.h"
 #include "psi_phi_array_utils.h"
 #include "pydocs/psi_phi_array_docs.h"

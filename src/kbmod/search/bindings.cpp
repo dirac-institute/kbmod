@@ -11,7 +11,7 @@ namespace py = pybind11;
 
 #include "cpu_search_algorithms.cpp"
 #include "stack_search.cpp"
-#include "kernel_testing_helpers.cpp"
+#include "kernel_helpers.cpp"
 #include "psi_phi_array.cpp"
 #include "debug_timer.cpp"
 #include "trajectory_list.cpp"
@@ -37,7 +37,6 @@ PYBIND11_MODULE(search, m) {
     search::trajectory_list_binding(m);
     // Helper function from common.h
     m.def("pixel_value_valid", &search::pixel_value_valid);
-    // Functions from kernel_testing_helpers.cpp
-    search::kernel_helper_bindings(m);
+    search::kernel_helper_bindings(m);  // Functions from kernel_helpers.cpp
     search::image_utils_cpp(m);
 }
