@@ -11,7 +11,7 @@ from kbmod.search import *
 from kbmod.trajectory_generator import VelocityGridSearch
 
 
-@unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
+@unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
 class test_search_exact(unittest.TestCase):
     def test_core_search_exact(self):
         # image properties

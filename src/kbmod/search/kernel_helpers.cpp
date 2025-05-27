@@ -110,7 +110,7 @@ std::vector<int> sigmaGFilteredIndices(std::vector<float> values, float sgl0, fl
 
 #ifdef Py_PYTHON_H
 static void kernel_helper_bindings(py::module &m) {
-    m.def("has_gpu", &has_gpu, "Check if GPU is available");
+    m.def("kb_has_gpu", &has_gpu, "Check if GPU is available");
     m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
     m.def("print_cuda_stats", &search::print_cuda_stats, pydocs::DOC_print_cuda_stats);
     m.def("get_gpu_total_memory", &search::get_gpu_total_memory, pydocs::DOC_get_gpu_total_memory);

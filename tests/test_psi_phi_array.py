@@ -4,7 +4,7 @@ import unittest
 
 from kbmod.fake_data.fake_data_creator import make_fake_image_stack
 from kbmod.search import (
-    HAS_CUDA,
+    kb_has_gpu,
     KB_NO_DATA,
     PsiPhiArray,
     compute_scale_params_from_image_vect,
@@ -155,7 +155,7 @@ class test_psi_phi_array(unittest.TestCase):
 
             # If the test has a GPU move the data to the GPU and confirm it got there.
             # Then clear it and make sure it is freed.
-            if HAS_CUDA:
+            if kb_has_gpu():
                 arr.move_to_gpu()
                 self.assertTrue(arr.on_gpu)
                 self.assertTrue(arr.gpu_array_allocated)
@@ -212,7 +212,7 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertFalse(arr.on_gpu)
         self.assertFalse(arr.gpu_array_allocated)
 
-        if HAS_CUDA:
+        if kb_has_gpu():
             arr.move_to_gpu()
             self.assertTrue(arr.on_gpu)
             self.assertTrue(arr.gpu_array_allocated)

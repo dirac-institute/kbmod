@@ -144,7 +144,7 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.vy / self.vyel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
-    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_results_gpu(self):
         candidates = [trj for trj in self.trj_gen]
         self.search.search_all(candidates, True)
@@ -165,7 +165,7 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.vy / self.vyel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
-    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_results_extended_bounds(self):
         self.search.set_results_per_pixel(5)
         self.search.set_start_bounds_x(-10, self.dim_x + 10)
@@ -193,7 +193,7 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.vy / self.vyel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
-    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_results_reduced_bounds(self):
         self.search.set_results_per_pixel(10)
         self.search.set_start_bounds_x(5, self.dim_x - 5)
@@ -230,7 +230,7 @@ class test_search(unittest.TestCase):
         self.assertRaises(RuntimeError, self.search.enable_gpu_sigmag_filter, [0.75, 1.10], 0.5, 1.0)
         self.assertRaises(RuntimeError, self.search.enable_gpu_sigmag_filter, [0.25, 0.75], -0.5, 1.0)
 
-    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_results_off_chip(self):
         trj = Trajectory(x=-3, y=12, vx=25.0, vy=10.0)
 
@@ -276,7 +276,7 @@ class test_search(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.search.set_min_obs(self.img_count + 1)
 
-    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_search_too_many_images(self):
         # Create a very large image stack.
         width = 10
