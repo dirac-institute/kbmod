@@ -1,4 +1,8 @@
-/* Helper functions for testing functions in the .cu files from Python. */
+/* Helper functions for interfacing with the .cu functions.
+ * These functions are broken out into a separate file to centralize the
+ * conditional logic for compiling and linking the CUDA code.
+ */
+
 #ifndef KERNEL_HELPERS_H_
 #define KERNEL_HELPERS_H_
 
