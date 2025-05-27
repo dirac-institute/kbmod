@@ -12,7 +12,7 @@
 
 namespace search {
 
-int cude_device_count() {
+int cuda_device_count() {
     int device_count = 0;
     unsigned int res = static_cast<unsigned int>(cudaGetDeviceCount(&device_count));
     if (res != 0) {

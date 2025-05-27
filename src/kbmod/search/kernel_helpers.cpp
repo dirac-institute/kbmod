@@ -22,7 +22,7 @@ extern "C" void SigmaGFilteredIndicesCU(float *values, int num_values, float sgl
 
 inline bool has_gpu() {
 #ifdef HAVE_CUDA
-    return cude_device_count() > 0;
+    return cuda_device_count() > 0;
 #else
     return false;
 #endif
