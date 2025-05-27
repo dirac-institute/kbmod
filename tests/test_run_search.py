@@ -57,6 +57,7 @@ class test_run_search(unittest.TestCase):
         # Re-enable warnings.
         logging.disable(logging.NOTSET)
 
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_run_search_auto_config(self):
         """Test that if we set num_obs to high, we down scale it."""
         num_times = 10
