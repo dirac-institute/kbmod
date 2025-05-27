@@ -4,7 +4,7 @@ import unittest
 
 from kbmod.core.psf import PSF
 from kbmod.search import (
-    HAS_GPU,
+    HAS_CUDA,
     KB_NO_DATA,
     convolve_image_cpu,
     convolve_image_gpu,
@@ -30,7 +30,7 @@ class test_image_utils_cpp(unittest.TestCase):
         result = convolve_image_cpu(self.array, psf_data)
         self.assertTrue(np.allclose(self.array, result, 0.0001))
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_convolve_psf_identity_gpu(self):
         """Test convolution with a identity kernel on CPU"""
         psf_data = np.zeros((3, 3), dtype=np.single)
@@ -59,7 +59,7 @@ class test_image_utils_cpp(unittest.TestCase):
                 else:
                     self.assertTrue(np.isfinite(result[y, x]))
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_convolve_psf_mask_gpu(self):
         """Test masked convolution with a identity kernel on CPU"""
         p = PSF.make_gaussian_kernel(1.0)
@@ -97,7 +97,7 @@ class test_image_utils_cpp(unittest.TestCase):
                 else:
                     self.assertTrue(np.isfinite(result[y, x]))
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_convolve_psf_nan_gpu(self):
         p = PSF.make_gaussian_kernel(1.0)
 
@@ -156,7 +156,7 @@ class test_image_utils_cpp(unittest.TestCase):
                 else:
                     self.assertAlmostEqual(result[y, x], ave, delta=0.001)
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_convolve_psf_average_gpu(self):
         """Test convolution on GPU produces expected values."""
         # Mask out a single pixel.
@@ -220,7 +220,7 @@ class test_image_utils_cpp(unittest.TestCase):
                 # Compute the manually computed result with the convolution.
                 self.assertAlmostEqual(result[y, x], ave, delta=0.001)
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_convolve_psf_orientation_gpu(self):
         """Test convolution on GPU with a non-symmetric PSF"""
         # Set up a non-symmetric psf where orientation matters.

@@ -2,11 +2,11 @@ import math
 import numpy as np
 import unittest
 
-from kbmod.search import HAS_GPU, Trajectory, pixel_value_valid
+from kbmod.search import HAS_CUDA, Trajectory, pixel_value_valid
 
 
 class test_common(unittest.TestCase):
-    @unittest.skipIf(HAS_GPU, "Skipping test (GPU detected)")
+    @unittest.skipIf(HAS_CUDA, "Skipping test (GPU detected)")
     def test_warning_no_GPU(self):
         """Throw a loud warning if you are running tests without GPU."""
         print("\n\n*** WARNING: SKIPPING GPU TESTS ***\n\n")

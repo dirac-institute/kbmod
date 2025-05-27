@@ -2,18 +2,18 @@
 
 import unittest
 
-from kbmod.search import HAS_GPU, print_cuda_stats, validate_gpu
+from kbmod.search import HAS_CUDA, print_cuda_stats, validate_gpu
 
 
 class test_gpu_helpers(unittest.TestCase):
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_validate_gpu_true(self):
         self.assertTrue(validate_gpu(0))
 
         # Add a memory test that will fail on all known GPUs (1 exobyte of memory).
         self.assertFalse(validate_gpu(1152921504606846976))
 
-    @unittest.skipIf(HAS_GPU, "Skipping test (GPU detected)")
+    @unittest.skipIf(HAS_CUDA, "Skipping test (GPU detected)")
     def test_validate_gpu_false(self):
         # We should always fail if there is no GPU.
         self.assertFalse(validate_gpu(0))

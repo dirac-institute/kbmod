@@ -25,7 +25,7 @@ from kbmod.work_unit import WorkUnit
 
 
 class test_run_search(unittest.TestCase):
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_run_search_bad_config(self):
         """Test cases where the search configuration is bad."""
         num_times = 20
@@ -382,7 +382,7 @@ class test_run_search(unittest.TestCase):
         self.assertAlmostEqual(keep["vx"][0], 21.0)
         self.assertAlmostEqual(keep["vy"][0], 16.0)
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_core_search_gpu(self):
         # Create a very small fake data set.
         num_times = 20

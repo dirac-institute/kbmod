@@ -6,20 +6,34 @@
 #include <vector>
 
 #include "kernel_helpers.h"
-#include "logging.h"
 #include "pydocs/kernel_helper_docs.h"
+
+// Declaration of CUDA functions that will be linked in.
+#ifdef HAVE_CUDA
+#include "kernels/kernel_memory.h"
+#endif
+
 
 namespace search {
 #ifdef HAVE_CUDA
-void cuda_print_stats();
-size_t gpu_total_memory();
-size_t gpu_free_memory();
-bool cuda_check_gpu(size_t req_memory);
-
-/* The kenerls.cu functions. */
+/* The kernels.cu functions. */
 extern "C" void SigmaGFilteredIndicesCU(float *values, int num_values, float sgl0, float sgl1, float sg_coeff,
                                         float width, int *idx_array, int *min_keep_idx, int *max_keep_idx);
 #endif
+
+
+inline bool has_gpu() {
+#ifdef HAVE_CUDA
+    return cude_device_count() > 0;
+#else
+    return false;
+#endif
+}
+
+
+// --------------------------
+// --- GPU Stat functions ---
+// --------------------------
 
 void print_cuda_stats() {
 #ifdef HAVE_CUDA
@@ -96,6 +110,7 @@ std::vector<int> sigmaGFilteredIndices(std::vector<float> values, float sgl0, fl
 
 #ifdef Py_PYTHON_H
 static void kernel_helper_bindings(py::module &m) {
+    m.def("has_gpu", &has_gpu, "Check if GPU is available");
     m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
     m.def("print_cuda_stats", &search::print_cuda_stats, pydocs::DOC_print_cuda_stats);
     m.def("get_gpu_total_memory", &search::get_gpu_total_memory, pydocs::DOC_get_gpu_total_memory);

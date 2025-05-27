@@ -12,6 +12,16 @@
 
 namespace search {
 
+int cude_device_count() {
+    int device_count = 0;
+    unsigned int res = static_cast<unsigned int>(cudaGetDeviceCount(&device_count));
+    if (res != 0) {
+        std::cout << "Unable to query GPU devices. Error code = " << res << "\n";
+        return -1;
+    }
+    return device_count;
+}
+
 // Helpful debugging stats for when something crashes in the GPU.
 void cuda_print_stats() {
     std::cout << "\n----- CUDA Debugging Log -----\n";

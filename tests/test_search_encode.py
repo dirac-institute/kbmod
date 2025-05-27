@@ -64,7 +64,7 @@ class test_search_filter(unittest.TestCase):
             self.max_angle,
         )
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_different_encodings(self):
         for encoding_bytes in [-1, 1, 2]:
             with self.subTest(i=encoding_bytes):

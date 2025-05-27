@@ -232,7 +232,7 @@ def run_full_test():
 
 # The unit test runner
 class test_regression_test(unittest.TestCase):
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_run_test(self):
         self.assertTrue(run_full_test())
 

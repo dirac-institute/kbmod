@@ -1,7 +1,6 @@
 /* Helper functions for testing functions in the .cu files from Python. */
 
 #include "image_utils_cpp.h"
-#include "logging.h"
 #include "pydocs/image_utils_cpp_docs.h"
 
 namespace search {

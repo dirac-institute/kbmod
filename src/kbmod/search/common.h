@@ -10,9 +10,9 @@
 
 namespace search {
 #ifdef HAVE_CUDA
-constexpr bool HAVE_GPU = true;
+constexpr bool HAVE_CUDA_LIB = true;
 #else
-constexpr bool HAVE_GPU = false;
+constexpr bool HAVE_CUDA_LIB = false;
 #endif
 
 #ifdef HAVE_OPENMP

@@ -9,12 +9,12 @@ import warnings
 
 from kbmod.fake_data.demo_helper import make_demo_data
 from kbmod.run_search import SearchRunner
-from kbmod.search import HAS_GPU
+from kbmod.search import HAS_CUDA
 from kbmod.work_unit import WorkUnit
 
 
 class test_end_to_end(unittest.TestCase):
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_demo_defaults(self):
         with tempfile.TemporaryDirectory() as dir_name:
             # Create a fake data file.
@@ -35,7 +35,7 @@ class test_end_to_end(unittest.TestCase):
             self.assertEqual(keep["stamp"][0].shape, (21, 21))
             self.assertEqual(keep["coadd_mean"][0].shape, (21, 21))
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_demo_stamp_size(self):
         with tempfile.TemporaryDirectory() as dir_name:
             # Create a fake data file.
@@ -66,7 +66,7 @@ class test_end_to_end(unittest.TestCase):
             for s in keep["all_stamps"][0]:
                 self.assertEqual(s.shape, (31, 31))
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not HAS_CUDA, "Skipping test (no GPU detected)")
     def test_demo_output_files(self):
         with tempfile.TemporaryDirectory() as dir_name:
             # Create a fake data file.
