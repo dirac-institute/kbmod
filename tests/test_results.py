@@ -481,7 +481,7 @@ class test_results(unittest.TestCase):
         table.wcs = fake_wcs
 
         # Add fake times.
-        table.mjd_mid = np.array([1, 2, 3, 4, 5])
+        table.mjd_mid = 59000.0 + np.array([1, 2, 3, 4, 5])
 
         # Test read/write to file.
         with tempfile.TemporaryDirectory() as dir_name:
@@ -517,7 +517,7 @@ class test_results(unittest.TestCase):
             self.assertEqual(len(table2), max_save)
 
             # We saved the additional meta data, including the WCS.
-            self.assertTrue(np.array_equal(table3.table.meta["mjd_mid"], [1, 2, 3, 4, 5]))
+            self.assertTrue(np.array_equal(table3.table.meta["mjd_mid"], table.mjd_mid))
             self.assertEqual(table3.table.meta["other"], 100.0)
             self.assertIsNotNone(table3.wcs)
             self.assertTrue(wcs_fits_equal(table3.wcs, fake_wcs))
@@ -533,7 +533,7 @@ class test_results(unittest.TestCase):
         table.wcs = fake_wcs
 
         # Add fake times.
-        table.mjd_mid = np.array([1, 2, 3, 4, 5])
+        table.mjd_mid = 59000.0 + np.array([1, 2, 3, 4, 5])
 
         # Test read/write to file.
         with tempfile.TemporaryDirectory() as dir_name:
@@ -547,7 +547,7 @@ class test_results(unittest.TestCase):
                     self.assertEqual(len(table2), max_save)
 
                     # Check that we saved the additional meta data, including the WCS.
-                    self.assertTrue(np.array_equal(table2.table.meta["mjd_mid"], [1, 2, 3, 4, 5]))
+                    self.assertTrue(np.array_equal(table2.table.meta["mjd_mid"], table.mjd_mid))
                     self.assertIsNotNone(table2.wcs)
                     self.assertTrue(wcs_fits_equal(table2.wcs, fake_wcs))
 
