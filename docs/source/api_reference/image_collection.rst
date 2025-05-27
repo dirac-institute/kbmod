@@ -1,4 +1,4 @@
-Module:image_collection
+Module: image_collection
 =======================
 
 .. automodule:: kbmod.image_collection

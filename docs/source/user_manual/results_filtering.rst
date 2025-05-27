@@ -11,8 +11,8 @@ Likelihood and Obs_count Filtering
 
 The first step after the core search is to filter trajectories by their likelihoods and number of observations.  The relevant parameters are:
 
- * ``lh_level`` - The minimum likelihood for a candidate trajectory to be kept.
- * ``num_obs`` - The minimum number of non-masked observations for a candidate trajectory to be kept.
+* ``lh_level`` - The minimum likelihood for a candidate trajectory to be kept.
+* ``num_obs`` - The minimum number of non-masked observations for a candidate trajectory to be kept.
 
 
 Near Duplicate Pre-filtering
@@ -22,7 +22,7 @@ After the trajectories with too few observations or too small a likelihood are r
 
 The relevant parameters are:
 
- * ``near_dup_thresh `` - Defines the size of the grid cells (in pixels). If the user sets ``None`` or a value <= 0, the near duplicate filtering is skipped.
+* ``near_dup_thresh `` - Defines the size of the grid cells (in pixels). If the user sets ``None`` or a value <= 0, the near duplicate filtering is skipped.
 
 
 Clipped SigmaG Filtering
@@ -32,12 +32,12 @@ During the light curve filtering phase, KBMOD computes the predicted positions a
 
 Relevant light curve filtering parameters include:
 
- * ``clip_negative`` - Whether to remove all negative values during filtering.
- * ``chunk_size`` - The number of candidate trajectories to filter in a batch. Used to control memory usage.
- * ``gpu_filter`` - Perform an initial round of sigmaG filtering on GPU.
- * ``lh_level`` - The minimum likelihood for a candidate trajectory.
- * ``max_lh`` - The maximum likelihood to keep.
- * ``sigmaG_lims`` - The percentiles for sigmaG filtering (default of [25, 75]).
+* ``clip_negative`` - Whether to remove all negative values during filtering.
+* ``chunk_size`` - The number of candidate trajectories to filter in a batch. Used to control memory usage.
+* ``gpu_filter`` - Perform an initial round of sigmaG filtering on GPU.
+* ``lh_level`` - The minimum likelihood for a candidate trajectory.
+* ``max_lh`` - The maximum likelihood to keep.
+* ``sigmaG_lims`` - The percentiles for sigmaG filtering (default of [25, 75]).
 
 
 Clustering
@@ -59,7 +59,7 @@ The `scikit-learn <https://scikit-learn.org/stable/>`_ ``DBSCAN`` algorithm perf
 * ``mid_position`` - Use the predicted position at the median time as coordinates for clustering.
 * ``start_end_position`` - Use the predicted positions at the start and end times as coordinates for clustering.
 
-Most of the clustering approaches rely on predicted positions at different times. For example midpoint-based clustering will encode each trajectory `(x0, y0, xv, yv)` as a 2-dimensional point `(x0 + tm * xv, y0 + tm + yv)` where `tm` is the median time. Thus trajectories only need to be close at time=`tm` to be merged into a single trajectory. In contrast the start and eng based clustering will encode the same trajectory as a 4-dimensional point (x0, y0, x0 + te * xv, y0 + te + yv)` where `te` is the last time. Thus the points will need to be close at both time=0.0 and time=`te` to be merged into a single result.
+Most of the clustering approaches rely on predicted positions at different times. For example midpoint-based clustering will encode each trajectory ``(x0, y0, xv, yv)`` as a 2-dimensional point `(x0 + tm * xv, y0 + tm + yv)` where `tm` is the median time. Thus trajectories only need to be close at time=`tm` to be merged into a single trajectory. In contrast the start and eng based clustering will encode the same trajectory as a 4-dimensional point (x0, y0, x0 + te * xv, y0 + te + yv)` where `te` is the last time. Thus the points will need to be close at both time=0.0 and time=`te` to be merged into a single result.
 
 The way DBSCAN computes distances between the trajectories depends on the encoding used. For positional encodings, such as ``position``, ``mid_position``, and ``start_end_position``, the distance is measured directly in pixels. The ``all`` encoding behaves somewhat similarly. However since it combines positions and velocities (or change in pixels per day), they are not actually in the same space.
 
