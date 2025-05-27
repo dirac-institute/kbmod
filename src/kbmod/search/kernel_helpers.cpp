@@ -1,8 +1,11 @@
-/* Helper functions for testing functions in the .cu files from Python. */
+/* Helper functions for interfacing with the .cu functions.
+ * These functions are broken out into a separate file to centralize the
+ * conditional logic for compiling and linking the CUDA code.
+ */
 
 #include <vector>
 
-#include "kernel_testing_helpers.h"
+#include "kernel_helpers.h"
 #include "logging.h"
 #include "pydocs/kernel_helper_docs.h"
 
