@@ -13,14 +13,12 @@
 #include "kernels/kernel_memory.h"
 #endif
 
-
 namespace search {
 #ifdef HAVE_CUDA
 /* The kernels.cu functions. */
 extern "C" void SigmaGFilteredIndicesCU(float *values, int num_values, float sgl0, float sgl1, float sg_coeff,
                                         float width, int *idx_array, int *min_keep_idx, int *max_keep_idx);
 #endif
-
 
 inline bool has_gpu() {
 #ifdef HAVE_CUDA
@@ -29,7 +27,6 @@ inline bool has_gpu() {
     return false;
 #endif
 }
-
 
 // --------------------------
 // --- GPU Stat functions ---

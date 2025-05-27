@@ -1,6 +1,7 @@
 /* Helper functions for testing functions in the .cu files from Python. */
 
 #include "image_utils_cpp.h"
+#include "kernel_helpers.h"
 #include "pydocs/image_utils_cpp_docs.h"
 
 namespace search {
@@ -67,15 +68,20 @@ Image convolve_image_cpu(Image& img, Image& psf) {
 }
 
 Image convolve_image_gpu(Image& img, Image& psf) {
+    if (!has_gpu()) {
+        throw std::runtime_error("Unable to perform convolve_image_gpu() without GPU.");
+    }
+
     const uint64_t img_height = img.rows();
     const uint64_t img_width = img.cols();
     Image result = Image::Zero(img_height, img_width);
 
-#ifdef HAVE_CUDA
     // Extract the PSF kernel into a flat array. There is probably a better
     // way to do this via the Eigen library.
     int num_rows = psf.rows();
     int num_cols = psf.cols();
+    int radius = (num_rows - 1) / 2;
+
     std::vector<float> psf_vals(num_rows * num_cols);
     int idx = 0;
     for (int r = 0; r < num_rows; ++r) {
@@ -85,23 +91,20 @@ Image convolve_image_gpu(Image& img, Image& psf) {
         }
     }
 
-    int radius = (num_rows - 1) / 2;
+    // We need to guard this will a flag during compilation since
+    // it calls CUDA compiled code.
+#ifdef HAVE_CUDA
     deviceConvolve(img.data(), result.data(), img_width, img_height, psf_vals.data(), radius);
-#else
-    throw std::runtime_error("Unable to perform convolve_image_gpu() without GPU.");
 #endif
 
     return result;
 }
 
 Image convolve_image(Image& image, Image& psf) {
-#ifdef HAVE_CUDA
-    Image result = convolve_image_gpu(image, psf);
-#else
-    Image result = convolve_image_cpu(image, psf);
-#endif
-
-    return result;
+    if (has_gpu()) {
+        return convolve_image_gpu(image, psf);
+    }
+    return convolve_image_cpu(image, psf);
 }
 
 Image square_psf_values(Image& given_psf) {

@@ -8,7 +8,6 @@
 
 #include <string>
 
-
 namespace search {
 
 // Check that the package was built with CUDA support and there is a GPU available.

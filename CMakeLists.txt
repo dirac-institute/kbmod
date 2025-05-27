@@ -9,9 +9,7 @@ project(search LANGUAGES CXX)
 include(CheckLanguage)
 check_language(CUDA)
 
-set(CPU_ONLY OFF CACHE BOOL "Build without GPU support?")
-
-if(CMAKE_CUDA_COMPILER AND NOT CPU_ONLY)
+if(CMAKE_CUDA_COMPILER)
   set(HAVE_CUDA 1)
   enable_language(CUDA)
   add_definitions(-DHAVE_CUDA=1)
@@ -24,7 +22,6 @@ if(CMAKE_CUDA_COMPILER AND NOT CPU_ONLY)
 else()
   message(STATUS "Not building for GPU.")
   message(STATUS "CMAKE_CUDA_COMPILER = ${CMAKE_CUDA_COMPILER}")
-  message(STATUS "CPU only = ${CPU_ONLY}")
 endif()
 
 include(CheckIPOSupported)
