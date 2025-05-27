@@ -1,13 +1,9 @@
 #ifndef IMAGE_UTILS_CPP_H_
 #define IMAGE_UTILS_CPP_H_
 
-#include <vector>
-#include <float.h>
-#include <iostream>
-#include <stdexcept>
-#include <math.h>
-
 #include <Eigen/Core>
+#include <stdexcept>
+#include <vector>
 
 #include "common.h"
 
