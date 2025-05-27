@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import tempfile
@@ -157,10 +158,16 @@ class TestImageCollection(unittest.TestCase):
         # no config was given even though its an optional.
         from kbmod.configuration import SearchConfiguration
 
+        # Disable the warnings because the fitFactory will generate empty layers.
+        logging.disable(logging.CRITICAL)
+
         data = self.fitsFactory.get_n(3, spoof_data=True)
         ic = ImageCollection.fromTargets(data)
         wu = ic.toWorkUnit(search_config=SearchConfiguration())
         self.assertEqual(len(wu), 3)
+
+        # Re-enable the warnings.
+        logging.disable(logging.NOTSET)
 
         # We can retrieve the meta data from the WorkUnit.
         filter_info = wu.get_constituent_meta("visit")

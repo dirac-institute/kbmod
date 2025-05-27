@@ -23,7 +23,7 @@ class test_trajectory_explorer(unittest.TestCase):
         self.trj = Trajectory(self.x0, self.y0, self.vx, self.vy, flux=500.0)
 
         # create image set with single moving object
-        fake_times = [i / self.img_count for i in range(self.img_count)]
+        fake_times = np.array([59000.0 + i / self.img_count for i in range(self.img_count)])
         self.fake_ds = FakeDataSet(
             self.dim_x,
             self.dim_y,
@@ -35,8 +35,9 @@ class test_trajectory_explorer(unittest.TestCase):
         self.fake_ds.insert_object(self.trj)
 
         # Remove at least one observation from the trajectory.
-        pred_x = self.trj.get_x_index(fake_times[10])
-        pred_y = self.trj.get_y_index(fake_times[10])
+        zeroed_times = fake_times - fake_times[0]
+        pred_x = self.trj.get_x_index(zeroed_times[10])
+        pred_y = self.trj.get_y_index(zeroed_times[10])
         sci_t10 = self.fake_ds.stack_py.sci[10]
         for dy in [-1, 0, 1]:
             for dx in [-1, 0, 1]:
