@@ -26,6 +26,7 @@ GPU Requirements
 ----------------
 
 To build KBMOD you will require:
+
 * GPU and drivers
 * Cuda Toolkit >= 8.0
 * CMake >= 3.23

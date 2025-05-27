@@ -54,7 +54,7 @@ Analyzing Results
    analysis/visualizer
    jointfit_functions
 
-Miscelaneous utilities
+Miscellaneous utilities
 ----------------------
 
 .. toctree::
