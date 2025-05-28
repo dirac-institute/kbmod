@@ -145,6 +145,21 @@ class test_sigma_g_math(unittest.TestCase):
             for j in range(i, num_times):
                 self.assertTrue(valid[j])
 
+    def test_apply_clipped_sigma_g_empty(self):
+        """Confirm the clipped sigmaG filter works when used with an empty Results object."""
+        table = Results()
+        self.assertEqual(len(table), 0)
+
+        psi_all = np.array([]).reshape((0, 10))
+        phi_all = np.array([]).reshape((0, 10))
+        table.add_psi_phi_data(psi_all, phi_all)
+        self.assertTrue("psi_curve" in table.colnames)
+        self.assertTrue("phi_curve" in table.colnames)
+
+        clipper = SigmaGClipping(10, 90)
+        apply_clipped_sigma_g(clipper, table)
+        self.assertEqual(len(table), 0)
+
     def test_sigmag_parity(self):
         """Test that we get the same results when using the batch and the non-batch methods."""
         num_tests = 20

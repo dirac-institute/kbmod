@@ -522,6 +522,26 @@ class test_results(unittest.TestCase):
             self.assertIsNotNone(table3.wcs)
             self.assertTrue(wcs_fits_equal(table3.wcs, fake_wcs))
 
+    def test_to_from_table_file_empty(self):
+        table = Results()
+        self.assertEqual(len(table), 0)
+
+        # Create a fake WCS to use for serialization tests.
+        fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
+        table.wcs = fake_wcs
+
+        # Add fake times.
+        table.mjd_mid = 59000.0 + np.array([1, 2, 3, 4, 5])
+
+        # Test read/write to file.
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "results.ecsv")
+            table.write_table(file_path)
+            self.assertTrue(Path(file_path).is_file())
+
+            table2 = Results.read_table(file_path)
+            self.assertEqual(len(table2), 0)
+
     def test_to_from_table_file_formats(self):
         max_save = 5
         table = Results.from_trajectories(self.trj_list[0:max_save], track_filtered=True)

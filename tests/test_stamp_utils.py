@@ -95,6 +95,12 @@ class test_stamp_utils(unittest.TestCase):
         self.assertAlmostEqual(stamp_array[0][2, 2], 132.0)
         self.assertAlmostEqual(stamp_array[1][2, 2], 254.0)
 
+    def test_extract_stamp_stack_empty(self):
+        """Tests the basic stamp creation for a stack of images."""
+        data = np.array([]).reshape(0, 10, 12)  # Empty data array
+        stamp_array = extract_stamp_stack(data, [], [], 2)
+        self.assertEqual(stamp_array.shape, (0, 5, 5))
+
     def test_extract_stamp_stack_list(self):
         """Tests the basic stamp creation for a stack of images as a list."""
         num_times = 4
@@ -135,9 +141,6 @@ class test_stamp_utils(unittest.TestCase):
         self.assertAlmostEqual(stamp_array[1][2, 2], 254.0)
 
     def test_make_coadds_simple(self):
-        times = np.array([0.0, 1.0, 2.0])
-        psf = np.array([1.0])
-
         # Create an image set with three 3x3 images.
         sci1 = np.array([[0, np.nan, np.nan], [0, np.nan, 0.5], [0, 1, 0.5]]).astype(np.float32)
         sci2 = np.array([[1, np.nan, 0.5], [1, 2, 0.5], [1, 2, 0.5]]).astype(np.float32)
@@ -209,6 +212,16 @@ class test_stamp_utils(unittest.TestCase):
             ]
         )
         self.assertTrue(np.allclose(weighted_coadd, expected_weighted, atol=1e-5))
+
+    def test_make_coadds_simple_empty(self):
+        stamp_stack = np.array([]).reshape(0, 3, 3).astype(np.float32)
+        var_stack = np.array([]).reshape(0, 3, 3).astype(np.float32)
+        expected = np.zeros((3, 3), dtype=np.float32)
+
+        self.assertTrue(np.array_equal(coadd_sum(stamp_stack), expected))
+        self.assertTrue(np.array_equal(coadd_mean(stamp_stack), expected))
+        self.assertTrue(np.array_equal(coadd_median(stamp_stack), expected))
+        self.assertTrue(np.array_equal(coadd_weighted(stamp_stack, var_stack), expected))
 
     def test_extract_curve_values(self):
         # Create an image set with three 3x3 images.
