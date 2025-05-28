@@ -415,7 +415,6 @@ class ButlerStandardizer(Standardizer):
         # Save the string version of the ref as provenance information.
         self._metadata["data_loc"] = str(self.ref)
 
-
     @property
     def wcs(self):
         if self._wcs is None:
