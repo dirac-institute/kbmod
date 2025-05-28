@@ -411,9 +411,9 @@ class ButlerStandardizer(Standardizer):
                     self.ref.run,
                 ],
             ).geturl()
-
-        # Save the string version of the ref as provenance information.
-        self._metadata["data_loc"] = str(self.ref)
+        else:
+            # Save the full string representation of ref.
+            self._metadata["location"] = str(self.ref)
 
     @property
     def wcs(self):

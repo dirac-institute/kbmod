@@ -173,9 +173,6 @@ class KBMODV1(MultiExtensionFits):
         standardizedHeader["GAINA"] = self.primary["GAINA"]
         standardizedHeader["GAINB"] = self.primary["GAINB"]
 
-        # Save the data location as metadata.  This might be ":memory:".
-        standardizedHeader["data_loc"] = self.location
-
         return standardizedHeader
 
     def _standardizeMask(self):

@@ -80,7 +80,6 @@ class TestImageCollection(unittest.TestCase):
             "DIMM2SEE",
             "GAINA",
             "GAINB",
-            "data_loc",
             "location",
             "ra",
             "dec",
@@ -170,7 +169,8 @@ class TestImageCollection(unittest.TestCase):
         # Re-enable the warnings.
         logging.disable(logging.NOTSET)
 
-        # We can retrieve the meta data from the WorkUnit.
+        # We can retrieve the meta data from the WorkUnit, including the renamed
+        # "data_loc" column.
         filter_info = wu.get_constituent_meta("visit")
         self.assertEqual(len(filter_info), 3)
         self.assertIsNotNone(filter_info[0])
