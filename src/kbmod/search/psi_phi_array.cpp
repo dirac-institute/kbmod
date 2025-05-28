@@ -5,10 +5,6 @@
 #include "psi_phi_array_utils.h"
 #include "pydocs/psi_phi_array_docs.h"
 
-// Declaration of CUDA functions that will be linked in.
-#ifdef HAVE_CUDA
-#include "kernels/kernel_memory.h"
-#endif
 
 namespace search {
 
@@ -51,21 +47,22 @@ void PsiPhiArray::clear() {
 }
 
 void PsiPhiArray::clear_from_gpu() {
-#ifdef HAVE_CUDA
-    logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
+    // We only clear the data from the GPU if it is allocated there.
+    if (!data_on_gpu) {
+        logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
 
-    if (gpu_time_array.on_gpu()) {
-        logger->debug(stat_gpu_memory_mb());
-        logger->debug("Freeing times on GPU. " + gpu_time_array.stats_string());
-        gpu_time_array.free_gpu_memory();
-    }
+        if (gpu_time_array.on_gpu()) {
+            logger->debug(stat_gpu_memory_mb());
+            logger->debug("Freeing times on GPU. " + gpu_time_array.stats_string());
+            gpu_time_array.free_gpu_memory();
+        }
 
-    if (gpu_array_ptr != nullptr) {
-        logger->debug("Freeing PsiPhiArray on GPU: " + std::to_string(get_total_array_size()) + " bytes");
-        free_gpu_block(gpu_array_ptr);
-        logger->debug(stat_gpu_memory_mb());
+        if (gpu_array_ptr != nullptr) {
+            logger->debug("Freeing PsiPhiArray on GPU: " + std::to_string(get_total_array_size()) + " bytes");
+            free_gpu_block(gpu_array_ptr);
+            logger->debug(stat_gpu_memory_mb());
+        }
     }
-#endif
     gpu_array_ptr = nullptr;
     data_on_gpu = false;
 }
@@ -82,24 +79,26 @@ void PsiPhiArray::move_to_gpu() {
     if (gpu_time_array.on_gpu()) std::runtime_error("GPU time already allocated.");
     assert_sizes_equal(cpu_time_array.size(), meta_data.num_times, "psi-phi number of times");
 
-#ifdef HAVE_CUDA
-    logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
+    // Only put the data on the GPU if there is a GPU.
+    if (has_gpu()) {
+        data_on_gpu = true;
+        logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
 
-    // Copy the Psi/Phi
-    logger->debug(stat_gpu_memory_mb());
-    gpu_array_ptr = allocate_gpu_block(get_total_array_size());
-    logger->debug("Allocating PsiPhiArray on GPU: " + std::to_string(get_total_array_size() / (1024 * 1024)) +
-                  " MB");
-    copy_block_to_gpu(cpu_array_ptr, gpu_array_ptr, get_total_array_size());
+        // Copy the Psi/Phi
+        logger->debug(stat_gpu_memory_mb());
+        gpu_array_ptr = allocate_gpu_block(get_total_array_size());
+        logger->debug("Allocating PsiPhiArray on GPU: " + std::to_string(get_total_array_size() / (1024 * 1024)) +
+                      " MB");
+        copy_block_to_gpu(cpu_array_ptr, gpu_array_ptr, get_total_array_size());
 
-    // Copy the GPU times.
-    gpu_time_array.resize(cpu_time_array.size());
-    logger->debug("Allocating times on GPU: " + gpu_time_array.stats_string());
-    gpu_time_array.copy_vector_to_gpu(cpu_time_array);
-    logger->debug(stat_gpu_memory_mb());
-
-    data_on_gpu = true;
-#endif
+        // Copy the GPU times.
+        gpu_time_array.resize(cpu_time_array.size());
+        logger->debug("Allocating times on GPU: " + gpu_time_array.stats_string());
+        gpu_time_array.copy_vector_to_gpu(cpu_time_array);
+        logger->debug(stat_gpu_memory_mb());
+    } else {
+        std::runtime_error("No GPU onto which to move the PsiPhi array.");
+    }
 }
 
 void PsiPhiArray::set_meta_data(int new_num_bytes, uint64_t new_num_times, uint64_t new_height,

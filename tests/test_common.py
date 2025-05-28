@@ -1,15 +1,16 @@
 import math
 import numpy as np
 import unittest
+import warnings
 
-from kbmod.search import HAS_GPU, Trajectory, pixel_value_valid
+from kbmod.search import kb_has_gpu, Trajectory, pixel_value_valid
 
 
 class test_common(unittest.TestCase):
-    @unittest.skipIf(HAS_GPU, "Skipping test (GPU detected)")
+    @unittest.skipIf(kb_has_gpu(), "Skipping test (GPU detected)")
     def test_warning_no_GPU(self):
         """Throw a loud warning if you are running tests without GPU."""
-        print("\n\n*** WARNING: SKIPPING GPU TESTS ***\n\n")
+        warnings.warn("\n\n*** WARNING: SKIPPING GPU TESTS ***\n\n")
 
     def test_pixel_value_valid(self):
         self.assertTrue(pixel_value_valid(1.0))

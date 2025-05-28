@@ -12,6 +12,15 @@
 
 namespace search {
 
+int cuda_device_count() {
+    int device_count = 0;
+    unsigned int res = static_cast<unsigned int>(cudaGetDeviceCount(&device_count));
+    if (res != 0) {
+        return 0;
+    }
+    return device_count;
+}
+
 // Helpful debugging stats for when something crashes in the GPU.
 void cuda_print_stats() {
     std::cout << "\n----- CUDA Debugging Log -----\n";

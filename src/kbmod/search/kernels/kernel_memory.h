@@ -14,6 +14,7 @@
 
 namespace search {
 
+int cuda_device_count();
 void cuda_print_stats();
 
 size_t gpu_total_memory();

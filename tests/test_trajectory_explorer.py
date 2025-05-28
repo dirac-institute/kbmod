@@ -4,7 +4,7 @@ import numpy as np
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import FakeDataSet
-from kbmod.search import HAS_GPU, Trajectory
+from kbmod.search import kb_has_gpu, Trajectory
 from kbmod.trajectory_explorer import TrajectoryExplorer
 
 
@@ -81,7 +81,7 @@ class test_trajectory_explorer(unittest.TestCase):
         self.explorer.apply_sigma_g(result)
         self.assertFalse(result["obs_valid"][0][10])
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_evaluate_trajectory_parity(self):
         """Test that we get the same results with GPU or CPU-only code."""
         config = SearchConfiguration()
@@ -101,7 +101,7 @@ class test_trajectory_explorer(unittest.TestCase):
         self.assertAlmostEqual(result1["flux"][0], result2["flux"][0])
         self.assertAlmostEqual(result1["obs_count"][0], result2["obs_count"][0])
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_evaluate_around_linear_trajectory(self):
         radius = 3
         edge_length = 2 * radius + 1
