@@ -78,12 +78,26 @@ class test_stamp_filters(unittest.TestCase):
         self.assertGreater(len(np.unique(keep["coadd_mean"][2])), 2)
 
     def test_make_coadds_empty(self):
+        """Check that we can make coadds when there are no results."""
         keep = Results()
         self.assertEqual(len(keep), 0)
         self.assertFalse("coadd_mean" in keep.colnames)
 
         append_coadds(keep, self.known_stack, ["mean"], 5)
         self.assertTrue("coadd_mean" in keep.colnames)
+
+    def test_make_coadds_no_valid_times(self):
+        """Check that we can make coadds when there are no valid times."""
+        keep = Results.from_trajectories([self.trj])
+        self.assertEqual(len(keep), 1)
+
+        obs_valid = np.full((1, self.image_count), False)
+        keep.update_obs_valid(obs_valid)
+
+        append_coadds(keep, self.known_stack, ["mean", "median", "sum"], 5)
+        self.assertTrue("coadd_mean" in keep.colnames)
+        self.assertTrue("coadd_median" in keep.colnames)
+        self.assertTrue("coadd_sum" in keep.colnames)
 
     def test_get_coadds_and_filter_with_invalid(self):
         valid1 = [True] * self.image_count
@@ -222,6 +236,15 @@ class test_stamp_filters(unittest.TestCase):
         keep2 = Results.from_trajectories([])
         append_all_stamps(keep2, self.ds.stack_py, 5)
         self.assertTrue("all_stamps" in keep2.colnames)
+
+    def test_append_all_stamps_empty(self):
+        keep = Results()
+        self.assertEqual(len(keep), 0)
+        self.assertFalse("all_stamps" in keep.colnames)
+
+        append_all_stamps(keep, self.ds.stack_py, 5)
+        self.assertEqual(len(keep), 0)
+        self.assertTrue("all_stamps" in keep.colnames)
 
     def test_filter_stamps_by_cnn(self):
         trj_list = [
