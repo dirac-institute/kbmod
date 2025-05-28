@@ -490,8 +490,16 @@ class SearchRunner:
 
         # Extract extra metadata. We do not use the full org_image_meta table from the WorkUnit
         # because this can be very large and varies with the source. Instead we only save a
-        # few pre-defined fields to the results data.
-        extra_meta = work.get_constituent_meta(["visit", "filter"])
+        # few pre-defined fields to the results data.  This these columns are not present in the
+        # WorkUnit, they are skipped in the meta data.
+        extra_meta = work.get_constituent_meta(
+            [
+                "visit",  # The visit number of the original images.
+                "filter",  # The filter used for the original images.
+                "data_loc",  # The location of the original image data.
+                "dataId",  # The Butler data set ID for the original images.
+            ]
+        )
 
         # Run the search.
         return self.run_search(

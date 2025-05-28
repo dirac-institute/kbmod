@@ -167,6 +167,9 @@ class KBMODV0_5(MultiExtensionFits):
         standardizedHeader["obs_lat"] = self.primary.get("OBS-LAT", -30.16606)
         standardizedHeader["obs_elev"] = self.primary.get("OBS-ELEV", 2215.0)
 
+        # Save the data location as metadata.  This might be ":memory:".
+        standardizedHeader["data_loc"] = self.location
+
         return standardizedHeader
 
     def _standardizeMask(self):

@@ -80,6 +80,7 @@ class TestImageCollection(unittest.TestCase):
             "DIMM2SEE",
             "GAINA",
             "GAINB",
+            "data_loc",
             "location",
             "ra",
             "dec",
@@ -173,6 +174,10 @@ class TestImageCollection(unittest.TestCase):
         filter_info = wu.get_constituent_meta("visit")
         self.assertEqual(len(filter_info), 3)
         self.assertIsNotNone(filter_info[0])
+
+        data_loc = wu.get_constituent_meta("data_loc")
+        self.assertEqual(len(data_loc), 3)
+        self.assertEqual(data_loc[0], ":memory:")
 
         # We can write the whole work unit to a file.
         with tempfile.TemporaryDirectory() as dir_name:

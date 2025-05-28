@@ -95,7 +95,7 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """Include the "effective" fit metrics from SummaryStats"""
 
     standardize_uri = False
-    """Include an URL-like path to to the file"""
+    """Include an URL-like path to the file"""
 
     zero_point = 31
     """Photometric zero point to which all the science and variance will be scaled to."""
@@ -411,6 +411,10 @@ class ButlerStandardizer(Standardizer):
                     self.ref.run,
                 ],
             ).geturl()
+
+        # Save the string version of the ref as provenance information.
+        self._metadata["data_loc"] = str(self.ref)
+
 
     @property
     def wcs(self):
