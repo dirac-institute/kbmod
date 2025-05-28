@@ -77,6 +77,14 @@ class test_stamp_filters(unittest.TestCase):
         self.assertEqual(keep["coadd_mean"][2].shape, (11, 11))
         self.assertGreater(len(np.unique(keep["coadd_mean"][2])), 2)
 
+    def test_make_coadds_empty(self):
+        keep = Results()
+        self.assertEqual(len(keep), 0)
+        self.assertFalse("coadd_mean" in keep.colnames)
+
+        append_coadds(keep, self.known_stack, ["mean"], 5)
+        self.assertTrue("coadd_mean" in keep.colnames)
+
     def test_get_coadds_and_filter_with_invalid(self):
         valid1 = [True] * self.image_count
         valid2 = [True] * self.image_count
