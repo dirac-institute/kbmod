@@ -335,6 +335,32 @@ class Results:
         ]
         return trajectories
 
+    def sort(self, colname, descending=True):
+        """Sort the results by a given column.
+
+        Parameters
+        ----------
+        colname : `str`
+            The name of the column to sort by.
+        reversdescendinge : `bool`
+            Whether to sort in descending order. By default this is true,
+            so that the highest likelihoods and num obs are the the top.
+            Default: True.
+
+        Returns
+        -------
+        self : `Results`
+            Returns a reference to itself to allow chaining.
+
+        Raises
+        ------
+        Raises a KeyError if the column is not in the data.
+        """
+        if colname not in self.table.colnames:
+            raise KeyError(f"Column {colname} not found.")
+        self.table.sort(colname, reverse=descending)
+        return self
+
     def compute_likelihood_curves(self, filter_obs=True, mask_value=0.0):
         """Create a matrix of likelihood curves where each row has a likelihood
         curve for a single trajectory.
@@ -737,6 +763,15 @@ class Results:
                 f"Unsupported file type '{filepath.suffix}' " f"use one of {self._supported_formats}."
             )
 
+        # Include optional arguments for hdf5 to avoid a warning.
+        if filepath.suffix == ".hdf5":
+            kwargs = {
+                "path": "__astropy_table__",
+                "serialize_meta": True,
+            }
+        else:
+            kwargs = {}
+
         # Add global meta data that we can retrieve.
         if self.wcs is not None:
             logger.debug("Saving WCS to Results table meta data.")
@@ -753,7 +788,7 @@ class Results:
                 self.table.meta[key] = val
 
         # Write out the table.
-        self.table.write(filename, overwrite=overwrite)
+        self.table.write(filename, overwrite=overwrite, **kwargs)
 
     def write_column(self, colname, filename):
         """Save a single column's data as a numpy data file.

@@ -45,14 +45,15 @@ class SearchConfiguration:
             "generate_psi_phi": True,
             "gpu_filter": False,
             "lh_level": 10.0,
+            "max_results": 10000,
             "near_dup_thresh": 10,
             "nightly_coadds": False,
             "num_obs": 10,
             "psf_val": 1.4,
             "result_filename": None,
-            "save_config": True,
             "results_per_pixel": 8,
             "save_all_stamps": False,
+            "save_config": True,
             "sigmaG_filter": True,
             "sigmaG_lims": [25, 75],
             "stamp_radius": 10,
@@ -138,6 +139,9 @@ class SearchConfiguration:
         # Check parameters that have known constraints.
         if self._params["results_per_pixel"] <= 0:
             logger.warning(f"Invalid results_per_pixel: {self._params['results_per_pixel']}")
+            return False
+        if self._params["max_results"] <= 0:
+            logger.warning(f"Invalid max_results: {self._params['max_results']}")
             return False
 
         if self._params["encode_num_bytes"] not in set([-1, 1, 2, 4]):

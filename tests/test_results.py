@@ -192,6 +192,33 @@ class test_results(unittest.TestCase):
         for i in range(self.num_entries):
             self.assertEqual(table1["x"][i], i)
 
+    def test_sort(self):
+        trj_list = [
+            Trajectory(x=0, y=0, vx=0, vy=0, lh=100.0, obs_count=10),
+            Trajectory(x=1, y=1, vx=0, vy=0, lh=110.0, obs_count=9),
+            Trajectory(x=2, y=2, vx=0, vy=0, lh=90.0, obs_count=8),
+            Trajectory(x=3, y=3, vx=0, vy=0, lh=120.0, obs_count=11),
+            Trajectory(x=4, y=4, vx=0, vy=0, lh=80.0, obs_count=15),
+            Trajectory(x=5, y=5, vx=0, vy=0, lh=85.0, obs_count=12),
+            Trajectory(x=6, y=6, vx=0, vy=0, lh=75.0, obs_count=5),
+            Trajectory(x=7, y=7, vx=0, vy=0, lh=125.0, obs_count=14),
+        ]
+        table = Results.from_trajectories(trj_list)
+        self.assertTrue(np.array_equal(table["x"], [0, 1, 2, 3, 4, 5, 6, 7]))
+        self.assertTrue(np.array_equal(table["y"], [0, 1, 2, 3, 4, 5, 6, 7]))
+
+        table.sort("likelihood")
+        self.assertTrue(np.array_equal(table["x"], [7, 3, 1, 0, 2, 5, 4, 6]))
+        self.assertTrue(np.array_equal(table["y"], [7, 3, 1, 0, 2, 5, 4, 6]))
+
+        table.sort("obs_count")
+        self.assertTrue(np.array_equal(table["x"], [4, 7, 5, 3, 0, 1, 2, 6]))
+        self.assertTrue(np.array_equal(table["y"], [4, 7, 5, 3, 0, 1, 2, 6]))
+
+        table.sort("x", descending=False)
+        self.assertTrue(np.array_equal(table["x"], [0, 1, 2, 3, 4, 5, 6, 7]))
+        self.assertTrue(np.array_equal(table["y"], [0, 1, 2, 3, 4, 5, 6, 7]))
+
     def test_add_psi_phi(self):
         num_to_use = 3
         table = Results.from_trajectories(self.trj_list[0:num_to_use])

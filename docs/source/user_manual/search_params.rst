@@ -92,6 +92,10 @@ Configuration Parameters
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
 +------------------------+-----------------------------+----------------------------------------+
+| ``max_results``        | 10000                       | The maximum number of results to save  |
+|                        |                             | after all filtering.  The highest      |
+|                        |                             | likelihood results are saved.          |
++------------------------+-----------------------------+----------------------------------------+
 | ``near_dup_thresh``    | 10                          | The grid size (in pixels) for near     |
 |                        |                             | duplicate pre-filtering. Use ``None``  |
 |                        |                             | to skip this filtering step.           |

@@ -361,7 +361,7 @@ class test_run_search(unittest.TestCase):
         num_times = 20
         width = 50
         height = 60
-        fake_times = [float(i) / num_times for i in range(num_times)]
+        fake_times = [59000.0 + float(i) / num_times for i in range(num_times)]
         fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
 
         # Create a Trajectory for the object and insert it into the image stack.
@@ -389,7 +389,7 @@ class test_run_search(unittest.TestCase):
         num_times = 20
         width = 50
         height = 60
-        fake_times = [float(i) / num_times for i in range(num_times)]
+        fake_times = [59000.0 + float(i) / num_times for i in range(num_times)]
         fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
 
         # Create a Trajectory for the object and insert it into the image stack.
@@ -408,6 +408,47 @@ class test_run_search(unittest.TestCase):
         self.assertEqual(keep["y"][0], 12)
         self.assertAlmostEqual(keep["vx"][0], 21.0)
         self.assertAlmostEqual(keep["vy"][0], 16.0)
+
+    def test_core_search_max_results(self):
+        # Create a very small fake data set.
+        num_times = 10
+        width = 20
+        height = 15
+        fake_times = [59000.0 + float(i) / num_times for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        # Create a Trajectory for the object and insert it into the image stack.
+        trj = Trajectory(x=17, y=12, vx=21.0, vy=16.0, flux=250.0)
+        fake_ds.insert_object(trj)
+
+        # Use a small grid of search trajectories around the true velocity.
+        trj_gen = VelocityGridSearch(3, 15.0, 27.0, 3, 10.0, 22.0)
+
+        # Do a CPU only search with no filtering.
+        config = SearchConfiguration()
+        config.set("cpu_only", True)
+        config.set("do_clustering", False)
+        config.set("lh_level", 0.0)
+        config.set("max_results", 50)
+        config.set("near_dup_thresh", 1)
+        config.set("num_obs", 1)
+        config.set("sigmaG_filter", False)
+
+        # Run the core search algorithm with a two different values for max_results
+        # and confirm we get the expected number of results (and the best are the same).
+        runner = SearchRunner()
+        keep1 = runner.run_search(config, fake_ds.stack_py, trj_generator=trj_gen)
+        self.assertEqual(len(keep1), 50)
+
+        config.set("max_results", 10)
+        keep2 = runner.run_search(config, fake_ds.stack_py, trj_generator=trj_gen)
+        self.assertEqual(len(keep2), 10)
+        for i in range(10):
+            self.assertEqual(keep1["x"][i], keep2["x"][i])
+            self.assertEqual(keep1["y"][i], keep2["y"][i])
+            self.assertAlmostEqual(keep1["vx"][i], keep2["vx"][i])
+            self.assertAlmostEqual(keep1["vy"][i], keep2["vy"][i])
+            self.assertAlmostEqual(keep1["likelihood"][i], keep2["likelihood"][i])
 
 
 if __name__ == "__main__":
