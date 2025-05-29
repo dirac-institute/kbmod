@@ -1084,8 +1084,7 @@ def add_image_data_to_hdul(
     var_hdu.name = f"VAR_{idx}"
     var_hdu.header["MJD"] = obstime
 
-    # The saved mask is a binarized version of which pixels are valid.  We compress
-    # with HCOMPRESS_1 which works well for integers.
+    # The saved mask is a binarized version of which pixels are valid.
     mask_full = (mask > 0) | (~np.isfinite(sci)) | (~np.isfinite(var))
     mask_hdu = fits.ImageHDU(mask_full.astype(np.int8))
     mask_hdu.name = f"MSK_{idx}"
