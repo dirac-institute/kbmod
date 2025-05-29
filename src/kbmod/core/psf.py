@@ -87,7 +87,7 @@ class PSF:
 
     def copy(self):
         """Returns a copy of the PSF."""
-        return PSF(np.copy(self.kernel.copy()))
+        return PSF(self.kernel.copy())
 
     def _normalize(self):
         """Normalizes the PSF so that it sums to 1."""

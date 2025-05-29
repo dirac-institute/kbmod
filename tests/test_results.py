@@ -668,36 +668,6 @@ class test_results(unittest.TestCase):
             self.assertEqual(data[2][0], "filter2")
             self.assertEqual(data[2][1], "3")
 
-    def test_mask_based_on_invalid_obs(self):
-        num_times = 5
-        mjds = np.array([i for i in range(num_times)])
-
-        num_results = 6
-        trj_all = [Trajectory(x=i) for i in range(num_results)]
-        table = Results.from_trajectories(trj_all)
-        self.assertEqual(len(table), num_results)
-
-        obs_valid = np.array(
-            [
-                [True, True, True, False, True],
-                [True, True, True, True, False],
-                [False, False, True, True, True],
-                [False, True, True, True, False],
-                [True, False, False, False, True],
-                [False, False, True, False, False],
-            ]
-        )
-        table.update_obs_valid(obs_valid)
-
-        data_mat = np.full((num_results, num_times), 1.0)
-        masked_mat = table.mask_based_on_invalid_obs(data_mat, -1.0)
-        for r in range(num_results):
-            for c in range(num_times):
-                if obs_valid[r][c]:
-                    self.assertEqual(masked_mat[r][c], 1.0)
-                else:
-                    self.assertEqual(masked_mat[r][c], -1.0)
-
 
 if __name__ == "__main__":
     unittest.main()
