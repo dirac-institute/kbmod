@@ -1,12 +1,12 @@
 import unittest
 
-from kbmod.search import HAS_GPU, StackSearch, Trajectory
+from kbmod.search import kb_has_gpu, StackSearch, Trajectory
 from kbmod.trajectory_generator import KBMODV1Search
 from kbmod.fake_data.fake_data_creator import *
 
 
 class test_readme_example(unittest.TestCase):
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_make_and_copy(self):
         fake_times = create_fake_times(10, t0=57130.2)
         ds = FakeDataSet(512, 512, fake_times)

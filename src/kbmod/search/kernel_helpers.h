@@ -8,23 +8,16 @@
 
 #include <string>
 
-#include "logging.h"
-
-// Declaration of CUDA functions that will be linked in.
-#ifdef HAVE_CUDA
-#include "kernels/kernel_memory.h"
-#endif
-
 namespace search {
 
+// Check that the package was built with CUDA support and there is a GPU available.
+inline bool has_gpu();
+
+// GPU Stat functions. The produces reasonable defaults when CUDA is not enabled.
 void print_cuda_stats();
-
 size_t get_gpu_total_memory();
-
 size_t get_gpu_free_memory();
-
 std::string stat_gpu_memory_mb();
-
 bool validate_gpu(size_t req_memory = 0);
 
 } /* namespace search */

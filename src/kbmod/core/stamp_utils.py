@@ -196,9 +196,10 @@ def _mask_all_nans(stack):
     stack = np.asarray(stack)
     n_times, height, width = stack.shape
 
-    some_pixel_valid = np.all(np.isnan(stack), axis=0)
-    if np.any(some_pixel_valid):
-        pixel_mask = np.tile(some_pixel_valid.flatten(), n_times).reshape(n_times, height, width)
+    # Find pixels that are NaN at all times.
+    no_pixel_valid = np.all(np.isnan(stack), axis=0)
+    if np.any(no_pixel_valid):
+        pixel_mask = np.tile(no_pixel_valid.flatten(), n_times).reshape(n_times, height, width)
 
         stack = stack.copy()
         stack[pixel_mask] = 0.0
@@ -236,6 +237,8 @@ def coadd_mean(stack):
     coadd : `numpy.ndarray`
         A H x W sized array of the coadded stamp.
     """
+    if stack.shape[0] == 0:
+        return np.zeros((stack.shape[1], stack.shape[2]), dtype=stack.dtype)
     stack = _mask_all_nans(stack)
     return np.nanmean(stack, axis=0)
 
@@ -257,6 +260,8 @@ def coadd_median(stack, device=None):
     coadd : `numpy.ndarray`
         A H x W sized array of the coadded stamp.
     """
+    if stack.shape[0] == 0:
+        return np.zeros((stack.shape[1], stack.shape[2]), dtype=stack.dtype)
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 

@@ -1,5 +1,5 @@
+#include "kernel_helpers.h"
 #include "logging.h"
-
 #include "trajectory_list.h"
 #include "pydocs/trajectory_list_docs.h"
 
@@ -104,6 +104,7 @@ void TrajectoryList::filter_by_obs_count(int min_obs_count) {
 
 void TrajectoryList::move_to_gpu() {
     if (data_on_gpu) return;  // Nothing to do.
+    if (!has_gpu()) throw std::runtime_error("GPU not available for TrajectoryList");
 
     logging::getLogger("kbmod.search.trajectory_list")
             ->debug("Moving TrajectoryList to GPU. " + gpu_array.stats_string());

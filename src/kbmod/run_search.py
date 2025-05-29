@@ -369,7 +369,7 @@ class SearchRunner:
             logging.basicConfig(level=logging.DEBUG)
 
             # Output basic binary information.
-            logger.debug(f"GPU Code Enabled: {HAS_GPU}")
+            logger.debug(f"GPU Code Enabled: {HAS_CUDA}")
             logger.debug(f"OpenMP Enabled: {HAS_OMP}")
             logger.debug(kb.stat_gpu_memory_mb())
             logger.debug("Config:")
@@ -389,7 +389,7 @@ class SearchRunner:
         if not config.validate():
             raise ValueError("Invalid configuration")
 
-        if not kb.HAS_GPU:
+        if not kb.HAS_CUDA:
             logger.warning("Code was compiled without GPU using CPU only.")
             config.set("cpu_only", True)
 

@@ -165,16 +165,14 @@ void StackSearch::evaluate_single_trajectory(Trajectory& trj, bool use_kernel) {
     if (!use_kernel) {
         evaluate_trajectory_cpu(psi_phi_array, trj);
     } else {
-#ifdef HAVE_CUDA
+        if (!has_gpu()) throw std::runtime_error("GPU is not available for kernel evaluation.");
         if (psi_phi_array.get_num_times() >= MAX_NUM_IMAGES) {
             throw std::runtime_error("Too many images to evaluate on GPU. Max = " +
                                      std::to_string(MAX_NUM_IMAGES));
         }
-
+#ifdef HAVE_CUDA
         evaluateTrajectory(psi_phi_array.get_meta_data(), psi_phi_array.get_cpu_array_ptr(),
                            psi_phi_array.get_cpu_time_array_ptr(), params, &trj);
-#else
-        throw std::runtime_error("CUDA installation is needed for using kernel code.");
 #endif
     }
 }
@@ -208,6 +206,8 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
 
     DebugTimer search_timer = DebugTimer("Running search", rs_logger);
     if (on_gpu) {
+        if (!has_gpu()) throw std::runtime_error("GPU is not available for search.");
+
         // Moved the needed data to the GPU.
         psi_phi_array.move_to_gpu();
         candidate_list.move_to_gpu();
@@ -216,8 +216,6 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
         // Do the actual search on the GPU.
 #ifdef HAVE_CUDA
         deviceSearchFilter(psi_phi_array, params, candidate_list, results);
-#else
-        throw std::runtime_error("Non-GPU search is not implemented.");
 #endif
 
         // Free up the GPU memory.

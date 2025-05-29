@@ -27,7 +27,7 @@ def is_interactive():
     mode : `bool`
         `True` when in interactive mode.
     """
-    global KBM_INTERACTIVE_MODE
+    global KB_INTERACTIVE_MODE
     return KB_INTERACTIVE_MODE
 
 

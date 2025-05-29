@@ -9,7 +9,7 @@ from kbmod.search import (
     extract_all_trajectory_vy,
     extract_all_trajectory_x,
     extract_all_trajectory_y,
-    HAS_GPU,
+    kb_has_gpu,
     Trajectory,
     TrajectoryList,
 )
@@ -135,7 +135,7 @@ class test_trajectory_list(unittest.TestCase):
         self.assertEqual(len(trjs), 4)
         self.assertEqual(set([trjs.get_trajectory(i).x for i in range(4)]), set([0, 1, 2, 5]))
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_move_to_from_gpu(self):
         for i in range(self.max_size):
             self.trj_list.set_trajectory(i, Trajectory(x=i))

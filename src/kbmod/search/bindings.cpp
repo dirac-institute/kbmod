@@ -19,7 +19,7 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
-    m.attr("HAS_GPU") = pybind11::bool_(search::HAVE_GPU);
+    m.attr("HAS_CUDA") = pybind11::bool_(search::HAVE_CUDA_LIB);
     m.attr("HAS_OMP") = pybind11::bool_(search::HAVE_OMP);
     py::enum_<search::StampType>(m, "StampType")
             .value("STAMP_SUM", search::StampType::STAMP_SUM)
@@ -35,8 +35,7 @@ PYBIND11_MODULE(search, m) {
     search::psi_phi_array_binding(m);
     search::debug_timer_binding(m);
     search::trajectory_list_binding(m);
-    // Helper function from common.h
-    m.def("pixel_value_valid", &search::pixel_value_valid);
-    search::kernel_helper_bindings(m);  // Functions from kernel_helpers.cpp
+    m.def("pixel_value_valid", &search::pixel_value_valid);  // Helper function from common.h
+    search::kernel_helper_bindings(m);
     search::image_utils_cpp(m);
 }
