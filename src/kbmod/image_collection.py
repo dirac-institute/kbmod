@@ -1060,6 +1060,10 @@ class ImageCollection:
         if None not in self.wcs:
             metadata["per_image_wcs"] = list(self.wcs)
 
+        # WorkUnit expects a 'data_loc' column, so we rename 'location' to 'data_loc'.
+        if "data_loc" not in metadata.columns and "location" in metadata.columns:
+            metadata.rename_column("location", "data_loc")
+
         # Create the basic WorkUnit from the ImageStackPy.
         imgstack = ImageStackPy()
         for layimg in layered_images:

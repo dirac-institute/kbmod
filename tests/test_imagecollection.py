@@ -169,10 +169,15 @@ class TestImageCollection(unittest.TestCase):
         # Re-enable the warnings.
         logging.disable(logging.NOTSET)
 
-        # We can retrieve the meta data from the WorkUnit.
+        # We can retrieve the meta data from the WorkUnit, including the renamed
+        # "data_loc" column.
         filter_info = wu.get_constituent_meta("visit")
         self.assertEqual(len(filter_info), 3)
         self.assertIsNotNone(filter_info[0])
+
+        data_loc = wu.get_constituent_meta("data_loc")
+        self.assertEqual(len(data_loc), 3)
+        self.assertEqual(data_loc[0], ":memory:")
 
         # We can write the whole work unit to a file.
         with tempfile.TemporaryDirectory() as dir_name:

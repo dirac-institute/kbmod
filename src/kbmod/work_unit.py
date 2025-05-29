@@ -52,12 +52,14 @@ class WorkUnit:
         different from the number of images stored in memory if the WorkUnit has been
         reprojected.
     org_img_meta : `astropy.table.Table`
-        The meta data for each constituent image. Includes columns:
-        * data_loc - the original location of the image
+        The meta data for each constituent image. Columns are all optional and can include:
+        * data_loc - the original location of the image data.
         * ebd_wcs - Used to reproject the images into EBD space.
         * geocentric_distance - The best fit geocentric distances used when creating
           the per image EBD WCS.
         * original_wcs - The original per-image WCS of the image.
+        * visit - The visit number of the image (if known).
+        * filter - The filter used for the image.
     wcs : `astropy.wcs.WCS`
         A global WCS for all images in the WorkUnit. Only exists
         if all images have been projected to same pixel space.
@@ -517,8 +519,6 @@ class WorkUnit:
                 if f"WCS_{i}" in hdul:
                     wcs_header = hdul[f"WCS_{i}"].header
                     org_image_meta["per_image_wcs"][i] = extract_wcs_from_hdu_header(wcs_header)
-                    if "ILOC" in wcs_header:
-                        org_image_meta["data_loc"][i] = wcs_header["ILOC"]
                 if f"EBD_{i}" in hdul:
                     org_image_meta["ebd_wcs"][i] = extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header)
 
@@ -794,8 +794,6 @@ class WorkUnit:
                 if f"WCS_{i}" in primary:
                     wcs_header = primary[f"WCS_{i}"].header
                     org_image_meta["per_image_wcs"][i] = extract_wcs_from_hdu_header(wcs_header)
-                    if "ILOC" in wcs_header:
-                        org_image_meta["data_loc"][i] = wcs_header["ILOC"]
                 if f"EBD_{i}" in primary:
                     org_image_meta["ebd_wcs"][i] = extract_wcs_from_hdu_header(primary[f"EBD_{i}"].header)
 
