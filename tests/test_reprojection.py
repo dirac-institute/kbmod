@@ -19,6 +19,11 @@ class test_reprojection(unittest.TestCase):
         self.test_wunit = WorkUnit.from_fits(self.data_path, show_progress=False)
         self.common_wcs = self.test_wunit.get_wcs(0)
 
+        # Set the data_loc metadata to make sure it propagates correctly.
+        self.num_org_images = len(self.test_wunit.im_stack)
+        self.data_locs = [f"test_data_loc_{i}" for i in range(self.num_org_images)]
+        self.test_wunit.org_img_meta["data_loc"] = self.data_locs
+
     def test_reproject(self):
         # test exception conditions
         self.assertRaises(
@@ -82,6 +87,11 @@ class test_reprojection(unittest.TestCase):
                 test_dists = self.test_wunit.get_constituent_meta("geocentric_distance")
                 reproject_dists = reprojected_wunit.get_constituent_meta("geocentric_distance")
                 assert test_dists == reproject_dists
+
+                # Make sure the data_loc metadata is propagated correctly.
+                loaded_data_locs = reprojected_wunit.get_constituent_meta("data_loc")
+                for i in range(self.num_org_images):
+                    assert loaded_data_locs[i] == self.data_locs[i]
 
                 # will be 3 as opposed to the four in the original `WorkUnit`,
                 # as the last two images have the same obstime and therefore
