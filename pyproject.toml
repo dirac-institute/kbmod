@@ -37,7 +37,7 @@ dependencies = [
     "jplephem",
     "matplotlib>=3.5",
     "numba",
-    "numpy<2.0",
+    "numpy>=2.1",
     "pandas",
     "psutil",
     "pyarrow",
