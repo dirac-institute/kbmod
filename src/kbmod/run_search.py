@@ -412,7 +412,7 @@ class SearchRunner:
         # Filter by max_results, keeping only the results with the highest likelihoods.
         # This should be the last step of the filtering phase, but before we add auxiliary
         # information like stamps.
-        if config["max_results"] < len(keep):
+        if config["max_results"] > -1 and config["max_results"] < len(keep):
             self._start_phase("max_results")
             logger.info(f"Filtering {len(keep)}results to max_results={config['max_results']}")
             keep.sort("likelihood", descending=True)

@@ -450,6 +450,10 @@ class test_run_search(unittest.TestCase):
             self.assertAlmostEqual(keep1["vy"][i], keep2["vy"][i])
             self.assertAlmostEqual(keep1["likelihood"][i], keep2["likelihood"][i])
 
+        config.set("max_results", -1)
+        keep3 = runner.run_search(config, fake_ds.stack_py, trj_generator=trj_gen)
+        self.assertGreater(len(keep3), 100)
+
 
 if __name__ == "__main__":
     unittest.main()
