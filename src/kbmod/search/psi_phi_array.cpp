@@ -59,7 +59,11 @@ void PsiPhiArray::clear_from_gpu() {
 
         if (gpu_array_ptr != nullptr) {
             logger->debug("Freeing PsiPhiArray on GPU: " + std::to_string(get_total_array_size()) + " bytes");
+#ifdef HAVE_CUDA
             free_gpu_block(gpu_array_ptr);
+#else
+            throw std::runtime_error("GPU needed to free GPU memory");
+#endif
             logger->debug(stat_gpu_memory_mb());
         }
     }
@@ -84,12 +88,17 @@ void PsiPhiArray::move_to_gpu() {
         data_on_gpu = true;
         logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
 
-        // Copy the Psi/Phi
+        // Copy the Psi/Phi. We need to use #ifdef HAVE_CUDA to avoid trying to link .cu code
+        // when building on a system without CUDA libraries.
         logger->debug(stat_gpu_memory_mb());
+#ifdef HAVE_CUDA
         gpu_array_ptr = allocate_gpu_block(get_total_array_size());
         logger->debug("Allocating PsiPhiArray on GPU: " + std::to_string(get_total_array_size() / (1024 * 1024)) +
                       " MB");
         copy_block_to_gpu(cpu_array_ptr, gpu_array_ptr, get_total_array_size());
+#else
+        throw std::runtime_error("GPU needed to allocate GPU memory");
+#endif
 
         // Copy the GPU times.
         gpu_time_array.resize(cpu_time_array.size());
