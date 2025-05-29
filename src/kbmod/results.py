@@ -530,42 +530,6 @@ class Results:
             self._update_likelihood()
         return self
 
-    def mask_based_on_invalid_obs(self, input_mat, mask_value):
-        """Mask the entries in a given input matrix based on the invalid observations
-        in the results. If an observation in result i, time t is invalid, then the corresponding
-        entry input_mat[i][t] will be masked. This helper function is used when computing
-        statistics on arrays of information.
-
-        The input should be N x T where N is the number of results and T is the number of time steps.
-
-        Parameters
-        ----------
-        input_mat : `numpy.ndarray`
-            An N x T input matrix.
-        mask_value : any
-            The value to subsitute into the input array.
-
-        Returns
-        -------
-        result : `numpy.ndarray`
-            An N x T output matrix where ``result[i][j]`` is ``input_mat[i][j]`` if
-            result ``i``, timestep ``j`` is valid and ``mask_value`` otherwise.
-
-        Raises
-        ------
-        Raises a ``ValueError`` if the array sizes do not match.
-        """
-        if len(input_mat) != len(self.table):
-            raise ValueError(f"Incorrect input matrix dimensions.")
-        masked_mat = np.copy(input_mat)
-
-        # If we do have validity information, use it to do the mask.
-        if "obs_valid" in self.table.colnames:
-            if input_mat.shape[1] != self.table["obs_valid"].shape[1]:
-                raise ValueError(f"Incorrect input matrix dimensions.")
-            masked_mat[~self.table["obs_valid"]] = mask_value
-        return masked_mat
-
     def is_empty_value(self, colname):
         """Create a Boolean vector indicating whether the entry in each row
         is an 'empty' value (None or anything of length 0). Used to mark or
