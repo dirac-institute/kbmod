@@ -467,6 +467,9 @@ class WorkUnit:
             reprojected = hdul[0].header["REPRJCTD"]
             if "BARY" in hdul[0].header:
                 barycentric_distance = hdul[0].header["BARY"]
+            else:
+                # No reprojection
+                barycentric_distance = None
 
             # ensure backwards compatibility
             if "REPFRAME" in hdul[0].header.keys():
@@ -745,6 +748,9 @@ class WorkUnit:
             reprojected = primary[0].header["REPRJCTD"]
             if "BARY" in primary[0].header:
                 barycentric_distance = primary[0].header["BARY"]
+            else:
+                # No reprojection
+                barycentric_distance = None
 
             # ensure backwards compatibility
             if "REPFRAME" in primary[0].header.keys():
