@@ -490,7 +490,7 @@ class SearchRunner:
 
         # Extract extra metadata. We do not use the full org_image_meta table from the WorkUnit
         # because this can be very large and varies with the source. Instead we only save a
-        # few pre-defined fields to the results data.  This these columns are not present in the
+        # few pre-defined fields to the results data.  If these columns are not present in the
         # WorkUnit, they are skipped in the meta data.
         extra_meta = work.get_constituent_meta(
             [
