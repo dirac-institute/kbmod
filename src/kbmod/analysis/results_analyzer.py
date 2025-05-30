@@ -53,10 +53,13 @@ class ResultsVisualizer:
             if col_key.startswith("coadd_"):
                 self.coadds.append(col_key)
 
-        # Add a classification column if it does not exist.
+        # Add the user input columns if they are not present.
+        if "notes" not in self.results.colnames:
+            self.results.table["notes"] = np.full(len(self.results), "", dtype=object)
         if "user_class" not in self.results.colnames:
             self.results.table["user_class"] = np.full(len(self.results), "Not Classified")
 
+        self._figure = None
         self._setup_figure()
         self.update_all()
 
@@ -95,6 +98,22 @@ class ResultsVisualizer:
                 self.idx = id_value
         self.update_all()
 
+    def _update_data(self, event=None):
+        """Update the results with the current notes and classification."""
+        # Update the notes in the results.
+        # note_text = self._controls["notes_box"].text.strip()
+        self.results["notes"][self.idx] = "Notes"
+        # if "notes" not in self.results.colnames:
+        #    self.results.table["notes"] = np.full(len(self.results), "")
+        # self.results["notes"][self.idx] = notes
+
+        # Update the classification in the results.
+        # classification = self._controls["radio_buttons"].value_selected
+        # self.results["user_class"][self.idx] = classification
+
+        # Redraw the figure to reflect changes.
+        self.update_all()
+
     def _setup_figure(self):
         """Set up the matplotlib figure and axes for visualization."""
         # Compute the width of the figure from the data it contains: 2 inch stats bars
@@ -116,8 +135,10 @@ class ResultsVisualizer:
         total_height = np.sum(heights)
 
         # Create a nested layout of subfigures.
-        self._figure = plt.figure(figsize=(total_width, total_height))
-        self._figure.suptitle(None)
+        if self._figure is not None:
+            self._figure.clear()
+        else:
+            self._figure = plt.figure(figsize=(total_width, total_height))
         _, data_fig, all_stamps_fig = self._figure.subfigures(3, 1, height_ratios=heights, hspace=0.05)
         stat_fig, coadds_fig, curve_fig = data_fig.subfigures(
             1, 3, width_ratios=widths, wspace=0.1, hspace=0.1
@@ -150,30 +171,37 @@ class ResultsVisualizer:
         self._controls = {}
         button_width = 1.0 / total_width  # Scale for 1 inch width.
         button_height = 0.25 / total_height  # Scale for 0.25 inch height
-        button_bottom = 0.95 - button_height
+        top_edge = 1.0 - 0.1 / total_height  # 0.1 inch from the top
         left_margin = 0.5 / total_width
         step_size = button_width + 0.25 / total_width  # 0.25 inches between buttons
 
         # Create the naviation buttons (previous and next) and a text box for ID below them.
-        prev_axes = plt.axes([left_margin, button_bottom, button_width, button_height], figure=self._figure)
+        prev_axes = plt.axes(
+            [left_margin, top_edge - button_height, button_width, button_height],
+            figure=self._figure,
+        )
         prev_button = Button(prev_axes, "Previous", color="white")
         prev_button.on_clicked(self.previous_result)
         self._controls["previous"] = prev_button
 
         next_axes = plt.axes(
-            [left_margin + step_size, button_bottom, button_width, button_height], figure=self._figure
+            [left_margin + step_size, top_edge - button_height, button_width, button_height],
+            figure=self._figure,
         )
-        next_buttom = Button(next_axes, "Next", color="white")
-        next_buttom.on_clicked(self.next_result)
-        self._controls["next"] = next_buttom
+        next_button = Button(next_axes, "Next", color="white")
+        next_button.on_clicked(self.next_result)
+        self._controls["next"] = next_button
 
-        row2_top = button_bottom - (1.5 * button_height)
-        id_axes = plt.axes([left_margin, row2_top, button_width, button_height], figure=self._figure)
+        id_axes = plt.axes(
+            [left_margin, top_edge - 2.5 * button_height, button_width, button_height],
+            figure=self._figure,
+        )
         id_box = TextBox(id_axes, "ID: ")
         self._controls["id_box"] = id_box
 
         go_axes = plt.axes(
-            [left_margin + step_size, row2_top, button_width, button_height], figure=self._figure
+            [left_margin + step_size, top_edge - 2.5 * button_height, button_width, button_height],
+            figure=self._figure,
         )
         go_button = Button(go_axes, "Go", color="white")
         go_button.on_clicked(self.goto_to_id)
@@ -198,9 +226,9 @@ class ResultsVisualizer:
         notes_ax = plt.axes(
             [
                 left_margin + 4.0 * step_size,
-                button_bottom + button_height,
+                top_edge - button_height,
                 0.95 - left_margin + 4.0 * step_size,
-                button_height * 2.0,
+                button_height,
             ],
             figure=self._figure,
         )
@@ -210,7 +238,7 @@ class ResultsVisualizer:
         add_note_ax = plt.axes(
             [
                 left_margin + 4.0 * step_size,
-                button_bottom - (1.5 * button_height),  # Place below the text box
+                top_edge - (2.5 * button_height),  # Place below the text box
                 button_width,
                 button_height,
             ],
