@@ -67,7 +67,7 @@ Changelog = "https://epyc.astro.washington.edu/~kbmod/project_details/release_no
 
 [project.optional-dependencies]
 analysis = [
-    "ephem>=4.1"
+    "ephem>=4.1",
     "ipympl",
     "ipywidgets>=8.0",
     "matplotlib>=3.6.1",
