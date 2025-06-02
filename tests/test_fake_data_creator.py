@@ -68,8 +68,8 @@ class test_fake_image_creator(unittest.TestCase):
         fake_times = np.arange(num_times)
         sci = np.full((num_times, height, width), 0.0)
         var = np.full((num_times, height, width), 1.0)
-        sci[3][53, 66] = np.nan
-        var[3][53, 66] = np.nan
+        sci[3][66, 53] = np.nan
+        var[3][66, 53] = np.nan
         psfs = [PSF.from_gaussian(0.5) for i in range(num_times)]
         fake_stack = ImageStackPy(fake_times, sci, var, psfs=psfs)
 
