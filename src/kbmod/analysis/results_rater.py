@@ -7,8 +7,8 @@ from kbmod.analysis.plotting import plot_time_series, plot_image
 from kbmod.results import Results
 
 
-class ResultsVisualizer:
-    """A class to visualize results from a `Results` object.
+class ResultsRater:
+    """A class to visualize and classify results from a `Results` object.
 
     Attributes
     ----------
@@ -26,6 +26,8 @@ class ResultsVisualizer:
         The time values for the results.
     idx : `int`
         The index of the current result being analyzed.
+    is_running : bool
+        A flag indicating if the visualizer is currently running.
     _figure : `matplotlib.figure.Figure`
         The matplotlib figure for displaying results.
     _ax_map : dict[str, `matplotlib.axes.Axes`]
@@ -37,6 +39,8 @@ class ResultsVisualizer:
     _labels = ["Not Classified (0)", "Valid (1)", "Noise (2)", "Unknown (3)"]
 
     def __init__(self, results, outfile=None, stamp_size=2.0):
+        self.is_running = True
+
         if isinstance(results, Results):
             self.results = results
         elif isinstance(results, str):
@@ -107,6 +111,15 @@ class ResultsVisualizer:
             # If the key is a digit, update the label based on the digit pressed.
             self.results["user_class"][self.idx] = self._labels[int(event.key)]
             self._update_controls()
+        elif event.key == "escape":
+            # If the escape key is pressed, stop the visualizer.
+            self.stop()
+
+    def stop(self, event=None):
+        """Stop the visualizer."""
+        print("Stopping Results Visualizer...")
+        self.is_running = False
+        plt.close(self._figure)
 
     def next_result(self, event=None):
         """Move to the next result in the results set."""
@@ -304,8 +317,9 @@ class ResultsVisualizer:
         save_botton.on_clicked(self._save_button)
         self._controls["save"] = save_botton
 
-        # Collect keypress events for navigation.
+        # Collect keypress events for navigation and window closing events.
         self._figure.canvas.mpl_connect("key_press_event", self._on_key_press)
+        self._figure.canvas.mpl_connect("close_event", self.stop)
 
         # Render the initial figure.
         self.update_all()
