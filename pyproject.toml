@@ -54,6 +54,7 @@ dependencies = [
 [project.scripts]
 kbmod-create-test-data = "kbmod_cmdline.kbmod_create_test_data:main"
 kbmod-filter = "kbmod_cmdline.kbmod_filter:main"
+kbmod-rater = "kbmod_cmdline.kbmod_results_rater:main"
 kbmod-stamps = "kbmod_cmdline.kbmod_stamps:main"
 kbmod-stats = "kbmod_cmdline.kbmod_stats:main"
 kbmod-version = "kbmod_cmdline.kbmod_version:main"
@@ -66,10 +67,11 @@ Changelog = "https://epyc.astro.washington.edu/~kbmod/project_details/release_no
 
 [project.optional-dependencies]
 analysis = [
+    "ephem>=4.1",
+    "ipympl",
+    "ipywidgets>=8.0",
     "matplotlib>=3.6.1",
     "pandas>=1.5.1",
-    "ipywidgets>=8.0",
-    "ephem>=4.1"
 ]
 docs = [
     "sphinx",
