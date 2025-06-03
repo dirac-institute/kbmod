@@ -266,7 +266,7 @@ class test_stamp_utils(unittest.TestCase):
             fake_times,  # time stamps
             noise_level=1.0,  # noise level
             psf_val=0.5,  # psf value
-            use_seed=True,  # Use a fixed seed for testing
+            use_seed=101,  # Use a fixed seed for testing
         )
 
         # Insert a single fake object with known parameters.
@@ -318,7 +318,7 @@ class test_stamp_utils(unittest.TestCase):
             fake_times,  # time stamps
             noise_level=1.0,  # noise level
             psf_val=0.5,  # psf value
-            use_seed=True,  # Use a fixed seed for testing
+            use_seed=101,  # Use a fixed seed for testing
         )
 
         # Insert a single fake object with known parameters.

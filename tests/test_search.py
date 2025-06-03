@@ -71,7 +71,7 @@ class test_search(unittest.TestCase):
             self.start_y,
             self.vxel,
             self.vyel,
-            self.object_flux,
+            flux=self.object_flux,
         )
 
         # Mask a pixel in every other image.
@@ -245,7 +245,7 @@ class test_search(unittest.TestCase):
             psf_val=1.0,
             rng=rng,
         )
-        image_stack_add_fake_object(image_stack_py, -3, 12, 25.0, 10.0, self.object_flux)
+        image_stack_add_fake_object(image_stack_py, -3, 12, 25.0, 10.0, flux=self.object_flux)
 
         search = StackSearch(
             image_stack_py.sci,

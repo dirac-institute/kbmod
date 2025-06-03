@@ -20,10 +20,10 @@ class test_stamp_filters(unittest.TestCase):
             25,  # width
             35,  # height
             self.fake_times,  # time stamps
-            1.0,  # noise level
-            0.5,  # psf value
+            noise_level=1.0,  # noise level
+            psf_val=0.5,  # psf value
             psfs=None,  # No per-image PSFs
-            use_seed=True,  # Use a fixed seed for testing
+            use_seed=101,  # Use a fixed seed for testing
         )
 
         # Insert a single fake object with known parameters.

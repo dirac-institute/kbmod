@@ -33,7 +33,7 @@ class TestKnownObjMatcher(unittest.TestCase):
         orig_obstimes = self.obstimes.copy()
         # Check that all obstimes are greater or equal to the start time
         self.assertTrue(np.all(self.obstimes >= start_time))
-        ds = FakeDataSet(15, 10, self.obstimes, use_seed=True)
+        ds = FakeDataSet(15, 10, self.obstimes, use_seed=101)
         self.wcs = make_fake_wcs(10.0, 15.0, 15, 10)
         ds.set_wcs(self.wcs)
 

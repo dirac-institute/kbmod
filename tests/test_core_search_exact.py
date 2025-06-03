@@ -38,7 +38,7 @@ class test_search_exact(unittest.TestCase):
             psf_val=1.0,
             rng=rng,
         )
-        image_stack_add_fake_object(image_stack_py, start_x, start_y, xvel, yvel, object_flux)
+        image_stack_add_fake_object(image_stack_py, start_x, start_y, xvel, yvel, flux=object_flux)
 
         # Turn off all filtering and use a custom trajectory generator that
         # tests 1681 velocities per pixel and includes the true velocity.

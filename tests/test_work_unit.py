@@ -46,7 +46,7 @@ class test_work_unit(unittest.TestCase):
         )
 
         # Add a random bright object (to add some bright pixels).
-        image_stack_add_fake_object(self.im_stack_py, 150, 155, 1.0, 1.0, 250.0)
+        image_stack_add_fake_object(self.im_stack_py, 150, 155, 1.0, 1.0, flux=250.0)
 
         # Mask one of the pixels in each image.  This is done directly to the science
         # and variance layers since ImageStackPy does not have a separate mask layer.
