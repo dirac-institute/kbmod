@@ -17,59 +17,40 @@ User Manual
 
 
 Overview
---------
+========
 
 For an introduction to KBMOD and its components, see the :ref:`KBMOD Overview` page.
 
+Installation
+============
 
-GPU Requirements
-----------------
+KBMOD can be installed from source and requires:
 
-To build KBMOD you will require:
-
-* GPU and drivers
-* Cuda Toolkit >= 8.0
+* Python >= 3.10
 * CMake >= 3.23
+* A C++ compiler
+* Cuda Toolkit >= 8.0 (to build the GPU libraries)
 
-Ensure your NVIDIA drivers are correctly installed and that the graphics cards are visible and working normally. The easiest way to achieve this would be to run
+Note that while it is possible to install KBMOD on systems without the CUDA toolkits, the resulting installation will not be able to perform the core search on the GPU and thus will not be as performant.
 
-.. code-block:: bash
-		
-    nvidia-smi
-
-
-Ensure that the NVIDIA's ``nvcc`` compiler is available on your system and is visible by running
+We recommend using a virtual environment such as conda to install the necessary dependencies:
 
 .. code-block:: bash
-		
-    nvcc --version
+ 
+    conda create -n kbmod_env -c conda-forge python=3.11 cmake>=3.23
+    conda activate kbmod_env
 
+Depending on your system, you may need to install additional dependencies. See the Troubleshooting section below for more details.
 
-It is possible that the compiler is installed but not discoverable. In that case add its location to the system environment ``PATH`` variable by, if using ``bash`` for example, setting
-
-.. code-block:: bash
-		
-   export PATH=/path/to/cuda:$PATH
-
-
-If CUDA Toolkit is not availible on your system follow their `offical installation instructions <https://developer.nvidia.com/cuda-toolkit>`_. Optionally, if you use Anaconda virtual environments, the CUDA Toolkit is also availible as ``conda install cudatoolkit-dev``. Depending on the version of drivers on your GPU, you might need to use an older cudatoolkit-dev version.
-
-Other problems that we have seen in the past include:
-
-* CUDA / compiler version mismatch. Some versions of nvcc have a max supported version of gcc.
-* Inability of cmake to find nvcc. Try setting your `PATH` environmental variable as above.
-
-
-Installing KBMOD
-----------------
-
-Once you have the GPU prerequisites installed as described in the previous section, you can install KBMOD using a combination of `git` and `pip`. We recommend you perform the installation from a virtual environment such as conda.
+Once you have the prerequisites installed, you can install KBMOD using a combination of ``git`` and ``pip``.
 
 .. code-block:: bash
 		
    git clone https://github.com/dirac-institute/kbmod.git --recursive
    cd kbmod
    pip install .
+
+The ``pip install`` command will install the necessary python dependencies and compile the C++ code.
 
 You can run then run the tests to check that everything works:
 
@@ -78,24 +59,56 @@ You can run then run the tests to check that everything works:
    cd tests
    python -m unittest
 
-If tests fail or more than a few tests are skipped then it is possible that cmake was unable to find your GPU when compiling the code. Depending on environment, you may need to install the CUDA libraries.
+Troubleshooting
+===============
+
+Unfortunately, when combining Python, C++, and CUDA libraries, it is likely that you will run into some environmental complexities. Below we discuss some common debugging techniques and solutions.
+
+
+CUDA LIbraries
+--------------
+
+The ``nvcc`` compiler is part of the CUDA toolkit and is required to compile the GPU libraries. You can check that NVIDIA's ``nvcc`` compiler is available on your system and is visible by running
+
+.. code-block:: bash
+		
+   nvcc --version
+
+It is possible that the ``nvcc`` compiler is installed but not discoverable. In that case add its location to the system environment ``PATH`` variable by, if using ``bash`` for example, setting
+
+.. code-block:: bash
+		
+   export PATH=/path/to/cuda:$PATH
+
+If the ``nvcc`` compiler is not present on the system, you need to install it. If you are using a conda virtual environment, you can install the CUDA Toolkit using conda:
 
 .. code-block:: bash
 		
    conda install -c conda-forge cudatoolkit-dev
 
-If you are seeing a warning saying "An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu." then you need to install the JAX cuda libraries ( `installation instructions here <https://jax.readthedocs.io/en/latest/installation.html>`_ ). For example you can install the libraries for an NVIDIA GPU on Linux with pip as:
+Alternatively, you can follow NVIDIA's `offical installation instructions <https://developer.nvidia.com/cuda-toolkit>`_.
+
+Note that you will need to make sure the **combination** of the CUDA toolkit version, the C++ compiler, and the GPU drivers are mutually compatible.  We recommend starting by determining the driver version you are using, which can be found with the ``nvidia-smi`` command.  We have found the table in following `github gist <https://gist.github.com/ax3l/9489132>`_ for determining the compiler version needed. In some cases we have needed to force a new compiler to be installed, such as:
+
+.. code-block:: bash
+    conda install -c conda-forge gxx=12.2 gcc=12.2 sysroot_linux-64 
+
+Of course, you will want to substitute in the version numbers that are compatible with your GPU drivers.  We **highly** recommend that you are using a virtual environment before you start changing compiler versions.
+
+GPU 
+---
+
+You can check that you have a compatible NVIDIA GPU and the necessary drivers installed:
 
 .. code-block:: bash
 		
-   pip install --upgrade "jax[cuda12]"
+    nvidia-smi
 
-If you still run into problems finding the GPU, try running `cmake3 -B src/kbmod -S .` from the KBMOD directory. This will parse the `CMakeLists.txt` and produce more verbose output.
-
+While a GPU is not required to compile the code, it is needed to run any of the algorithms on GPU.
 
 
 Running KBMOD
--------------
+=============
    
 To run a search, KBMOD must be provided with
 
