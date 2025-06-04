@@ -498,10 +498,10 @@ def _extract_curve_values(imgs, x_vals, y_vals):
     # Extract the values of the pixels that fall within the images.
     # We compile this function to speed up the nested loops.
     values = np.full((num_results, num_times), np.nan)
-    for t_idx in range(num_results):
-        for r_idx in range(num_times):
-            x_i = x_vals[t_idx, r_idx]
-            y_i = y_vals[t_idx, r_idx]
+    for r_idx in range(num_results):
+        for t_idx in range(num_times):
+            x_i = x_vals[r_idx, t_idx]
+            y_i = y_vals[r_idx, t_idx]
             if x_i >= 0 and x_i < width and y_i >= 0 and y_i < height:
-                values[t_idx, r_idx] = imgs[r_idx][y_i, x_i]
+                values[r_idx, t_idx] = imgs[t_idx][y_i, x_i]
     return values
