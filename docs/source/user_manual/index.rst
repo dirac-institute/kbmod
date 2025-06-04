@@ -59,22 +59,35 @@ You can run then run the tests to check that everything works:
    cd tests
    python -m unittest
 
+
 Troubleshooting
 ===============
 
-Unfortunately, when combining Python, C++, and CUDA libraries, it is likely that you will run into some environmental complexities. Below we discuss some common debugging techniques and solutions.
+When combining Python, C++, CUDA libraries, and GPU drivers, it is possible that you will run into some environmental complexities. Below we discuss some common debugging techniques and solutions.
 
 
-CUDA LIbraries
---------------
+Checking Your GPU 
+-----------------
 
-The ``nvcc`` compiler is part of the CUDA toolkit and is required to compile the GPU libraries. You can check that NVIDIA's ``nvcc`` compiler is available on your system and is visible by running
+You can check that you have a compatible NVIDIA GPU and the necessary drivers installed:
+
+.. code-block:: bash
+		
+    nvidia-smi
+
+While a GPU is not required to compile the code, it is needed to run any of the algorithms on GPU.
+
+
+Checking CUDA LIbraries
+-----------------------
+
+The ``nvcc`` compiler is part of the CUDA toolkit and is required to compile the GPU libraries. You can check that NVIDIA's ``nvcc`` compiler is available on your system and is visible by running:
 
 .. code-block:: bash
 		
    nvcc --version
 
-It is possible that the ``nvcc`` compiler is installed but not discoverable. In that case add its location to the system environment ``PATH`` variable by, if using ``bash`` for example, setting
+It is possible that the ``nvcc`` compiler is installed but not discoverable. In that case, you will need to add its location to the system environment ``PATH`` variable by, if using ``bash`` for example, setting:
 
 .. code-block:: bash
 		
@@ -88,23 +101,24 @@ If the ``nvcc`` compiler is not present on the system, you need to install it. I
 
 Alternatively, you can follow NVIDIA's `offical installation instructions <https://developer.nvidia.com/cuda-toolkit>`_.
 
-Note that you will need to make sure the **combination** of the CUDA toolkit version, the C++ compiler, and the GPU drivers are mutually compatible.  We recommend starting by determining the driver version you are using, which can be found with the ``nvidia-smi`` command.  We have found the table in following `github gist <https://gist.github.com/ax3l/9489132>`_ for determining the compiler version needed. In some cases we have needed to force a new compiler to be installed, such as:
+Note that you will need to make sure the **combination** of the CUDA toolkit version, the C++ compiler, and the GPU drivers are mutually compatible.  We recommend starting by determining the driver version for the GPU that you are using, which can be found with the ``nvidia-smi`` command.  We have found the table in following `github gist <https://gist.github.com/ax3l/9489132>`_ helpful for determining the compiler version needed. In some cases we have needed to force a new compiler to be installed, such as:
 
 .. code-block:: bash
     conda install -c conda-forge gxx=12.2 gcc=12.2 sysroot_linux-64 
 
-Of course, you will want to substitute in the version numbers that are compatible with your GPU drivers.  We **highly** recommend that you are using a virtual environment before you start changing compiler versions.
+Of course, you will want to substitute in the version numbers that are compatible with your specific GPU drivers.  We **highly** recommend that you are using a virtual environment before you start changing compiler versions.
 
-GPU 
----
 
-You can check that you have a compatible NVIDIA GPU and the necessary drivers installed:
+Checking the KBMOD Installation
+-------------------------------
+
+After installing KBMOD, you can check the version built, whether it built with OpenMP, and whether it can detect a GPU by running: 
 
 .. code-block:: bash
 		
-    nvidia-smi
+   kbmod-version
 
-While a GPU is not required to compile the code, it is needed to run any of the algorithms on GPU.
+If the program shows "False" for "GPU Code Enabled" then you are either running it on a system without a compatible GPU or the installation was not able to build and link the CUDA code. You can check the GPU using the ``nvidia-smi`` command as described above.
 
 
 Running KBMOD
