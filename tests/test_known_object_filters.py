@@ -4,10 +4,10 @@ import unittest
 import numpy as np
 from astropy.table import Table
 
-from kbmod.fake_data.fake_data_creator import FakeDataSet, create_fake_times
+from kbmod.fake_data.fake_data_creator import create_fake_times
 from kbmod.filters.known_object_filters import KnownObjsMatcher
 from kbmod.results import Results
-from kbmod.search import *
+from kbmod.search import Trajectory
 from kbmod.trajectory_utils import trajectory_predict_skypos
 from kbmod.wcs_utils import make_fake_wcs
 
@@ -33,16 +33,23 @@ class TestKnownObjMatcher(unittest.TestCase):
         orig_obstimes = self.obstimes.copy()
         # Check that all obstimes are greater or equal to the start time
         self.assertTrue(np.all(self.obstimes >= start_time))
-        ds = FakeDataSet(15, 10, self.obstimes, use_seed=101)
         self.wcs = make_fake_wcs(10.0, 15.0, 15, 10)
-        ds.set_wcs(self.wcs)
 
-        # Randomly generate a Trajectory for each of our 10 results
-        num_results = 10
-        for i in range(num_results):
-            ds.insert_random_object(self.seed)
-        self.res = Results.from_trajectories(ds.trajectories, track_filtered=True)
-        self.assertEqual(len(ds.trajectories), num_results)
+        # Use 10 known results.
+        fake_trjs = [
+            Trajectory(x=6, y=7, vx=0.250000, vy=-0.250000, flux=500.0),
+            Trajectory(x=11, y=6, vx=-0.041667, vy=-0.125000, flux=500.0),
+            Trajectory(x=12, y=9, vx=-0.041667, vy=-0.083333, flux=500.0),
+            Trajectory(x=10, y=2, vx=-0.208333, vy=0.208333, flux=500.0),
+            Trajectory(x=11, y=2, vx=0.000000, vy=0.291667, flux=500.0),
+            Trajectory(x=9, y=9, vx=0.041667, vy=0.000000, flux=500.0),
+            Trajectory(x=3, y=7, vx=0.250000, vy=-0.125000, flux=500.0),
+            Trajectory(x=6, y=5, vx=0.208333, vy=-0.166667, flux=500.0),
+            Trajectory(x=5, y=8, vx=-0.083333, vy=-0.083333, flux=500.0),
+            Trajectory(x=7, y=5, vx=-0.250000, vy=0.125000, flux=500.0),
+        ]
+        num_results = len(fake_trjs)
+        self.res = Results.from_trajectories(fake_trjs, track_filtered=True)
 
         # Generate which observations are valid observations for each result
         self.obs_valid = np.full((num_results, num_images), True)
