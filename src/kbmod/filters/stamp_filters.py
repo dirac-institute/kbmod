@@ -243,6 +243,8 @@ def filter_stamps_by_cnn(
         The current set of results. Modified directly.
     model_path : `str`
         Path to the the pytorch model and weights file.
+    model_type : `str`
+        The type of builtin `torchvision` model to use for the CNN. Default is 'resnet18'.
     coadd_type : `str`
         Which coadd type to use in the filtering. Depends on how the model was trained.
         Default is 'mean', will grab stamps from the 'coadd_mean' column.
@@ -275,10 +277,12 @@ def filter_stamps_by_cnn(
             cnn.load_state_dict(torch.load(model_path))
         else:
             cnn.load_state_dict(torch.load(model_path, map_location=torch.device("cpu")))
+    # Set the model to evaluation mode.
     cnn.eval()
 
     stamp_tensor = torch.from_numpy(normalized_stamps)
 
+    # perform the inference.
     predictions = cnn(stamp_tensor)
 
     classifications = []
