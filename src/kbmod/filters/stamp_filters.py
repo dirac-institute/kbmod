@@ -32,6 +32,7 @@ MODEL_TYPES = {
 
 # Mock up of the model to ensure everything loads correctly.
 
+
 def modify_resnet_input_channels(model, num_channels):
     # Get the first convolutional layer
     first_conv_layer = model.conv1
@@ -50,6 +51,7 @@ def modify_resnet_input_channels(model, num_channels):
     model.conv1 = new_conv_layer
 
     return model
+
 
 class _KBMLModel(nn.Module):
     def __init__(self, model, weights, shape):
@@ -228,7 +230,9 @@ def _normalize_stamps(stamps, stamp_dimm):
     return np.array(normed_stamps)
 
 
-def filter_stamps_by_cnn(result_data, model_path, model_type="resnet18", coadd_type="mean", stamp_radius=10, verbose=False):
+def filter_stamps_by_cnn(
+    result_data, model_path, model_type="resnet18", coadd_type="mean", stamp_radius=10, verbose=False
+):
     """Given a set of results data, run the the requested coadded stamps through a
     provided convolutional neural network and assign a new column that contains the
     stamp classification, i.e. whether or not the result passed the CNN filter.
@@ -272,7 +276,7 @@ def filter_stamps_by_cnn(result_data, model_path, model_type="resnet18", coadd_t
         if torch.cuda.is_available():
             cnn.load_state_dict(torch.load(model_path))
         else:
-                cnn.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+            cnn.load_state_dict(torch.load(model_path, map_location=torch.device("cpu")))
     cnn.eval()
 
     stamp_tensor = torch.from_numpy(normalized_stamps)

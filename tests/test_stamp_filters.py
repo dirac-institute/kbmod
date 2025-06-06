@@ -248,6 +248,7 @@ class test_stamp_filters(unittest.TestCase):
 
     def test_filter_stamps_by_cnn(self):
         import torch
+
         torch.manual_seed(747474747)
 
         trj_list = [
