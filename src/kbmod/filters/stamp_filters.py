@@ -248,7 +248,6 @@ def filter_stamps_by_cnn(result_data, model_path, model_type="resnet18", coadd_t
     verbose : `bool`
         Verbosity option for the CNN predicition. Off by default.
     """
-    model_path = "/Users/maxwest/data/kbml_results/20250422-195459-train-jpSs/cnn_weights.pth"
 
     coadd_column = f"coadd_{coadd_type}"
     if coadd_column not in result_data.colnames:
@@ -269,7 +268,11 @@ def filter_stamps_by_cnn(result_data, model_path, model_type="resnet18", coadd_t
         shape=stamp_shape,
     )
     # we'll need to check if we have a GPU available.
-    cnn.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+    if model_path:
+        if torch.cuda.is_available():
+            cnn.load_state_dict(torch.load(model_path))
+        else:
+                cnn.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     cnn.eval()
 
     stamp_tensor = torch.from_numpy(normalized_stamps)
@@ -282,3 +285,4 @@ def filter_stamps_by_cnn(result_data, model_path, model_type="resnet18", coadd_t
 
     bool_arr = np.array(classifications) != 0
     result_data.table["cnn_class"] = bool_arr
+    print(result_data)

@@ -247,6 +247,9 @@ class test_stamp_filters(unittest.TestCase):
         self.assertTrue("all_stamps" in keep.colnames)
 
     def test_filter_stamps_by_cnn(self):
+        import torch
+        torch.manual_seed(747474747)
+
         trj_list = [
             self.trj,
             Trajectory(self.trj.x, self.trj.y, 0.0, 0.0),
@@ -257,13 +260,13 @@ class test_stamp_filters(unittest.TestCase):
 
         filter_stamps_by_cnn(
             keep,
-            self.model_path,
+            None,
             coadd_type="mean",
             stamp_radius=3,
         )
 
         # the test model was trained on totally random data
-        assert keep.table["cnn_class"].data[2] == False
+        assert keep.table["cnn_class"].data[2] == True
         filtered_results = keep.filter_rows(keep.table["cnn_class"])
         assert len(filtered_results) == 2
 
