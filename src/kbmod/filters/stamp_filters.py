@@ -238,7 +238,7 @@ def filter_stamps_by_cnn(result_data, model_path, model_type="resnet18", coadd_t
     result_data : `Result`
         The current set of results. Modified directly.
     model_path : `str`
-        Path to the the tensorflow model and weights file.
+        Path to the the pytorch model and weights file.
     coadd_type : `str`
         Which coadd type to use in the filtering. Depends on how the model was trained.
         Default is 'mean', will grab stamps from the 'coadd_mean' column.
@@ -285,4 +285,3 @@ def filter_stamps_by_cnn(result_data, model_path, model_type="resnet18", coadd_t
 
     bool_arr = np.array(classifications) != 0
     result_data.table["cnn_class"] = bool_arr
-    print(result_data)
