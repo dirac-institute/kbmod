@@ -60,7 +60,6 @@ class _KBMLModel(nn.Module):
         self.model = model
 
         # Modify the input channels to 1 (e.g., for grayscale images)
-        # print(shape[0])
         self.model = modify_resnet_input_channels(model=model, num_channels=shape[0])
 
     def forward(self, x):
