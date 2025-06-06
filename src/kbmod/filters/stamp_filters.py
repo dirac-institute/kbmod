@@ -6,6 +6,10 @@ stamp pixels.
 
 import numpy as np
 
+import torch
+import torch.nn as nn
+import torchvision.models as models
+
 from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.core.stamp_utils import (
     coadd_mean,
@@ -20,6 +24,50 @@ from kbmod.util_functions import mjd_to_day
 
 
 logger = Logging.getLogger(__name__)
+
+MODEL_TYPES = {
+    "resnet18": models.resnet18,
+    "resnet50": models.resnet50,
+}
+
+# Mock up of the model to ensure everything loads correctly.
+
+
+def modify_resnet_input_channels(model, num_channels):
+    # Get the first convolutional layer
+    first_conv_layer = model.conv1
+
+    # Create a new convolutional layer with the desired number of input channels
+    new_conv_layer = nn.Conv2d(
+        in_channels=num_channels,
+        out_channels=first_conv_layer.out_channels,
+        kernel_size=first_conv_layer.kernel_size,
+        stride=first_conv_layer.stride,
+        padding=first_conv_layer.padding,
+        bias=first_conv_layer.bias,
+    )
+
+    # Replace the first convolutional layer in the model
+    model.conv1 = new_conv_layer
+
+    return model
+
+
+class _KBMLModel(nn.Module):
+    def __init__(self, model, weights, shape):
+        super().__init__()
+
+        self.model = model
+
+        # Modify the input channels to 1 (e.g., for grayscale images)
+        self.model = modify_resnet_input_channels(model=model, num_channels=shape[0])
+
+    def forward(self, x):
+        # if labels are passed to forward as part
+        # of the infer step of training, just pass along the stamps.
+        if isinstance(x, tuple):
+            x, _ = x
+        return self.model(x)
 
 
 def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True, nightly=False):
@@ -181,7 +229,9 @@ def _normalize_stamps(stamps, stamp_dimm):
     return np.array(normed_stamps)
 
 
-def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radius=10, verbose=False):
+def filter_stamps_by_cnn(
+    result_data, model_path, model_type="resnet18", coadd_type="mean", stamp_radius=10, verbose=False
+):
     """Given a set of results data, run the the requested coadded stamps through a
     provided convolutional neural network and assign a new column that contains the
     stamp classification, i.e. whether or not the result passed the CNN filter.
@@ -191,7 +241,9 @@ def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radiu
     result_data : `Result`
         The current set of results. Modified directly.
     model_path : `str`
-        Path to the the tensorflow model and weights file.
+        Path to the the pytorch model and weights file.
+    model_type : `str`
+        The type of builtin `torchvision` model to use for the CNN. Default is 'resnet18'.
     coadd_type : `str`
         Which coadd type to use in the filtering. Depends on how the model was trained.
         Default is 'mean', will grab stamps from the 'coadd_mean' column.
@@ -201,26 +253,39 @@ def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radiu
     verbose : `bool`
         Verbosity option for the CNN predicition. Off by default.
     """
-    from tensorflow.keras.models import load_model
 
     coadd_column = f"coadd_{coadd_type}"
     if coadd_column not in result_data.colnames:
         raise ValueError("result_data does not have provided coadd type as a column.")
 
-    cnn = load_model(model_path)
-
     stamps = result_data.table[coadd_column].data
     stamp_dimm = (stamp_radius * 2) + 1
+    stamp_shape = (1, stamp_dimm, stamp_dimm)
     normalized_stamps = _normalize_stamps(stamps, stamp_dimm)
+    normalized_stamps = np.expand_dims(normalized_stamps, axis=1)
 
-    # resize to match the tensorflow input
-    # will probably not be needed when we switch to PyTorch
-    resized_stamps = normalized_stamps.reshape(-1, stamp_dimm, stamp_dimm, 1)
+    model = MODEL_TYPES[model_type](num_classes=2)
+    cnn = _KBMLModel(
+        model=model,
+        weights=model_path,
+        shape=stamp_shape,
+    )
+    # we'll need to check if we have a GPU available.
+    if model_path:
+        if torch.cuda.is_available():
+            cnn.load_state_dict(torch.load(model_path))
+        else:
+            cnn.load_state_dict(torch.load(model_path, map_location=torch.device("cpu")))
+    # Set the model to evaluation mode.
+    cnn.eval()
 
-    predictions = cnn.predict(resized_stamps, verbose=verbose)
+    stamp_tensor = torch.from_numpy(normalized_stamps)
+
+    # perform the inference.
+    predictions = cnn(stamp_tensor)
 
     classifications = []
-    for p in predictions:
+    for p in predictions.detach().numpy():
         classifications.append(np.argmax(p))
 
     bool_arr = np.array(classifications) != 0
