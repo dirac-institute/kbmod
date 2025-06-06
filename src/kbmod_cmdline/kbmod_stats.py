@@ -1,36 +1,39 @@
-"""A program to compute and display basic statistics for results data.
+"""A program to compute and display basic statistics for various KBMOD
+files such as WorkUnit or Results data.
+
+To generate the stats for the WorkUnit file 'my_input.fits` you would use:
+
+>>> kbmod_stats --workunit=my_input.fits
 
 To generate the stats for the results file 'my_input.ecsv` you would use:
 
->>> kbmod_stats --input=my_input.ecsv
+>>> kbmod_stats --results=my_input.ecsv
 """
 
 import argparse
+import logging
 import numpy as np
 
 from kbmod.results import Results
+from kbmod.work_unit import WorkUnit
 
 
-def execute(args):
-    """Run the program from the given arguments.
+def stat_result_file(filename, verbose=False):
+    """Compute and display the statistics for a given Results file.
 
     Parameters
     ----------
-    args : `argparse.Namespace`
-        The input arguments.
+    filename : `str`
+        The name of the input results file.
+    verbose : `bool`
+        Display verbose debugging output.
     """
-    if args.verbose:
-        print("KBMOD Stats:")
-        for key, val in vars(args).items():
-            print(f"  {key}: {val}")
-        logging.basicConfig(level=logging.DEBUG)
-
     # Load the results and the image data.
-    print("-" * 60)
-    print(f"Stats for Results File '{args.input}'")
-    print("-" * 60)
+    print("-" * len(filename))
+    print(f"Stats for Results File '{filename}'")
+    print("-" * len(filename))
 
-    results = Results.read_table(args.input)
+    results = Results.read_table(filename)
     print(f"\nNumber of results: {len(results)}")
     print("Columns:")
     for col in results.colnames:
@@ -55,18 +58,67 @@ def execute(args):
             print(f"  {edge:5}  |  {count:5}")
 
 
+def stat_workunit_file(filename, verbose=False):
+    """Compute and display the statistics for a given WorkUnit file.
+
+    Parameters
+    ----------
+    filename : `str`
+        The name of the input work unit file.
+    verbose : `bool`
+        Display verbose debugging output.
+    """
+    # Load the results and the image data.
+    print("-" * len(filename))
+    print(f"Stats for WorkUnit File '{filename}'")
+    print("-" * len(filename))
+
+    wu = WorkUnit.from_fits(filename, show_progress=verbose)
+    wu.print_stats()
+
+    print("\nConstituent Metadata:")
+    print(wu.org_img_meta)
+
+
+def execute(args):
+    """Run the program from the given arguments.
+
+    Parameters
+    ----------
+    args : `argparse.Namespace`
+        The input arguments.
+    """
+    if args.verbose:
+        print("KBMOD Stats:")
+        for key, val in vars(args).items():
+            print(f"  {key}: {val}")
+        logging.basicConfig(level=logging.DEBUG)
+
+    if args.results is not None and len(args.results) > 0:
+        stat_result_file(args.results)
+    if args.workunit is not None and len(args.workunit) > 0:
+        stat_workunit_file(args.workunit, verbose=args.verbose)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="kbmod-stats",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="A program to compute and display basic statistics for results data.",
+        description="A program to compute and display basic statistics for KBMOD files.",
     )
     parser.add_argument(
-        "--input",
-        dest="input",
+        "--results",
+        dest="results",
         type=str,
         help="The file path for the input Results file to process.",
-        required=True,
+        required=False,
+    )
+    parser.add_argument(
+        "--workunit",
+        dest="workunit",
+        type=str,
+        help="The file path for the input WorkUnit file to process.",
+        required=False,
     )
 
     optional = parser.add_argument_group("Optional arguments")
