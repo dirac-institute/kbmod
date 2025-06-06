@@ -258,12 +258,10 @@ def filter_stamps_by_cnn(
         raise ValueError("result_data does not have provided coadd type as a column.")
 
     stamps = result_data.table[coadd_column].data
-    print(stamps.shape)
     stamp_dimm = (stamp_radius * 2) + 1
     stamp_shape = (1, stamp_dimm, stamp_dimm)
     normalized_stamps = _normalize_stamps(stamps, stamp_dimm)
     normalized_stamps = np.expand_dims(normalized_stamps, axis=1)
-    print(normalized_stamps.shape)
 
     model = MODEL_TYPES[model_type](num_classes=2)
     cnn = _KBMLModel(

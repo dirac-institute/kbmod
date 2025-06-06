@@ -30,9 +30,6 @@ class test_stamp_filters(unittest.TestCase):
         self.trj = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
         self.ds.insert_object(self.trj)
 
-        current_dir = pathlib.Path(__file__).parent.resolve()
-        self.model_path = pathlib.Path(current_dir, "data/test_model.keras")
-
         # Create a second simpler fake data set where each science layer is constant
         # according the the time index.
         height = 25
@@ -277,7 +274,7 @@ class test_stamp_filters(unittest.TestCase):
         with self.assertRaises(ValueError):
             filter_stamps_by_cnn(
                 keep,
-                self.model_path,
+                None,
                 coadd_type="median",
                 stamp_radius=3,
             )
