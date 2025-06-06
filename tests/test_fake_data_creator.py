@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from kbmod.fake_data.fake_data_creator import *
+from kbmod.trajectory_generator import VelocityGridSearch
 from kbmod.wcs_utils import make_fake_wcs
 from kbmod.work_unit import WorkUnit
 
@@ -150,6 +151,35 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertAlmostEqual(np.std(ds.stack_py.sci[i][~masked]), 0.5, delta=0.05)
             self.assertTrue(np.all(ds.stack_py.var[i][~masked] == 0.25))
 
+    def test_regenerate_images(self):
+        times = create_fake_times(10)
+        ds = FakeDataSet(
+            256,
+            256,
+            times,
+            mask_fraction=0.3,
+            noise_level=0.5,
+            use_seed=105,
+        )
+        ds.insert_random_object(100)
+        self.assertEqual(len(ds.trajectories), 1)
+        self.assertEqual(ds.stack_py.num_times, 10)
+
+        old_stack = ds.stack_py.copy()
+
+        # Reset the fake images.
+        ds.reset()
+        self.assertEqual(len(ds.trajectories), 0)
+
+        self.assertEqual(ds.stack_py.num_times, old_stack.num_times)
+        self.assertEqual(ds.stack_py.width, old_stack.width)
+        self.assertEqual(ds.stack_py.height, old_stack.height)
+
+        for i in range(ds.stack_py.num_times):
+            # Check that the new images are different from the old ones.
+            self.assertFalse(np.array_equal(ds.stack_py.sci[i], old_stack.sci[i], equal_nan=True))
+            self.assertFalse(np.array_equal(ds.stack_py.var[i], old_stack.var[i], equal_nan=True))
+
     def test_fake_data_set_insert_artifacts(self):
         """Test that we can insert artifacts into a FakeDataSet."""
         width = 200
@@ -204,6 +234,89 @@ class test_fake_image_creator(unittest.TestCase):
             # Check that there is a bright spot at the predicted position.
             pix_val = ds.stack_py.sci[i][py, px]
             self.assertGreaterEqual(pix_val, 50.0)
+
+    def test_trajectory_is_within_bounds(self):
+        # Create a dataset with small images.
+        width = 30
+        height = 40
+        num_times = 3
+        times = create_fake_times(num_times, 57130.2, 1)
+        ds = FakeDataSet(width, height, times, use_seed=101)
+
+        self.assertTrue(ds.trajectory_is_within_bounds(Trajectory(x=0, y=0, vx=1.0, vy=2.0)))
+        self.assertTrue(ds.trajectory_is_within_bounds(Trajectory(x=10, y=15, vx=1.0, vy=2.0)))
+        self.assertTrue(ds.trajectory_is_within_bounds(Trajectory(x=10, y=15, vx=-1.0, vy=2.0)))
+        self.assertFalse(ds.trajectory_is_within_bounds(Trajectory(x=0, y=0, vx=-1.0, vy=1.0)))
+        self.assertFalse(ds.trajectory_is_within_bounds(Trajectory(x=0, y=0, vx=1.0, vy=-1.0)))
+        self.assertFalse(ds.trajectory_is_within_bounds(Trajectory(x=width - 1, y=0, vx=1.0, vy=1.0)))
+        self.assertFalse(ds.trajectory_is_within_bounds(Trajectory(x=0, y=height - 1, vx=1.0, vy=1.0)))
+
+    def test_insert_object_given_vel(self):
+        # Create very small images, so we need to be careful with the velocities.
+        width = 30
+        height = 40
+        num_times = 3
+        times = create_fake_times(num_times, 57130.2, 1)
+        ds = FakeDataSet(width, height, times, use_seed=101)
+        self.assertEqual(len(ds.trajectories), 0)
+
+        # Create and insert a random object, check that it has the given velocity.
+        trj = ds.insert_random_object(500, vx=1.0, vy=2.0)
+        self.assertEqual(len(ds.trajectories), 1)
+        self.assertEqual(trj.vx, 1.0)
+        self.assertEqual(trj.vy, 2.0)
+
+        vx = [-20.0, -5.0, -1.0, 0.0, 1.0, 5.0, 20.0]
+        vy = [-20.0, -5.0, -1.0, 0.0, 1.0, 5.0, 20.0]
+        for _ in range(100):
+            trj = ds.insert_random_object(500, vx=vx, vy=vy)
+            self.assertTrue(trj.vx in vx)
+            self.assertTrue(trj.vy in vy)
+
+            # Check that the object is in view at the first time.
+            self.assertGreaterEqual(trj.x, 0)
+            self.assertGreaterEqual(trj.y, 0)
+            self.assertLess(trj.x, width)
+            self.assertLess(trj.y, height)
+
+            # Check that the object is still in view at the last time.
+            xe = int(trj.x + 2.0 * trj.vx)
+            ye = int(trj.y + 2.0 * trj.vy)
+            self.assertGreaterEqual(xe, 0)
+            self.assertGreaterEqual(ye, 0)
+            self.assertLess(xe, width)
+            self.assertLess(ye, height)
+
+    def test_insert_object_given_generator(self):
+        # Create very small images, so we need to be careful with the velocities.
+        width = 30
+        height = 40
+        num_times = 3
+        times = create_fake_times(num_times, 57130.2, 1)
+        ds = FakeDataSet(width, height, times, use_seed=101)
+        self.assertEqual(len(ds.trajectories), 0)
+
+        trj_generator = VelocityGridSearch(11, 0.0, 20.0, 11, -10.0, 10.0)
+        vx = [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0]
+        vy = [-10.0, -8.0, -6.0, -4.0, -2.0, 0.0, 2.0, 4.0, 6.0, 8.0, 10.0]
+        trjs = ds.insert_random_objects_from_generator(100, trj_generator, 100)
+        for trj in trjs:
+            self.assertTrue(trj.vx in vx)
+            self.assertTrue(trj.vy in vy)
+
+            # Check that the object is in view at the first time.
+            self.assertGreaterEqual(trj.x, 0)
+            self.assertGreaterEqual(trj.y, 0)
+            self.assertLess(trj.x, width)
+            self.assertLess(trj.y, height)
+
+            # Check that the object is still in view at the last time.
+            xe = int(trj.x + 2.0 * trj.vx)
+            ye = int(trj.y + 2.0 * trj.vy)
+            self.assertGreaterEqual(xe, 0)
+            self.assertGreaterEqual(ye, 0)
+            self.assertLess(xe, width)
+            self.assertLess(ye, height)
 
     def test_save_work_unit(self):
         num_images = 25
