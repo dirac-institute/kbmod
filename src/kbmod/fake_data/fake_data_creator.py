@@ -362,34 +362,26 @@ class FakeDataSet:
                 # If no x-velocity is specified, create one by picking a random end point.
                 xe = int(self.rng.random() * self.width)
                 trj.vx = (xe - trj.x) / dt
-                print(f"No vx given: {xe}, {trj.vx}")
             elif np.isscalar(vx):
                 # If a scalar is given, use it as the x-velocity.
                 trj.vx = vx
-                print(f"One vx given: {trj.vx}")
             else:
                 # If a vector is given, pick a random one.
                 trj.vx = self.rng.choice(vx)
-                print(f"Many vx given: {trj.vx}")
 
             if vy is None:
                 # If no y-velocity is specified, create one by picking a random end point.
                 ye = int(self.rng.random() * self.height)
                 trj.vy = (ye - trj.y) / dt
-                print(f"No vy given: {ye}, {trj.vy}")
             elif np.isscalar(vy):
                 # If a scalar is given, use it as the y-velocity.
                 trj.vy = vy
-                print(f"One vy given: {trj.vy}")
             else:
                 # If a vector is given, pick a random one.
                 trj.vy = self.rng.choice(vy)
-                print(f"Many vy given: {trj.vy}")
 
             # Check if the object is visible in all images.  If not, try again.
             is_valid = self.trajectory_is_within_bounds(trj)
-            if not is_valid:
-                raise ValueError("What?")
             itr += 1
         
         if not is_valid:
