@@ -25,7 +25,7 @@ Reprojection
 
 In order to shift and stack, KBMOD requires that all of the images align in pixel space. This is not always the case with arbitrary data. For example Rubin will produce images at arbitrary rotations. To address this, KBMOD provides the ability to reproject images to a common WCS.
 
-In addition, we can account for the Earth's motion by reprojecting the images to a barycentric view. To do this we, need a guess distance of where the object is relative to the sun (e.g. 40 AU). KBMOD can then reproject the image to appear as though it was take from the barycenter. This improves linearization of the trajectory by removing the component of motion due to the Earth's motion.
+In addition, we can account for the Earth's motion by reprojecting the images to a barycentric view. To do this we, need a guess distance of where the object is relative to the sun (e.g. 40 AU). KBMOD can then reproject the image to appear as though it was taken from the barycenter. This improves linearization of the trajectory by removing the component of motion due to the Earth's motion.
 
 
 Core Search

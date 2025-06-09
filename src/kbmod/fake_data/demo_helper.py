@@ -2,11 +2,9 @@
 and some of the tests.
 """
 
-import os
-
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import *
-from kbmod.search import *
+from kbmod.search import Trajectory
 
 def make_demo_data(filename=None):
     """Make the fake demo data.
@@ -52,7 +50,7 @@ def make_demo_data(filename=None):
     config = SearchConfiguration.from_dict(settings)
 
     # Create a WorkUnit and save it if needed.
-    work = WorkUnit(im_stack=ds.stack, config=config, wcs=ds.fake_wcs)
+    work = ds.get_work_unit(config=config)
     if filename is not None:
         work.to_fits(filename)
     return work

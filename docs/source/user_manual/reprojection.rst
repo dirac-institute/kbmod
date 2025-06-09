@@ -1,7 +1,7 @@
 Reprojection
 ============
 
-A KBMOD search assumes that each pixel of each image in the :py:class:`~~kbmod.search.ImageStack` are aligned in the same RA and dec and space. To ensure that is the case in searches where the observations weren't pixel oriented deliberately, we use our reprojection utilities to transform the data.
+A KBMOD search assumes that each pixel of each image in the :py:class:`~~kbmod.core.image_stack_py.ImageStackPy` are aligned in the same RA and dec and space. To ensure that is the case in searches where the observations weren't pixel oriented deliberately, we use our reprojection utilities to transform the data.
 
 Simple Reproject
 ----------------
@@ -10,7 +10,7 @@ This the first and simplest type of reprojection that we do. Given a :py:class:`
 
 The only requirement for this reprojection is that images that have the same observation time in the stack aren't overlapping (so any images taken by an instrument that has multiple detectors and tiling, such as LSST, are fine!). Please note that we don't currently check and filter based on how much of the original image ends up in the new reprojected stack, so if the images aren't overlapping in radec space you might have some mostly or even totally empty images.
 
-To run a simple reprojection, take a :py:class:`~~kbmod.search.WorkUnit` and a common wcs and pass those into `reproject_work_unit`. For more info on the various configuration parameters for the job, see the :ref:`kbmod.reprojection` reference.
+To run a simple reprojection, take a :py:class:`~~kbmod.search.WorkUnit` and a common wcs and pass those into ``reproject_work_unit``. For more info on the various configuration parameters for the job, see the :ref:`kbmod.reprojection` reference.
 
 .. code-block:: python
     from kbmod.work_unit import WorkUnit
@@ -19,7 +19,7 @@ To run a simple reprojection, take a :py:class:`~~kbmod.search.WorkUnit` and a c
     #  our toy WorkUnit we use for unit testing
     work_unit = WorkUnit.from_fits("../tests/data/shifted_wcs_diff_dimms_tiled.fits")
 
-    # get the WCS of the first image in the ImageStack
+    # get the WCS of the first image in the stack of images.
     # to use as the global WCS.
     common_wcs = work_unit.get_wcs(0)
 
@@ -57,7 +57,7 @@ Here's a diagram describing this process:
     from astropy.time import Time
     from kbmod.reprojection_utils import transform_wcses_to_ebd
 
-    # get the list of WCSes for each image in the ImageStack
+    # get the list of WCSes for each image
     wcs_list = work_unit.org_img_meta["per_image_wcs"]
 
     # observation point on Earth, Cerro Tololo in this case

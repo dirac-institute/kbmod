@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import tempfile
@@ -5,9 +6,7 @@ import unittest
 
 import astropy.table as atbl
 import numpy as np
-import numpy.testing as npt
-from astropy.coordinates import CartesianRepresentation, EarthLocation, GCRS, SkyCoord
-from astropy.time import Time
+from astropy.coordinates import EarthLocation, SkyCoord
 import astropy.units as u
 
 from kbmod import ImageCollection, Standardizer
@@ -159,15 +158,26 @@ class TestImageCollection(unittest.TestCase):
         # no config was given even though its an optional.
         from kbmod.configuration import SearchConfiguration
 
+        # Disable the warnings because the fitFactory will generate empty layers.
+        logging.disable(logging.CRITICAL)
+
         data = self.fitsFactory.get_n(3, spoof_data=True)
         ic = ImageCollection.fromTargets(data)
         wu = ic.toWorkUnit(search_config=SearchConfiguration())
         self.assertEqual(len(wu), 3)
 
-        # We can retrieve the meta data from the WorkUnit.
+        # Re-enable the warnings.
+        logging.disable(logging.NOTSET)
+
+        # We can retrieve the meta data from the WorkUnit, including the renamed
+        # "data_loc" column.
         filter_info = wu.get_constituent_meta("visit")
         self.assertEqual(len(filter_info), 3)
         self.assertIsNotNone(filter_info[0])
+
+        data_loc = wu.get_constituent_meta("data_loc")
+        self.assertEqual(len(data_loc), 3)
+        self.assertEqual(data_loc[0], ":memory:")
 
         # We can write the whole work unit to a file.
         with tempfile.TemporaryDirectory() as dir_name:

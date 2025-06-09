@@ -12,7 +12,9 @@ import astropy.units as u
 import numpy as np
 
 from .standardizer import Standardizer, StandardizerConfig
-from kbmod.search import LayeredImage, PSF
+
+from kbmod.core.psf import PSF
+from kbmod.core.image_stack_py import LayeredImagePy
 
 
 __all__ = [
@@ -93,10 +95,14 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """Include the "effective" fit metrics from SummaryStats"""
 
     standardize_uri = False
-    """Include an URL-like path to to the file"""
+    """Include an URL-like path to the file"""
 
     zero_point = 31
     """Photometric zero point to which all the science and variance will be scaled to."""
+
+    greedy_export = False
+    """If True, the standardizer will keep the Exposure object in memory
+    after the LayeredImage is created. This is useful for large datasets."""
 
 
 class ButlerStandardizer(Standardizer):
@@ -300,11 +306,11 @@ class ButlerStandardizer(Standardizer):
         half_way = mjd_start + (expt / 2) * u.s + 0.5 * u.s
         self._metadata["exposureTime"] = expt
 
-        # Note the timescales for MJD
-        # Name mjd into mjd_mid - make it obvious it's mdidle of exposure
-        # and add time scale like mjd_mid_utc
-        self._metadata["mjd_start"] = mjd_start.mjd
-        self._metadata["mjd_mid"] = half_way.mjd
+        # Note the timescales for MJD. The Butler uses TAI, but we convert
+        # time stamps to UTC for consistency.
+        # Name mjd into mjd_mid - make it obvious it's middle of exposure.
+        self._metadata["mjd_start"] = mjd_start.utc.mjd
+        self._metadata["mjd_mid"] = half_way.utc.mjd
 
         self._metadata["object"] = visit.object
         self._metadata["pointing_ra"] = visit.boresightRaDec.getRa().asDegrees()
@@ -405,6 +411,9 @@ class ButlerStandardizer(Standardizer):
                     self.ref.run,
                 ],
             ).geturl()
+        else:
+            # Save the full string representation of ref.
+            self._metadata["location"] = str(self.ref)
 
     @property
     def wcs(self):
@@ -487,9 +496,7 @@ class ButlerStandardizer(Standardizer):
         # self.exp.psf.getKernel
         # self.exp.psf.getLocalKernel
         std = self.config["psf_std"]
-        return [
-            PSF(std),
-        ]
+        return [PSF.make_gaussian_kernel(std)]
 
     # These exist because standardizers promise to return lists
     # for compatiblity for single-data and multi-data sources
@@ -509,16 +516,16 @@ class ButlerStandardizer(Standardizer):
 
     def toLayeredImage(self):
         masks = self.standardizeMaskImage()
-        # This is required atm because RawImage can not
-        # support different types, TODO: update when fixed
         mask = masks[0].astype(np.float32)
         imgs = [
-            LayeredImage(
+            LayeredImagePy(
                 self.standardizeScienceImage()[0],
                 self.standardizeVarianceImage()[0],
-                mask,
-                self.standardizePSF()[0],
-                self._metadata["mjd_mid"],
+                mask=mask,
+                psf=self.standardizePSF()[0],
+                time=self._metadata["mjd_mid"],
             ),
         ]
+        if not self.config["greedy_export"]:
+            self.exp = None
         return imgs

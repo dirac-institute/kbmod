@@ -6,12 +6,22 @@ import copy
 import csv
 import logging
 import numpy as np
+import uuid
+
+from astropy.table import Column, Table, vstack
+from astropy.time import Time
 from pathlib import Path
 
-from astropy.table import Table, vstack
-
-from kbmod.trajectory_utils import trajectories_to_dict
-from kbmod.search import Trajectory
+from kbmod.search import (
+    extract_all_trajectory_flux,
+    extract_all_trajectory_lh,
+    extract_all_trajectory_obs_count,
+    extract_all_trajectory_vx,
+    extract_all_trajectory_vy,
+    extract_all_trajectory_x,
+    extract_all_trajectory_y,
+    Trajectory,
+)
 from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
 
 
@@ -33,8 +43,9 @@ class Results:
         A global WCS for all the results. This is optional and primarily used when saving
         the results to a file so as to preserve the WCS for future analysis.
     mjd_mid : `np.ndarray`
-        An array of the times (mid-MJD) for each observation. This is optional and primarily
-        used when saving the results to a file so as to preserve the times for future analysis.
+        An array of the times (mid-MJD) for each observation in UTC. This is optional
+        and primarily used when saving the results to a file so as to preserve the times
+        for future analysis.
     track_filtered : `bool`
         Whether to track (save) the filtered trajectories. This will use
         more memory and is recommended only for analysis.
@@ -60,7 +71,10 @@ class Results:
     ]
     _required_col_names = set([rq_col[0] for rq_col in required_cols])
 
-    def __init__(self, data=None, track_filtered=False, wcs=None, mjd_mid=None):
+    # We only support a few output formats since we need to save metadata.
+    _supported_formats = [".ecsv", ".parq", ".parquet", ".hdf5"]
+
+    def __init__(self, data=None, track_filtered=False, wcs=None):
         """Create a ResultTable class.
 
         Parameters
@@ -72,11 +86,9 @@ class Results:
             more memory and is recommended only for analysis.
         wcs : `astropy.wcs.WCS`, optional
             A global WCS for the results.
-        mjd_mid : `np.ndarray`, optional
-            A list of times.
         """
         self.wcs = wcs
-        self.mjd_mid = mjd_mid
+        self.mjd_mid = None
 
         # Set up information to track which row is filtered at which round.
         self.track_filtered = track_filtered
@@ -92,9 +104,19 @@ class Results:
         elif isinstance(data, dict):
             self.table = Table(data)
         elif isinstance(data, Table):
-            self.table = data.copy()
+            self.table = data
         else:
             raise TypeError(f"Incompatible data type {type(data)}")
+
+        # Check if there is a uuid column and, if not, generate one. We set it as
+        # a Column object so we can set the dtype even in the case of empty results.
+        if "uuid" not in self.table.colnames:
+            col = Column(
+                data=[uuid.uuid4().hex for i in range(len(self.table))],
+                name="uuid",
+                dtype="str",
+            )
+            self.table.add_column(col)
 
         # Check that we have the correct columns.
         for col in self.required_cols:
@@ -115,6 +137,18 @@ class Results:
 
     def __getitem__(self, key):
         return self.table[key]
+
+    @property
+    def mjd_utc_mid(self):
+        return self.mjd_mid
+
+    @property
+    def mjd_tai_mid(self):
+        return Time(self.mjd_mid, format="mjd", scale="utc").tai.mjd
+
+    def set_mjd_utc_mid(self, times):
+        """Set the midpoint times in UTC MJD."""
+        self.mjd_mid = times
 
     @property
     def colnames(self):
@@ -155,21 +189,30 @@ class Results:
         track_filtered : `bool`
             Indicates whether to track future filtered points.
         """
-        # Create dictionaries from the Trajectories.
-        input_d = trajectories_to_dict(trajectories)
+        # Create a table object from the Trajectories.
+        input_table = Table()
+        input_table["x"] = extract_all_trajectory_x(trajectories)
+        input_table["y"] = extract_all_trajectory_y(trajectories)
+        input_table["vx"] = extract_all_trajectory_vx(trajectories)
+        input_table["vy"] = extract_all_trajectory_vy(trajectories)
+        input_table["likelihood"] = extract_all_trajectory_lh(trajectories)
+        input_table["flux"] = extract_all_trajectory_flux(trajectories)
+        input_table["obs_count"] = extract_all_trajectory_obs_count(trajectories)
 
         # Check for any missing columns and fill in the default value.
         for col in cls.required_cols:
-            if col[0] not in input_d:
-                input_d[col[0]] = [col[2]] * len(trajectories)
+            if col[0] not in input_table.colnames:
+                input_table[col[0]] = [col[2]] * len(trajectories)
 
         # Create the table and add the unfiltered (and filtered) results.
-        results = Results(input_d, track_filtered=track_filtered)
+        results = Results(input_table, track_filtered=track_filtered)
         return results
 
     @classmethod
     def read_table(cls, filename, track_filtered=False):
-        """Read the ResultList from a table file.
+        """Read the ResultList from a table file. The file format is automatically
+        determined from the file name's suffix which must be one of ".ecsv",
+        ".parquet", ".parq", or ".hdf5".
 
         Parameters
         ----------
@@ -185,8 +228,13 @@ class Results:
         """
         logger.info(f"Reading results from {filename}")
 
-        if not Path(filename).is_file():
+        filepath = Path(filename)
+        if not filepath.is_file():
             raise FileNotFoundError(f"File {filename} not found.")
+        if filepath.suffix not in cls._supported_formats:
+            raise ValueError(
+                f"Unsupported file type '{filepath.suffix}' " f"use one of {cls._supported_formats}."
+            )
         data = Table.read(filename)
 
         # Check if we have stored a global WCS.
@@ -195,13 +243,16 @@ class Results:
         else:
             wcs = None
 
-        # Check if we have a list of observed times.
-        if "mjd_mid" in data.meta:
-            mjd_mid = np.array(data.meta["mjd_mid"])
-        else:
-            mjd_mid = None
+        # Create the results object.
+        results = Results(data, track_filtered=track_filtered, wcs=wcs)
 
-        return Results(data, track_filtered=track_filtered, wcs=wcs, mjd_mid=mjd_mid)
+        # Check if we have a list of observed times.
+        if "mjd_utc_mid" in data.meta:
+            results.set_mjd_utc_mid(np.array(data.meta["mjd_utc_mid"]))
+        elif "mjd_mid" in data.meta:
+            results.set_mjd_utc_mid(np.array(data.meta["mjd_mid"]))
+
+        return results
 
     def remove_column(self, colname):
         """Remove a column from the results table.
@@ -284,6 +335,32 @@ class Results:
         ]
         return trajectories
 
+    def sort(self, colname, descending=True):
+        """Sort the results by a given column.
+
+        Parameters
+        ----------
+        colname : `str`
+            The name of the column to sort by.
+        reversdescendinge : `bool`
+            Whether to sort in descending order. By default this is true,
+            so that the highest likelihoods and num obs are the the top.
+            Default: True.
+
+        Returns
+        -------
+        self : `Results`
+            Returns a reference to itself to allow chaining.
+
+        Raises
+        ------
+        Raises a KeyError if the column is not in the data.
+        """
+        if colname not in self.table.colnames:
+            raise KeyError(f"Column {colname} not found.")
+        self.table.sort(colname, reverse=descending)
+        return self
+
     def compute_likelihood_curves(self, filter_obs=True, mask_value=0.0):
         """Create a matrix of likelihood curves where each row has a likelihood
         curve for a single trajectory.
@@ -320,7 +397,7 @@ class Results:
         if filter_obs and "obs_valid" in self.table.colnames:
             valid = valid & self.table["obs_valid"]
 
-        lh_matrix = np.full(psi.shape, mask_value)
+        lh_matrix = np.full(psi.shape, mask_value, dtype=np.float32)
         lh_matrix[valid] = psi[valid] / np.sqrt(phi[valid])
         return lh_matrix
 
@@ -396,8 +473,8 @@ class Results:
                 f"Wrong number of phi curves provided. Expected {len(self.table)} rows."
                 f" Found {len(phi_array)} rows."
             )
-        self.table["psi_curve"] = psi_array
-        self.table["phi_curve"] = phi_array
+        self.table["psi_curve"] = np.asanyarray(psi_array, dtype=np.float32)
+        self.table["phi_curve"] = np.asanyarray(phi_array, dtype=np.float32)
 
         if obs_valid is not None:
             # Make the data to match.
@@ -452,42 +529,6 @@ class Results:
         if "psi_curve" in self.colnames and "phi_curve" in self.colnames:
             self._update_likelihood()
         return self
-
-    def mask_based_on_invalid_obs(self, input_mat, mask_value):
-        """Mask the entries in a given input matrix based on the invalid observations
-        in the results. If an observation in result i, time t is invalid, then the corresponding
-        entry input_mat[i][t] will be masked. This helper function is used when computing
-        statistics on arrays of information.
-
-        The input should be N x T where N is the number of results and T is the number of time steps.
-
-        Parameters
-        ----------
-        input_mat : `numpy.ndarray`
-            An N x T input matrix.
-        mask_value : any
-            The value to subsitute into the input array.
-
-        Returns
-        -------
-        result : `numpy.ndarray`
-            An N x T output matrix where ``result[i][j]`` is ``input_mat[i][j]`` if
-            result ``i``, timestep ``j`` is valid and ``mask_value`` otherwise.
-
-        Raises
-        ------
-        Raises a ``ValueError`` if the array sizes do not match.
-        """
-        if len(input_mat) != len(self.table):
-            raise ValueError(f"Incorrect input matrix dimensions.")
-        masked_mat = np.copy(input_mat)
-
-        # If we do have validity information, use it to do the mask.
-        if "obs_valid" in self.table.colnames:
-            if input_mat.shape[1] != self.table["obs_valid"].shape[1]:
-                raise ValueError(f"Incorrect input matrix dimensions.")
-            masked_mat[~self.table["obs_valid"]] = mask_value
-        return masked_mat
 
     def is_empty_value(self, colname):
         """Create a Boolean vector indicating whether the entry in each row
@@ -657,46 +698,61 @@ class Results:
 
         return self
 
-    def write_table(self, filename, overwrite=True, cols_to_drop=(), extra_meta=None):
-        """Write the unfiltered results to a single (ecsv) file.
+    def write_table(
+        self,
+        filename,
+        overwrite=True,
+        extra_meta=None,
+    ):
+        """Write the unfiltered results to a single file.  The file format is automatically
+        determined from the file name's suffix which must be one of ".ecsv", ".parquet",
+        ".parq", or ".hdf5".  We recommend ".parquet".
 
         Parameters
         ----------
         filename : `str`
-            The name of the result file.
+            The name of the result file.  Must have a suffix matching one of ".ecsv",
+            ".parquet", ".parq", or ".hdf5".
         overwrite : `bool`
             Overwrite the file if it already exists. [default: True]
-        cols_to_drop : `tuple`
-            A tuple of columns to drop (to save space). [default: ()]
         extra_meta : `dict`, optional
             Any additional meta data to save with the table.
         """
         logger.info(f"Saving results to {filename}")
 
-        # Make a copy so we can modify the table
-        write_table = self.table.copy()
+        # Check that we are using a valid file format.
+        filepath = Path(filename)
+        if filepath.suffix not in self._supported_formats:
+            raise ValueError(
+                f"Unsupported file type '{filepath.suffix}' " f"use one of {self._supported_formats}."
+            )
 
-        # Drop the columns we need to drop.
-        for col in cols_to_drop:
-            if col in write_table.colnames:
-                if col in self._required_col_names:
-                    logger.debug(f"Unable to drop required column {col} for write.")
-                else:
-                    write_table.remove_column(col)
+        # Include optional arguments for hdf5 to avoid a warning.
+        if filepath.suffix == ".hdf5":
+            kwargs = {
+                "path": "__astropy_table__",
+                "serialize_meta": True,
+            }
+        else:
+            kwargs = {}
 
         # Add global meta data that we can retrieve.
         if self.wcs is not None:
             logger.debug("Saving WCS to Results table meta data.")
-            write_table.meta["wcs"] = serialize_wcs(self.wcs)
+            self.table.meta["wcs"] = serialize_wcs(self.wcs)
         if self.mjd_mid is not None:
-            write_table.meta["mjd_mid"] = self.mjd_mid
+            # Save different format time stamps.
+            self.table.meta["mjd_mid"] = self.mjd_mid
+            self.table.meta["mjd_utc_mid"] = self.mjd_mid
+            self.table.meta["mjd_tai_mid"] = self.mjd_tai_mid
+
         if extra_meta is not None:
             for key, val in extra_meta.items():
                 logger.debug(f"Saving {key} to Results table meta data.")
-                write_table.meta[key] = val
+                self.table.meta[key] = val
 
         # Write out the table.
-        write_table.write(filename, overwrite=overwrite)
+        self.table.write(filename, overwrite=overwrite, **kwargs)
 
     def write_column(self, colname, filename):
         """Save a single column's data as a numpy data file.

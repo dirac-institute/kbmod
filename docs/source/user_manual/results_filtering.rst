@@ -1,9 +1,28 @@
 Results Filtering
 =================
 
-The output files contain the set of all trajectories discovered by KBMOD. Many of these trajectories are false positive detections, some area already known objects and, because of the way KBMOD performs the search, some are duplicates. In the following sections we describe the various steps that remove unwanted trajectories from the set of results. These steps are applied by KBMOD in the order listed below.
+The output files contain the set of all trajectories discovered by KBMOD. Many of these trajectories are false positive detections, some are already known objects and, because of the way KBMOD performs the search, some are duplicates. In the following sections we describe the various steps that remove unwanted trajectories from the set of results. These steps are applied by KBMOD in the order listed below.
 
 The user can also define custom filters and apply additional filters. For more details see :ref:`Custom Filtering`.
+
+
+Likelihood and Obs_count Filtering
+----------------------------------
+
+The first step after the core search is to filter trajectories by their likelihoods and number of observations.  The relevant parameters are:
+
+* ``lh_level`` - The minimum likelihood for a candidate trajectory to be kept.
+* ``num_obs`` - The minimum number of non-masked observations for a candidate trajectory to be kept.
+
+
+Near Duplicate Pre-filtering
+----------------------------
+
+After the trajectories with too few observations or too small a likelihood are removed, the code then removes any near-duplicate results. Near duplicate detection uses an approximate hash table-based approach (the same as described in the "Grid Filtering" section below).  The pixel space is broken up into a grid at both the first and last time and each trajectory's indices in those grids are computed. If multiple candidates share the same starting **and** ending grid box, only the one with the highest likelihood is kept.
+
+The relevant parameters are:
+
+* ``near_dup_thresh `` - Defines the size of the grid cells (in pixels). If the user sets ``None`` or a value <= 0, the near duplicate filtering is skipped.
 
 
 Clipped SigmaG Filtering
@@ -13,12 +32,12 @@ During the light curve filtering phase, KBMOD computes the predicted positions a
 
 Relevant light curve filtering parameters include:
 
- * ``clip_negative`` - Whether to remove all negative values during filtering.
- * ``chunk_size`` - The number of candidate trajectories to filter in a batch. Used to control memory usage.
- * ``gpu_filter`` - Perform an initial round of sigmaG filtering on GPU.
- * ``lh_level`` - The minimum likelihood for a candidate trajectory.
- * ``max_lh`` - The maximum likelihood to keep.
- * ``sigmaG_lims`` - The percentiles for sigmaG filtering (default of [25, 75]).
+* ``clip_negative`` - Whether to remove all negative values during filtering.
+* ``chunk_size`` - The number of candidate trajectories to filter in a batch. Used to control memory usage.
+* ``gpu_filter`` - Perform an initial round of sigmaG filtering on GPU.
+* ``lh_level`` - The minimum likelihood for a candidate trajectory.
+* ``max_lh`` - The maximum likelihood to keep.
+* ``sigmaG_lims`` - The percentiles for sigmaG filtering (default of [25, 75]).
 
 
 Clustering
@@ -40,7 +59,7 @@ The `scikit-learn <https://scikit-learn.org/stable/>`_ ``DBSCAN`` algorithm perf
 * ``mid_position`` - Use the predicted position at the median time as coordinates for clustering.
 * ``start_end_position`` - Use the predicted positions at the start and end times as coordinates for clustering.
 
-Most of the clustering approaches rely on predicted positions at different times. For example midpoint-based clustering will encode each trajectory `(x0, y0, xv, yv)` as a 2-dimensional point `(x0 + tm * xv, y0 + tm + yv)` where `tm` is the median time. Thus trajectories only need to be close at time=`tm` to be merged into a single trajectory. In contrast the start and eng based clustering will encode the same trajectory as a 4-dimensional point (x0, y0, x0 + te * xv, y0 + te + yv)` where `te` is the last time. Thus the points will need to be close at both time=0.0 and time=`te` to be merged into a single result.
+Most of the clustering approaches rely on predicted positions at different times. For example midpoint-based clustering will encode each trajectory ``(x0, y0, xv, yv)`` as a 2-dimensional point `(x0 + tm * xv, y0 + tm + yv)` where `tm` is the median time. Thus trajectories only need to be close at time=`tm` to be merged into a single trajectory. In contrast the start and eng based clustering will encode the same trajectory as a 4-dimensional point (x0, y0, x0 + te * xv, y0 + te + yv)` where `te` is the last time. Thus the points will need to be close at both time=0.0 and time=`te` to be merged into a single result.
 
 The way DBSCAN computes distances between the trajectories depends on the encoding used. For positional encodings, such as ``position``, ``mid_position``, and ``start_end_position``, the distance is measured directly in pixels. The ``all`` encoding behaves somewhat similarly. However since it combines positions and velocities (or change in pixels per day), they are not actually in the same space.
 
@@ -51,18 +70,27 @@ For more information see the `DBSCAN page <https://scikit-learn.org/stable/modul
 
 In addition KBMOD also provides a cheap approximate clustering algorithm called ``nn_start_end``, which does not use DBSCAN. This algorithm finds the highest likelihood trajectory in a region of 4-d space (defined by the starting and ending x, y positions) and then masks all lower likelihood trajectories. The user can think of this as only returning the "best" candidate in a given parameter region.
 
-While not a true "clustering" algorithm, it is a fast way to quickly filter out similar trajectories. To use, you set ``cluster_type=nn_start_end``.
+While not a true "clustering" algorithm, it is a fast way to quickly filter out similar trajectories. To use, you set ``cluster_type=nn_start_end``. You can also perform nearest neighbor scan on only the starting points by using ``cluster_type=nn_start``.
 
 For more information see the :py:class:`kbmod.filters.clustering_filters.NNSweepFilter` class.
+
+
+**Grid Filtering**
+
+Grid filtering is a fast and approximate clustering method that can be used to filter results online. Each result trajectory is projected into a bin on a 2-d or 4-d dimensional grid based on its starting and ending position.  Specifically the ``grid_start_end`` method uses both the start and end position while the ``grid_start`` method uses only the starting position (and thus does not account for velocity).  Within each bin only the highest likelihood trajectory is retained. This is fast because we do a discrete lookup instead of a continuous distance search, but approximate because two neighboring trajectories might end up in different bins.
+
+The ``cluster_eps`` parameter controls the bin sizes. So ``cluster_eps=10`` will partition the result space into bins with 10 pixels on a side. Thus smaller values of ``cluster_eps`` will preserve more trajectories.
+
+While not a true "clustering" algorithm, it is a fast way to quickly filter out similar trajectories. To use, you set ``cluster_type= grid_start_end `` or ``cluster_type= grid_start``
 
 
 **Clustering Parameters**
 
 Relevant clustering parameters include:
 
-* ``cluster_type`` - The types of predicted values to use when determining which trajectories should be clustered together, including position, velocity, and angles  (if ``do_clustering = True``). Must be one of all, position, or mid_position.
+* ``cluster_type`` - The types of predicted values to use when determining which trajectories should be clustered together, including position, velocity, and angles  (if ``do_clustering = True``). Must be one of "all", "position", "mid_position", "start_end_position", "nn_start_end", "nn_start", "grid_start_end", or "grid_start". While "all" is used by default for consistency with earlier runs, many users will find “nn_start_end” effective and more understandable.
 * ``do_clustering`` - Cluster the resulting trajectories to remove duplicates.
-* ``cluster_eps`` - The distance threshold used by DBSCAN.
-* ``cluster_v_scale`` - The relative scale between velocity differences and positional differences in ``all`` clustering.
+* ``cluster_eps`` - The distance threshold (in pixels) used by the clustering algorithms.
+* ``cluster_v_scale`` - The relative scale between velocity differences and positional differences in ``all`` clustering.  This parameter is ignored for all other clustering types.
 
 

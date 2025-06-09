@@ -1,14 +1,10 @@
 #include "logging.h"
 
-#include "kernel_testing_helpers.h"
+#include "kernel_helpers.h"
 #include "psi_phi_array_ds.h"
 #include "psi_phi_array_utils.h"
 #include "pydocs/psi_phi_array_docs.h"
 
-// Declaration of CUDA functions that will be linked in.
-#ifdef HAVE_CUDA
-#include "kernels/kernel_memory.h"
-#endif
 
 namespace search {
 
@@ -51,28 +47,26 @@ void PsiPhiArray::clear() {
 }
 
 void PsiPhiArray::clear_from_gpu() {
+    // We only clear the data from the GPU if it is allocated there.
     if (!data_on_gpu) {
-        if ((gpu_array_ptr != nullptr) || gpu_time_array.on_gpu()) {
-            throw std::runtime_error("Inconsistent GPU flags and pointers");
+        logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
+
+        if (gpu_time_array.on_gpu()) {
+            logger->debug(stat_gpu_memory_mb());
+            logger->debug("Freeing times on GPU. " + gpu_time_array.stats_string());
+            gpu_time_array.free_gpu_memory();
         }
-        return;  // Nothing to do.
-    }
-    if ((gpu_array_ptr == nullptr) || !gpu_time_array.on_gpu()) {
-        throw std::runtime_error("Inconsistent GPU flags and pointers");
-    }
 
+        if (gpu_array_ptr != nullptr) {
+            logger->debug("Freeing PsiPhiArray on GPU: " + std::to_string(get_total_array_size()) + " bytes");
 #ifdef HAVE_CUDA
-    logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
-
-    logger->debug(stat_gpu_memory_mb());
-    logger->debug("Freeing times on GPU. " + gpu_time_array.stats_string());
-    gpu_time_array.free_gpu_memory();
-
-    logger->debug("Freeing PsiPhiArray on GPU: " + std::to_string(get_total_array_size()) + " bytes");
-    free_gpu_block(gpu_array_ptr);
-    logger->debug(stat_gpu_memory_mb());
+            free_gpu_block(gpu_array_ptr);
+#else
+            throw std::runtime_error("GPU needed to free GPU memory");
 #endif
-
+            logger->debug(stat_gpu_memory_mb());
+        }
+    }
     gpu_array_ptr = nullptr;
     data_on_gpu = false;
 }
@@ -89,24 +83,31 @@ void PsiPhiArray::move_to_gpu() {
     if (gpu_time_array.on_gpu()) std::runtime_error("GPU time already allocated.");
     assert_sizes_equal(cpu_time_array.size(), meta_data.num_times, "psi-phi number of times");
 
+    // Only put the data on the GPU if there is a GPU.
+    if (has_gpu()) {
+        data_on_gpu = true;
+        logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
+
+        // Copy the Psi/Phi. We need to use #ifdef HAVE_CUDA to avoid trying to link .cu code
+        // when building on a system without CUDA libraries.
+        logger->debug(stat_gpu_memory_mb());
 #ifdef HAVE_CUDA
-    logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
-
-    // Copy the Psi/Phi
-    logger->debug(stat_gpu_memory_mb());
-    gpu_array_ptr = allocate_gpu_block(get_total_array_size());
-    logger->debug("Allocating PsiPhiArray on GPU: " + std::to_string(get_total_array_size() / (1024 * 1024)) +
-                  " MB");
-    copy_block_to_gpu(cpu_array_ptr, gpu_array_ptr, get_total_array_size());
-
-    // Copy the GPU times.
-    gpu_time_array.resize(cpu_time_array.size());
-    logger->debug("Allocating times on GPU: " + gpu_time_array.stats_string());
-    gpu_time_array.copy_vector_to_gpu(cpu_time_array);
-    logger->debug(stat_gpu_memory_mb());
-
-    data_on_gpu = true;
+        gpu_array_ptr = allocate_gpu_block(get_total_array_size());
+        logger->debug("Allocating PsiPhiArray on GPU: " + std::to_string(get_total_array_size() / (1024 * 1024)) +
+                      " MB");
+        copy_block_to_gpu(cpu_array_ptr, gpu_array_ptr, get_total_array_size());
+#else
+        throw std::runtime_error("GPU needed to allocate GPU memory");
 #endif
+
+        // Copy the GPU times.
+        gpu_time_array.resize(cpu_time_array.size());
+        logger->debug("Allocating times on GPU: " + gpu_time_array.stats_string());
+        gpu_time_array.copy_vector_to_gpu(cpu_time_array);
+        logger->debug(stat_gpu_memory_mb());
+    } else {
+        std::runtime_error("No GPU onto which to move the PsiPhi array.");
+    }
 }
 
 void PsiPhiArray::set_meta_data(int new_num_bytes, uint64_t new_num_times, uint64_t new_height,
@@ -160,7 +161,7 @@ void PsiPhiArray::set_phi_scaling(float min_val, float max_val, float scale_val)
 
 void PsiPhiArray::set_time_array(const std::vector<double>& times) { cpu_time_array = times; }
 
-PsiPhi PsiPhiArray::read_psi_phi(uint64_t time, int row, int col) {
+PsiPhi PsiPhiArray::read_psi_phi(uint64_t time, int row, int col) const {
     PsiPhi result = {NO_DATA, NO_DATA};
 
     // Array allocation and bounds checking.
@@ -195,7 +196,7 @@ PsiPhi PsiPhiArray::read_psi_phi(uint64_t time, int row, int col) {
     return result;
 }
 
-double PsiPhiArray::read_time(uint64_t time_index) {
+double PsiPhiArray::read_time(uint64_t time_index) const {
     if (time_index >= meta_data.num_times) {
         throw std::runtime_error("Out of bounds read for time step. [" + std::to_string(time_index) + "]");
     }
@@ -207,23 +208,19 @@ double PsiPhiArray::read_time(uint64_t time_index) {
 // -------------------------------------------
 
 // Compute the min, max, and scale parameter from the a vector of image data.
-std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawImage>& imgs, int num_bytes) {
+std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<Image>& imgs, int num_bytes) {
     int num_images = imgs.size();
 
-    // Do a linear pass through the data to compute the scaling parameters for psi and phi.
+    // Do a linear pass through the all the pixels to compute the scaling parameters for psi and phi.
     float min_val = FLT_MAX;
     float max_val = -FLT_MAX;
     for (int i = 0; i < num_images; ++i) {
-        std::array<float, 2> bnds = imgs[i].compute_bounds(false);
-
-        // Check if we have hit a case where the image is effectively empty (all zero).
-        if ((bnds[0] == 0.0) && (bnds[1] == 0.0)) {
-            logging::getLogger("kbmod.search.psi_phi_array")
-                    ->debug("Image " + std::to_string(i) + " has no data.\n");
+        for (auto elem : imgs[i].reshaped()) {
+            if (pixel_value_valid(elem)) {
+                min_val = std::min(min_val, elem);
+                max_val = std::max(max_val, elem);
+            }
         }
-
-        if (bnds[0] < min_val) min_val = bnds[0];
-        if (bnds[1] > max_val) max_val = bnds[1];
     }
 
     // Set the scale if we are encoding the values.
@@ -240,8 +237,8 @@ std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawI
 }
 
 template <typename T>
-void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>& psi_imgs,
-                                  const std::vector<RawImage>& phi_imgs) {
+void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<Image>& psi_imgs,
+                                  const std::vector<Image>& phi_imgs) {
     if (data.get_cpu_array_ptr() != nullptr) {
         throw std::runtime_error("CPU PsiPhi already allocated.");
     }
@@ -265,8 +262,8 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
     for (int t = 0; t < data.get_num_times(); ++t) {
         for (int row = 0; row < data.get_height(); ++row) {
             for (int col = 0; col < data.get_width(); ++col) {
-                float psi_value = psi_imgs[t].get_pixel({row, col});
-                float phi_value = phi_imgs[t].get_pixel({row, col});
+                float psi_value = psi_imgs[t](row, col);
+                float phi_value = phi_imgs[t](row, col);
 
                 // Handle the encoding for the different values.
                 if (num_bytes == 1 || num_bytes == 2) {
@@ -285,8 +282,8 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
     data.set_cpu_array_ptr((void*)encoded);
 }
 
-void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>& psi_imgs,
-                                 const std::vector<RawImage>& phi_imgs) {
+void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<Image>& psi_imgs,
+                                 const std::vector<Image>& phi_imgs) {
     if (data.get_cpu_array_ptr() != nullptr) {
         throw std::runtime_error("CPU PsiPhi already allocated.");
     }
@@ -304,8 +301,8 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
     for (int t = 0; t < data.get_num_times(); ++t) {
         for (int row = 0; row < data.get_height(); ++row) {
             for (int col = 0; col < data.get_width(); ++col) {
-                encoded[current_index++] = psi_imgs[t].get_pixel({row, col});
-                encoded[current_index++] = phi_imgs[t].get_pixel({row, col});
+                encoded[current_index++] = psi_imgs[t](row, col);
+                encoded[current_index++] = phi_imgs[t](row, col);
             }
         }
     }
@@ -313,8 +310,8 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
     data.set_cpu_array_ptr((void*)encoded);
 }
 
-void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
-                        const std::vector<RawImage>& phi_imgs, const std::vector<double> zeroed_times) {
+void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<Image>& psi_imgs,
+                        const std::vector<Image>& phi_imgs, const std::vector<double> zeroed_times) {
     if (result_data.get_cpu_array_ptr() != nullptr) {
         return;
     }
@@ -325,8 +322,8 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
     assert_sizes_equal(phi_imgs.size(), num_times, "psi and phi arrays");
     assert_sizes_equal(phi_imgs.size(), num_times, "psi array and zeroed times");
 
-    uint64_t width = phi_imgs[0].get_width();
-    uint64_t height = phi_imgs[0].get_height();
+    uint64_t width = phi_imgs[0].cols();
+    uint64_t height = phi_imgs[0].rows();
     result_data.set_meta_data(num_bytes, num_times, height, width);
 
     if (result_data.get_num_bytes() == 1 || result_data.get_num_bytes() == 2) {
@@ -366,29 +363,40 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
     result_data.set_time_array(zeroed_times);
 }
 
-void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes) {
-    // Compute Phi and Psi from convolved images while leaving masked pixels alone
-    // Reinsert 0s for NO_DATA?
-    std::vector<RawImage> psi_images;
-    std::vector<RawImage> phi_images;
-    const uint64_t num_images = stack.img_count();
+void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_bytes,
+                                          std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
+                                          std::vector<Image>& psf_kernels,
+                                          std::vector<double>& zeroed_times) {
+    const uint64_t num_images = sci_imgs.size();
+    if (num_images == 0) {
+        throw std::runtime_error("Trying to fill PsiPhi from empty vectors.");
+    }
+    if (num_images != var_imgs.size()) {
+        throw std::runtime_error("Number of images in sci and var do not match.");
+    }
+    const uint64_t height = sci_imgs[0].rows();
+    const uint64_t width = sci_imgs[0].cols();
+    const uint64_t total_bytes = 2 * height * width * num_images * sizeof(float);
 
-    uint64_t total_bytes = 2 * stack.get_height() * stack.get_width() * num_images * sizeof(float);
     logging::getLogger("kbmod.search.psi_phi_array")
-            ->info("Building " + std::to_string(num_images * 2) + " temporary " +
-                   std::to_string(stack.get_height()) + " by " + std::to_string(stack.get_width()) +
-                   " images, requiring " + std::to_string(total_bytes) + " bytes.");
+            ->info("Building " + std::to_string(num_images * 2) + " temporary " + std::to_string(height) +
+                   " by " + std::to_string(width) + " images, requiring " + std::to_string(total_bytes) +
+                   " bytes.");
 
     // Build the psi and phi images first.
+    std::vector<Image> psi_images;
+    std::vector<Image> phi_images;
     for (uint64_t i = 0; i < num_images; ++i) {
-        LayeredImage& img = stack.get_single_image(i);
-        psi_images.push_back(img.generate_psi_image());
-        phi_images.push_back(img.generate_phi_image());
+        Image& sci = sci_imgs[i];
+        Image& var = var_imgs[i];
+        Image& psf = psf_kernels[i];
+
+        psi_images.push_back(generate_psi(sci, var, psf));
+        phi_images.push_back(generate_phi(var, psf));
     }
 
     // Convert these into an array form. Needs the full psi and phi computed first so the
     // encoding can compute the bounds of each array.
-    std::vector<double> zeroed_times = stack.build_zeroed_times();
     fill_psi_phi_array(result_data, num_bytes, psi_images, phi_images, zeroed_times);
 }
 
@@ -444,8 +452,8 @@ static void psi_phi_array_binding(py::module& m) {
     m.def("decode_uint_scalar", &search::decode_uint_scalar);
     m.def("encode_uint_scalar", &search::encode_uint_scalar);
     m.def("fill_psi_phi_array", &search::fill_psi_phi_array, pydocs::DOC_PsiPhiArray_fill_psi_phi_array);
-    m.def("fill_psi_phi_array_from_image_stack", &search::fill_psi_phi_array_from_image_stack,
-          pydocs::DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack);
+    m.def("fill_psi_phi_array_from_image_arrays", &search::fill_psi_phi_array_from_image_arrays,
+          pydocs::DOC_PsiPhiArray_fill_psi_phi_array_from_image_arrays);
 }
 #endif
 

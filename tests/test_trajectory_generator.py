@@ -124,9 +124,15 @@ class test_trajectory_generator(unittest.TestCase):
             self.assertAlmostEqual(tbl["vy"][i], expected_y[i], delta=0.001)
 
         # Test invalid number of steps and ranges.
-        self.assertRaises(ValueError, EclipticCenteredSearch, [0.0, 3.0, 3], [-0.25, 0.25, 0])
-        self.assertRaises(ValueError, EclipticCenteredSearch, [0.0, 3.0, 0], [-0.25, 0.25, 2])
-        self.assertRaises(ValueError, EclipticCenteredSearch, [3.5, 3.0, 3], [-0.25, 0.25, 2])
+        self.assertRaises(
+            ValueError, EclipticCenteredSearch, [0.0, 3.0, 3], [-0.25, 0.25, 0], given_ecliptic=0.0
+        )
+        self.assertRaises(
+            ValueError, EclipticCenteredSearch, [0.0, 3.0, 0], [-0.25, 0.25, 2], given_ecliptic=0.0
+        )
+        self.assertRaises(
+            ValueError, EclipticCenteredSearch, [3.5, 3.0, 3], [-0.25, 0.25, 2], given_ecliptic=0.0
+        )
 
     def test_KBMODV1SearchConfig(self):
         # Note that KBMOD v1's search will never include the upper bound of angle or velocity.
@@ -197,7 +203,7 @@ class test_trajectory_generator(unittest.TestCase):
 
         fake_data = FakeDataSet(10, 10, [0.0])
         base_config = SearchConfiguration()
-        fake_work = WorkUnit(im_stack=fake_data.stack, config=base_config, wcs=fake_wcs)
+        fake_work = WorkUnit(im_stack=fake_data.stack_py, config=base_config, wcs=fake_wcs)
         fake_ecliptic = fake_work.compute_ecliptic_angle()
         self.assertGreater(fake_ecliptic, 1.0)
 

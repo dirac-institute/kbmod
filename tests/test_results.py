@@ -5,7 +5,6 @@ import tempfile
 import unittest
 
 from astropy.table import Table
-import os.path as ospath
 from pathlib import Path
 
 from kbmod.results import Results
@@ -24,11 +23,20 @@ class test_results(unittest.TestCase):
             "flux": [],
             "likelihood": [],
             "obs_count": [],
+            "uuid": [],
         }
         self.trj_list = []
 
         for i in range(self.num_entries):
-            trj = Trajectory(x=i, y=i + 0, vx=i - 2.0, vy=i + 5.0, flux=5.0 * i, lh=100.0 + i, obs_count=i)
+            trj = Trajectory(
+                x=i,
+                y=i + 0,
+                vx=i - 2.0,
+                vy=i + 5.0,
+                flux=5.0 * i,
+                lh=100.0 + i,
+                obs_count=i,
+            )
             self.trj_list.append(trj)
             self.input_dict["x"].append(trj.x)
             self.input_dict["y"].append(trj.y)
@@ -37,6 +45,7 @@ class test_results(unittest.TestCase):
             self.input_dict["flux"].append(trj.flux)
             self.input_dict["likelihood"].append(trj.lh)
             self.input_dict["obs_count"].append(trj.obs_count)
+            self.input_dict["uuid"].append("none")
 
     def _assert_results_match_dict(self, results, test_dict):
         # Check that the shape of the results are the same.
@@ -44,16 +53,27 @@ class test_results(unittest.TestCase):
         self.assertEqual(set(results.colnames), set(test_dict.keys()))
 
         for col in results.colnames:
-            for i in range(len(results)):
-                self.assertEqual(results[col][i], test_dict[col][i])
+            # Check that all columns match except UUID, which is dynamically assigned.
+            if col != "uuid":
+                for i in range(len(results)):
+                    self.assertEqual(results[col][i], test_dict[col][i])
 
     def test_empty(self):
         table = Results()
         self.assertEqual(len(table), 0)
-        self.assertEqual(len(table.colnames), 7)
+        self.assertEqual(len(table.colnames), 8)
         self.assertEqual(table.get_num_times(), 0)
         self.assertIsNone(table.wcs)
         self.assertIsNone(table.mjd_mid)
+
+        self.assertTrue("x" in table.colnames)
+        self.assertTrue("y" in table.colnames)
+        self.assertTrue("vx" in table.colnames)
+        self.assertTrue("vy" in table.colnames)
+        self.assertTrue("flux" in table.colnames)
+        self.assertTrue("likelihood" in table.colnames)
+        self.assertTrue("obs_count" in table.colnames)
+        self.assertTrue("uuid" in table.colnames)
 
         # Check that we don't crash on updating the likelihoods.
         table._update_likelihood()
@@ -61,10 +81,22 @@ class test_results(unittest.TestCase):
     def test_from_trajectories(self):
         table = Results.from_trajectories(self.trj_list)
         self.assertEqual(len(table), self.num_entries)
-        self.assertEqual(len(table.colnames), 7)
+        self.assertEqual(len(table.colnames), 8)
         self.assertIsNone(table.wcs)
         self.assertIsNone(table.mjd_mid)
+
+        self.assertTrue("x" in table.colnames)
+        self.assertTrue("y" in table.colnames)
+        self.assertTrue("vx" in table.colnames)
+        self.assertTrue("vy" in table.colnames)
+        self.assertTrue("flux" in table.colnames)
+        self.assertTrue("likelihood" in table.colnames)
+        self.assertTrue("obs_count" in table.colnames)
+        self.assertTrue("uuid" in table.colnames)
         self._assert_results_match_dict(table, self.input_dict)
+
+        # Test that we automatically generate unique ids.
+        self.assertEqual(len(np.unique(table["uuid"])), len(table))
 
     def test_from_dict(self):
         self.input_dict["something_added"] = [i for i in range(self.num_entries)]
@@ -95,6 +127,9 @@ class test_results(unittest.TestCase):
     def test_copy(self):
         table1 = Results(self.input_dict)
         table2 = table1.copy()
+
+        # Check that the UUID column matches.
+        self.assertTrue(np.array_equal(table1["uuid"], table2["uuid"]))
 
         # Add a new column to table2 and check that it is not in table1
         # (i.e. we have done a deep copy).
@@ -156,6 +191,33 @@ class test_results(unittest.TestCase):
         self.assertEqual(len(table1), len(table4))
         for i in range(self.num_entries):
             self.assertEqual(table1["x"][i], i)
+
+    def test_sort(self):
+        trj_list = [
+            Trajectory(x=0, y=0, vx=0, vy=0, lh=100.0, obs_count=10),
+            Trajectory(x=1, y=1, vx=0, vy=0, lh=110.0, obs_count=9),
+            Trajectory(x=2, y=2, vx=0, vy=0, lh=90.0, obs_count=8),
+            Trajectory(x=3, y=3, vx=0, vy=0, lh=120.0, obs_count=11),
+            Trajectory(x=4, y=4, vx=0, vy=0, lh=80.0, obs_count=15),
+            Trajectory(x=5, y=5, vx=0, vy=0, lh=85.0, obs_count=12),
+            Trajectory(x=6, y=6, vx=0, vy=0, lh=75.0, obs_count=5),
+            Trajectory(x=7, y=7, vx=0, vy=0, lh=125.0, obs_count=14),
+        ]
+        table = Results.from_trajectories(trj_list)
+        self.assertTrue(np.array_equal(table["x"], [0, 1, 2, 3, 4, 5, 6, 7]))
+        self.assertTrue(np.array_equal(table["y"], [0, 1, 2, 3, 4, 5, 6, 7]))
+
+        table.sort("likelihood")
+        self.assertTrue(np.array_equal(table["x"], [7, 3, 1, 0, 2, 5, 4, 6]))
+        self.assertTrue(np.array_equal(table["y"], [7, 3, 1, 0, 2, 5, 4, 6]))
+
+        table.sort("obs_count")
+        self.assertTrue(np.array_equal(table["x"], [4, 7, 5, 3, 0, 1, 2, 6]))
+        self.assertTrue(np.array_equal(table["y"], [4, 7, 5, 3, 0, 1, 2, 6]))
+
+        table.sort("x", descending=False)
+        self.assertTrue(np.array_equal(table["x"], [0, 1, 2, 3, 4, 5, 6, 7]))
+        self.assertTrue(np.array_equal(table["y"], [0, 1, 2, 3, 4, 5, 6, 7]))
 
     def test_add_psi_phi(self):
         num_to_use = 3
@@ -446,7 +508,7 @@ class test_results(unittest.TestCase):
         table.wcs = fake_wcs
 
         # Add fake times.
-        table.mjd_mid = np.array([1, 2, 3, 4, 5])
+        table.mjd_mid = 59000.0 + np.array([1, 2, 3, 4, 5])
 
         # Test read/write to file.
         with tempfile.TemporaryDirectory() as dir_name:
@@ -469,28 +531,77 @@ class test_results(unittest.TestCase):
 
             # Cannot overwrite with it set to False
             with self.assertRaises(OSError):
-                table.write_table(file_path, overwrite=False, cols_to_drop=["other"])
+                table.write_table(file_path, overwrite=False)
 
             # We can overwrite with droped columns and additional meta data.
             table.write_table(
                 file_path,
                 overwrite=True,
-                cols_to_drop=["other"],
                 extra_meta={"other": 100.0},
             )
 
             table3 = Results.read_table(file_path)
             self.assertEqual(len(table2), max_save)
 
-            # We only dropped the table from the save file.
-            self.assertFalse("other" in table3.colnames)
-            self.assertTrue("other" in table.colnames)
-
             # We saved the additional meta data, including the WCS.
-            self.assertTrue(np.array_equal(table3.table.meta["mjd_mid"], [1, 2, 3, 4, 5]))
+            self.assertTrue(np.array_equal(table3.table.meta["mjd_mid"], table.mjd_mid))
             self.assertEqual(table3.table.meta["other"], 100.0)
             self.assertIsNotNone(table3.wcs)
             self.assertTrue(wcs_fits_equal(table3.wcs, fake_wcs))
+
+    def test_to_from_table_file_empty(self):
+        table = Results()
+        self.assertEqual(len(table), 0)
+
+        # Create a fake WCS to use for serialization tests.
+        fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
+        table.wcs = fake_wcs
+
+        # Add fake times.
+        table.mjd_mid = 59000.0 + np.array([1, 2, 3, 4, 5])
+
+        # Test read/write to file.
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "results.ecsv")
+            table.write_table(file_path)
+            self.assertTrue(Path(file_path).is_file())
+
+            table2 = Results.read_table(file_path)
+            self.assertEqual(len(table2), 0)
+
+    def test_to_from_table_file_formats(self):
+        max_save = 5
+        table = Results.from_trajectories(self.trj_list[0:max_save], track_filtered=True)
+        table.table["other"] = [i for i in range(max_save)]
+        self.assertEqual(len(table), max_save)
+
+        # Create a fake WCS to use for serialization tests.
+        fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
+        table.wcs = fake_wcs
+
+        # Add fake times.
+        table.mjd_mid = 59000.0 + np.array([1, 2, 3, 4, 5])
+
+        # Test read/write to file.
+        with tempfile.TemporaryDirectory() as dir_name:
+            for fmt in ["ecsv", "parq", "parquet", "hdf5"]:
+                with self.subTest(fmt_used=fmt):
+                    file_path = os.path.join(dir_name, f"results.{fmt}")
+                    table.write_table(file_path)
+                    self.assertTrue(Path(file_path).is_file())
+
+                    table2 = Results.read_table(file_path)
+                    self.assertEqual(len(table2), max_save)
+
+                    # Check that we saved the additional meta data, including the WCS.
+                    self.assertTrue(np.array_equal(table2.table.meta["mjd_mid"], table.mjd_mid))
+                    self.assertIsNotNone(table2.wcs)
+                    self.assertTrue(wcs_fits_equal(table2.wcs, fake_wcs))
+
+            # Check that we fail when using an unsupported file type.
+            with self.assertRaises(ValueError):
+                file_path = os.path.join(dir_name, f"results.fits")
+                table.write_table(file_path)
 
     def test_write_and_load_column(self):
         table = Results.from_trajectories(self.trj_list)
@@ -556,36 +667,6 @@ class test_results(unittest.TestCase):
             self.assertEqual(data[1][1], "2")
             self.assertEqual(data[2][0], "filter2")
             self.assertEqual(data[2][1], "3")
-
-    def test_mask_based_on_invalid_obs(self):
-        num_times = 5
-        mjds = np.array([i for i in range(num_times)])
-
-        num_results = 6
-        trj_all = [Trajectory(x=i) for i in range(num_results)]
-        table = Results.from_trajectories(trj_all)
-        self.assertEqual(len(table), num_results)
-
-        obs_valid = np.array(
-            [
-                [True, True, True, False, True],
-                [True, True, True, True, False],
-                [False, False, True, True, True],
-                [False, True, True, True, False],
-                [True, False, False, False, True],
-                [False, False, True, False, False],
-            ]
-        )
-        table.update_obs_valid(obs_valid)
-
-        data_mat = np.full((num_results, num_times), 1.0)
-        masked_mat = table.mask_based_on_invalid_obs(data_mat, -1.0)
-        for r in range(num_results):
-            for c in range(num_times):
-                if obs_valid[r][c]:
-                    self.assertEqual(masked_mat[r][c], 1.0)
-                else:
-                    self.assertEqual(masked_mat[r][c], -1.0)
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ static const auto DOC_get_gpu_total_memory = R"doc(
 static const auto DOC_stat_gpu_memory_mb = R"doc(
   Create a minimal GPU stats string for debugging.
   )doc";
-    
+
 static const auto DOC_validate_gpu = R"doc(
   Check that a GPU is present, accessible, and has sufficient memory.
 

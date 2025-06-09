@@ -20,7 +20,12 @@ class test_search(unittest.TestCase):
         for _ in range(self.num_objs):
             self.fake_ds.insert_random_object(500)
 
-        self.search = StackSearch(self.fake_ds.stack)
+        self.search = StackSearch(
+            self.fake_ds.stack_py.sci,
+            self.fake_ds.stack_py.var,
+            self.fake_ds.stack_py.psfs,
+            self.fake_ds.stack_py.zeroed_times,
+        )
         self.fake_trjs = self.fake_ds.trajectories
 
     def test_set_get_results(self):
@@ -55,24 +60,54 @@ class test_search(unittest.TestCase):
         # Check invalid settings
         self.assertRaises(RuntimeError, self.search.get_results, 0, 0)
 
+        # Check that we can clear the results.
+        self.search.clear_results()
+        self.assertEqual(len(self.search.get_all_results()), 0)
+
     def test_psi_phi_curves(self):
-        psi_curves = np.array(self.search.get_psi_curves(self.fake_trjs))
+        psi_phi_curves = self.search.get_all_psi_phi_curves(self.fake_trjs)
+        psi_curves = psi_phi_curves[:, : self.num_times]
         self.assertEqual(psi_curves.shape[0], self.num_objs)
         self.assertEqual(psi_curves.shape[1], self.num_times)
         self.assertTrue(np.all(psi_curves > 0.0))
 
-        phi_curves = np.array(self.search.get_phi_curves(self.fake_trjs))
+        phi_curves = psi_phi_curves[:, self.num_times :]
         self.assertEqual(phi_curves.shape[0], self.num_objs)
         self.assertEqual(phi_curves.shape[1], self.num_times)
         self.assertTrue(np.all(phi_curves > 0.0))
 
-        # Check that the batch getters give the same results as the iterative ones.
-        for i in range(self.num_objs):
-            current_psi = self.search.get_psi_curves(self.fake_trjs[i])
-            self.assertTrue(np.allclose(psi_curves[i], current_psi))
+    def test_psi_phi_curves_known(self):
+        height = 5
+        width = 4
+        num_times = 5
 
-            current_phi = self.search.get_phi_curves(self.fake_trjs[i])
-            self.assertTrue(np.allclose(phi_curves[i], current_phi))
+        times = np.arange(num_times, dtype=np.float32)
+        sci_imgs = []
+        var_imgs = []
+        psf = []
+        expected_psi = []
+        expected_phi = []
+
+        for i in range(num_times):
+            sci_imgs.append(np.full((height, width), float(i), dtype=np.float32))
+            var_imgs.append(np.full((height, width), 0.1, dtype=np.float32))
+            psf.append(np.array([[1.0]], dtype=np.float32))  # no-op PSF
+
+            expected_psi.append(float(i) / 0.1)
+            expected_phi.append(1.0 / 0.1)
+
+        search = StackSearch(
+            sci_imgs,
+            var_imgs,
+            psf,
+            times - times[0],  # zeroed times
+        )
+
+        trj = Trajectory(x=2, y=2, vx=0.0, vy=0.0)
+        psi_phi = search.get_all_psi_phi_curves([trj])
+        self.assertEqual(psi_phi.shape, (1, 2 * num_times))
+        self.assertTrue(np.allclose(psi_phi[0, :num_times], expected_psi))
+        self.assertTrue(np.allclose(psi_phi[0, num_times:], expected_phi))
 
     def test_load_and_filter_results_lh(self):
         time_list = [i / self.num_times for i in range(self.num_times)]
@@ -82,13 +117,12 @@ class test_search(unittest.TestCase):
             time_list,
             noise_level=1.0,
             psf_val=0.5,
-            use_seed=True,
+            use_seed=101,
         )
 
-        # Create fake result trajectories with given initial likelihoods. The 1st is
-        # filtered by max likelihood. The two final ones are filtered by min likelihood.
+        # Create fake result trajectories with given initial likelihoods. The two final ones
+        # are filtered by min likelihood.
         trjs = [
-            Trajectory(10, 10, 0, 0, 500.0, 9000.0, self.num_times),
             Trajectory(20, 20, 0, 0, 110.0, 110.0, self.num_times),
             Trajectory(30, 30, 0, 0, 100.0, 100.0, self.num_times),
             Trajectory(40, 40, 0, 0, 50.0, 50.0, self.num_times),
@@ -102,7 +136,12 @@ class test_search(unittest.TestCase):
             fake_ds.insert_object(trj)
 
         # Create the stack search and insert the fake results.
-        search = StackSearch(fake_ds.stack)
+        search = StackSearch(
+            fake_ds.stack_py.sci,
+            fake_ds.stack_py.var,
+            fake_ds.stack_py.psfs,
+            fake_ds.stack_py.zeroed_times,
+        )
         search.set_results(trjs)
 
         # Do the loading and filtering.
@@ -111,7 +150,7 @@ class test_search(unittest.TestCase):
             "clip_negative": False,
             "chunk_size": 500000,
             "lh_level": 10.0,
-            "max_lh": 1000.0,
+            "near_dup_thresh": None,  # Test trajectories are intentionally close
             "num_cores": 1,
             "num_obs": 5,
             "sigmaG_lims": [25, 75],

@@ -27,7 +27,7 @@ def is_interactive():
     mode : `bool`
         `True` when in interactive mode.
     """
-    global KBM_INTERACTIVE_MODE
+    global KB_INTERACTIVE_MODE
     return KB_INTERACTIVE_MODE
 
 
@@ -86,13 +86,12 @@ for name in _logging.root.manager.loggerDict:
 
 
 from . import (  # noqa: F401
-    analysis,
     filters,
     results,
     run_search,
     util_functions,
 )
 
-from .search import PSF, RawImage, LayeredImage, ImageStack, StackSearch
+from .search import StackSearch
 from .standardizers import Standardizer, StandardizerConfig
 from .image_collection import ImageCollection

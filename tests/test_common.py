@@ -1,15 +1,16 @@
 import math
 import numpy as np
 import unittest
+import warnings
 
-from kbmod.search import HAS_GPU, Trajectory, pixel_value_valid
+from kbmod.search import kb_has_gpu, Trajectory, pixel_value_valid
 
 
 class test_common(unittest.TestCase):
-    @unittest.skipIf(HAS_GPU, "Skipping test (GPU detected)")
+    @unittest.skipIf(kb_has_gpu(), "Skipping test (GPU detected)")
     def test_warning_no_GPU(self):
         """Throw a loud warning if you are running tests without GPU."""
-        print("\n\n*** WARNING: SKIPPING GPU TESTS ***\n\n")
+        warnings.warn("\n\n*** WARNING: SKIPPING GPU TESTS ***\n\n")
 
     def test_pixel_value_valid(self):
         self.assertTrue(pixel_value_valid(1.0))
@@ -82,22 +83,6 @@ class test_common(unittest.TestCase):
         self.assertEqual(trj.get_y_index(0.0), 10)
         self.assertEqual(trj.get_x_index(1.0), 7)
         self.assertEqual(trj.get_y_index(1.0), 9)
-
-    def test_trajectory_is_close(self):
-        trj = Trajectory(x=5, y=10, vx=2.0, vy=-1.0)
-
-        trj2 = Trajectory(x=5, y=10, vx=2.0, vy=-1.0)
-        self.assertTrue(trj.is_close(trj2, 1e-6, 1e-6))
-
-        trj3 = Trajectory(x=6, y=9, vx=2.1, vy=-1.1)
-        self.assertFalse(trj.is_close(trj3, 0.01, 0.01))
-        self.assertFalse(trj.is_close(trj3, 1.0, 0.01))
-        self.assertFalse(trj.is_close(trj3, 10.0, 0.01))
-        self.assertTrue(trj.is_close(trj3, 2.0, 0.5))
-
-        trj3 = Trajectory(x=5, y=10, vx=2.01, vy=-0.99)
-        self.assertFalse(trj.is_close(trj3, 0.0001, 0.0001))
-        self.assertTrue(trj.is_close(trj3, 0.0001, 0.02))
 
 
 if __name__ == "__main__":

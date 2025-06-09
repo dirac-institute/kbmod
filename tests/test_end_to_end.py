@@ -5,31 +5,26 @@
 import os
 import tempfile
 import unittest
+import warnings
 
-from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.demo_helper import make_demo_data
 from kbmod.run_search import SearchRunner
-from kbmod.search import HAS_GPU
+from kbmod.search import kb_has_gpu
 from kbmod.work_unit import WorkUnit
 
 
-# this is the first test to actually test things like get_all_stamps from
-# analysis utils. For now stamps have to be RawImages (because methods like
-# convolve are defined to work on RawImage and not as funciton)
-# so it makes sense to duplicate all this functionality to return np arrays
-# (instead of RawImages), but hopefully we can deduplicate all this by making
-# these operations into functions and calling on the .image attribute
-# apply_stamp_filter for example is literal copy of the C++ code in RawImage?
 class test_end_to_end(unittest.TestCase):
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_demo_defaults(self):
         with tempfile.TemporaryDirectory() as dir_name:
             # Create a fake data file.
             filename = os.path.join(dir_name, "test_workunit1.fits")
             make_demo_data(filename)
 
-            # Load the WorkUnit.
-            input_data = WorkUnit.from_fits(filename)
+            # Load the WorkUnit. Ignore the warning about invalid WCS.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                input_data = WorkUnit.from_fits(filename, show_progress=False)
             input_data.config.set("coadds", ["mean"])
 
             rs = SearchRunner()
@@ -40,15 +35,17 @@ class test_end_to_end(unittest.TestCase):
             self.assertEqual(keep["stamp"][0].shape, (21, 21))
             self.assertEqual(keep["coadd_mean"][0].shape, (21, 21))
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_demo_stamp_size(self):
         with tempfile.TemporaryDirectory() as dir_name:
             # Create a fake data file.
             filename = os.path.join(dir_name, "test_workunit2.fits")
             make_demo_data(filename)
 
-            # Load the WorkUnit.
-            input_data = WorkUnit.from_fits(filename)
+            # Load the WorkUnit. Ignore the warning about invalid WCS.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                input_data = WorkUnit.from_fits(filename, show_progress=False)
 
             # Override the stamp settings of the configuration
             input_data.config.set("stamp_radius", 15)
@@ -68,6 +65,29 @@ class test_end_to_end(unittest.TestCase):
             self.assertIsNotNone(keep["all_stamps"][0])
             for s in keep["all_stamps"][0]:
                 self.assertEqual(s.shape, (31, 31))
+
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
+    def test_demo_output_files(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            # Create a fake data file.
+            filename = os.path.join(dir_name, "test_workunit3.fits")
+            make_demo_data(filename)
+
+            # Load the WorkUnit. Ignore the warning about invalid WCS.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                input_data = WorkUnit.from_fits(filename, show_progress=False)
+            input_data.config.set("result_filename", os.path.join(dir_name, "demo_res.ecsv"))
+            input_data.config.set("save_config", True)
+
+            rs = SearchRunner()
+            keep = rs.run_search_from_work_unit(input_data)
+            self.assertGreaterEqual(len(keep), 1)
+
+            self.assertTrue(os.path.exists(os.path.join(dir_name, "demo_res.ecsv")))
+            self.assertTrue(
+                os.path.exists(os.path.join(dir_name, "demo_res_provenance/demo_res_config.yaml"))
+            )
 
 
 if __name__ == "__main__":

@@ -187,9 +187,9 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array = R"doc(
     num_bytes : `int`
         The type of encoding to use (1, 2, or 4).
     psi_imgs : `list`
-        A list of psi images.
+        A list of psi images as numpy arrays.
     phi_imgs : `list`
-        A list of phi images.
+        A list of phi images as numpy arrays.
     zeroed_times : `list`
         A list of floating point times starting at zero.
 
@@ -198,8 +198,8 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array = R"doc(
     Raises a `RuntimeError` if invalid values are found in the psi or phi arrays.
   )doc";
 
-static const auto DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack = R"doc(
-    Fill the PsiPhiArray an ImageStack.
+static const auto DOC_PsiPhiArray_fill_psi_phi_array_from_image_arrays = R"doc(
+    Fill the PsiPhiArray from arrays of the image data.
 
     Parameters
     ----------
@@ -207,8 +207,14 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack = R"doc(
         The location to store the data.
     num_bytes : `int`
         The type of encoding to use (1, 2, or 4).
-    stack : `ImageStack`
-        The stack of LayeredImages from which to build the psi and phi images.
+    sci_imgs : `list`
+        A list of science images as numpy arrays.
+    var_imgs : `list`
+        A list of variance images as numpy arrays.
+    psf_kernels : `list`
+        A list of PSF kernels as numpy arrays.
+    zeroed_times : `list`
+        A list of floating point times starting at zero.
 
     Raises
     ------

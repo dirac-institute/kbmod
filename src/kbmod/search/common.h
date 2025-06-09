@@ -10,9 +10,15 @@
 
 namespace search {
 #ifdef HAVE_CUDA
-constexpr bool HAVE_GPU = true;
+constexpr bool HAVE_CUDA_LIB = true;
 #else
-constexpr bool HAVE_GPU = false;
+constexpr bool HAVE_CUDA_LIB = false;
+#endif
+
+#ifdef HAVE_OPENMP
+constexpr bool HAVE_OMP = true;
+#else
+constexpr bool HAVE_OMP = false;
 #endif
 
 constexpr unsigned int MAX_KERNEL_RADIUS = 15;
@@ -71,12 +77,6 @@ struct Trajectory {
 
     inline int get_x_index(double time) const { return (int)floor(get_x_pos(time, true)); }
     inline int get_y_index(double time) const { return (int)floor(get_y_pos(time, true)); }
-
-    // A helper function to test if two trajectories are close in pixel space.
-    bool is_close(Trajectory &trj_b, float pos_thresh, float vel_thresh) {
-        return ((abs(x - trj_b.x) <= pos_thresh) && (abs(y - trj_b.y) <= pos_thresh) &&
-                (fabs(vx - trj_b.vx) <= vel_thresh) && (fabs(vy - trj_b.vy) <= vel_thresh));
-    }
 
     const std::string to_string() const {
         return "lh: " + std::to_string(lh) + " flux: " + std::to_string(flux) + " x: " + std::to_string(x) +
@@ -143,15 +143,6 @@ struct SearchParameters {
     }
 };
 
-struct StampParameters {
-    int radius = 10;
-    StampType stamp_type = STAMP_SUM;
-
-    const std::string to_string() const {
-        return ("Type: " + std::to_string(stamp_type) + "  Radius: " + std::to_string(radius));
-    }
-};
-
 #ifdef Py_PYTHON_H
 static void trajectory_bindings(py::module &m) {
     using tj = Trajectory;
@@ -172,7 +163,6 @@ static void trajectory_bindings(py::module &m) {
                  pydocs::DOC_Trajectory_get_y_pos)
             .def("get_x_index", &tj::get_x_index, pydocs::DOC_Trajectory_get_x_index)
             .def("get_y_index", &tj::get_y_index, pydocs::DOC_Trajectory_get_y_index)
-            .def("is_close", &tj::is_close, pydocs::DOC_Trajectory_is_close)
             .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
             .def("__str__", &tj::to_string)
             .def(py::pickle(
@@ -188,12 +178,22 @@ static void trajectory_bindings(py::module &m) {
                     }));
 }
 
-static void stamp_parameters_bindings(py::module &m) {
-    py::class_<StampParameters>(m, "StampParameters", pydocs::DOC_StampParameters)
+static void search_parameters_bindings(py::module &m) {
+    py::class_<SearchParameters>(m, "SearchParameters")
             .def(py::init<>())
-            .def("__str__", &StampParameters::to_string)
-            .def_readwrite("radius", &StampParameters::radius)
-            .def_readwrite("stamp_type", &StampParameters::stamp_type);
+            .def("__str__", &SearchParameters::to_string)
+            .def_readwrite("min_observations", &SearchParameters::min_observations)
+            .def_readwrite("min_lh", &SearchParameters::min_lh)
+            .def_readwrite("do_sigmag_filter", &SearchParameters::do_sigmag_filter)
+            .def_readwrite("sgl_L", &SearchParameters::sgl_L)
+            .def_readwrite("sgl_H", &SearchParameters::sgl_H)
+            .def_readwrite("sigmag_coeff", &SearchParameters::sigmag_coeff)
+            .def_readwrite("encode_num_bytes", &SearchParameters::encode_num_bytes)
+            .def_readwrite("x_start_min", &SearchParameters::x_start_min)
+            .def_readwrite("x_start_max", &SearchParameters::x_start_max)
+            .def_readwrite("y_start_min", &SearchParameters::y_start_min)
+            .def_readwrite("y_start_max", &SearchParameters::y_start_max)
+            .def_readwrite("results_per_pixel", &SearchParameters::results_per_pixel);
 }
 
 #endif /* Py_PYTHON_H */

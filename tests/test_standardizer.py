@@ -8,11 +8,11 @@ from astropy.time import Time
 import numpy as np
 
 from utils import DECamImdiffFactory
-from kbmod import PSF, Standardizer, StandardizerConfig
+from kbmod import Standardizer, StandardizerConfig
+from kbmod.core.psf import PSF
 from kbmod.standardizers import (
     KBMODV1,
     KBMODV1Config,
-    FitsStandardizer,
 )
 
 
@@ -323,28 +323,20 @@ class TestKBMODV1(unittest.TestCase):
         std = Standardizer.get(self.fits, force=KBMODV1)
 
         psf = next(std.standardizePSF())
-        self.assertIsInstance(psf, PSF)
-        self.assertEqual(psf.get_std(), std.config["psf_std"])
+        self.assertTrue(np.allclose(psf, PSF.make_gaussian_kernel(std.config["psf_std"])))
 
         std.config["psf_std"] = 2
         psf = next(std.standardizePSF())
-        self.assertIsInstance(psf, PSF)
-        self.assertEqual(psf.get_std(), std.config["psf_std"])
+        self.assertTrue(np.allclose(psf, PSF.make_gaussian_kernel(std.config["psf_std"])))
 
         # make sure we didn't override any of the global defaults by accident
         std2 = Standardizer.get(self.fits, force=KBMODV1)
         self.assertNotEqual(std2.config, std.config)
 
-        # Test iterable PSF STD configuration
-        std2.config["psf_std"] = [
-            3,
-        ]
-        psf = next(std2.standardizePSF())
-        self.assertEqual(psf.get_std(), std2.config["psf_std"][0])
-
     def test_to_layered_image(self):
-        """Test that KBMODV1 standardizer can create LayeredImages."""
-        std = Standardizer.get(self.fits, force=KBMODV1)
+        """Test that KBMODV1 standardizer can create LayeredImagePys."""
+        conf = KBMODV1Config({"greedy_export": True})
+        std = Standardizer.get(self.fits, force=KBMODV1, config=conf)
         self.assertIsInstance(std, KBMODV1)
 
         # Get the expected FITS files and extract the MJD from the header
@@ -358,12 +350,38 @@ class TestKBMODV1(unittest.TestCase):
         img = layered_imgs[0]
 
         # Compare standardized images
-        np.testing.assert_equal(self.fits["IMAGE"].data, img.get_science().image)
-        np.testing.assert_equal(self.fits["VARIANCE"].data, img.get_variance().image)
-        np.testing.assert_equal(self.fits["MASK"].data, img.get_mask().image)
+        np.testing.assert_equal(self.fits["IMAGE"].data, img.sci)
+        np.testing.assert_equal(self.fits["VARIANCE"].data, img.var)
+        np.testing.assert_equal(self.fits["MASK"].data, img.mask)
 
         # Test that we correctly set metadata
-        self.assertEqual(expected_mjd, img.get_obstime())
+        self.assertEqual(expected_mjd, img.time)
+
+    def test_to_layered_image_no_greedy(self):
+        """Test that KBMODV1 standardizer can create LayeredImagePys. Explicitly
+        setting `greedy_export` to False, which is the default."""
+        conf = KBMODV1Config({"greedy_export": False})
+        std = Standardizer.get(self.fits, force=KBMODV1, config=conf)
+        self.assertIsInstance(std, KBMODV1)
+
+        # Get the expected FITS files and extract the MJD from the header
+        hdr = self.fits["PRIMARY"].header
+        offset_to_mid = (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0
+        expected_mjd = Time(hdr["DATE-AVG"], format="isot").mjd + offset_to_mid
+
+        # Get list of layered images from the standardizer
+        layered_imgs = std.toLayeredImage()
+        self.assertEqual(1, len(layered_imgs))
+        img = layered_imgs[0]
+
+        # Assert that "IMAGE" data is None, but we do not check VARIANCE or MASK,
+        # because in the KBMODV1 standardizer, those are not set to None considered
+        # processable. See the definition of `self.processable` in the __init__
+        # method of KBMODV1.
+        self.assertIsNone(self.fits["IMAGE"].data)
+
+        # Test that we correctly set metadata
+        self.assertEqual(expected_mjd, img.time)
 
 
 if __name__ == "__main__":

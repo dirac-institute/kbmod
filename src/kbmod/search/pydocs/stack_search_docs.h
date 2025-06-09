@@ -1,11 +1,37 @@
 #ifndef STACKSEARCH_DOCS
-#define STACHSEARCH_DOCS
+#define STACKSEARCH_DOCS
 
 namespace pydocs {
 static const auto DOC_StackSearch = R"doc(
-  The data and configuration needed for KBMOD's core search. It is created
-  using a *reference* to the ``ImageStack``. The underlying ``ImageStack``
-  must exist for the life of the ``StackSearch`` object's life.
+  The data and configuration needed for KBMOD's core search. It is created using either
+  a *reference* to the ``ImageStack`` or lists of science, variance, and PSF information.
+
+  Attributes
+  ----------
+  num_images : `int`
+      The number of images (or time steps).
+  height : `int`
+      The height of each image in pixels.
+  width : `int`
+      The width of each image in pixels.
+  zeroed_times : `list`
+      The times shift so the first time is at 0.0.
+
+  Parameters
+  ----------
+  sci_imgs : `list`
+      A list of science images as numpy arrays.
+  var_imgs : `list`
+      A list of variance images as numpy arrays.
+  psf_kernels : `list`
+      A list of PSF kernels as numpy arrays.
+  zeroed_times : `list`
+      A list of floating point times starting at zero.
+  num_bytes : `int`
+      The number of bytes to use for encoding the data. This is used
+      to set the encoding level for the data copied to the GPU. The
+      default value is -1, which means no encoding is done.
+      The other options are 1 (uint8), 2 (uint16), and 4 (float).
   )doc";
 
 static const auto DOC_StackSearch_search = R"doc(
@@ -17,8 +43,8 @@ static const auto DOC_StackSearch_search = R"doc(
   ----------
   search_list : `list`
       A list of Trajectory objects where each trajectory is evaluated at each starting pixel.
-  min_observations : `int`
-      The minimum number of valid observations for a trajectory to be saved.   
+  on_gpu : `bool`
+      Run the search on the GPU.
   )doc";
 
 static const auto DOC_StackSearch_set_min_obs = R"doc(
@@ -59,18 +85,6 @@ static const auto DOC_StackSearch_enable_gpu_sigmag_filter = R"doc(
   Raises
   ------
   Raises a ``RunTimeError`` if invalid values are provided.
-  )doc";
-
-static const auto DOC_StackSearch_enable_gpu_encoding = R"doc(
-  Set the encoding level for the data copied to the GPU.
-      1 = uint8
-      2 = uint16
-      4 or -1 = float
-
-  Parameters
-  ----------
-  encode_num_bytes : `int`
-      The number of bytes to use for encoding the data.
   )doc";
 
 static const auto DOC_StackSearch_set_start_bounds_x = R"doc(
@@ -130,48 +144,22 @@ static const auto DOC_StackSearch_get_image_height = R"doc(
   Returns the height of the images in pixels.
   )doc";
 
-static const auto DOC_StackSearch_get_image_npixels = R"doc(
-  Returns the number of pixels for each image.
-  )doc";
-
-static const auto DOC_StackSearch_get_imagestack = R"doc(
-  Return the `kb.ImageStack` containing the data to search.
-  )doc";
-
-static const auto DOC_StackSearch_get_psi_curves = R"doc(
-  Return the time series of psi values for a given trajectory in pixel space.
+static const auto DOC_StackSearch_get_all_psi_phi_curves = R"doc(
+  Return a single matrix with both the psi and phi curves. Each
+  row corresponds to a single trajectory and the columns hold
+  the psi values then the phi values (in order of time).
 
   Parameters
   ----------
-  trj : `kb.Trajectory` or `list` of `kb.Trajectory`
-      The input trajectory or trajectories.
+  trj : `list` of `kb.Trajectory`
+      The input trajectories.
 
   Returns
   -------
-  result : `list` of `float` or `list` of `list` of `float`
-     The psi values at each time step with NO_DATA replaced by 0.0.
-  )doc";
-
-static const auto DOC_StackSearch_get_phi_curves = R"doc(
-  Return the time series of phi values for a given trajectory in pixel space.
-
-  Parameters
-  ----------
-  trj : `kb.Trajectory` or `list` of `kb.Trajectory`
-      The input trajectory or trajectories.
-
-  Returns
-  -------
-  result : `list` of `float` or `list` of `list` of `float`
-     The phi values at each time step with NO_DATA replaced by 0.0.
-  )doc";
-
-static const auto DOC_StackSearch_clear_psi_phi = R"doc(
-  Clear the pre-computed psi and phi data.
-  )doc";
-
-static const auto DOC_StackSearch_prepare_psi_phi = R"doc(
-  Compute the cached psi and phi data.
+  result : `np.ndarray`
+     A shape (R, 2T) matrix where R is the number of trajectories and
+     T is the number of time steps. The first T columns contain the psi
+     values and the second T columns contain the phi columns.
   )doc";
 
 static const auto DOC_StackSearch_get_number_total_results = R"doc(
@@ -205,15 +193,13 @@ static const auto DOC_StackSearch_get_results = R"doc(
   ``RunTimeError`` if start < 0 or count <= 0.
   )doc";
 
-static const auto DOC_StackSearch_prepare_batch_search = R"doc(
-  Prepare the search for a batch of trajectories.
+static const auto DOC_StackSearch_get_all_results = R"doc(
+  Get a reference to the full list of results.
 
-  Parameters
-  ----------
-  search_list : `List`
-      A list of ``Trajectory`` objects to search.
-  min_observations : `int`
-      The minimum number of observations for a trajectory to be considered.
+  Returns
+  -------
+  results : `List`
+      A list of ``Trajectory`` objects for the cached results.
   )doc";
 
 static const auto DOC_StackSearch_compute_max_results = R"doc(
@@ -223,23 +209,6 @@ static const auto DOC_StackSearch_compute_max_results = R"doc(
   -------
   max_results : `int`
       The maximum number of results that a search will return.
-  )doc";
-
-static const auto DOC_StackSearch_search_single_batch = R"doc(
-  Perform a search on the given trajectories for the current batch.
-  Batch is defined by the parameters set `set_start_bounds_x` & `set_start_bounds_y`.
-
-  Returns
-  -------
-  results : `List`
-      A list of ``Trajectory`` search results
-  )doc";
-
-static const auto DOC_StackSearch_finish_search = R"doc(
-  Clears memory used for the batch search.
-
-  This method should be called after a batch search is completed to ensure
-  that any resources allocated during the search are properly freed.
   )doc";
 
 static const auto DOC_StackSearch_set_results = R"doc(
@@ -261,12 +230,15 @@ static const auto DOC_StackSearch_evaluate_single_trajectory = R"doc(
 
   Notes
   -----
-  Runs on the CPU, but requires CUDA compiler.
+  Runs on the CPU.
 
   Parameters
   ----------
   trj : `kb.Trajectory`
       The trjactory to evaluate.
+  use_kernel : `bool`
+      Use the kernel code for evaluation. This requires the code is compiled with
+      the nvidia libraries, but performs the exact same computations as on GPU.                      
    )doc";
 
 static const auto DOC_StackSearch_search_linear_trajectory = R"doc(
@@ -286,6 +258,9 @@ static const auto DOC_StackSearch_search_linear_trajectory = R"doc(
       The x velocity of the trajectory in pixels per day.
   vy : `float`
       The y velocity of the trajectory in pixels per day.
+  use_kernel : `bool`
+      Use the kernel code for evaluation. This requires the code is compiled with
+      the nvidia libraries, but performs the exact same computations as on GPU.
 
   Returns
   -------

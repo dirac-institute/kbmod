@@ -1,17 +1,17 @@
 """Test that the core search can perfectly recover an object with linear motion. This test turns off
 all filtering and just checks the GPU search code."""
 
-import logging
+import numpy as np
 import unittest
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
+from kbmod.fake_data.fake_data_creator import image_stack_add_fake_object, make_fake_image_stack
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
 from kbmod.trajectory_generator import VelocityGridSearch
 
 
-@unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+@unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
 class test_search_exact(unittest.TestCase):
     def test_core_search_exact(self):
         # image properties
@@ -19,8 +19,6 @@ class test_search_exact(unittest.TestCase):
         dim_y = 200
         dim_x = 300
         noise_level = 1.0
-        variance = noise_level**2
-        p = PSF(1.0)
 
         # object properties -- The object is moving in a straight line
         object_flux = 250.0
@@ -28,34 +26,24 @@ class test_search_exact(unittest.TestCase):
         start_y = 45
         xvel = 40.0
         yvel = -10.0
-        trj = Trajectory(
-            x=start_x,
-            y=start_y,
-            vx=xvel,
-            vy=yvel,
-        )
 
-        # create image set with single moving object
-        imlist = []
-        for i in range(img_count):
-            time = i / img_count
-            im = make_fake_layered_image(dim_x, dim_y, noise_level, variance, time, p, seed=i)
-            add_fake_object(
-                im,
-                trj.get_x_pos(time),
-                trj.get_y_pos(time),
-                object_flux,
-                p,
-            )
-            imlist.append(im)
-        stack = ImageStack(imlist)
+        # Create image stack with single moving object.
+        self.times = np.array([i / img_count for i in range(img_count)])
+        rng = np.random.default_rng(100)
+        image_stack_py = make_fake_image_stack(
+            dim_y,
+            dim_x,
+            self.times,
+            noise_level=noise_level,
+            psf_val=1.0,
+            rng=rng,
+        )
+        image_stack_add_fake_object(image_stack_py, start_x, start_y, xvel, yvel, flux=object_flux)
 
         # Turn off all filtering and use a custom trajectory generator that
         # tests 1681 velocities per pixel and includes the true velocity.
         config = SearchConfiguration()
         config.set("do_clustering", False)
-        config.set("do_mask", False)
-        config.set("do_stamp_filter", False)
         config.set("lh_level", 0.0)
         config.set("num_obs", 1)
         config.set("sigmaG_lims", [5, 95])
@@ -63,7 +51,7 @@ class test_search_exact(unittest.TestCase):
 
         # Run the search.
         runner = SearchRunner()
-        results = runner.do_gpu_search(config, stack, gen)
+        results = runner.do_core_search(config, image_stack_py, gen)
         self.assertGreater(len(results), 0)
 
         # Check that the best result is the true one.
