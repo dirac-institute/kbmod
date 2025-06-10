@@ -40,13 +40,13 @@ def ingest_collection(
     butler,
     collection_name,
     datasetType,
-    max_exposures=ModuleNotFoundError,
+    max_exposures=None,
     output_dir=None,
     overwrite=False,
 ):
     """
     Ingest a single collection from the LSST Butler repository into a KBMOD ImageCollection, which is then saved as an ECSV file.
-    
+
     Parameters
     ----------
     butler : dafButler.Butler
@@ -76,7 +76,7 @@ def ingest_collection(
     refs = list(refs)
     if max_exposures is not None:
         refs = refs[:max_exposures]
-        logger.info(f"Limiting to {max_exposures} exposures for {collection_name}")
+        logger.info(f"Limiting to first {max_exposures} exposures for collection {collection_name}")
     if not refs:
         logger.debug(f"No datasets found for {datasetType} in {collection_name}.")
         return
@@ -177,12 +177,12 @@ def main():
         help="Print collection sizes instead of ingesting",
     )
     parser.add_argument(
-        "--max_exposures", 
-        type=int, 
+        "--max_exposures",
+        type=int,
         help="Maximum number of exposures to process per collection",
     )
     parser.add_argument("--verbose", action="store_true", help="Enable verbose debug logging")
-    
+
     args = parser.parse_args()
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
