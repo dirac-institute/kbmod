@@ -118,7 +118,7 @@ def execute(args):
         # Sort collections by largest to smallest
         collection_cnts = {k: v for k, v in sorted(collection_cnts.items(), key=lambda x: x[1], reverse=True)}
         for name, size in collection_cnts.items():
-            print(f"Coolection {name}: has {size} exposures")
+            print(f"Collection {name}: has {size} exposures")
         return 0
 
     # Ingest each collection
