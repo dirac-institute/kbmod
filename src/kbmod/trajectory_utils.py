@@ -16,7 +16,13 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 
-from kbmod.search import Trajectory
+from kbmod.search import (
+    extract_all_trajectory_vx,
+    extract_all_trajectory_vy,
+    extract_all_trajectory_x,
+    extract_all_trajectory_y,
+    Trajectory,
+)
 
 
 def predict_pixel_locations(times, x0, vx, centered=True, as_int=True):
@@ -135,102 +141,6 @@ def trajectory_predict_skypos(trj, wcs, times):
     return result
 
 
-def trajectory_from_np_object(result):
-    """Transform a numpy object holding trajectory information
-    into a trajectory object.
-
-    Parameters
-    ----------
-    result : np object
-        The result object loaded by numpy.
-
-    Returns
-    -------
-    trj : `Trajectory`
-        The corresponding trajectory object.
-    """
-    trj = Trajectory()
-    trj.x = int(result["x"][0])
-    trj.y = int(result["y"][0])
-    trj.vx = float(result["vx"][0])
-    trj.vy = float(result["vy"][0])
-    trj.flux = float(result["flux"][0])
-    trj.lh = float(result["lh"][0])
-    trj.obs_count = int(result["num_obs"][0])
-    return trj
-
-
-def trajectories_to_dict(trj_list):
-    """Create a dictionary of trajectory related information
-    from a list of Trajectory objects.
-
-    Parameters
-    ----------
-    trj_list : `list`
-        The list of Trajectory objects.
-
-    Returns
-    -------
-    trj_dict : `Trajectory`
-        The corresponding trajectory object.
-    """
-    # Create the lists to fill.
-    num_trjs = len(trj_list)
-    x0 = [0] * num_trjs
-    y0 = [0] * num_trjs
-    vx = [0.0] * num_trjs
-    vy = [0.0] * num_trjs
-    lh = [0.0] * num_trjs
-    flux = [0.0] * num_trjs
-    obs_count = [0] * num_trjs
-
-    # Extract the values from each Trajectory object.
-    for idx, trj in enumerate(trj_list):
-        x0[idx] = trj.x
-        y0[idx] = trj.y
-        vx[idx] = trj.vx
-        vy[idx] = trj.vy
-        lh[idx] = trj.lh
-        flux[idx] = trj.flux
-        obs_count[idx] = trj.obs_count
-
-    # Store the lists in a dictionary and return that.
-    trj_dict = {
-        "x": x0,
-        "y": y0,
-        "vx": vx,
-        "vy": vy,
-        "likelihood": lh,
-        "flux": flux,
-        "obs_count": obs_count,
-    }
-    return trj_dict
-
-
-def trajectory_from_dict(trj_dict):
-    """Create a trajectory from a dictionary of the parameters.
-
-    Parameters
-    ----------
-    trj_dict : `dict`
-        The dictionary of parameters.
-
-    Returns
-    -------
-    trj : `Trajectory`
-        The corresponding trajectory object.
-    """
-    trj = Trajectory()
-    trj.x = int(trj_dict["x"])
-    trj.y = int(trj_dict["y"])
-    trj.vx = float(trj_dict["vx"])
-    trj.vy = float(trj_dict["vy"])
-    trj.flux = float(trj_dict["flux"])
-    trj.lh = float(trj_dict["lh"])
-    trj.obs_count = int(trj_dict["obs_count"])
-    return trj
-
-
 def fit_trajectory_from_pixels(x_vals, y_vals, times, centered=True):
     """Fit a linear trajectory from individual pixel values. This is not a pure best-fit
     because we restrict the starting pixels to be integers.
@@ -312,43 +222,6 @@ def evaluate_trajectory_mse(trj, x_vals, y_vals, zeroed_times, centered=True):
     # Compute the errors.
     sq_err = (x_vals - pred_x) ** 2 + (y_vals - pred_y) ** 2
     return np.mean(sq_err)
-
-
-def avg_trajectory_distance(trjA, trjB, times=[0.0]):
-    """Evaluate the average distance between two trajectories (in pixels)
-    across different times.
-
-    Parameters
-    ----------
-    trjA : `Trajectory`
-        The first Trajectory to evaluate.
-    trjB : `Trajectory`
-        The second Trajectory to evaluate.
-    times : `list` or `numpy.ndarray`
-        The zero-shifted times at which to evaluate the matches (in days).
-        The average of the distances at these times are used.
-
-    Returns
-    -------
-    ave_dist : `float`
-        The average distance in pixels.
-    """
-    times = np.asarray(times)
-    if len(times) == 0:
-        raise ValueError("Empty times array.")
-
-    # Compute the predicted x and y positions for the first trajectory.
-    px_a = trjA.x + times * trjA.vx
-    py_a = trjA.y + times * trjA.vy
-
-    # Compute the predicted x and y positions for the second trajectory.
-    px_b = trjB.x + times * trjB.vx
-    py_b = trjB.y + times * trjB.vy
-
-    # Compute the Euclidean distance at each point and then the average distance.
-    dists = np.sqrt((px_a - px_b) ** 2 + (py_a - py_b) ** 2)
-    ave_dist = np.mean(dists)
-    return ave_dist
 
 
 def find_closest_trajectory(query, trj_list, times=[0.0]):
@@ -456,9 +329,20 @@ def match_trajectory_sets(traj_query, traj_base, threshold, times=[0.0]):
     num_base = len(traj_base)
 
     # Predict the x and y positions for the base trajectories at each time (using the vectorized functions).
-    base_info = trajectories_to_dict(traj_base)
-    base_px = predict_pixel_locations(times, base_info["x"], base_info["vx"], centered=False, as_int=False)
-    base_py = predict_pixel_locations(times, base_info["y"], base_info["vy"], centered=False, as_int=False)
+    base_px = predict_pixel_locations(
+        times,
+        extract_all_trajectory_x(traj_base),
+        extract_all_trajectory_vx(traj_base),
+        centered=False,
+        as_int=False,
+    )
+    base_py = predict_pixel_locations(
+        times,
+        extract_all_trajectory_y(traj_base),
+        extract_all_trajectory_vy(traj_base),
+        centered=False,
+        as_int=False,
+    )
 
     # Compute the matrix of distances between each pair.
     dists = np.zeros((num_query, num_base))

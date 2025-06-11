@@ -76,49 +76,6 @@ class test_trajectory_utils(unittest.TestCase):
             self.assertAlmostEqual(my_sky.ra[1].deg, 45.2, delta=0.01)
             self.assertAlmostEqual(my_sky.dec[1].deg, -15.5, delta=0.01)
 
-    def test_trajectory_from_np_object(self):
-        np_obj = np.array(
-            [(300.0, 750.0, 106.0, 44.0, 9.52, -0.5, 10.0)],
-            dtype=[
-                ("lh", "<f8"),
-                ("flux", "<f8"),
-                ("x", "<f8"),
-                ("y", "<f8"),
-                ("vx", "<f8"),
-                ("vy", "<f8"),
-                ("num_obs", "<f8"),
-            ],
-        )
-
-        trj = trajectory_from_np_object(np_obj)
-        self.assertEqual(trj.x, 106)
-        self.assertEqual(trj.y, 44)
-        self.assertAlmostEqual(trj.vx, 9.52, delta=1e-5)
-        self.assertAlmostEqual(trj.vy, -0.5, delta=1e-5)
-        self.assertEqual(trj.flux, 750.0)
-        self.assertEqual(trj.lh, 300.0)
-        self.assertEqual(trj.obs_count, 10)
-
-    def test_trajectory_from_dict(self):
-        trj_dict = {
-            "x": 1,
-            "y": 2,
-            "vx": 3.0,
-            "vy": 4.0,
-            "flux": 5.0,
-            "lh": 6.0,
-            "obs_count": 7,
-        }
-        trj = trajectory_from_dict(trj_dict)
-
-        self.assertEqual(trj.x, 1)
-        self.assertEqual(trj.y, 2)
-        self.assertEqual(trj.vx, 3.0)
-        self.assertEqual(trj.vy, 4.0)
-        self.assertEqual(trj.flux, 5.0)
-        self.assertEqual(trj.lh, 6.0)
-        self.assertEqual(trj.obs_count, 7)
-
     def test_fit_trajectory_from_pixels(self):
         x_vals = np.array([5.0, 7.0, 9.0, 11.0])
         y_vals = np.array([4.0, 3.0, 2.0, 1.0])
@@ -146,22 +103,6 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertRaises(ValueError, fit_trajectory_from_pixels, [1.0, 2.0], [1.0, 2.0], [1.0])
         self.assertRaises(ValueError, fit_trajectory_from_pixels, [1.0, 2.0], [1.0], [1.0, 2.0])
 
-    def test_trajectories_to_dict(self):
-        trj_list = [
-            Trajectory(x=0, y=1, vx=2.0, vy=3.0, lh=4.0, flux=5.0, obs_count=6),
-            Trajectory(x=10, y=11, vx=12.0, vy=13.0, lh=14.0, flux=15.0, obs_count=16),
-            Trajectory(x=20, y=21, vx=22.0, vy=23.0, lh=24.0, flux=25.0, obs_count=26),
-        ]
-
-        trj_dict = trajectories_to_dict(trj_list)
-        self.assertTrue(np.array_equal(trj_dict["x"], [0, 10, 20]))
-        self.assertTrue(np.array_equal(trj_dict["y"], [1, 11, 21]))
-        self.assertTrue(np.array_equal(trj_dict["vx"], [2.0, 12.0, 22.0]))
-        self.assertTrue(np.array_equal(trj_dict["vy"], [3.0, 13.0, 23.0]))
-        self.assertTrue(np.array_equal(trj_dict["likelihood"], [4.0, 14.0, 24.0]))
-        self.assertTrue(np.array_equal(trj_dict["flux"], [5.0, 15.0, 25.0]))
-        self.assertTrue(np.array_equal(trj_dict["obs_count"], [6, 16, 26]))
-
     def test_evaluate_trajectory_mse(self):
         trj = Trajectory(x=5, y=4, vx=2.0, vy=-1.0)
         x_vals = np.array([5.5, 7.5, 9.7, 11.5])
@@ -178,39 +119,6 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertAlmostEqual(mse, 0.25 + 0.01)
 
         self.assertRaises(ValueError, evaluate_trajectory_mse, trj, [], [], [])
-
-    def test_avg_trajectory_distance(self):
-        times_0 = np.array([0.0])
-        times_1 = np.array([0.0, 1.0])
-        times_5 = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
-
-        # A trajectory is always zero pixels from itself.
-        trjA = Trajectory(x=1, y=2, vx=1.0, vy=-1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjA, times_0), 0.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjA, times_1), 0.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjA, times_5), 0.0)
-
-        # Create a trajectory with a constant 1 pixel offset in the y direction.
-        trjB = Trajectory(x=1, y=1, vx=1.0, vy=-1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjB, times_0), 1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjB, times_1), 1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjB, times_5), 1.0)
-
-        # Create a trajectory with an increasing offset in the x direction.
-        trjC = Trajectory(x=1, y=2, vx=2.0, vy=-1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_0), 0.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_1), 0.5)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_5), 2.0)
-
-        # Create a trajectory with an increasing offset in the y direction.
-        trjC = Trajectory(x=1, y=2, vx=1.0, vy=1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_0), 0.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_1), 1.0)
-        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_5), 4.0)
-
-        # A list of empty times is invalid.
-        with self.assertRaises(ValueError):
-            _ = avg_trajectory_distance(trjA, trjC, [])
 
     def test_match_trajectory_sets(self):
         queries = [

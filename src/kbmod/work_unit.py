@@ -17,9 +17,9 @@ from tqdm import tqdm
 
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
-from kbmod.image_utils import stat_image_stack, validate_image_stack
+from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
 from kbmod.reprojection_utils import invert_correct_parallax
-from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
+from kbmod.search import Logging
 from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
@@ -27,7 +27,6 @@ from kbmod.wcs_utils import (
     deserialize_wcs,
     extract_wcs_from_hdu_header,
     serialize_wcs,
-    wcs_fits_equal,
 )
 
 
@@ -44,7 +43,7 @@ class WorkUnit:
 
     Attributes
     ----------
-    im_stack : `kbmod.search.ImageStack`
+    im_stack : `ImageStackPy`
         The image data for the KBMOD run.
     config : `kbmod.configuration.SearchConfiguration`
         The configuration for the KBMOD run.
@@ -53,12 +52,14 @@ class WorkUnit:
         different from the number of images stored in memory if the WorkUnit has been
         reprojected.
     org_img_meta : `astropy.table.Table`
-        The meta data for each constituent image. Includes columns:
-        * data_loc - the original location of the image
+        The meta data for each constituent image. Columns are all optional and can include:
+        * data_loc - the original location of the image data.
         * ebd_wcs - Used to reproject the images into EBD space.
         * geocentric_distance - The best fit geocentric distances used when creating
           the per image EBD WCS.
         * original_wcs - The original per-image WCS of the image.
+        * visit - The visit number of the image (if known).
+        * filter - The filter used for the image.
     wcs : `astropy.wcs.WCS`
         A global WCS for all images in the WorkUnit. Only exists
         if all images have been projected to same pixel space.
@@ -68,7 +69,7 @@ class WorkUnit:
         Whether or not the WorkUnit image data has been reprojected.
     per_image_indices : `list` of `list`
         A list of lists containing the indicies of `constituent_images` at each layer
-        of the `ImageStack`. Used for finding corresponding original images when we
+        of the image stack. Used for finding corresponding original images when we
         stitch images together during reprojection.
     lazy : `bool`
         Whether or not to load the image data for the `WorkUnit`.
@@ -76,11 +77,11 @@ class WorkUnit:
         The paths for the shard files, only created if the `WorkUnit` is loaded
         in lazy mode.
     obstimes : `list[float]`
-        The MJD obstimes of the images.
+        The MJD obstimes of the midpoint of the images (in UTC).
 
     Parameters
     ----------
-    im_stack : `kbmod.search.ImageStack`
+    im_stack : `ImageStackPy`
         The image data for the KBMOD run.
     config : `kbmod.configuration.SearchConfiguration`
         The configuration for the KBMOD run.
@@ -98,7 +99,7 @@ class WorkUnit:
         "original" or "ebd" for a parallax corrected reprojection.
     per_image_indices : `list` of `list`, optional
         A list of lists containing the indicies of `constituent_images` at each layer
-        of the `ImageStack`. Used for finding corresponding original images when we
+        of the image stack. Used for finding corresponding original images when we
         stitch images together during reprojection.
     barycentric_distance : `float`, optional
         The barycentric distance that was used when creating the `per_image_ebd_wcs` (in AU).
@@ -108,7 +109,7 @@ class WorkUnit:
         The paths for the shard files, only created if the `WorkUnit` is loaded
         in lazy mode.
     obstimes : `list[float]`
-        The MJD obstimes of the images.
+        The MJD obstimes of the midpoint of the images (in UTC).
     org_image_meta : `astropy.table.Table`, optional
         A table of per-image data for the constituent images.
     """
@@ -128,6 +129,7 @@ class WorkUnit:
         obstimes=None,
         org_image_meta=None,
     ):
+        # Assign the core components.
         self.im_stack = im_stack
         self.config = config
         self.lazy = lazy
@@ -136,7 +138,7 @@ class WorkUnit:
 
         # Validate the image stack (in warning only mode).
         if not lazy:
-            validate_image_stack(im_stack)
+            im_stack.validate()
 
         # Determine the number of constituent images. If we are given metadata for the
         # of constituent_images, use that. Otherwise use the size of the image stack.
@@ -145,7 +147,7 @@ class WorkUnit:
         elif per_image_wcs is not None:
             self.n_constituents = len(per_image_wcs)
         else:
-            self.n_constituents = im_stack.img_count()
+            self.n_constituents = im_stack.num_times
 
         # Track the metadata for each constituent image in the WorkUnit. If no constituent
         # data is provided, this will create a table of default values the correct size.
@@ -187,7 +189,7 @@ class WorkUnit:
 
     def __len__(self):
         """Returns the size of the WorkUnit in number of images."""
-        return self.im_stack.img_count()
+        return self.im_stack.num_times
 
     def get_num_images(self):
         return len(self._per_image_indices)
@@ -200,7 +202,7 @@ class WorkUnit:
             print(f"  Reprojected Frame: {self.reprojection_frame}")
             print(f"  Barycentric Distance: {self.barycentric_distance}")
 
-        stat_image_stack(self.im_stack)
+        self.im_stack.print_stats()
 
     def get_constituent_meta(self, column):
         """Get the metadata values of a given column or a list of columns
@@ -316,16 +318,16 @@ class WorkUnit:
 
         wcs = self.get_wcs(0)
         if wcs is None or self.im_stack is None:
-            logger.warning(f"A valid wcs and ImageStack is needed to compute the ecliptic angle.")
+            logger.warning(f"A valid wcs and ImageStackPy is needed to compute the ecliptic angle.")
             return None
-        center_pixel = (self.im_stack.get_width() / 2, self.im_stack.get_height() / 2)
+        center_pixel = (self.im_stack.width / 2, self.im_stack.height / 2)
         return calc_ecliptic_angle(wcs, center_pixel)
 
     def get_all_obstimes(self):
         """Return a list of the observation times in MJD.
 
         If the `WorkUnit` was lazily loaded, then the obstimes have already been preloaded.
-        Otherwise, grab them from the `ImageStack.
+        Otherwise, grab them from the `ImageStackPy`.
 
         Returns
         -------
@@ -335,7 +337,7 @@ class WorkUnit:
         if self._obstimes is not None:
             return self._obstimes
 
-        self._obstimes = [self.im_stack.get_obstime(i) for i in range(self.im_stack.img_count())]
+        self._obstimes = np.copy(self.im_stack.times)
         return self._obstimes
 
     def get_unique_obstimes_and_indices(self):
@@ -352,6 +354,54 @@ class WorkUnit:
         unique_obstimes = np.unique(all_obstimes)
         unique_indices = [list(np.where(all_obstimes == time)[0]) for time in unique_obstimes]
         return unique_obstimes, unique_indices
+
+    def disorder_obstimes(self):
+        """Reorders the timestamps in the WorkUnit to be random. Random offsets
+        are chosen for each unique obstime and added to the original obstime.
+        The maximum offset is the number of images/times in the image stack or
+        the difference between the maximum and minimum obstime.
+
+        The offsets are applied such that images will have a shared
+        obstime if they did so before this method was called.
+        The WorkUnit's image stack is then sorted in ascending order of the
+        updated obstimes.
+
+        This is useful for testing and ML training purposes where we might
+        want to perform a search on a WorkUnit that would produce unlikely
+        KBMOD results.
+        """
+        unique_obstimes = np.unique(self.get_all_obstimes())
+        if len(unique_obstimes) == 0:
+            raise ValueError("No obstimes provided for WorkUnit.")
+
+        # Randomly select an offset between 0 and the max time difference
+        # which can be added to the minimum time. This should be randomly
+        # sampled *without* replacement so that we don't have duplicate times. Note
+        # if the max time difference is less than the number of times in the im_stack,
+        # we will use the number of times in the im_stack as the max offset.
+        max_offset = max(np.max(unique_obstimes) - np.min(unique_obstimes) + 1, self.im_stack.num_times)
+        random_offsets = np.random.choice(
+            np.arange(0, max_offset),
+            len(unique_obstimes),  # Generate an offset for each unique obstime
+            replace=False,  # Sample without to avoid changing uniqueness
+        )
+
+        # Map each unique obstime to a given offset
+        new_obstimes_map = {}
+        for i, obstime in enumerate(unique_obstimes):
+            new_obstimes_map[obstime] = obstime + random_offsets[i]
+
+        # Apply the mapping of offsets to obstimes for all timestamps in the workunit.
+        new_obstimes = [new_obstimes_map[obstime] for obstime in self.get_all_obstimes()]
+        self.im_stack.times = np.asanyarray(new_obstimes)
+
+        # Sort our image stack by our updated obstimes. This WorkUnit may have already
+        # been sorted so we do this to preserve that expectation after reordering.
+        self.im_stack.sort_by_time()
+
+        # Clear metadata and reset the cached obstimes to use what was sorted in the image stack.
+        self.clear_metadata()
+        self._obstimes = None
 
     @classmethod
     def from_fits(cls, filename, show_progress=None):
@@ -384,7 +434,7 @@ class WorkUnit:
         if not Path(filename).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
 
-        im_stack = ImageStack()
+        im_stack = ImageStackPy()
         with fits.open(filename) as hdul:
             num_layers = len(hdul)
             if num_layers < 5:
@@ -417,23 +467,15 @@ class WorkUnit:
             reprojected = hdul[0].header["REPRJCTD"]
             if "BARY" in hdul[0].header:
                 barycentric_distance = hdul[0].header["BARY"]
-            elif "HELIO" in hdul[0].header:
-                # This is legacy support for WorkUnits that were written with
-                # heliocentric labels instead of barycentric.
-                # TODO: Remove this once the old WorkUnits are gone.
-                barycentric_distance = hdul[0].header["HELIO"]
+            else:
+                # No reprojection
+                barycentric_distance = None
 
             # ensure backwards compatibility
             if "REPFRAME" in hdul[0].header.keys():
                 reprojection_frame = hdul[0].header["REPFRAME"]
             else:
                 reprojection_frame = None
-
-            # If there is geocentric distances in the header information
-            # (legacy approach), in read those.
-            for i in range(n_constituents):
-                if f"GEO_{i}" in hdul[0].header:
-                    org_image_meta["geocentric_distance"][i] = hdul[0].header[f"GEO_{i}"]
 
             # Read in all the image files.
             per_image_indices = []
@@ -446,16 +488,8 @@ class WorkUnit:
                 sci_hdu = hdul[f"SCI_{i}"]
 
                 # Read in the layered image from different extensions.
-                img = LayeredImage(
-                    sci_hdu.data.astype(np.single),
-                    hdul[f"VAR_{i}"].data.astype(np.single),
-                    hdul[f"MSK_{i}"].data.astype(np.single),
-                    PSF(hdul[f"PSF_{i}"].data),
-                    sci_hdu.header["MJD"],
-                )
-
-                # force_move destroys img object, but avoids a copy.
-                im_stack.append_image(img, force_move=True)
+                sci, var, mask, obstime, psf_kernel, _ = read_image_data_from_hdul(hdul, i)
+                im_stack.append_image(obstime, sci, var, mask=mask, psf=psf_kernel)
 
                 # Read the mapping of current image to constituent image from the header info.
                 # TODO: Serialize this into its own table.
@@ -464,23 +498,6 @@ class WorkUnit:
                 for j in range(n_indices):
                     sub_indices.append(sci_hdu.header[f"IND_{j}"])
                 per_image_indices.append(sub_indices)
-
-            # Extract the per-image data from header information if needed. This happens
-            # when the WorkUnit was saved before metadata tables were saved as layers and
-            # all the information is in header values.
-            for i in tqdm(
-                range(n_constituents),
-                bar_format=_DEFAULT_WORKUNIT_TQDM_BAR,
-                desc="Loading WCS",
-                disable=not show_progress,
-            ):
-                if f"WCS_{i}" in hdul:
-                    wcs_header = hdul[f"WCS_{i}"].header
-                    org_image_meta["per_image_wcs"][i] = extract_wcs_from_hdu_header(wcs_header)
-                    if "ILOC" in wcs_header:
-                        org_image_meta["data_loc"][i] = wcs_header["ILOC"]
-                if f"EBD_{i}" in hdul:
-                    org_image_meta["ebd_wcs"][i] = extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header)
 
         result = WorkUnit(
             im_stack=im_stack,
@@ -494,7 +511,13 @@ class WorkUnit:
         )
         return result
 
-    def to_fits(self, filename, overwrite=False):
+    def to_fits(
+        self,
+        filename,
+        overwrite=False,
+        compression_type="RICE_1",
+        quantize_level=-0.01,
+    ):
         """Write the WorkUnit to a single FITS file.
 
         Uses the following extensions:
@@ -516,8 +539,16 @@ class WorkUnit:
             The file to which to write the data.
         overwrite : bool
             Indicates whether to overwrite an existing file.
+        compression_type : `str`
+            The compression type to use for the image layers (sci and var). Must be
+            one of "NOCOMPRESS", "RICE_1", "GZIP_1", "GZIP_2", or "HCOMPRESS_1".
+            Default: "RICE_1"
+        quantize_level : `float`
+            The level at which to quantize the floats before compression.
+            See https://docs.astropy.org/en/stable/io/fits/api/images.html for details.
+            Default: -0.01
         """
-        logger.info(f"Writing WorkUnit with {self.im_stack.img_count()} images to file {filename}")
+        logger.info(f"Writing WorkUnit with {self.im_stack.num_times} images to file {filename}")
         if Path(filename).is_file() and not overwrite:
             raise FileExistsError(f"WorkUnit file {filename} already exists.")
 
@@ -525,44 +556,51 @@ class WorkUnit:
         hdul = self.metadata_to_hdul()
 
         # Create each image layer.
-        for i in range(self.im_stack.img_count()):
-            layered = self.im_stack.get_single_image(i)
-            obstime = layered.get_obstime()
+        for i in range(self.im_stack.num_times):
+            obstime = self.im_stack.times[i]
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
 
-            img_wcs = self.get_wcs(i)
-            sci_hdu = raw_image_to_hdu(layered.get_science(), obstime, img_wcs)
-            sci_hdu.name = f"SCI_{i}"
+            # Append all of the image data to the main hdu list. We create
+            # the mask layer because we do not store it in the image stack.
+            add_image_data_to_hdul(
+                hdul,
+                i,
+                self.im_stack.sci[i],
+                self.im_stack.var[i],
+                self.im_stack.get_mask(i),
+                obstime,
+                psf_kernel=self.im_stack.psfs[i],
+                wcs=self.get_wcs(i),
+                compression_type=compression_type,
+                quantize_level=quantize_level,
+            )
+
+            # Append the index values onto the science header.
+            # TODO: Move this to its own table.
+            sci_hdu = hdul[f"SCI_{i}"]
             sci_hdu.header["NIND"] = n_indices
             for j in range(n_indices):
                 sci_hdu.header[f"IND_{j}"] = c_indices[j]
-            hdul.append(sci_hdu)
-
-            var_hdu = raw_image_to_hdu(layered.get_variance(), obstime)
-            var_hdu.name = f"VAR_{i}"
-            hdul.append(var_hdu)
-
-            msk_hdu = raw_image_to_hdu(layered.get_mask(), obstime)
-            msk_hdu.name = f"MSK_{i}"
-            hdul.append(msk_hdu)
-
-            p = layered.get_psf()
-            psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
-            psf_hdu = fits.hdu.image.ImageHDU(psf_array)
-            psf_hdu.name = f"PSF_{i}"
-            hdul.append(psf_hdu)
 
         hdul.writeto(filename, overwrite=overwrite)
 
-    def to_sharded_fits(self, filename, directory, overwrite=False):
+    def to_sharded_fits(
+        self,
+        filename,
+        directory,
+        overwrite=False,
+        compression_type="RICE_1",
+        quantize_level=-0.01,
+    ):
         """Write the WorkUnit to a multiple FITS files.
+
         Will create:
             - One "primary" file, containing the main WorkUnit metadata
             (see below) as well as the per_image_wcs information for
             the whole set. This will have the given filename.
-            -One image fits file containing all of the image data for
-            every LayeredImage in the ImageStack. This will have the
+            - One image fits file containing all of the image data for
+            every time step in the image stack. This will have the
             image index infront of the given filename, e.g.
             "0_filename.fits".
 
@@ -590,46 +628,54 @@ class WorkUnit:
             sharded file to avoid confusion.
         overwrite : `bool`
             Indicates whether to overwrite an existing file.
+        compression_type : `str`
+            The compression type to use for the image layers (sci and var). Must be
+            one of "NOCOMPRESS", "RICE_1", "GZIP_1", "GZIP_2", or "HCOMPRESS_1".
+            Default: "RICE_1"
+        quantize_level : `float`
+            The level at which to quantize the floats before compression.
+            See https://docs.astropy.org/en/stable/io/fits/api/images.html for details.
+            Default: -0.01
         """
         logger.info(
-            f"Writing WorkUnit shards with {self.im_stack.img_count()} images with main file {filename} in {directory}"
+            f"Writing WorkUnit shards with {self.im_stack.num_times} images with main file {filename} in {directory}"
         )
         primary_file = os.path.join(directory, filename)
         if Path(primary_file).is_file() and not overwrite:
             raise FileExistsError(f"WorkUnit file {filename} already exists.")
         if self.lazy:
             raise ValueError(
-                "WorkUnit was lazy loaded, must load all ImageStack data to output new WorkUnit."
+                "WorkUnit was lazy loaded, must load all ImageStackPy data to output new WorkUnit."
             )
 
-        for i in range(self.im_stack.img_count()):
-            layered = self.im_stack.get_single_image(i)
-            obstime = layered.get_obstime()
+        for i in range(self.im_stack.num_times):
+            obstime = self.im_stack.times[i]
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
             sub_hdul = fits.HDUList()
 
-            img_wcs = self.get_wcs(i)
-            sci_hdu = raw_image_to_hdu(layered.get_science(), obstime, img_wcs)
-            sci_hdu.name = f"SCI_{i}"
+            # Append all of the image data to the sub_hdul. We create
+            # the mask layer because we do not store it in the image stack.
+            add_image_data_to_hdul(
+                sub_hdul,
+                i,
+                self.im_stack.sci[i],
+                self.im_stack.var[i],
+                self.im_stack.get_mask(i),
+                obstime,
+                psf_kernel=self.im_stack.psfs[i],
+                wcs=self.get_wcs(i),
+                compression_type=compression_type,
+                quantize_level=quantize_level,
+            )
+
+            # Append the index values onto the science header.
+            # TODO: Move this to its own table.
+            sci_hdu = sub_hdul[f"SCI_{i}"]
             sci_hdu.header["NIND"] = n_indices
             for j in range(n_indices):
                 sci_hdu.header[f"IND_{j}"] = c_indices[j]
-            sub_hdul.append(sci_hdu)
 
-            var_hdu = raw_image_to_hdu(layered.get_variance(), obstime)
-            var_hdu.name = f"VAR_{i}"
-            sub_hdul.append(var_hdu)
-
-            msk_hdu = raw_image_to_hdu(layered.get_mask(), obstime)
-            msk_hdu.name = f"MSK_{i}"
-            sub_hdul.append(msk_hdu)
-
-            p = layered.get_psf()
-            psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
-            psf_hdu = fits.hdu.image.ImageHDU(psf_array)
-            psf_hdu.name = f"PSF_{i}"
-            sub_hdul.append(psf_hdu)
             sub_hdul.writeto(os.path.join(directory, f"{i}_{filename}"), overwrite=overwrite)
 
         # Create a primary file with all of the metadata, including all the WCS info.
@@ -672,7 +718,7 @@ class WorkUnit:
         if not Path(os.path.join(directory, filename)).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
 
-        im_stack = ImageStack()
+        im_stack = ImageStackPy()
 
         # open the main header
         with fits.open(os.path.join(directory, filename)) as primary:
@@ -702,33 +748,15 @@ class WorkUnit:
             reprojected = primary[0].header["REPRJCTD"]
             if "BARY" in primary[0].header:
                 barycentric_distance = primary[0].header["BARY"]
-            elif "HELIO" in primary[0].header:
-                # This is legacy support for WorkUnits that were written with
-                # heliocentric labels instead of barycentric.
-                # TODO: Remove this once the old WorkUnits are gone.
-                barycentric_distance = primary[0].header["HELIO"]
+            else:
+                # No reprojection
+                barycentric_distance = None
 
             # ensure backwards compatibility
             if "REPFRAME" in primary[0].header.keys():
                 reprojection_frame = primary[0].header["REPFRAME"]
             else:
                 reprojection_frame = None
-
-            for i in range(n_constituents):
-                if f"GEO_{i}" in primary[0].header:
-                    org_image_meta["geocentric_distance"][i] = primary[0].header[f"GEO_{i}"]
-
-            # Extract the per-image data from header information if needed.
-            # This happens with when the WorkUnit was saved before metadata tables were
-            # saved as layers.
-            for i in range(n_constituents):
-                if f"WCS_{i}" in primary:
-                    wcs_header = primary[f"WCS_{i}"].header
-                    org_image_meta["per_image_wcs"][i] = extract_wcs_from_hdu_header(wcs_header)
-                    if "ILOC" in wcs_header:
-                        org_image_meta["data_loc"][i] = wcs_header["ILOC"]
-                if f"EBD_{i}" in primary:
-                    org_image_meta["ebd_wcs"][i] = extract_wcs_from_hdu_header(primary[f"EBD_{i}"].header)
 
         per_image_indices = []
         file_paths = []
@@ -745,8 +773,7 @@ class WorkUnit:
                 # Read in the layered image from different extensions.
                 if not lazy:
                     img = load_layered_image_from_shard(shard_path)
-                    # force_move destroys img object, but avoids a copy.
-                    im_stack.append_image(img, force_move=True)
+                    im_stack.append_layered_image(img)
                 else:
                     file_paths.append(shard_path)
 
@@ -815,7 +842,7 @@ class WorkUnit:
         Parameters
         ----------
         image_indices : `numpy.array`
-            The `ImageStack` indices to transform coordinates.
+            The `ImageStackPy` indices to transform coordinates.
         positions : `list` of `astropy.coordinates.SkyCoord`s or `tuple`s
             The positions to be transformed.
         input_format : `str`
@@ -933,25 +960,48 @@ class WorkUnit:
         return positions
 
     def load_images(self):
-        """Function for loading in `ImageStack` data when `WorkUnit`
+        """Function for loading in `ImageStackPy` data when `WorkUnit`
         was created lazily.
         """
         if not self.lazy:
-            raise ValueError("ImageStack has already been loaded.")
-        im_stack = ImageStack()
+            raise ValueError("ImageStackPy has already been loaded.")
+        im_stack = ImageStackPy()
 
         for file_path in self.file_paths:
             img = load_layered_image_from_shard(file_path)
-            # force_move destroys img object, but avoids a copy.
-            im_stack.append_image(img, force_move=True)
+            im_stack.append_layered_image(img)
 
         self.im_stack = im_stack
         self.lazy = False
 
+    def write_config(self, overwrite=False):
+        """Create the provenance directory and writes the `SearchConfiguration` out to disk."""
+        result_filename = Path(self.config["result_filename"])
+        if not os.path.isabs(result_filename):
+            raise ValueError("result_filename must be absolute to use `write_config`")
+
+        result_dir = result_filename.parent.absolute()
+        base_filename = os.path.basename(result_filename).split(".ecsv")[0]
+        provenance_dir = f"{base_filename}_provenance"
+        provenance_dir_path = result_dir.joinpath(provenance_dir)
+
+        if not os.path.exists(provenance_dir_path) or overwrite:
+            os.makedirs(provenance_dir_path)
+        else:
+            raise ValueError(f"{provenance_dir} directory already exists")
+
+        config_filename = f"{base_filename}_config.yaml"
+        config_path = provenance_dir_path.joinpath(config_filename)
+        self.config.to_file(config_path, overwrite)
+
+    def clear_metadata(self):
+        """Clear all WorkUnit metadata."""
+        self.org_img_meta = Table()
+        self._per_image_indices = [[i] for i in range(self.n_constituents)]
+
 
 def load_layered_image_from_shard(file_path):
-    """Function for loading a `LayeredImage` from
-    a `WorkUnit` shard.
+    """Function for loading a `LayeredImagePy` from a `WorkUnit` shard.
 
     Parameters
     ----------
@@ -960,51 +1010,163 @@ def load_layered_image_from_shard(file_path):
 
     Returns
     -------
-    img : `LayeredImage`
-        The materialized `LayeredImage`.
+    img : `LayeredImagePy`
+        The materialized `LayeredImagePy`.
     """
     if not Path(file_path).is_file():
         raise ValueError(f"provided file_path '{file_path}' is not an existing file.")
 
     index = int(file_path.split("/")[-1].split("_")[0])
     with fits.open(file_path) as hdul:
-        img = LayeredImage(
-            hdul[f"SCI_{index}"].data.astype(np.single),
-            hdul[f"VAR_{index}"].data.astype(np.single),
-            hdul[f"MSK_{index}"].data.astype(np.single),
-            PSF(hdul[f"PSF_{index}"].data),
-            hdul[f"SCI_{index}"].header["MJD"],
-        )
+        sci, var, mask, obstime, psf_kernel, _ = read_image_data_from_hdul(hdul, index)
+        img = LayeredImagePy(sci, var, mask, time=obstime, psf=psf_kernel)
         return img
 
 
-def raw_image_to_hdu(img, obstime, wcs=None):
-    """Helper function that creates a HDU out of RawImage.
+# ------------------------------------------------------------------
+# --- Utility functions for saving/loading image data --------------
+# ------------------------------------------------------------------
+
+
+def add_image_data_to_hdul(
+    hdul,
+    idx,
+    sci,
+    var,
+    mask,
+    obstime,
+    psf_kernel=None,
+    wcs=None,
+    compression_type="RICE_1",
+    quantize_level=-0.01,
+):
+    """Add the image data for a single time step to a fits file's HDUL as individual
+    layers for science, variance, etc.  Masked pixels in the science and variance
+    layers are added to the masked bits.
 
     Parameters
     ----------
-    img : `RawImage`
-        The RawImage to convert.
+    hdul : HDUList
+        The HDUList for the fits file.
+    idx : `int`
+        The time step number (index of the layer).
+    sci : `np.ndarray`
+        The pixels of the science image.
+    var : `np.ndarray`
+        The pixels of the variance image.
+    mask : `np.ndarray`
+        The pixels of the mask image.
     obstime : `float`
-        The time of the observation.
-    wcs : `astropy.wcs.WCS`
+        The observation time of the image in UTC MJD.
+    psf_kernel : `np.ndarray`, optional
+        The kernel values of the PSF.
+    wcs : `astropy.wcs.WCS`, optional
         An optional WCS to include in the header.
+    compression_type : `str`
+        The compression type to use for the image layers (sci and var). Must be
+        one of "NOCOMPRESS", "RICE_1", "GZIP_1", "GZIP_2", or "HCOMPRESS_1".
+        Default: "RICE_1"
+    quantize_level : `float`
+        The level at which to quantize the floats before compression.
+        See https://docs.astropy.org/en/stable/io/fits/api/images.html for details.
+        Default: -0.01
+    """
+    # Use a high quantize_level to preserve most of the image information.
+    # A value of -0.01 indicates that we have at least 0.01 difference between
+    # quantized values.
+    sci_hdu = fits.CompImageHDU(
+        sci,
+        compression_type=compression_type,
+        quantize_level=quantize_level,
+    )
+    sci_hdu.name = f"SCI_{idx}"
+    sci_hdu.header["MJD"] = obstime
+
+    var_hdu = fits.CompImageHDU(
+        var,
+        compression_type=compression_type,
+        quantize_level=quantize_level,
+    )
+    var_hdu.name = f"VAR_{idx}"
+    var_hdu.header["MJD"] = obstime
+
+    # The saved mask is a binarized version of which pixels are valid.
+    mask_full = (mask > 0) | (~np.isfinite(sci)) | (~np.isfinite(var))
+    mask_hdu = fits.ImageHDU(mask_full.astype(np.int8))
+    mask_hdu.name = f"MSK_{idx}"
+    mask_hdu.header["MJD"] = obstime
+
+    # If a WCS is provided, copy it into the headers.
+    if wcs is not None:
+        append_wcs_to_hdu_header(wcs, sci_hdu.header)
+        append_wcs_to_hdu_header(wcs, var_hdu.header)
+        append_wcs_to_hdu_header(wcs, mask_hdu.header)
+
+    # If the PSF is not provided, use an identity kernel.
+    if psf_kernel is None:
+        psf_kernel = np.array([[1.0]])
+    psf_hdu = fits.hdu.ImageHDU(psf_kernel)
+    psf_hdu.name = f"PSF_{idx}"
+
+    # Append everything to the hdul
+    hdul.append(sci_hdu)
+    hdul.append(var_hdu)
+    hdul.append(mask_hdu)
+    hdul.append(psf_hdu)
+
+
+def read_image_data_from_hdul(hdul, idx):
+    """Read the image data for a single time step to a fits file's HDUL.
+    The mask is auto-applied to the science and variance layers.
+
+    Parameters
+    ----------
+    hdul : HDUList
+        The HDUList for the fits file.
+    idx : `int`
+        The time step number (index of the layer).
 
     Returns
     -------
-    hdu : `astropy.io.fits.hdu.image.ImageHDU`
-        The image extension.
+    sci : `np.ndarray`
+        The pixels of the science image.
+    var : `np.ndarray`
+        The pixels of the variance image.
+    mask : `np.ndarray`
+        The pixels of the mask image.
+    obstime : `float`
+        The observation time of the image in UTC MJD.
+    psf_kernel : `np.ndarray`
+        The kernel values of the PSF.
+    wcs : `astropy.wcs.WCS`
+        An optional WCS to include in the header.  May be None
+        if no WCS is found.
     """
-    hdu = fits.hdu.image.ImageHDU(img.image)
+    # Get the science layer and everything from it.
+    sci_layer = hdul[f"SCI_{idx}"]
+    sci = sci_layer.data.astype(np.single)
+    obstime = sci_layer.header["MJD"]
+    wcs = extract_wcs_from_hdu_header(sci_layer.header)
 
-    # If the WCS is given, copy each entry into the header.
-    if wcs is not None:
-        append_wcs_to_hdu_header(wcs, hdu.header)
+    # Get the variance layer.
+    var = hdul[f"VAR_{idx}"].data.astype(np.single)
 
-    # Set the time stamp.
-    hdu.header["MJD"] = obstime
+    # Allow the mask to be optional. Apply the mask if it is present
+    # and use an empty mask if there is no mask layer.
+    if f"MSK_{idx}" in hdul:
+        mask = hdul[f"MSK_{idx}"].data.astype(np.float32)
+        sci[mask > 0] = np.nan
+        var[mask > 0] = np.nan
+    else:
+        mask = np.zeros_like(sci, dtype=np.float32)
 
-    return hdu
+    # Allow the PSF to be optional. Use an identity PSF if none is present.
+    if f"PSF_{idx}" in hdul:
+        psf_kernel = hdul[f"PSF_{idx}"].data.astype(np.single)
+    else:
+        psf_kernel = np.ones([[1.0]])
+
+    return sci, var, mask, obstime, psf_kernel, wcs
 
 
 # ------------------------------------------------------------------

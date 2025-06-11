@@ -333,7 +333,7 @@ class MockButler:
 
         mocked_visit = mock.Mock(name="VisitInfo")
         mocked_visit.exposureTime = prim["EXPREQ"]
-        expstart = Time(prim["DATE-AVG"], format="isot")
+        expstart = Time(prim["DATE-AVG"], format="isot", scale="tai")
         mocked_visit.date.toAstropy.return_value = expstart
         mocked_visit.date.toAstropy.return_value = expstart
         mocked_visit.date.return_value = expstart

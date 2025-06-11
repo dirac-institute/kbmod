@@ -1,24 +1,30 @@
-from kbmod.analysis.plotting import plot_multiple_images
-from kbmod.search import get_stamps
-from kbmod.util_functions import mjd_to_day
-
-import numpy as np
 from matplotlib import pyplot as plt
+import numpy as np
+
+from kbmod.analysis.plotting import plot_multiple_images
+from kbmod.core.image_stack_py import ImageStackPy
+from kbmod.core.stamp_utils import create_stamps_from_image_stack
+from kbmod.util_functions import mjd_to_day
 
 
 class Visualizer:
-    """A class for visualizing from a given `ImageStack` and `Results` set.
+    """A class for visualizing from a given `ImageStackPy` and `Results` set.
 
     Attributes
     ----------
-    im_stack : `kbmod.search.ImageStack`
-        `ImageStack` associated with the results.
+    im_stack : `ImageStackPy`
+        `ImageStackPy` associated with the results.
+    obstimes : `np.ndarray`
+        The observation times for the images in the images.
     results : `kbmod.Results`
         The loaded `Results`.
+    trajectories : `list`
+        List of trajectories associated with the results.
     """
 
     def __init__(self, im_stack, results):
-        self.im_stack = im_stack
+        if isinstance(im_stack, ImageStackPy):
+            self.obstimes = im_stack.times
         self.results = results
         self.trajectories = results.make_trajectory_list()
 
@@ -33,7 +39,7 @@ class Visualizer:
             radius of the stamp.
         """
         self.results.table["all_stamps"] = [
-            get_stamps(self.im_stack, trj, radius) for trj in self.trajectories
+            create_stamps_from_image_stack(self.im_stack, trj, radius) for trj in self.trajectories
         ]
 
     def count_num_days(self):
@@ -47,10 +53,7 @@ class Visualizer:
             is_valid = self.results[idx]["obs_valid"]
 
             # Get all of the observation times that were valid and included in the result
-            valid_obstimes = []
-            for i in range(len(is_valid)):
-                if is_valid[i]:
-                    valid_obstimes.append(self.im_stack.get_obstime(i))
+            valid_obstimes = self.obstimes[is_valid]
 
             # Convert the obstimes to days and generate the number of days.
             num_days.append(len(set([mjd_to_day(t) for t in valid_obstimes])))
@@ -87,13 +90,10 @@ class Visualizer:
         # Map each day for a result to its coadded stamp
         daily_coadds = {}
         result_row = self.results.table[result_idx]
-        for i in range(self.im_stack.img_count()):
+        for i in range(self.im_stack.num_times):
             if result_row["obs_valid"][i]:
-                day = mjd_to_day(self.im_stack.get_obstime(i))
+                day = mjd_to_day(self.obstimes[i])
                 curr_stamp = result_row["all_stamps"][i]
-                # Depending on where "all_stamps" is generated may be a RawImage
-                if not isinstance(curr_stamp, np.ndarray):
-                    curr_stamp = curr_stamp.image
 
                 if day not in daily_coadds:
                     # Create the initial coadd

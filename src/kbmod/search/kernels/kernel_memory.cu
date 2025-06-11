@@ -12,6 +12,15 @@
 
 namespace search {
 
+int cuda_device_count() {
+    int device_count = 0;
+    unsigned int res = static_cast<unsigned int>(cudaGetDeviceCount(&device_count));
+    if (res != 0) {
+        return 0;
+    }
+    return device_count;
+}
+
 // Helpful debugging stats for when something crashes in the GPU.
 void cuda_print_stats() {
     std::cout << "\n----- CUDA Debugging Log -----\n";
@@ -82,12 +91,13 @@ bool cuda_check_gpu(size_t req_memory) {
 // ---------------------------------------
 
 extern "C" void *allocate_gpu_block(uint64_t memory_size) {
-    void *gpu_ptr;
+    void *gpu_ptr = nullptr;
     unsigned int res = static_cast<unsigned int>(cudaMalloc((void **)&gpu_ptr, memory_size));
     if ((res != 0) || (gpu_ptr == nullptr)) {
         cuda_print_stats();
         throw std::runtime_error("Unable to allocate GPU memory (" + std::to_string(memory_size) +
                                  " bytes). Error code = " + std::to_string(res));
+        gpu_ptr = nullptr;
     }
     return gpu_ptr;
 }

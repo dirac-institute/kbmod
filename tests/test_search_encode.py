@@ -50,10 +50,10 @@ class test_search_filter(unittest.TestCase):
             fake_times,
             noise_level=2.0,
             psf_val=1.0,
-            use_seed=True,
+            use_seed=101,
         )
         fake_ds.insert_object(self.trj)
-        self.stack = fake_ds.stack
+        self.stack = fake_ds.stack_py
 
         self.trj_gen = KBMODV1Search(
             self.velocity_steps,
@@ -64,14 +64,20 @@ class test_search_filter(unittest.TestCase):
             self.max_angle,
         )
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_different_encodings(self):
         for encoding_bytes in [-1, 1, 2]:
             with self.subTest(i=encoding_bytes):
-                search = StackSearch(self.stack)
-                search.enable_gpu_encoding(encoding_bytes)
+                search = StackSearch(
+                    self.stack.sci,
+                    self.stack.var,
+                    self.stack.psfs,
+                    self.stack.zeroed_times,
+                    encoding_bytes,
+                )
+                search.set_min_obs(int(self.img_count / 2))
                 candidates = [trj for trj in self.trj_gen]
-                search.search_all(candidates, int(self.img_count / 2))
+                search.search_all(candidates, True)
 
                 results = search.get_results(0, 10)
                 best = results[0]

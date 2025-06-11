@@ -1,4 +1,4 @@
-"""`Standardizer` converts data from a given data source into a `LayeredImage`
+"""`Standardizer` converts data from a given data source into a `LayeredImagePy`
 object, applying data-source specific, transformations in the process. A
 layered image is a collection containing:
  * science image
@@ -577,8 +577,8 @@ class Standardizer(abc.ABC):
 
         Returns
         -------
-        psfs : `list[~kbmod.search.psf]`
-            List of `~kbmod.search.psf` objects.
+        psfs : `list[numpy.ndarray]`
+            List of PSF kernels as numpy matrices.
         """
         raise NotImplementedError()
 

@@ -90,37 +90,6 @@ static const auto DOC_Trajectory_get_y_index = R"doc(
      The predicted row index.
   )doc";
 
-static const auto DOC_Trajectory_is_close = R"doc(
-  Checks whether a second Trajectory falls within given thresholds
-  of closeness for pixel difference and velocity difference.
-
-  Parameters
-  ----------
-  trj_b : `Trajectory`
-      The Trajectory to test.
-  pos_thresh : `float`
-      The maximum separation in each of the x and y dimension (in pixels).
-  vel_thresh : `float`
-      The maximum separation in each of the x and y velocities (in pixels/day).
-
-  Returns
-  -------
-  `bool`
-      Whether the two trajectories are close.
-  )doc";
-
-static const auto DOC_StampParameters = R"doc(
-  Parameters for stamp generation and filtering.
-
-  Attributes
-  ----------
-  radius : `int`
-     The stamp radius (in pixels)
-  stamp_type : `StampType`
-     The co-add method to use for co-added stamps. Must be one of
-     STAMP_SUM, STAMP_MEAN, STAMP_MEDIAN, or STAMP_VAR_WEIGHTED.
-  )doc";
-
 }  // namespace pydocs
 
 #endif /* COMMON_DOCS */

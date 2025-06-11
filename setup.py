@@ -128,14 +128,6 @@ class CMakeBuild(build_ext):
             if archs:
                 cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
 
-        # Check if we have GPU support.
-        try:
-            subprocess.check_output('nvidia-smi')
-            cmake_args += ["-DCPU_ONLY=OFF"]
-        except Exception:
-            cmake_args += ["-DCPU_ONLY=ON"]
-            print("WARNING: No GPU Found. Building with CPU only mode.")
-
         # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
         # across all generators.
         if "CMAKE_BUILD_PARALLEL_LEVEL" not in os.environ:

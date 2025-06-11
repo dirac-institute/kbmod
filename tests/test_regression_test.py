@@ -4,30 +4,26 @@ the individual unittests.
 """
 
 import logging
-import math
 import os
-import sys
 import tempfile
 import unittest
-from pathlib import Path
+import warnings
 
 import numpy as np
-from astropy.io import fits
-import astropy.wcs
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
+from kbmod.fake_data.fake_data_creator import image_stack_add_fake_object, make_fake_image_stack
+from kbmod.core.psf import PSF
 from kbmod.results import Results
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
 from kbmod.trajectory_utils import match_trajectory_sets
-from kbmod.wcs_utils import make_fake_wcs_info
 from kbmod.work_unit import WorkUnit
 
 logger = logging.getLogger(__name__)
 
 
-def make_fake_ImageStack(times, trjs, psf_vals):
+def make_fake_images(times, trjs, psf_vals):
     """Make a stack of fake layered images.
 
     Parameters
@@ -41,29 +37,20 @@ def make_fake_ImageStack(times, trjs, psf_vals):
 
     Returns
     -------
-        A ImageStack
+        An ImageStackPy
     """
     imCount = len(times)
-    t0 = times[0]
     dim_x = 512
     dim_y = 1024
-    noise_level = 4.0
-    variance = noise_level**2
 
-    imlist = []
-    for i in range(imCount):
-        p = PSF(psf_vals[i])
-        time = times[i] - t0
+    # Create the array of PSF kernels.
+    psfs = [PSF.make_gaussian_kernel(psf_vals[i]) for i in range(imCount)]
 
-        img = make_fake_layered_image(dim_x, dim_y, noise_level, variance, times[i], p, seed=i)
-
-        for trj in trjs:
-            px = trj.x + time * trj.vx + 0.5
-            py = trj.y + time * trj.vy + 0.5
-            add_fake_object(img, px, py, trj.flux, p)
-
-        imlist.append(img)
-    stack = ImageStack(imlist)
+    # Create the data, including fake objects.
+    rng = np.random.default_rng(1001)
+    stack = make_fake_image_stack(dim_y, dim_x, times, noise_level=4.0, psfs=psfs, rng=rng)
+    for trj in trjs:
+        image_stack_add_fake_object(stack, trj.x, trj.y, trj.vx, trj.vy, flux=trj.flux)
     return stack
 
 
@@ -98,7 +85,7 @@ def perform_search(im_stack, res_filename, default_psf):
 
     Parameters
     ----------
-    im_stack : `ImageStack`
+    im_stack : `ImageStackPy`
         The images to search.
     res_filename : `str`
         The path (directory) for the new result files.
@@ -118,7 +105,6 @@ def perform_search(im_stack, res_filename, default_psf):
             "given_ecliptic": 1.1901106654050821,
         },
         "num_obs": 15,
-        "do_mask": True,
         "lh_level": 25.0,
         "sigmaG_lims": [25, 75],
         "chunk_size": 1000000,
@@ -132,9 +118,12 @@ def perform_search(im_stack, res_filename, default_psf):
     }
     config = SearchConfiguration.from_dict(input_parameters)
 
-    # Create fake visit metadata to confirm we pass it along.
-    wu = WorkUnit(im_stack=im_stack, config=config)
-    wu.org_img_meta["visit"] = [f"img_{i}" for i in range(im_stack.img_count())]
+    # Create fake visit metadata to confirm we pass it along.  We catch the
+    # warning about missing WCS.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        wu = WorkUnit(im_stack=im_stack, config=config)
+    wu.org_img_meta["visit"] = [f"img_{i}" for i in range(im_stack.num_times)]
 
     rs = SearchRunner()
     rs.run_search_from_work_unit(wu)
@@ -194,7 +183,7 @@ def run_full_test():
             # Set PSF values between +/- 0.1 around the default value.
             psf_vals.append(default_psf - 0.1 + 0.1 * (i % 3))
 
-        stack = make_fake_ImageStack(times, trjs, psf_vals)
+        stack = make_fake_images(times, trjs, psf_vals)
 
         # Do the search.
         result_filename = os.path.join(dir_name, "results.ecsv")
@@ -214,11 +203,11 @@ def run_full_test():
 
         # Check that we saved the correct meta data for the table.
         assert loaded_data.table.meta["num_img"] == num_times
-        assert loaded_data.table.meta["dims"] == (stack.get_width(), stack.get_height())
+        assert loaded_data.table.meta["dims"] == (stack.width, stack.height)
         assert np.allclose(loaded_data.table.meta["mjd_mid"], times)
         assert np.array_equal(
             loaded_data.table.meta["visit"],
-            [f"img_{i}" for i in range(stack.img_count())],
+            [f"img_{i}" for i in range(stack.num_times)],
         )
 
         # Determine which trajectories we did not recover.
@@ -243,7 +232,7 @@ def run_full_test():
 
 # The unit test runner
 class test_regression_test(unittest.TestCase):
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_run_test(self):
         self.assertTrue(run_full_test())
 

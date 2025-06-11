@@ -6,7 +6,8 @@ from astropy.time import Time
 import numpy as np
 
 from utils import DECamImdiffFactory, MockButler, DatasetRef, DatasetId, dafButler
-from kbmod import PSF, Standardizer, StandardizerConfig
+from kbmod import Standardizer, StandardizerConfig
+from kbmod.core.psf import PSF
 from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
 
 
@@ -61,7 +62,7 @@ class TestButlerStandardizer(unittest.TestCase):
             "GAINA": hdr["GAINA"],
             "GAINB": hdr["GAINB"],
             "DTNSANAM": hdr["DTNSANAM"],
-            "mjd_mid": Time(hdr["DATE-AVG"], format="isot").mjd
+            "mjd_mid": Time(hdr["DATE-AVG"], format="isot", scale="tai").utc.mjd
             + (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0,
             "filter": hdr["FILTER"],
         }
@@ -110,7 +111,7 @@ class TestButlerStandardizer(unittest.TestCase):
             "detector": hdr["CCDNUM"],
             "exposureTime": hdr["EXPREQ"],
             "OBSID": hdr["OBSID"],
-            "mjd_mid": Time(hdr["DATE-AVG"], format="isot").mjd
+            "mjd_mid": Time(hdr["DATE-AVG"], format="isot", scale="tai").utc.mjd
             + (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0,
             "filter": hdr["FILTER"],
         }
@@ -235,11 +236,11 @@ class TestButlerStandardizer(unittest.TestCase):
         std = Standardizer.get(DatasetId(11), butler=self.butler)
 
         psf = std.standardizePSF()[0]
-        self.assertIsInstance(psf, PSF)
-        self.assertEqual(psf.get_std(), std.config["psf_std"])
+        expected_psf = PSF.make_gaussian_kernel(std.config["psf_std"])
+        self.assertTrue(np.allclose(psf, expected_psf))
 
     def test_to_layered_image(self):
-        """Test ButlerStandardizer can create a LayeredImage."""
+        """Test ButlerStandardizer can create a LayeredImagePy."""
         std = Standardizer.get(DatasetId(8), butler=self.butler)
         self.assertIsInstance(std, ButlerStandardizer)
 
@@ -254,14 +255,14 @@ class TestButlerStandardizer(unittest.TestCase):
         img = butler_imgs[0]
 
         # Compare standardized images
-        np.testing.assert_equal(fits["IMAGE"].data, img.get_science().image)
-        np.testing.assert_equal(fits["VARIANCE"].data, img.get_variance().image)
-        np.testing.assert_equal(fits["MASK"].data, img.get_mask().image)
+        np.testing.assert_equal(fits["IMAGE"].data, img.sci)
+        np.testing.assert_equal(fits["VARIANCE"].data, img.var)
+        np.testing.assert_equal(fits["MASK"].data, img.mask)
 
         # Test that we correctly set metadata
         # times can only be compred approximately, because sometimes we
         # calculate the time in the middle of the exposure
-        self.assertAlmostEqual(expected_mjd, img.get_obstime(), 2)
+        self.assertAlmostEqual(expected_mjd, img.time, 2)
 
 
 if __name__ == "__main__":

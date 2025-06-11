@@ -5,196 +5,166 @@ stamp pixels.
 """
 
 import numpy as np
-import time
 
-from kbmod.configuration import SearchConfiguration
-from kbmod.results import Results
-from kbmod.search import (
-    HAS_GPU,
-    DebugTimer,
-    ImageStack,
-    RawImage,
-    StampParameters,
-    StampType,
-    Logging,
-    get_stamps,
-    get_coadded_stamps,
+import torch
+import torch.nn as nn
+import torchvision.models as models
+
+from kbmod.core.image_stack_py import ImageStackPy
+from kbmod.core.stamp_utils import (
+    coadd_mean,
+    coadd_median,
+    coadd_sum,
+    coadd_weighted,
+    extract_stamp_stack,
 )
+from kbmod.search import DebugTimer, Logging
+from kbmod.trajectory_utils import predict_pixel_locations
+from kbmod.util_functions import mjd_to_day
 
 
 logger = Logging.getLogger(__name__)
 
+MODEL_TYPES = {
+    "resnet18": models.resnet18,
+    "resnet50": models.resnet50,
+}
 
-def extract_search_parameters_from_config(config):
-    """Create an initialized StampParameters object from the configuration settings
-    while doing some validity checking.
-
-    Parameters
-    ----------
-    config : `SearchConfiguration`
-        The configuration object.
-
-    Returns
-    -------
-    params : `StampParameters`
-        The StampParameters object with all fields set.
-
-    Raises
-    ------
-    Raises a ``ValueError`` if parameter validation fails.
-    Raises a ``KeyError`` if a required parameter is not found.
-    """
-    params = StampParameters()
-
-    # Construction parameters
-    params.radius = config["stamp_radius"]
-    if params.radius < 0:
-        raise ValueError(f"Invalid stamp radius {params.radius}")
-
-    stamp_type = config["stamp_type"]
-    if stamp_type == "cpp_median" or stamp_type == "median":
-        params.stamp_type = StampType.STAMP_MEDIAN
-    elif stamp_type == "cpp_mean" or stamp_type == "mean":
-        params.stamp_type = StampType.STAMP_MEAN
-    elif stamp_type == "cpp_sum" or stamp_type == "sum":
-        params.stamp_type = StampType.STAMP_SUM
-    elif stamp_type == "weighted":
-        params.stamp_type = StampType.STAMP_VAR_WEIGHTED
-    else:
-        raise ValueError(f"Unrecognized stamp type: {stamp_type}")
-
-    return params
+# Mock up of the model to ensure everything loads correctly.
 
 
-def make_coadds(result_data, im_stack, stamp_params, chunk_size=1_000_000, colname="stamp"):
-    """Create the co-added postage stamps and filter them based on their statistical
-     properties. Results with stamps that are similar to a Gaussian are kept.
+def modify_resnet_input_channels(model, num_channels):
+    # Get the first convolutional layer
+    first_conv_layer = model.conv1
 
-    Parameters
-    ----------
-    result_data : `Results`
-        The current set of results. Modified directly.
-    im_stack : `ImageStack`
-        The images from which to build the co-added stamps.
-    stamp_params : `StampParameters` or `SearchConfiguration`
-        The filtering parameters for the stamps.
-    chunk_size : `int`
-        How many stamps to load and filter at a time. Used to control memory.
-        Default: 100_000
-    colname : `str`
-        The column in which to save the coadded stamp.
-        Default: "stamp"
-    """
-    num_results = len(result_data)
-    if num_results <= 0:
-        logger.info("Creating coadds : skipping, nothing to filter.")
+    # Create a new convolutional layer with the desired number of input channels
+    new_conv_layer = nn.Conv2d(
+        in_channels=num_channels,
+        out_channels=first_conv_layer.out_channels,
+        kernel_size=first_conv_layer.kernel_size,
+        stride=first_conv_layer.stride,
+        padding=first_conv_layer.padding,
+        bias=first_conv_layer.bias,
+    )
 
-        # We still add the (empty) column so we keep different table's
-        # columns consistent.
-        result_data.table["stamp"] = np.array([])
-        return
+    # Replace the first convolutional layer in the model
+    model.conv1 = new_conv_layer
 
-    if type(stamp_params) is SearchConfiguration:
-        stamp_params = extract_search_parameters_from_config(stamp_params)
-
-    stamp_timer = DebugTimer(f"creating coadd stamps", logger)
-    logger.info(f"Creating coadds of {num_results} results in column={colname}.")
-    logger.debug(f"Using filtering params: {stamp_params}")
-    logger.debug(f"Using chunksize = {chunk_size}")
-
-    trj_list = result_data.make_trajectory_list()
-    keep_row = [False] * num_results
-    stamps_to_keep = []
-
-    # Run the stamp creation and filtering in batches of chunk_size.
-    start_idx = 0
-    while start_idx < num_results:
-        end_idx = min([start_idx + chunk_size, num_results])
-        slice_size = end_idx - start_idx
-
-        # Create a subslice of the results and the Boolean indices.
-        # Note that the sum stamp type does not filter out lc_index.
-        trj_slice = trj_list[start_idx:end_idx]
-        if stamp_params.stamp_type != StampType.STAMP_SUM and "obs_valid" in result_data.colnames:
-            bool_slice = result_data["obs_valid"][start_idx:end_idx]
-        else:
-            # Use all the indices for each trajectory.
-            bool_slice = [[True] * im_stack.img_count() for _ in range(slice_size)]
-
-        # Create and filter the results, using the GPU if there is one and enough
-        # trajectories to make it worthwhile.
-        stamps_slice = get_coadded_stamps(
-            im_stack,
-            trj_slice,
-            bool_slice,
-            stamp_params,
-            HAS_GPU and len(trj_slice) > 100,
-        )
-        # TODO: a way to avoid a copy here would be to do
-        # np.array([s.image for s in stamps], dtype=np.single, copy=False)
-        # but that could cause a problem with reference counting at the m
-        # moment. The real fix is to make the stamps return Image not
-        # RawImage and avoid reference to an private attribute and risking
-        # collecting RawImage but leaving a dangling ref to the attribute.
-        # That's a fix for another time so I'm leaving it as a copy here
-        for ind, stamp in enumerate(stamps_slice):
-            stamps_to_keep.append(np.array(stamp.image))
-            keep_row[start_idx + ind] = True
-
-        # Move to the next chunk.
-        start_idx += chunk_size
-
-    # Append the coadded stamps to the results. We do this after the filtering
-    # so we are not adding a jagged array.
-    result_data.table[colname] = np.array(stamps_to_keep)
-    stamp_timer.stop()
+    return model
 
 
-def append_coadds(result_data, im_stack, coadd_types, radius, chunk_size=100_000):
+class _KBMLModel(nn.Module):
+    def __init__(self, model, weights, shape):
+        super().__init__()
+
+        self.model = model
+
+        # Modify the input channels to 1 (e.g., for grayscale images)
+        self.model = modify_resnet_input_channels(model=model, num_channels=shape[0])
+
+    def forward(self, x):
+        # if labels are passed to forward as part
+        # of the infer step of training, just pass along the stamps.
+        if isinstance(x, tuple):
+            x, _ = x
+        return self.model(x)
+
+
+def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True, nightly=False):
     """Append one or more stamp coadds to the results data without filtering.
 
     result_data : `Results`
         The current set of results. Modified directly.
-    im_stack : `ImageStack`
+    im_stack : `ImageStackPy`
         The images from which to build the co-added stamps.
     coadd_types : `list`
         A list of coadd types to generate. Can be "sum", "mean", and "median".
     radius : `int`
         The stamp radius to use.
-    chunk_size : `int`
-        How many stamps to load and filter at a time. Used to control memory.
-        Default: 100_000
+    valid_only : `bool`
+        Only use stamps from the timesteps marked valid for each trajectory.
+    nightly : `bool`
+        Break up the stamps to a single coadd per-calendar day.
     """
     if radius <= 0:
         raise ValueError(f"Invalid stamp radius {radius}")
+    width = 2 * radius + 1
+
+    # We can't use valid only if there is not obs_valid column in the data.
+    valid_only = valid_only and "obs_valid" in result_data.colnames
+
     stamp_timer = DebugTimer("computing extra coadds", logger)
 
-    params = StampParameters()
-    params.radius = radius
+    # Access the time data we need. If we are doing nightly, compute the
+    # strings for each time. Use "" to mean all times.
+    times = im_stack.zeroed_times
+    day_strs = np.array([f"_{mjd_to_day(t)}" for t in im_stack.times])
+    if nightly:
+        days_to_use = np.unique(day_strs)
+    else:
+        days_to_use = []
 
-    # Loop through all the coadd types in the list, generating a corresponding stamp.
+    # Predict the x and y locations in a giant batch.
+    num_res = len(result_data)
+    xvals = predict_pixel_locations(times, result_data["x"], result_data["vx"], centered=True, as_int=True)
+    yvals = predict_pixel_locations(times, result_data["y"], result_data["vy"], centered=True, as_int=True)
+
+    # Allocate space for the coadds in the results table.  We do this onces because we need rows
+    # for entries in the table, but will only fill them in one entry (trajectory) at a time.
     for coadd_type in coadd_types:
-        logger.info(f"Adding coadd={coadd_type} for all results.")
+        result_data.table[f"coadd_{coadd_type}"] = np.zeros((num_res, width, width), dtype=np.float32)
+    for day in days_to_use:
+        for coadd_type in coadd_types:
+            coadd_str = f"coadd_{coadd_type}{day}"
+            result_data.table[coadd_str] = np.zeros((num_res, width, width), dtype=np.float32)
 
-        if coadd_type == "median":
-            params.stamp_type = StampType.STAMP_MEDIAN
-        elif coadd_type == "mean":
-            params.stamp_type = StampType.STAMP_MEAN
-        elif coadd_type == "sum":
-            params.stamp_type = StampType.STAMP_SUM
-        elif coadd_type == "weighted":
-            params.stamp_type = StampType.STAMP_VAR_WEIGHTED
-        else:
-            raise ValueError(f"Unrecognized stamp type: {coadd_type}")
-
-        # Do the generation (without filtering).
-        make_coadds(
-            result_data,
-            im_stack,
-            params,
-            chunk_size=chunk_size,
-            colname=f"coadd_{coadd_type}",
+    # Loop through each trajectory generating the coadds.  We extract the stamp stack once
+    # for each trajectory and compute all the coadds from that stack.
+    to_include = np.full(len(times), True)
+    for idx in range(num_res):
+        # If we are only using valid observations, retrieve those and filter the day strings.
+        if valid_only:
+            to_include = result_data["obs_valid"][idx]
+        sci_stack = extract_stamp_stack(
+            im_stack.sci, xvals[idx, :], yvals[idx, :], radius, to_include=to_include
         )
+        sci_stack = np.asanyarray(sci_stack)
+
+        # Only generate the variance stamps if we need them for a weighted co-add.
+        if "weighted" in coadd_types:
+            var_stack = extract_stamp_stack(
+                im_stack.var, xvals[idx, :], yvals[idx, :], radius, to_include=to_include
+            )
+            var_stack = np.asanyarray(var_stack)
+
+        # Do overall coadds.
+        if "mean" in coadd_types:
+            result_data[f"coadd_mean"][idx][:, :] = coadd_mean(sci_stack)
+        if "median" in coadd_types:
+            result_data[f"coadd_median"][idx][:, :] = coadd_median(sci_stack)
+        if "sum" in coadd_types:
+            result_data[f"coadd_sum"][idx][:, :] = coadd_sum(sci_stack)
+        if "weighted" in coadd_types:
+            result_data[f"coadd_weighted"][idx][:, :] = coadd_weighted(sci_stack, var_stack)
+
+        # Do nightly coadds if needed.
+        for day in days_to_use:
+            # Find the valid days that match the current string.
+            day_mask = day == day_strs[to_include]
+            sci_day = sci_stack[day_mask]
+
+            if "mean" in coadd_types:
+                result_data[f"coadd_mean{day}"][idx][:, :] = coadd_mean(sci_day)
+            if "median" in coadd_types:
+                result_data[f"coadd_median{day}"][idx][:, :] = coadd_median(sci_day)
+            if "sum" in coadd_types:
+                result_data[f"coadd_sum{day}"][idx][:, :] = coadd_sum(sci_day)
+            if "weighted" in coadd_types:
+                result_data[f"coadd_weighted{day}"][idx][:, :] = coadd_weighted(
+                    sci_day,
+                    var_stack[day_mask],
+                )
+
     stamp_timer.stop()
 
 
@@ -206,7 +176,7 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
     ----------
     result_data : `Result`
         The current set of results. Modified directly.
-    im_stack : `ImageStack`
+    im_stack : `ImageStackPy`
         The stack of images.
     stamp_radius : `int`
         The radius of the stamps to create.
@@ -214,14 +184,29 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
     logger.info(f"Appending all stamps for {len(result_data)} results")
     stamp_timer = DebugTimer("computing all stamps", logger)
 
-    all_stamps = []
-    for trj in result_data.make_trajectory_list():
-        stamps = get_stamps(im_stack, trj, stamp_radius)
-        all_stamps.append(np.array([stamp.image for stamp in stamps]))
+    if stamp_radius < 1:
+        raise ValueError(f"Invalid stamp radius: {stamp_radius}")
+    width = 2 * stamp_radius + 1
 
-    # We add the column even if it is empty so we can have consistent
+    # Copy the image data that we need. The data only copies the references to the numpy arrays.
+    num_times = im_stack.num_times
+    times = im_stack.zeroed_times
+    if isinstance(im_stack, ImageStackPy):
+        sci_data = im_stack.sci
+    else:
+        raise TypeError("im_stack must be an ImageStackPy")
+
+    # Predict the x and y locations in a giant batch.
+    num_res = len(result_data)
+    xvals = predict_pixel_locations(times, result_data["x"], result_data["vx"], centered=True, as_int=True)
+    yvals = predict_pixel_locations(times, result_data["y"], result_data["vy"], centered=True, as_int=True)
+
+    all_stamps = np.zeros((num_res, num_times, width, width), dtype=np.float32)
+    for idx in range(num_res):
+        all_stamps[idx, :, :, :] = extract_stamp_stack(sci_data, xvals[idx, :], yvals[idx, :], stamp_radius)
+
     # columns between tables.
-    result_data.table["all_stamps"] = np.array(all_stamps)
+    result_data.table["all_stamps"] = all_stamps
     stamp_timer.stop()
 
 
@@ -244,7 +229,9 @@ def _normalize_stamps(stamps, stamp_dimm):
     return np.array(normed_stamps)
 
 
-def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radius=10, verbose=False):
+def filter_stamps_by_cnn(
+    result_data, model_path, model_type="resnet18", coadd_type="mean", stamp_radius=10, verbose=False
+):
     """Given a set of results data, run the the requested coadded stamps through a
     provided convolutional neural network and assign a new column that contains the
     stamp classification, i.e. whether or not the result passed the CNN filter.
@@ -254,7 +241,9 @@ def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radiu
     result_data : `Result`
         The current set of results. Modified directly.
     model_path : `str`
-        Path to the the tensorflow model and weights file.
+        Path to the the pytorch model and weights file.
+    model_type : `str`
+        The type of builtin `torchvision` model to use for the CNN. Default is 'resnet18'.
     coadd_type : `str`
         Which coadd type to use in the filtering. Depends on how the model was trained.
         Default is 'mean', will grab stamps from the 'coadd_mean' column.
@@ -264,26 +253,39 @@ def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radiu
     verbose : `bool`
         Verbosity option for the CNN predicition. Off by default.
     """
-    from tensorflow.keras.models import load_model
 
     coadd_column = f"coadd_{coadd_type}"
     if coadd_column not in result_data.colnames:
         raise ValueError("result_data does not have provided coadd type as a column.")
 
-    cnn = load_model(model_path)
-
     stamps = result_data.table[coadd_column].data
     stamp_dimm = (stamp_radius * 2) + 1
+    stamp_shape = (1, stamp_dimm, stamp_dimm)
     normalized_stamps = _normalize_stamps(stamps, stamp_dimm)
+    normalized_stamps = np.expand_dims(normalized_stamps, axis=1)
 
-    # resize to match the tensorflow input
-    # will probably not be needed when we switch to PyTorch
-    resized_stamps = normalized_stamps.reshape(-1, stamp_dimm, stamp_dimm, 1)
+    model = MODEL_TYPES[model_type](num_classes=2)
+    cnn = _KBMLModel(
+        model=model,
+        weights=model_path,
+        shape=stamp_shape,
+    )
+    # we'll need to check if we have a GPU available.
+    if model_path:
+        if torch.cuda.is_available():
+            cnn.load_state_dict(torch.load(model_path))
+        else:
+            cnn.load_state_dict(torch.load(model_path, map_location=torch.device("cpu")))
+    # Set the model to evaluation mode.
+    cnn.eval()
 
-    predictions = cnn.predict(resized_stamps, verbose=verbose)
+    stamp_tensor = torch.from_numpy(normalized_stamps)
+
+    # perform the inference.
+    predictions = cnn(stamp_tensor)
 
     classifications = []
-    for p in predictions:
+    for p in predictions.detach().numpy():
         classifications.append(np.argmax(p))
 
     bool_arr = np.array(classifications) != 0

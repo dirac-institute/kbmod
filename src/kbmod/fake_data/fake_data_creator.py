@@ -6,116 +6,14 @@ adding artificial objects. The fake data can be saved to files
 or used directly.
 """
 
-import os
-import random
 import numpy as np
-from pathlib import Path
-
-from astropy.io import fits
+import warnings
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.search import *
-from kbmod.search import Logging
-from kbmod.wcs_utils import append_wcs_to_hdu_header
+from kbmod.core.image_stack_py import ImageStackPy
+from kbmod.core.psf import PSF
+from kbmod.search import Trajectory
 from kbmod.work_unit import WorkUnit
-
-def make_fake_layered_image(
-    width,
-    height,
-    noise_stdev,
-    pixel_variance,
-    obstime,
-    psf,
-    seed=None,
-):
-    """Create a fake LayeredImage with a noisy background.
-
-    Parameters
-    ----------
-        width : `int`
-            Width of the images (in pixels).
-        height : `int
-            Height of the images (in pixels).
-        noise_stdev: `float`
-            Standard deviation of the image.
-        pixel_variance: `float`
-            Variance of the pixels, assumed uniform.
-        obstime : `float`
-            Observation time.
-        psf : `PSF`
-            The PSF for the image.
-        seed : `int`, optional
-            The seed for the pseudorandom number generator.
-
-    Returns
-    -------
-    img : `LayeredImage`
-        The fake image.
-
-    Raises
-    ------
-    Raises ``ValueError`` if any of the parameters are invalid.    
-    """
-    if width <= 0 or height <= 0:
-        raise ValueError(f"Invalid dimensions width={width}, height={height}")
-    if noise_stdev < 0 or pixel_variance < 0:
-        raise ValueError(f"Invalid noise parameters.")
-
-    # Use a set seed if needed.
-    if seed is None or seed == -1:
-        seed = int.from_bytes(os.urandom(4), "big")
-    rng = np.random.default_rng(seed)
-
-    # Create the LayeredImage directly from the layers.
-    img = LayeredImage(
-        rng.normal(0.0, noise_stdev, (height, width)).astype(np.float32),
-        np.full((height, width), pixel_variance).astype(np.float32),
-        np.zeros((height, width)).astype(np.float32),
-        psf,
-        obstime,
-    )
-    return img
-
-
-def add_fake_object(img, x, y, flux, psf=None):
-    """Add a fake object to a LayeredImage or RawImage
-
-    Parameters
-    ----------
-    img : `RawImage` or `LayeredImage`
-        The image to modify.
-    x : `int` or `float`
-        The x pixel location of the fake object.
-    y : `int` or `float`
-        The y pixel location of the fake object.
-    flux : `float`
-        The flux value.
-    psf : `PSF`
-        The PSF for the image.
-    """
-    if type(img) is LayeredImage:
-        sci = img.get_science()
-    else:
-        sci = img
-
-    # Explicitly cast to float because the indexing uses different order
-    # float integer and float.
-    x = int(x)
-    y = int(y)
-
-    if psf is None:
-        if (x >= 0) and (y >= 0) and (x < sci.width) and (y < sci.height):
-            sci.set_pixel(y, x, flux + sci.get_pixel(y, x))
-    else:
-        dim = psf.get_dim()
-        initial_x = int(x - psf.get_radius())
-        initial_y = int(y - psf.get_radius())
-        for i in range(dim):
-            for j in range(dim):
-                xp = initial_x + i
-                yp = initial_y + j
-                if (xp >= 0) and (yp >= 0) and (xp < sci.width) and (yp < sci.height):
-                    sci.set_pixel(yp, xp, flux * psf.get_value(i, j) + sci.get_pixel(yp, xp))
 
 
 def create_fake_times(num_times, t0=0.0, obs_per_day=1, intra_night_gap=0.01, inter_night_gap=1):
@@ -157,10 +55,134 @@ def create_fake_times(num_times, t0=0.0, obs_per_day=1, intra_night_gap=0.01, in
     return result_times
 
 
+def make_fake_image_stack(height, width, times, noise_level=2.0, psf_val=0.5, psfs=None, rng=None):
+    """Create a fake ImageStackPy for testing.
+
+    Parameters
+    ----------
+    width : int
+        The width of the images in pixels.
+    height : int
+        The height of the images in pixels.
+    times : list
+        A list of time stamps.
+    noise_level : float
+        The level of the background noise.
+        Default: 2.0
+    psf_val : float
+        The value of the default PSF.  Used if individual psfs are not specified.
+        Default: 0.5
+    psfs : `list` of `numpy.ndarray`, optional
+        A list of PSF kernels. If none, Gaussian PSFs from with std=psf_val are used.
+    rng : np.random.Generator
+        The random number generator to use. If None creates a new random generator.
+        Default: None
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    times = np.asarray(times)
+
+    # Create the science and variance images.
+    sci = [rng.normal(0.0, noise_level, (height, width)).astype(np.float32) for i in range(len(times))]
+    var = [np.full((height, width), noise_level**2).astype(np.float32) for i in range(len(times))]
+
+    # Create the PSF information.
+    if psfs is None:
+        psf_kernel = PSF.make_gaussian_kernel(psf_val)
+        psfs = [psf_kernel for i in range(len(times))]
+    elif len(psfs) != len(times):
+        raise ValueError(f"The number of PSFs ({len(psfs)}) must be the same as times ({len(times)}).")
+
+    return ImageStackPy(times, sci, var, psfs=psfs)
+
+
+def image_stack_add_random_masks(stack, mask_fraction, rng=None):
+    """Add random masks to the image stack.
+
+    Parameters
+    ----------
+    stack : ImageStackPy
+        The image stack to modify.
+    mask_fraction : float
+        The fraction of pixels to mask in each image [0.0, 1.0].
+    rng : np.random.Generator, optional
+        The random number generator to use. If None creates a new random generator.
+        Default: None
+    """
+    if not (0.0 <= mask_fraction <= 1.0):
+        raise ValueError(f"Invalid mask fraction {mask_fraction}. Must be between 0 and 1.")
+
+    if rng is None:
+        rng = np.random.default_rng()
+
+    for idx in range(len(stack.sci)):
+        mask = rng.random(stack.sci[idx].shape) < mask_fraction
+        stack.sci[idx][mask] = np.nan
+        stack.var[idx][mask] = np.nan
+
+
+def image_stack_add_fake_object(stack, x, y, vx, vy, *, ax=0.0, ay=0.0, flux=100.0):
+    """Insert a fake object given the trajectory.
+
+    Parameters
+    ----------
+    stack : ImageStackPy
+        The image stack to modify.
+    x : int
+        The x-coordinate of the object at the first time (in pixels).
+    y : int
+        The y-coordinate of the object at the first time (in pixels).
+    vx : float
+        The x-velocity of the object (in pixels per day).
+    vy : float
+        The y-velocity of the object (in pixels per day).
+    ax : float, optional
+        The x-acceleration of the object (in pixels per day^2). This is only used
+        to test non-linear trajectories and defaults to 0.0.
+    ay : float, optional
+        The y-acceleration of the object (in pixels per day^2). This is only used
+        to test non-linear trajectories and defaults to 0.0.
+    flux : float, optional
+        The flux of the object. Default: 100.0
+    """
+    for idx, t in enumerate(stack.zeroed_times):
+        psf_kernel = stack.psfs[idx]
+        psf_dim = psf_kernel.shape[0]
+        psf_radius = psf_dim // 2
+
+        px = int(x + vx * t + 0.5 * ax * t * t + 0.5)
+        py = int(y + vy * t + 0.5 * ay * t * t + 0.5)
+        for psf_y in range(psf_dim):
+            for psf_x in range(psf_dim):
+                img_x = px + psf_x - psf_radius
+                img_y = py + psf_y - psf_radius
+
+                # Only add flux to pixels inside the image with non-masked values.
+                if (
+                    img_x >= 0 and
+                    img_x < stack.width and
+                    img_y >= 0 and
+                    img_y < stack.height and
+                    np.isfinite(stack.sci[idx][img_y, img_x])
+                ):
+                    stack.sci[idx][img_y, img_x] += flux * psf_kernel[psf_y, psf_x]
+
+
 class FakeDataSet:
     """This class creates fake data sets for testing and demo notebooks."""
 
-    def __init__(self, width, height, times, noise_level=2.0, psf_val=0.5, use_seed=False):
+    def __init__(
+            self,
+            width,
+            height,
+            times,
+            *,
+            mask_fraction=0.0,
+            noise_level=2.0,
+            psf_val=0.5, 
+            psfs=None,
+            use_seed=-1,
+        ):
         """The constructor.
 
         Parameters
@@ -173,10 +195,18 @@ class FakeDataSet:
             A list of time stamps, such as produced by ``create_fake_times``.
         noise_level : `float`
             The level of the background noise.
+            Default: 2.0
         psf_val : `float`
-            The value of the default PSF.
-        use_seed : `bool`
+            The value of the default PSF std.  Used if individual psfs are not specified.
+            Default: 0.5
+        psfs : `list` of `numpy.ndarray`, optional
+            A list of PSF kernels. If none, Gaussian PSFs from with std=psf_val are used.
+        mask_fraction : `float`, optional
+            The fraction of pixels to mask in each image [0.0, 1.0].
+            Default: 0.0 (no masks).
+        use_seed : `int`
             Use a deterministic seed to avoid flaky tests.
+            Default: -1 (no seed, random behavior).
         """
         self.width = width
         self.height = height
@@ -188,8 +218,22 @@ class FakeDataSet:
         self.times = times
         self.fake_wcs = None
 
-        # Make the image stack.
-        self.stack = self.make_fake_ImageStack()
+        if use_seed < 0:
+            self.rng = np.random.default_rng()
+        else:
+            self.rng = np.random.default_rng(use_seed)
+
+        # Make the image stack and mask out pixels.
+        self.stack_py = make_fake_image_stack(
+            height,
+            width,
+            times,
+            noise_level=noise_level,
+            psf_val=psf_val,
+            psfs=psfs,
+            rng=self.rng,
+        )
+        image_stack_add_random_masks(self.stack_py, mask_fraction, rng=self.rng)
 
     def set_wcs(self, new_wcs):
         """Set a new fake WCS to be used for this data.
@@ -201,28 +245,6 @@ class FakeDataSet:
         """
         self.fake_wcs = new_wcs
 
-    def make_fake_ImageStack(self):
-        """Make a stack of fake layered images.
-
-        Returns
-        -------
-        stack : `ImageStack`
-        """
-        p = PSF(self.psf_val)
-        stack = ImageStack()
-        for i in range(self.num_times):
-            img = make_fake_layered_image(
-                self.width,
-                self.height,
-                self.noise_level,
-                self.noise_level**2,
-                self.times[i],
-                p,
-                i if self.use_seed else -1,
-            )
-            stack.append_image(img, force_move=True)
-        return stack
-
     def insert_object(self, trj):
         """Insert a fake object given the trajectory.
 
@@ -231,18 +253,15 @@ class FakeDataSet:
         trj : `Trajectory`
             The trajectory of the fake object to insert.
         """
-        t0 = self.times[0]
-
-        for i in range(self.num_times):
-            dt = self.times[i] - t0
-            px = trj.get_x_pos(dt)
-            py = trj.get_y_pos(dt)
-
-            # Get the image for the timestep, add the object, and
-            # re-set the image. This last step needs to be done
-            # explicitly because of how pybind handles references.
-            current = self.stack.get_single_image(i)
-            add_fake_object(current, px, py, trj.flux, current.get_psf())
+        # Insert the object into the images.
+        image_stack_add_fake_object(
+            self.stack_py,
+            trj.x,
+            trj.y,
+            trj.vx,
+            trj.vy,
+            flux=trj.flux,
+        )
 
         # Save the trajectory into the internal list.
         self.trajectories.append(trj)
@@ -264,11 +283,11 @@ class FakeDataSet:
 
         # Create the random trajectory.
         t = Trajectory()
-        t.x = int(random.random() * self.width)
-        xe = int(random.random() * self.width)
+        t.x = int(self.rng.random() * self.width)
+        xe = int(self.rng.random() * self.width)
         t.vx = (xe - t.x) / dt
-        t.y = int(random.random() * self.height)
-        ye = int(random.random() * self.height)
+        t.y = int(self.rng.random() * self.height)
+        ye = int(self.rng.random() * self.height)
         t.vy = (ye - t.y) / dt
         t.flux = flux
 
@@ -276,6 +295,31 @@ class FakeDataSet:
         self.insert_object(t)
 
         return t
+
+    def insert_random_artifacts(self, fraction, mean, std):
+        """Insert noise artifacts into the images that are brighter
+        than the background noise.
+
+        Parameters
+        ----------
+        fraction : `float`
+            The fraction of pixels to modify [0.0, 1.0]
+        mean : `float`
+            The mean value of the artifacts in units of flux.
+        std : `float`
+            The standard deviation of the artifacts.
+        """
+        if not (0.0 <= fraction <= 1.0):
+            raise ValueError(f"Invalid fraction {fraction}. Must be between 0 and 1.")
+
+        for idx in range(len(self.stack_py.sci)):
+            to_add = self.rng.random(self.stack_py.sci[idx].shape) < fraction
+
+            # Only add to unmasked pixels.
+            mask = self.stack_py.get_mask(idx)
+            to_add &= ~mask
+
+            self.stack_py.sci[idx][to_add] += self.rng.normal(mean, std, size=np.sum(to_add))
 
     def get_work_unit(self, config=None):
         """Create a WorkUnit from the fake data.
@@ -290,7 +334,11 @@ class FakeDataSet:
         """
         if config is None:
             config = SearchConfiguration()
-        work = WorkUnit(im_stack=self.stack, config=config, wcs=self.fake_wcs)
+        
+        # Create the WorkUnit, but disable warnings about no WCS since this if fake data.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            work = WorkUnit(im_stack=self.stack_py, config=config, wcs=self.fake_wcs)
         return work
     
     def save_fake_data_to_work_unit(self, filename, config=None):

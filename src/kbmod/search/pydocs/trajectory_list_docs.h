@@ -12,7 +12,25 @@ static const auto DOC_TrajectoryList_on_gpu = R"doc(
   )doc";
 
 static const auto DOC_TrajectoryList_get_size = R"doc(
-  Return the size of the list.
+  Return the size of the list in number of elements.
+  )doc";
+
+static const auto DOC_TrajectoryList_get_memory = R"doc(
+  Return the size of the list in bytes.
+  )doc";
+
+static const auto DOC_TrajectoryList_estimate_memory = R"doc(
+  Estimate the size of the list in bytes.
+    
+  Parameters
+  ----------
+  num_elements : `int`
+      The number of elements that will be in the list.
+
+  Returns
+  -------
+  size : `int`
+      The number of bytes needed for the list on CPU and GPU.
   )doc";
 
 static const auto DOC_TrajectoryList_get_trajectory = R"doc(
@@ -141,6 +159,134 @@ static const auto DOC_TrajectoryList_sort_by_likelihood = R"doc(
   Raises
   ------
   Raises a ``RuntimeError`` the data is on GPU.
+  )doc";
+
+static const auto DOC_TrajectoryList_filter_by_likelihood = R"doc(
+  Filter all trajectories with a likelihood above the given threshold.
+  Changes the order of the data and the size of the list. 
+  The data must reside on the CPU.
+
+  Parameters
+  ----------
+  min_lh : `float`
+      The minimum likelihood.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` the data is on GPU.
+  )doc";
+
+static const auto DOC_TrajectoryList_filter_by_obs_count = R"doc(
+  Filter all trajectories with an obs_count above the given threshold.
+  Changes the order of the data and the size of the list. 
+  The data must reside on the CPU.
+
+  Parameters
+  ----------
+  min_obs_count : `int`
+      The minimum obs_count.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` the data is on GPU.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_x = R"doc(
+  Extract all the x values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `int`
+      The x values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_y = R"doc(
+  Extract all the y values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `int`
+      The y values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_vx = R"doc(
+  Extract all the vx values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `float`
+      The vx values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_vy = R"doc(
+  Extract all the vy values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `float`
+      The vy values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_lh = R"doc(
+  Extract all the likelihood values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `float`
+      The likelihood values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_flux = R"doc(
+  Extract all the flux values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `float`
+      The flux values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_obs_count = R"doc(
+  Extract all the vy values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `int`
+      The obs_count values for each trajectory in the list.
   )doc";
 
 }  // namespace pydocs

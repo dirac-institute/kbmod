@@ -2,22 +2,16 @@ import math
 import numpy as np
 import unittest
 
-
-from kbmod.fake_data.fake_data_creator import make_fake_layered_image, FakeDataSet
+from kbmod.fake_data.fake_data_creator import make_fake_image_stack
 from kbmod.search import (
-    HAS_GPU,
+    kb_has_gpu,
     KB_NO_DATA,
-    PSF,
-    ImageStack,
-    LayeredImage,
-    PsiPhi,
     PsiPhiArray,
-    RawImage,
     compute_scale_params_from_image_vect,
     decode_uint_scalar,
     encode_uint_scalar,
     fill_psi_phi_array,
-    fill_psi_phi_array_from_image_stack,
+    fill_psi_phi_array_from_image_arrays,
     pixel_value_valid,
 )
 
@@ -29,15 +23,13 @@ class test_psi_phi_array(unittest.TestCase):
         self.height = 5
 
         psi_1_vals = np.arange(0, self.width * self.height, dtype=np.single)
-        psi_1_arr = psi_1_vals.reshape(self.height, self.width)
-        self.psi_1 = RawImage(img=psi_1_arr)
+        self.psi_1 = psi_1_vals.reshape(self.height, self.width)
 
         psi_2_vals = np.arange(self.width * self.height, 2 * self.width * self.height, dtype=np.single)
-        psi_2_arr = psi_2_vals.reshape(self.height, self.width)
-        self.psi_2 = RawImage(img=psi_2_arr)
+        self.psi_2 = psi_2_vals.reshape(self.height, self.width)
 
-        self.phi_1 = RawImage(np.full((self.height, self.width), 0.1, dtype=np.single))
-        self.phi_2 = RawImage(np.full((self.height, self.width), 0.2, dtype=np.single))
+        self.phi_1 = np.full((self.height, self.width), 0.1, dtype=np.single)
+        self.phi_2 = np.full((self.height, self.width), 0.2, dtype=np.single)
 
         self.zeroed_times = [0.0, 1.0]
 
@@ -163,7 +155,7 @@ class test_psi_phi_array(unittest.TestCase):
 
             # If the test has a GPU move the data to the GPU and confirm it got there.
             # Then clear it and make sure it is freed.
-            if HAS_GPU:
+            if kb_has_gpu():
                 arr.move_to_gpu()
                 self.assertTrue(arr.on_gpu)
                 self.assertTrue(arr.gpu_array_allocated)
@@ -186,27 +178,24 @@ class test_psi_phi_array(unittest.TestCase):
             arr.clear()
             self.assertFalse(arr.cpu_array_allocated)
 
-    def test_fill_psi_phi_array_from_image_stack(self):
+    def test_fill_psi_phi_array_from_image_arrays(self):
         # Build a fake image stack.
         num_times = 5
         width = 21
         height = 15
-        images = [None] * num_times
-        p = PSF(1.0)
-        for i in range(num_times):
-            images[i] = make_fake_layered_image(
-                width,
-                height,
-                2.0,  # noise_level
-                4.0,  # variance
-                2.0 * i + 1.0,  # time
-                p,
-            )
-        im_stack = ImageStack(images)
+        times = 2.0 * np.arange(num_times)
+        im_stack = make_fake_image_stack(height, width, times)
 
-        # Create the PsiPhiArray from the ImageStack.
+        # Create the PsiPhiArray from the image data.
         arr = PsiPhiArray()
-        fill_psi_phi_array_from_image_stack(arr, im_stack, 4)
+        fill_psi_phi_array_from_image_arrays(
+            arr,
+            4,  # num_bytes
+            im_stack.sci,
+            im_stack.var,
+            im_stack.psfs,
+            im_stack.zeroed_times,
+        )
 
         # Check the meta data.
         self.assertEqual(arr.num_times, num_times)
@@ -223,7 +212,7 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertFalse(arr.on_gpu)
         self.assertFalse(arr.gpu_array_allocated)
 
-        if HAS_GPU:
+        if kb_has_gpu():
             arr.move_to_gpu()
             self.assertTrue(arr.on_gpu)
             self.assertTrue(arr.gpu_array_allocated)
@@ -245,14 +234,22 @@ class test_psi_phi_array(unittest.TestCase):
         num_times = 5
         width = 10
         height = 12
-        fake_ds = FakeDataSet(width, height, np.arange(num_times))
+        times = 2.0 * np.arange(num_times)
+        im_stack = make_fake_image_stack(height, width, times)
 
         # Set all pixels in one of the images to NO_DATA.
-        science = fake_ds.stack.get_single_image(1).get_science().set_all(KB_NO_DATA)
+        science = im_stack.sci[1][:, :] = KB_NO_DATA
 
-        # Create the PsiPhiArray from the ImageStack and 2 byte encoding.
+        # Create the PsiPhiArray from the image data.
         arr = PsiPhiArray()
-        fill_psi_phi_array_from_image_stack(arr, fake_ds.stack, 2)
+        fill_psi_phi_array_from_image_arrays(
+            arr,
+            2,  # num_bytes
+            im_stack.sci,
+            im_stack.var,
+            im_stack.psfs,
+            im_stack.zeroed_times,
+        )
 
         # Check the meta data.
         self.assertEqual(arr.num_times, num_times)

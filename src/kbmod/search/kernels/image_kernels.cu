@@ -15,7 +15,6 @@
 
 #include "../common.h"
 #include "../gpu_array.h"
-#include "../psf.h"
 
 namespace search {
 
@@ -66,33 +65,44 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
     }
 }
 
-extern "C" void deviceConvolve(float *source_img, float *result_img, int width, int height, PSF &psf) {
+extern "C" void deviceConvolve(float *source_img, float *result_img, int width, int height,
+                               float *psf_kernel, int psf_radius) {
     if (width <= 0) throw std::runtime_error("Invalid width = " + std::to_string(width));
     if (height <= 0) throw std::runtime_error("Invalid height = " + std::to_string(height));
-    int psf_radius = psf.get_radius();
     if (psf_radius < 0) throw std::runtime_error("Invalid PSF radius = " + std::to_string(psf_radius));
 
     uint64_t n_pixels = width * height;
     int psf_dim = 2 * psf_radius + 1;
+    int psf_size = psf_dim * psf_dim;
+    
+    // Compute the PSF sum.
+    float psf_sum = 0.0;
+    for (int r = 0; r < psf_dim; ++r) {
+        for (int c = 0; c < psf_dim; ++c) {
+            psf_sum += psf_kernel[r * psf_dim + c];
+        }
+    }
 
     // Allocate Device memory
-    GPUArray<float> device_kernel = psf.copy_to_gpu();
+    float *device_kernel;
+    int res_code = cudaMalloc((void **)&device_kernel, sizeof(float) * psf_size);
     GPUArray<float> devicesource_img(n_pixels, true);
     GPUArray<float> deviceresult_img(n_pixels, true);
 
-    // Copy the source image.
+    // Copy the source image and the PSF.
     devicesource_img.copy_array_into_subset_of_gpu(source_img, 0, n_pixels);
+    res_code = cudaMemcpy(device_kernel, psf_kernel, sizeof(float) * psf_size, cudaMemcpyHostToDevice);
 
     dim3 blocks(width / CONV_THREAD_DIM + 1, height / CONV_THREAD_DIM + 1);
     dim3 threads(CONV_THREAD_DIM, CONV_THREAD_DIM);
     convolve_psf<<<blocks, threads>>>(width, height, devicesource_img.get_ptr(), deviceresult_img.get_ptr(),
-                                      device_kernel.get_ptr(), psf_radius, psf_dim, psf.get_sum());
+                                      device_kernel, psf_radius, psf_dim, psf_sum);
 
     // Copy the result image off the GPU.
     deviceresult_img.copy_subset_of_gpu_into_array(result_img, 0, n_pixels);
 
     // Free all the on-device memory.
-    device_kernel.free_gpu_memory();
+    res_code = cudaFree(device_kernel);
     devicesource_img.free_gpu_memory();
     deviceresult_img.free_gpu_memory();
 }

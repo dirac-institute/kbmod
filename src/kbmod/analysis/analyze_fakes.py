@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from kbmod.analysis.plotting import plot_image
-from kbmod.search import create_stamps, create_stamps_xy, Logging, Trajectory
+from kbmod.core.stamp_utils import create_stamps_from_image_stack_xy
+from kbmod.search import Logging
 from kbmod.trajectory_utils import fit_trajectory_from_pixels, evaluate_trajectory_mse
 from kbmod.util_functions import get_matched_obstimes
 
@@ -27,7 +28,7 @@ class FakeInfo:
         The name of the object.
     image_inds : `np.ndarray`
         For each observation of the fake the corresponding image index in the
-        WorkUnit's ImageStack.
+        WorkUnit's image stack.
         Initially None until join_with_workunit() is called.
     x_pos_fakes : `np.ndarray`
         The x pixel position of the fakes.
@@ -118,8 +119,8 @@ class FakeInfo:
         self.y_pos_fakes = y_pos
 
         # Determine at which times the fake is in an image.
-        in_bnds_x = (x_pos >= 0) & (x_pos < wu.im_stack.get_width())
-        in_bnds_y = (y_pos >= 0) & (y_pos < wu.im_stack.get_height())
+        in_bnds_x = (x_pos >= 0) & (x_pos < wu.im_stack.width)
+        in_bnds_y = (y_pos >= 0) & (y_pos < wu.im_stack.height)
         self.in_image_bnds = in_bnds_x & in_bnds_y
 
         # Fit a linear trajectory to the data.
@@ -130,7 +131,7 @@ class FakeInfo:
             num_stamps = len(self.image_inds)
 
             # Generate the stamps from the raw positions.
-            xy_stamp_list = create_stamps_xy(
+            xy_stamp_list = create_stamps_from_image_stack_xy(
                 wu.im_stack,
                 radius,
                 x_pos.astype(int),
@@ -139,7 +140,7 @@ class FakeInfo:
             )
 
             # Generate the stamps from the fitted trajectory.
-            trj_stamp_list = create_stamps_xy(
+            trj_stamp_list = create_stamps_from_image_stack_xy(
                 wu.im_stack,
                 radius,
                 (self.trj.x + self.trj.vx * zeroed_times + 0.5).astype(int),

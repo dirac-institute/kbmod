@@ -33,9 +33,6 @@ Configuration Parameters
 +------------------------+-----------------------------+----------------------------------------+
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
 +------------------------+-----------------------------+----------------------------------------+
-| ``chunk_size``         | 500000                      | The batch size to use when processing  |
-|                        |                             | the results of the on-GPU search.      |
-+------------------------+-----------------------------+----------------------------------------+
 | ``clip_negative``      | False                       | An option used with sigmaG filtering,  |
 |                        |                             | remove all negative values prior to    |
 |                        |                             | computing the percentiles.             |
@@ -63,13 +60,17 @@ Configuration Parameters
 |                        |                             | The filtering coadd is controlled by   |
 |                        |                             | the ``stamp_type`` parameter.          |
 +------------------------+-----------------------------+----------------------------------------+
+| ``cpu_only``           | False                       | Perform the core search on the CPU     |
+|                        |                             | (even if the GPU is available).        |
++------------------------+-----------------------------+----------------------------------------+
+| ``compute_ra_dec``     | True                        | Compute and save the predicted RA and  |
+|                        |                             | dec for each result at each time.      |
++------------------------+-----------------------------+----------------------------------------+
 | ``debug``              | False                       | Display debugging output.              |
 +------------------------+-----------------------------+----------------------------------------+
 | ``do_clustering``      | True                        | Cluster the resulting trajectories to  |
 |                        |                             | remove duplicates and known objects.   |
 |                        |                             | See :ref:`Clustering` for more.        |
-+------------------------+-----------------------------+----------------------------------------+
-| ``do_mask``            | True                        | Apply the mask to the raw pixels.      |
 +------------------------+-----------------------------+----------------------------------------+
 | ``encode_num_bytes``   | -1                          | The number of bytes to use to encode   |
 |                        |                             | ``psi`` and ``phi`` images on GPU. By  |
@@ -85,24 +86,38 @@ Configuration Parameters
 |                        |                             | trajectory generator that will create  |
 |                        |                             | the search candidates.                 |
 +------------------------+-----------------------------+----------------------------------------+
+| ``generate_psi_phi``   | True                        | If True, computes the psi and phi      |
+|                        |                             | and saves them with the results.       |
++------------------------+-----------------------------+----------------------------------------+
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
 +------------------------+-----------------------------+----------------------------------------+
-| ``max_lh``             | 1000.0                      | A maximum likelihood threshold to apply|
-|                        |                             | to detected objects. Objects with a    |
-|                        |                             | computed likelihood above this         |
-|                        |                             | threshold are rejected.                |
+| ``max_results``        | 100000                      | The maximum number of results to save  |
+|                        |                             | after all filtering.  The highest      |
+|                        |                             | likelihood results are saved. Use -1   |
+|                        |                             | to save all results.                   |
++------------------------+-----------------------------+----------------------------------------+
+| ``near_dup_thresh``    | 10                          | The grid size (in pixels) for near     |
+|                        |                             | duplicate pre-filtering. Use ``None``  |
+|                        |                             | to skip this filtering step.           |
++------------------------+-----------------------------+----------------------------------------+
+| ``nightly_coadds``     | False                       | Generate a coadd for each calendar     |
+|                        |                             | date.                                  |
 +------------------------+-----------------------------+----------------------------------------+
 | ``num_obs``            | 10                          | The minimum number of non-masked       |
 |                        |                             | observations for the object to be      |
-|                        |                             | accepted.                              |
+|                        |                             | accepted. If this is greater than the  |
+|                        |                             | number of the valid images or set to   |
+|                        |                             | -1 then it is reduced to the number of |
+|                        |                             | the valid images.                      |
 +------------------------+-----------------------------+----------------------------------------+
 | ``psf_val``            | 1.4                         | The value for the standard deviation of|
 |                        |                             | the point spread function (PSF) in     |
 |                        |                             | pixels                                 |
 +------------------------+-----------------------------+----------------------------------------+
 | ``result_filename``    | None                        | Full filename and path for a single    |
-|                        |                             | tabular result saves as ecsv.          |
+|                        |                             | tabular result saved as an ecsv, hdf5, |
+|                        |                             | or parquet depending on the suffix.    |
 +------------------------+-----------------------------+----------------------------------------+
 | ``results_per_pixel``  | 8                           | The maximum number of results to       |
 |                        |                             | to return for each pixel search.       |
