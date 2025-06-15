@@ -181,6 +181,9 @@ class FakeDataSet:
             noise_level=2.0,
             psf_val=0.5, 
             psfs=None,
+            artifacts_fraction=0.0,
+            artifacts_mean=0.0,
+            artifacts_std=2.0,
             use_seed=-1,
         ):
         """The constructor.
@@ -204,36 +207,83 @@ class FakeDataSet:
         mask_fraction : `float`, optional
             The fraction of pixels to mask in each image [0.0, 1.0].
             Default: 0.0 (no masks).
+        artifacts_fraction : `float`, optional
+            The fraction of pixels to modify with noise artifacts that are brighter
+            than the background noise [0.0, 1.0].
+            Default: 0.0 (no artifacts).
+        artifacts_mean : `float`, optional
+            The mean value of the artifacts in units of flux.
+            Default: 0.0 (no artifacts).
+        artifacts_std : `float`, optional
+            The standard deviation of the artifacts.
+            Default: 2.0 (same as noise level).
         use_seed : `int`
             Use a deterministic seed to avoid flaky tests.
             Default: -1 (no seed, random behavior).
         """
+        self.times = times
+        self.num_times = len(times)
+        if self.num_times == 0:
+            raise ValueError("The list of times must not be empty.")
+
+        # Base image information.
         self.width = width
         self.height = height
-        self.psf_val = psf_val
         self.noise_level = noise_level
-        self.num_times = len(times)
-        self.use_seed = use_seed
-        self.trajectories = []
-        self.times = times
-        self.fake_wcs = None
+        self.mask_fraction = mask_fraction
+        if width <= 0 or height <= 0:
+            raise ValueError(f"Invalid image dimensions: width={width}, height={height}")
+        if not (0.0 <= mask_fraction <= 1.0):
+            raise ValueError(f"Invalid mask fraction {mask_fraction}. Must be between 0 and 1.")
 
+        # Artifacts information.
+        self.artifacts_fraction = artifacts_fraction
+        self.artifacts_mean = artifacts_mean
+        self.artifacts_std = artifacts_std
+        if not (0.0 <= artifacts_fraction <= 1.0):
+            raise ValueError(f"Invalid artifacts fraction {artifacts_fraction}. Must be between 0 and 1.")
+
+        # PSF information.
+        self.psf_val = psf_val
+        self.psfs = psfs
+
+        # Set up the random number generator.
+        self.use_seed = use_seed
         if use_seed < 0:
             self.rng = np.random.default_rng()
         else:
             self.rng = np.random.default_rng(use_seed)
 
-        # Make the image stack and mask out pixels.
+        # Set the auxiliary data to empty.
+        self.trajectories = []
+        self.fake_wcs = None
+
+        # Make the image stack, mask out the pixels, and add the artifacts.
+        self.reset()
+
+    def reset(self):
+        """Regenerate the image stack and clear the inserted objects."""
         self.stack_py = make_fake_image_stack(
-            height,
-            width,
-            times,
-            noise_level=noise_level,
-            psf_val=psf_val,
-            psfs=psfs,
+            self.height,
+            self.width,
+            self.times,
+            noise_level=self.noise_level,
+            psf_val=self.psf_val,
+            psfs=self.psfs,
             rng=self.rng,
         )
-        image_stack_add_random_masks(self.stack_py, mask_fraction, rng=self.rng)
+
+        if self.mask_fraction > 0.0:
+            image_stack_add_random_masks(self.stack_py, self.mask_fraction, rng=self.rng)
+        if self.artifacts_fraction > 0.0:
+            self.insert_random_artifacts(
+                self.artifacts_fraction,
+                self.artifacts_mean,
+                self.artifacts_std,
+            )
+
+        # Clear the list of inserted objects and WCS.
+        self.trajectories = []
 
     def set_wcs(self, new_wcs):
         """Set a new fake WCS to be used for this data.
@@ -266,35 +316,134 @@ class FakeDataSet:
         # Save the trajectory into the internal list.
         self.trajectories.append(trj)
 
-    def insert_random_object(self, flux):
-        """Create a fake object and insert it into the image.
+    def trajectory_is_within_bounds(self, trj):
+        """Check if the trajectory is within the image bounds for all times."""
+        dt = self.times[-1] - self.times[0]
+        xe = trj.x + trj.vx * dt
+        ye = trj.y + trj.vy * dt
+        return (
+            0 <= trj.x < self.width and
+            0 <= trj.y < self.height and
+            0 <= xe < self.width and
+            0 <= ye < self.height
+        )
+
+    def insert_random_object(self, flux, vx=None, vy=None):
+        """Create a fake object that will be within the image bounds
+        in all images.
 
         Parameters
         ----------
         flux : `float`
             The flux of the object.
+        vx : `float` or `list` of `float`, optional
+            The x-velocity or list of allowable x-velocities (in pixels per day).
+            If None, a random x-velocity is generated.
+        vy : `float` or `list` of `float`, optional
+            The y-velocity or list of allowable y-velocities (in pixels per day).
+            If None, a random y-velocity is generated.
 
         Returns
         -------
-        t : `Trajectory`
+        trj : `Trajectory`
             The trajectory of the inserted object.
         """
         dt = self.times[-1] - self.times[0]
 
-        # Create the random trajectory.
-        t = Trajectory()
-        t.x = int(self.rng.random() * self.width)
-        xe = int(self.rng.random() * self.width)
-        t.vx = (xe - t.x) / dt
-        t.y = int(self.rng.random() * self.height)
-        ye = int(self.rng.random() * self.height)
-        t.vy = (ye - t.y) / dt
-        t.flux = flux
+        trj = Trajectory(flux=flux)
+        is_valid = False
+        itr = 0
+        while not is_valid and itr < 1000:
+            # We use rejection sampling to ensure the object is visible in all images.
+            trj.x = int(self.rng.random() * self.width)
+            trj.y = int(self.rng.random() * self.height)
 
+            if vx is None:
+                # If no x-velocity is specified, create one by picking a random end point.
+                xe = int(self.rng.random() * self.width)
+                trj.vx = (xe - trj.x) / dt
+            elif np.isscalar(vx):
+                # If a scalar is given, use it as the x-velocity.
+                trj.vx = vx
+            else:
+                # If a vector is given, pick a random one.
+                trj.vx = self.rng.choice(vx)
+
+            if vy is None:
+                # If no y-velocity is specified, create one by picking a random end point.
+                ye = int(self.rng.random() * self.height)
+                trj.vy = (ye - trj.y) / dt
+            elif np.isscalar(vy):
+                # If a scalar is given, use it as the y-velocity.
+                trj.vy = vy
+            else:
+                # If a vector is given, pick a random one.
+                trj.vy = self.rng.choice(vy)
+
+            # Check if the object is visible in all images.  If not, try again.
+            is_valid = self.trajectory_is_within_bounds(trj)
+            itr += 1
+        
+        if not is_valid:
+            warnings.warn(
+                "Failed to create a valid random object after 1000 attempts. "
+                "The object may not be visible in all images."
+            )
+        
         # Insert the object.
-        self.insert_object(t)
+        self.insert_object(trj)
 
-        return t
+        return trj
+
+    def insert_random_objects_from_generator(self, num_trj, generator, flux):
+        """Insert a number of random objects based on a given TrajectorGenerator.
+        This ensures that the inserted objects can be recovered by the search. 
+
+        Parameters
+        ----------
+        num_trj : `int`
+            The number of trajectories to insert.
+        generator : `TrajectoryGenerator`
+            The generator to use for creating the trajectories.
+        flux : `float`
+            The flux of the object.
+
+        Returns
+        -------
+        trjs : `List` of `Trajectory`
+            The list of all the trajectories inserted.
+        """
+        # Extract the list of possible velocities from the generator.
+        candidate_trjs = [trj for trj in generator]
+        if len(candidate_trjs) == 0:
+            raise ValueError("The generator did not produce any trajectories.")
+
+        # Insert the objects one at a time, using rejection sampling to ensure
+        # they appear in all images.
+        trjs = []
+        itr = 0
+        while len(trjs) < num_trj and itr < 10 * num_trj:
+            # Pick a random trajectory from the generator to use for its velocity.
+            trj_v = self.rng.choice(candidate_trjs)
+
+            trj = Trajectory(
+                x = int(self.rng.random() * self.width),
+                y = int(self.rng.random() * self.height),
+                vx = trj_v.vx,
+                vy = trj_v.vy,
+                flux=flux,
+            )
+            if self.trajectory_is_within_bounds(trj):
+                # If the trajectory is valid, insert it.
+                self.insert_object(trj)
+                trjs.append(trj)
+
+            itr += 1
+            
+        if len(trjs) < num_trj:
+            warnings.warn(f"Only inserted {len(trjs)} out of {num_trj} requested trajectories.")
+
+        return trjs
 
     def insert_random_artifacts(self, fraction, mean, std):
         """Insert noise artifacts into the images that are brighter
