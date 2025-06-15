@@ -276,7 +276,7 @@ class RegionSearch:
         arcminutes : float
             The size of the patches in arcminutes.
         overlap_percentage : float
-            The percentage of overlap between adjacent patche, expressed in [0,100]
+            The percentage of overlap between adjacent patches, expressed in [0,100]
         image_width : int
             The width of the image in pixels.
         image_height : int
@@ -384,10 +384,9 @@ class RegionSearch:
         ephems_ras = ephems.get_ras(guess_dist)
         ephems_decs = ephems.get_decs(guess_dist)
 
-        # For each ephemeris entry, check if it is in any of the patches
-        # We need to check if the ephemeris entry is in any of the patches with search around sky
-        # coordinates. We do this by checking if the ephemeris entry is in any of the patches
-        # with a search radius of half the patch size
+        # For each ephemeris entry, check if it is in any of the patches with 
+        # astropy's search_around_sky. This uses a kd-tree to efficiently find
+        # all patches that are within a certain distance of the ephemeris entry.
         ephems_coords = SkyCoord(
             ephems_ras,
             ephems_decs,
@@ -411,7 +410,8 @@ class RegionSearch:
         # that are within patch_size_deg of each other
         ephems_idx, patch_idx, _, _ = search_around_sky(ephems_coords, patch_centers, patch_size_deg)
 
-        # Now we need to check if the ephemeris entry is actually in the patch
+        # Now we need to check if the ephemeris entry is actually in the boundaries of the patch
+        # rather than just it's circumcribing circle of radius patch_size_deg
         res_patch_indices = set([])
         for ephem_idx, patch_idx in zip(ephems_idx, patch_idx):
             if patch_idx not in res_patch_indices:
@@ -537,10 +537,6 @@ class RegionSearch:
 
         # Get the indices of ic_coords that are within the patch size of the patch center
         seps = ic_coords.separation(patch_center)
-
-        # Could vectorized to get mask for all corners of the images in the ImageCollection
-        # Then define a mask for each image in the ImageCollection based on if one of
-        # the corners met our threshold
 
         # Iterate over all images and check if they overlap with the patch
         new_ic = self.ic.copy()

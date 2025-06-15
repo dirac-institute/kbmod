@@ -727,7 +727,7 @@ def plot_ic_polygon(ic, idx, reflex_dist=0.0, earth_loc=None, lw=1, color=None, 
 
     plt.plot(ras, decs, linewidth=lw, color=color, alpha=alpha)
     # Ensure that we have the correct aspect ratio for RA/Dec plots
-    # plt.gca().set_aspect("equal")
+    plt.gca().set_aspect("equal")
 
 
 def plot_ic_image_bounds(ic, patch=None, reflex_distances=[0.0], earth_loc=None, lw=1, alpha=None):
