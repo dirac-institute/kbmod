@@ -215,7 +215,7 @@ class RegionSearch:
     def _get_patch_radius(self):
         """
         Returns the radius of the patches in degrees, which is the distance from the center of the patch
-        to one of its corners.
+        to one of its corners (the radius of its circumcribing circle).
 
         Returns
         -------
@@ -225,6 +225,7 @@ class RegionSearch:
         if not self.patches:
             raise ValueError("No patches have been generated yet.")
 
+        # All patches are the same size, so we can just return the radius of the first patch
         return self.patches[0].patch_radius()
 
     def filter_by_time_range(self, start_mjd, end_mjd):
@@ -394,21 +395,16 @@ class RegionSearch:
         if guess_dist is None:
             guess_dist = 0.0
 
-        # Iterate over all items of the ephemeris and check
-        # if they are in any of the patches
+        # Prepare skycoords for the reflex-corrected ephemeris entries to efficiently search against the patch centers
         ephems_ras = ephems.get_ras(guess_dist)
         ephems_decs = ephems.get_decs(guess_dist)
-
-        # For each ephemeris entry, check if it is in any of the patches with
-        # astropy's search_around_sky. This uses a kd-tree to efficiently find
-        # all patches that are within a certain distance of the ephemeris entry.
         ephems_coords = SkyCoord(
             ephems_ras,
             ephems_decs,
             unit=(u.deg, u.deg),
             frame="icrs",
         )
-        # Get the patch center coordinates
+        # Get the center coordinates of all patches
         patch_centers = SkyCoord(
             [patch.ra for patch in self.patches],
             [patch.dec for patch in self.patches],
@@ -416,17 +412,16 @@ class RegionSearch:
             frame="icrs",
         )
 
-        # Use search_around_sky to find the indices of the patches that may contain the ephemeris entries
-        # As our search radius from the patch center, we use the distance between the center of the patch
-        # and the corners of the patch, which can simply be calculated using the pythagorean theorem.
-        patch_size_deg = self._get_patch_radius()
-
-        # The elements of the returned lists are indices within the ephemeris and patch center coordinates
-        # that are within patch_size_deg of each other
-        ephems_idx, patch_idx, _, _ = search_around_sky(ephems_coords, patch_centers, patch_size_deg)
+        # Use search_around_sky to find the indices of the patches that may contain the ephemeris entries.
+        # This is a fast, coarse search for matching patches since it uses a circular search radius of each
+        # patch's circumscribing circle rather than the actual patch boundaries. We will next filter out
+        # results that are not actually in the patch boundaries.
+        ephems_idx, patch_idx, _, _ = search_around_sky(
+            ephems_coords, patch_centers, self._get_patch_radius()
+        )
 
         # Now we need to check if the ephemeris entry is actually in the boundaries of the patch
-        # rather than just it's circumcribing circle of radius patch_size_deg
+        # rather than just its circumcribing circle.
         res_patch_indices = set([])
         for ephem_idx, patch_idx in zip(ephems_idx, patch_idx):
             if patch_idx not in res_patch_indices:
@@ -513,18 +508,11 @@ class RegionSearch:
             # Get the patch object from the index
             patch = self.get_patches()[patch]
 
-        # For each ephemeris entry, check if it is in any of the patches
-        # We need to check if the ephemeris entry is in any of the patches with search around sky
-        # coordinates. We do this by checking if the ephemeris entry is in any of the patches
-        # with a search radius of half the patch size
-        ic_ras = []
-        ic_decs = []
-        ic_ras = self.ic.data[self.ic.reflex_corrected_col("ra", guess_dist)]
-        ic_decs = self.ic.data[self.ic.reflex_corrected_col("dec", guess_dist)]
-
+        # To check if any of the images in the ImageCollection overlap with the patch,
+        # first create a skycoord of the reflex-corrected image centers.
         ic_coords = SkyCoord(
-            ra=ic_ras,
-            dec=ic_decs,
+            ra=self.ic.data[self.ic.reflex_corrected_col("ra", guess_dist)],
+            dec=self.ic.data[self.ic.reflex_corrected_col("dec", guess_dist)],
             unit=(u.deg, u.deg),
             frame="icrs",
         )
@@ -536,19 +524,21 @@ class RegionSearch:
             frame="icrs",
         )
 
-        # Use search_around_sky to find the indices of the patches that may contain the ephemeris entries
-        # As our search radius from the patch center, we use the distance between the center of the patch
-        # and the corners of the patch, which can simply be calculated using the pythagorean theorem.
-        patch_size_deg = patch.patch_radius()
-        # Get separation of TL corner and center of the first image in the ic
-        first_chip_corner = SkyCoord(
-            ra=self.ic.data[self.ic.reflex_corrected_col("ra_tl", guess_dist)][0],
-            dec=self.ic.data[self.ic.reflex_corrected_col("dec_tl", guess_dist)][0],
-            unit=(u.deg, u.deg),
-            frame="icrs",
-        )
-        chip_distance = first_chip_corner.separation(ic_coords[0])
-        max_sep = patch_size_deg + chip_distance
+        # We want to get the maximum separation between the patch center and any corner of the chip
+        # so that we can pre-filter out images that are too far away to overlap with the patch (since
+        # checking overlap with polygons is expensive).
+        chip_distance = 0 * u.deg
+        for corner in ["tl", "tr", "br", "bl"]:
+            first_chip_corner = SkyCoord(
+                ra=self.ic.data[self.ic.reflex_corrected_col(f"ra_{corner}", guess_dist)][0],
+                dec=self.ic.data[self.ic.reflex_corrected_col(f"dec_{corner}", guess_dist)][0],
+                unit=(u.deg, u.deg),
+                frame="icrs",
+            )
+            chip_distance = max(chip_distance, first_chip_corner.separation(ic_coords[0]))
+        # The maximum separation between the patch center and the image center for there to be any overlap
+        # of the image on the patch.
+        max_sep = patch.patch_radius() + chip_distance
 
         # Get the indices of ic_coords that are within the patch size of the patch center
         seps = ic_coords.separation(patch_center)
