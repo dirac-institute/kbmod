@@ -212,6 +212,21 @@ class RegionSearch:
                 shapes[visit][detector][guess_dist] = Polygon(list(zip(ra_corners, dec_corners)))
         return shapes
 
+    def _get_patch_radius(self):
+        """
+        Returns the radius of the patches in degrees, which is the distance from the center of the patch
+        to one of its corners.
+
+        Returns
+        -------
+        astropy.units.Quantity
+            The radius of the patches in degrees.
+        """
+        if not self.patches:
+            raise ValueError("No patches have been generated yet.")
+
+        return self.patches[0].patch_radius()
+
     def filter_by_time_range(self, start_mjd, end_mjd):
         """
         Filter the ImageCollection by the given time range. Is performed in-place.
@@ -384,7 +399,7 @@ class RegionSearch:
         ephems_ras = ephems.get_ras(guess_dist)
         ephems_decs = ephems.get_decs(guess_dist)
 
-        # For each ephemeris entry, check if it is in any of the patches with 
+        # For each ephemeris entry, check if it is in any of the patches with
         # astropy's search_around_sky. This uses a kd-tree to efficiently find
         # all patches that are within a certain distance of the ephemeris entry.
         ephems_coords = SkyCoord(
@@ -404,7 +419,7 @@ class RegionSearch:
         # Use search_around_sky to find the indices of the patches that may contain the ephemeris entries
         # As our search radius from the patch center, we use the distance between the center of the patch
         # and the corners of the patch, which can simply be calculated using the pythagorean theorem.
-        patch_size_deg = np.sqrt((self.patches[0].width / 2) ** 2 + (self.patches[0].height / 2) ** 2) * u.deg
+        patch_size_deg = self._get_patch_radius()
 
         # The elements of the returned lists are indices within the ephemeris and patch center coordinates
         # that are within patch_size_deg of each other
@@ -524,7 +539,7 @@ class RegionSearch:
         # Use search_around_sky to find the indices of the patches that may contain the ephemeris entries
         # As our search radius from the patch center, we use the distance between the center of the patch
         # and the corners of the patch, which can simply be calculated using the pythagorean theorem.
-        patch_size_deg = np.sqrt((patch.width / 2) ** 2 + (patch.height / 2) ** 2) * u.deg
+        patch_size_deg = patch.patch_radius()
         # Get separation of TL corner and center of the first image in the ic
         first_chip_corner = SkyCoord(
             ra=self.ic.data[self.ic.reflex_corrected_col("ra_tl", guess_dist)][0],
@@ -701,3 +716,15 @@ class Patch:
         """
         # True if the patch overlaps at all with the given shapely polygon
         return self.measure_overlap(poly) > 0
+
+    def patch_radius(self):
+        """
+        Returns the radius of the patch in degrees, which is the distance from the center of the patch
+        to one of its corners.
+
+        Returns
+        -------
+        asropy.units.Quantity
+            The radius of the patch in degrees.
+        """
+        return np.sqrt((self.width / 2) ** 2 + (self.height / 2) ** 2) * u.deg
