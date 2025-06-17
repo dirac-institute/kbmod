@@ -4,6 +4,7 @@ and helper functions for filtering and maintaining consistency between different
 
 import copy
 import csv
+import gzip
 import logging
 import numpy as np
 import uuid
@@ -72,7 +73,7 @@ class Results:
     _required_col_names = set([rq_col[0] for rq_col in required_cols])
 
     # We only support a few output formats since we need to save metadata.
-    _supported_formats = [".ecsv", ".parq", ".parquet", ".hdf5"]
+    _supported_formats = [".ecsv", ".parq", ".parquet", ".hdf5", ".gz"]
 
     def __init__(self, data=None, track_filtered=False, wcs=None):
         """Create a ResultTable class.
@@ -235,7 +236,12 @@ class Results:
             raise ValueError(
                 f"Unsupported file type '{filepath.suffix}' " f"use one of {cls._supported_formats}."
             )
-        data = Table.read(filename)
+        if filepath.suffix == ".gz":
+            # If the file is gzipped, we need to open it with gzip.
+            with gzip.open(filepath, "rt") as f:
+                data = Table.read(f.read(), format="ascii.ecsv")
+        else:
+            data = Table.read(filename)
 
         # Check if we have stored a global WCS.
         if "wcs" in data.meta:

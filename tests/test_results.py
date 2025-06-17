@@ -1,4 +1,5 @@
 import csv
+import gzip
 import numpy as np
 import os
 import tempfile
@@ -584,10 +585,17 @@ class test_results(unittest.TestCase):
 
         # Test read/write to file.
         with tempfile.TemporaryDirectory() as dir_name:
-            for fmt in ["ecsv", "parq", "parquet", "hdf5"]:
+            for fmt in ["ecsv", "parq", "parquet", "hdf5", "ecsv.gz"]:
                 with self.subTest(fmt_used=fmt):
                     file_path = os.path.join(dir_name, f"results.{fmt}")
-                    table.write_table(file_path)
+                    if fmt == "ecsv.gz":
+                        file_path_uc = file_path.replace(".gz", "")
+                        table.write_table(file_path_uc)
+                        with open(file_path_uc, 'rb') as f_in:
+                                with gzip.open(file_path, 'wb') as f_out:
+                                    f_out.writelines(f_in)
+                    else:
+                        table.write_table(file_path)
                     self.assertTrue(Path(file_path).is_file())
 
                     table2 = Results.read_table(file_path)
