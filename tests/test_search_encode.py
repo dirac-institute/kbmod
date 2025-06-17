@@ -50,7 +50,7 @@ class test_search_filter(unittest.TestCase):
             fake_times,
             noise_level=2.0,
             psf_val=1.0,
-            use_seed=True,
+            use_seed=101,
         )
         fake_ds.insert_object(self.trj)
         self.stack = fake_ds.stack_py

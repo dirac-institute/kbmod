@@ -117,7 +117,7 @@ class test_search(unittest.TestCase):
             time_list,
             noise_level=1.0,
             psf_val=0.5,
-            use_seed=True,
+            use_seed=101,
         )
 
         # Create fake result trajectories with given initial likelihoods. The two final ones

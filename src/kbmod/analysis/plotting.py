@@ -384,12 +384,8 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
     """
     if ax is None and figure is None:
         figure, ax = plt.subplots()
-    elif ax is not None and figure is None:
-        raise ValueError("Provide both figure and axis, or provide none.")
     elif ax is None and figure is not None:
-        raise ValueError("Provide both figure and axis, or provide none.")
-    else:
-        pass
+        ax = figure.add_subplot()
 
     # Check the image's type and convert to an numpy array.
     if isinstance(img, LayeredImagePy):

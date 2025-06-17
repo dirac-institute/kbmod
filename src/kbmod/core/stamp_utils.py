@@ -77,35 +77,59 @@ def extract_stamp_stack(imgs, x_vals, y_vals, radius, to_include=None):
 
 
 def extract_curve_values(imgs, x_vals, y_vals):
-    """Generate a length T array of image values. This can be used with
-    any type of stacked images (science, variance, psi, phi).
+    """Extract the values at predicted positions from a stack of images. This can
+    be used with any type of stacked images (science, variance, psi, phi).
 
     Parameters
     ----------
     imgs : numpy.ndarray or list of numpy.ndarray
-        A single T x H x W array of image data, where T is the number of times,
-        H is the image height, and W is the image width.
+        Data for T images of shape H x W, where T is the number of times, H is the image height,
+        and W is the image width. This can be a single T x H x W array or a list of T different
+        H x W arrays.
     x_vals : np.array
-        The x values at the center of the stamp. Must be length T.
+        The predicted x positions at the center of the pixel. This can be a single array
+        of length T or a length R x T array where R is the number of results and T is
+        the number of times.
     y_vals : np.array
-        The y values at the center of the stamp. Must be length T.
+        The predicted y positions at the center of the pixel. This can be a single array
+        of length T or a length R x T array where R is the number of results and T is
+        the number of times.
 
     Returns
     -------
     values : numpy.ndarray
-        A length T array where T is the number of times.
+        If x_vals and y_vals are single arrays, returns a length T array where T is
+        the number of times. Otherwise returns a R x T matrix where R is the number
+        of results and T is the number of times.
     """
-    if len(imgs.shape) != 3:
-        raise ValueError("Image data must have 3 dimensions.")
-    if len(x_vals) != imgs.shape[0] or len(y_vals) != imgs.shape[0]:
-        raise ValueError("X and Y values must have the same length as the number of times.")
+    num_times = len(imgs)
 
-    # Make sure the indices are integers.
-    x_vals = np.asarray(x_vals, dtype=int)
-    y_vals = np.asarray(y_vals, dtype=int)
+    # Make sure the indices are integers and have the correct shape.
+    x_vals = np.asanyarray(x_vals, dtype=int)
+    if x_vals.ndim == 1:
+        x_vals = x_vals[np.newaxis, :]  # Reshape to 1 x T if it's a single array.
+    if x_vals.shape[1] != num_times:
+        raise ValueError(f"X values must have the same length as times ({num_times}).")
 
-    # Extract the values of the pixels that fall within the images.
-    values = _extract_curve_values(imgs, x_vals, y_vals)
+    y_vals = np.asanyarray(y_vals, dtype=int)
+    if y_vals.ndim == 1:
+        y_vals = y_vals[np.newaxis, :]  # Reshape to 1 x T if it's a single array.
+    if y_vals.shape[1] != num_times:
+        raise ValueError(f"Y values must have the same length as times ({num_times}).")
+
+    # Check the number of results is the same for x and y values.
+    if x_vals.shape[0] != y_vals.shape[0]:
+        raise ValueError("X and Y values must have the same number of results.")
+
+    # Extract the values of the pixels that fall within the images. Using the compiled function.
+    if isinstance(imgs, list):
+        values = _extract_curve_values(typed.List(imgs), x_vals, y_vals)
+    else:
+        values = _extract_curve_values(imgs, x_vals, y_vals)
+
+    # If we only have one set of x and y values, return a 1D array.
+    if x_vals.shape[0] == 1:
+        values = values.flatten()
     return values
 
 
@@ -447,7 +471,7 @@ def _extract_stamp_stack_list(imgs, x_vals, y_vals, radius, mask=None):
 
 @jit(nopython=True)
 def _extract_curve_values(imgs, x_vals, y_vals):
-    """Generate a length T array of image values. This can be used with
+    """Generate a R x T matrix of image values. This can be used with
     any type of stacked images (science, variance, psi, phi).
 
     Parameters
@@ -456,20 +480,28 @@ def _extract_curve_values(imgs, x_vals, y_vals):
         A single T x H x W array of image data, where T is the number of times,
         H is the image height, and W is the image width.
     x_vals : np.array of int
-        The x values at the center of the stamp. Must be length T.
+        A length R x T array of predicted x positions, where R is the number of
+        results and T is the number of times.
     y_vals : np.array of int
-        The y values at the center of the stamp. Must be length T.
+        A length R x T array of predicted y positions, where R is the number of
+        results and T is the number of times.
 
     Returns
     -------
     values : numpy.ndarray
         A length T array where T is the number of times.
     """
-    (num_times, width, height) = imgs.shape
+    num_results = x_vals.shape[0]
+    num_times = len(imgs)
+    (height, width) = imgs[0].shape
 
     # Extract the values of the pixels that fall within the images.
-    values = np.full(num_times, np.nan)
-    for idx in range(num_times):
-        if x_vals[idx] >= 0 and x_vals[idx] < width and y_vals[idx] >= 0 and y_vals[idx] < height:
-            values[idx] = imgs[idx, y_vals[idx], x_vals[idx]]
+    # We compile this function to speed up the nested loops.
+    values = np.full((num_results, num_times), np.nan)
+    for r_idx in range(num_results):
+        for t_idx in range(num_times):
+            x_i = x_vals[r_idx, t_idx]
+            y_i = y_vals[r_idx, t_idx]
+            if x_i >= 0 and x_i < width and y_i >= 0 and y_i < height:
+                values[r_idx, t_idx] = imgs[t_idx][y_i, x_i]
     return values

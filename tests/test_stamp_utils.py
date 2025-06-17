@@ -228,33 +228,49 @@ class test_stamp_utils(unittest.TestCase):
         sci1 = np.array([[0, np.nan, np.nan], [0, np.nan, 0.5], [0, 1, 0.5]]).astype(np.float32)
         sci2 = np.array([[1, np.nan, 0.5], [1, 2, 0.5], [1, 2, 0.5]]).astype(np.float32)
         sci3 = np.array([[2, 3, 0.5], [2, 3, 0.5], [2, 3, 0.5]]).astype(np.float32)
-        sci = np.array([sci1, sci2, sci3])
+        sci = [sci1, sci2, sci3]
 
         # One trajectory right in the image's middle.
         x_vals = np.array([1.0, 1.0, 1.0])
         y_vals = np.array([1.0, 1.0, 1.0])
 
         # Compute and check the curve values.
-        curve_values = extract_curve_values(sci, x_vals, y_vals)
-        self.assertTrue(np.isnan(curve_values[0]))
-        self.assertAlmostEqual(curve_values[1], 2.0)
-        self.assertAlmostEqual(curve_values[2], 3.0)
+        curve_values1 = extract_curve_values(sci, x_vals, y_vals)
+        self.assertTrue(np.isnan(curve_values1[0]))
+        self.assertAlmostEqual(curve_values1[1], 2.0)
+        self.assertAlmostEqual(curve_values1[2], 3.0)
 
         # Test that we can handle a curve that goes out of bounds.
         x_vals = np.array([0, 0, 5])
         y_vals = np.array([0, 0, 0])
-        curve_values = extract_curve_values(sci, x_vals, y_vals)
-        self.assertAlmostEqual(curve_values[0], 0.0)
-        self.assertAlmostEqual(curve_values[1], 1.0)
-        self.assertTrue(np.isnan(curve_values[2]))
+        curve_values2 = extract_curve_values(sci, x_vals, y_vals)
+        self.assertAlmostEqual(curve_values2[0], 0.0)
+        self.assertAlmostEqual(curve_values2[1], 1.0)
+        self.assertTrue(np.isnan(curve_values2[2]))
 
         # Test another curve that goes out of bounds.
         x_vals = np.array([0, 0, 0])
         y_vals = np.array([-2, 0, 0])
-        curve_values = extract_curve_values(sci, x_vals, y_vals)
-        self.assertTrue(np.isnan(curve_values[0]))
-        self.assertAlmostEqual(curve_values[1], 1.0)
-        self.assertAlmostEqual(curve_values[2], 2.0)
+        curve_values3 = extract_curve_values(sci, x_vals, y_vals)
+        self.assertTrue(np.isnan(curve_values3[0]))
+        self.assertAlmostEqual(curve_values3[1], 1.0)
+        self.assertAlmostEqual(curve_values3[2], 2.0)
+
+        # Test that we can handle multiple trajectories at once.
+        x_vals = np.array([[1, 1, 1], [0, 0, 5], [2, 2, 2], [0, 0, 0]])
+        y_vals = np.array([[1, 1, 1], [0, 0, 0], [0, 0, 0], [-1, 0, 0]])
+        curve_values4 = extract_curve_values(sci, x_vals, y_vals)
+        self.assertEqual(curve_values4.shape, (4, 3))
+
+        expected = np.array(
+            [
+                [np.nan, 2.0, 3.0],
+                [0.0, 1.0, np.nan],
+                [np.nan, 0.5, 0.5],
+                [np.nan, 1.0, 2.0],
+            ]
+        )
+        self.assertTrue(np.allclose(curve_values4, expected, equal_nan=True))
 
     def test_create_stamps_from_image_stack(self):
         # Create a small fake data set for the tests.
@@ -266,7 +282,7 @@ class test_stamp_utils(unittest.TestCase):
             fake_times,  # time stamps
             noise_level=1.0,  # noise level
             psf_val=0.5,  # psf value
-            use_seed=True,  # Use a fixed seed for testing
+            use_seed=101,  # Use a fixed seed for testing
         )
 
         # Insert a single fake object with known parameters.
@@ -318,7 +334,7 @@ class test_stamp_utils(unittest.TestCase):
             fake_times,  # time stamps
             noise_level=1.0,  # noise level
             psf_val=0.5,  # psf value
-            use_seed=True,  # Use a fixed seed for testing
+            use_seed=101,  # Use a fixed seed for testing
         )
 
         # Insert a single fake object with known parameters.

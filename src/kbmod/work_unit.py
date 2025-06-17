@@ -467,23 +467,15 @@ class WorkUnit:
             reprojected = hdul[0].header["REPRJCTD"]
             if "BARY" in hdul[0].header:
                 barycentric_distance = hdul[0].header["BARY"]
-            elif "HELIO" in hdul[0].header:
-                # This is legacy support for WorkUnits that were written with
-                # heliocentric labels instead of barycentric.
-                # TODO: Remove this once the old WorkUnits are gone.
-                barycentric_distance = hdul[0].header["HELIO"]
+            else:
+                # No reprojection
+                barycentric_distance = None
 
             # ensure backwards compatibility
             if "REPFRAME" in hdul[0].header.keys():
                 reprojection_frame = hdul[0].header["REPFRAME"]
             else:
                 reprojection_frame = None
-
-            # If there is geocentric distances in the header information
-            # (legacy approach), in read those.
-            for i in range(n_constituents):
-                if f"GEO_{i}" in hdul[0].header:
-                    org_image_meta["geocentric_distance"][i] = hdul[0].header[f"GEO_{i}"]
 
             # Read in all the image files.
             per_image_indices = []
@@ -506,21 +498,6 @@ class WorkUnit:
                 for j in range(n_indices):
                     sub_indices.append(sci_hdu.header[f"IND_{j}"])
                 per_image_indices.append(sub_indices)
-
-            # Extract the per-image data from header information if needed. This happens
-            # when the WorkUnit was saved before metadata tables were saved as layers and
-            # all the information is in header values.
-            for i in tqdm(
-                range(n_constituents),
-                bar_format=_DEFAULT_WORKUNIT_TQDM_BAR,
-                desc="Loading WCS",
-                disable=not show_progress,
-            ):
-                if f"WCS_{i}" in hdul:
-                    wcs_header = hdul[f"WCS_{i}"].header
-                    org_image_meta["per_image_wcs"][i] = extract_wcs_from_hdu_header(wcs_header)
-                if f"EBD_{i}" in hdul:
-                    org_image_meta["ebd_wcs"][i] = extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header)
 
         result = WorkUnit(
             im_stack=im_stack,
@@ -771,31 +748,15 @@ class WorkUnit:
             reprojected = primary[0].header["REPRJCTD"]
             if "BARY" in primary[0].header:
                 barycentric_distance = primary[0].header["BARY"]
-            elif "HELIO" in primary[0].header:
-                # This is legacy support for WorkUnits that were written with
-                # heliocentric labels instead of barycentric.
-                # TODO: Remove this once the old WorkUnits are gone.
-                barycentric_distance = primary[0].header["HELIO"]
+            else:
+                # No reprojection
+                barycentric_distance = None
 
             # ensure backwards compatibility
             if "REPFRAME" in primary[0].header.keys():
                 reprojection_frame = primary[0].header["REPFRAME"]
             else:
                 reprojection_frame = None
-
-            for i in range(n_constituents):
-                if f"GEO_{i}" in primary[0].header:
-                    org_image_meta["geocentric_distance"][i] = primary[0].header[f"GEO_{i}"]
-
-            # Extract the per-image data from header information if needed.
-            # This happens with when the WorkUnit was saved before metadata tables were
-            # saved as layers.
-            for i in range(n_constituents):
-                if f"WCS_{i}" in primary:
-                    wcs_header = primary[f"WCS_{i}"].header
-                    org_image_meta["per_image_wcs"][i] = extract_wcs_from_hdu_header(wcs_header)
-                if f"EBD_{i}" in primary:
-                    org_image_meta["ebd_wcs"][i] = extract_wcs_from_hdu_header(primary[f"EBD_{i}"].header)
 
         per_image_indices = []
         file_paths = []
@@ -1129,8 +1090,7 @@ def add_image_data_to_hdul(
     var_hdu.name = f"VAR_{idx}"
     var_hdu.header["MJD"] = obstime
 
-    # The saved mask is a binarized version of which pixels are valid.  We compress
-    # with HCOMPRESS_1 which works well for integers.
+    # The saved mask is a binarized version of which pixels are valid.
     mask_full = (mask > 0) | (~np.isfinite(sci)) | (~np.isfinite(var))
     mask_hdu = fits.ImageHDU(mask_full.astype(np.int8))
     mask_hdu.name = f"MSK_{idx}"

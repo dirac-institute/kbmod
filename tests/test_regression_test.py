@@ -50,7 +50,7 @@ def make_fake_images(times, trjs, psf_vals):
     rng = np.random.default_rng(1001)
     stack = make_fake_image_stack(dim_y, dim_x, times, noise_level=4.0, psfs=psfs, rng=rng)
     for trj in trjs:
-        image_stack_add_fake_object(stack, trj.x, trj.y, trj.vx, trj.vy, trj.flux)
+        image_stack_add_fake_object(stack, trj.x, trj.y, trj.vx, trj.vy, flux=trj.flux)
     return stack
 
 

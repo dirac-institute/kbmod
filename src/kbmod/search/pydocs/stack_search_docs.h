@@ -1,5 +1,5 @@
 #ifndef STACKSEARCH_DOCS
-#define STACHSEARCH_DOCS
+#define STACKSEARCH_DOCS
 
 namespace pydocs {
 static const auto DOC_StackSearch = R"doc(

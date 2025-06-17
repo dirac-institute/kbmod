@@ -287,6 +287,77 @@ def find_closest_velocity(query, trj_list):
     return np.argmin(dists)
 
 
+def trajectory_results_best_match(traj_query, results, times=[0.0]):
+    """For each query trajectory find the best matching result in a Results table. This
+    uses a greedy match so multiple queries can match the same result.
+
+    Note
+    ----
+    This currently uses an N x M computation. If we need to handle large lists
+    of query trajectories, we should look at using a spatial data structure
+    like a KD-tree.
+
+    Parameters
+    ----------
+    traj_query : `list`
+        A list of trajectories to compare.
+    results : `Results`
+        The table of results with columns for x, y, vx, and vy.
+    times : `list`
+        The list of zero-shifted times at which to evaluate the matches.
+        The average of the distances at these times are used.
+
+    Returns
+    -------
+    best_dist : `np.ndarray`
+        A list the same length as traj_query where each entry i indicates the MSE distance
+        of the best matching result row.
+    best_match : `np.ndarray`
+        A list the same length as traj_query where each entry i indicates the index of the
+        best matching result row.
+    """
+    times = np.asarray(times)
+    if len(times) == 0:
+        raise ValueError("Empty times array.")
+
+    # Predict the x and y positions for the base trajectories at each time (using the vectorized functions).
+    base_px = predict_pixel_locations(
+        times,
+        results["x"],
+        results["vx"],
+        centered=False,
+        as_int=False,
+    )
+    base_py = predict_pixel_locations(
+        times,
+        results["y"],
+        results["vy"],
+        centered=False,
+        as_int=False,
+    )
+
+    # For each query trajectory, check if there is at least one nearby
+    # base trajectory. If so, count it as matched.
+    num_query = len(traj_query)
+    best_dist = np.full(num_query, 0.0)
+    best_match = np.full(num_query, -1)
+    for idx, q_trj in enumerate(traj_query):
+        # Compute the query point locations at all times.
+        q_px = q_trj.x + times * q_trj.vx
+        q_py = q_trj.y + times * q_trj.vy
+
+        # Compute the average distance with each of the base predictions.
+        dx = q_px[np.newaxis, :] - base_px
+        dy = q_py[np.newaxis, :] - base_py
+        all_dist = np.mean(np.sqrt(dx**2 + dy**2), axis=1)
+
+        match_ind = np.argmin(all_dist)
+        best_match[idx] = match_ind
+        best_dist[idx] = all_dist[match_ind]
+
+    return best_dist, best_match
+
+
 def match_trajectory_sets(traj_query, traj_base, threshold, times=[0.0]):
     """Find the best matching pairs of queries (smallest distance) between the
     query trajectories and base trajectories such that each trajectory is used in
