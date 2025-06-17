@@ -335,6 +335,13 @@ class ButlerStandardizer(Standardizer):
         # a copy.
         wcs_ref = self.ref.makeComponentRef("wcs")
         wcs = self.butler.get(wcs_ref)
+        if wcs is None:
+            wcs = self.butler.get(self.ref).getWcs()
+            if wcs is None:
+                raise ValueError(
+                    f"WCS is not available for the given dataset. {self.ref}"
+                    "Please check if the dataset has a WCS component."
+                )
         meta = dict(wcs.getFitsMetadata())
         meta["NAXIS1"] = self._naxis1
         meta["NAXIS2"] = self._naxis2
@@ -466,9 +473,12 @@ class ButlerStandardizer(Standardizer):
             # flip_bits makes ignore_flags into mask_these_flags
             bit_flag_map = self.exp.mask.getMaskPlaneDict()
             bit_flag_map = {key: int(2**val) for key, val in bit_flag_map.items()}
+            ignore_flags = set(self.config["mask_flags"])
+            missing_flags = ignore_flags - set(bit_flag_map.keys())
+
             mask = bitmask.bitfield_to_boolean_mask(
                 bitfield=mask,
-                ignore_flags=self.config["mask_flags"],
+                ignore_flags=list(ignore_flags - missing_flags),
                 flag_name_map=bit_flag_map,
                 flip_bits=True,
             )
