@@ -189,7 +189,6 @@ class KBMODV0_5(MultiExtensionFits):
         mask = self.hdulist[2].data
 
         if self.config["do_bitmask"]:
-            print("Applying bitmask to the mask image.")
             # flip_bits makes ignore_flags into mask_these_flags
             mask = bitmask.bitfield_to_boolean_mask(
                 bitfield=mask,
