@@ -369,8 +369,8 @@ class SearchRunner:
             logging.basicConfig(level=logging.DEBUG)
 
             # Output basic binary information.
-            logger.debug(f"GPU Code Enabled: {HAS_CUDA}")
-            logger.debug(f"OpenMP Enabled: {HAS_OMP}")
+            logger.debug(f"GPU Code Enabled: {kb.HAS_CUDA}")
+            logger.debug(f"OpenMP Enabled: {kb.HAS_OMP}")
             logger.debug(kb.stat_gpu_memory_mb())
             logger.debug("Config:")
             logger.debug(str(config))
