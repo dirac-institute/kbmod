@@ -33,6 +33,7 @@ class SearchConfiguration:
             "cpu_only": False,
             "debug": False,
             "do_clustering": True,
+            "drop_columns": [],
             "encode_num_bytes": -1,
             "generator_config": {
                 "name": "EclipticCenteredSearch",
@@ -54,6 +55,7 @@ class SearchConfiguration:
             "results_per_pixel": 8,
             "save_all_stamps": False,
             "save_config": True,
+            "separate_col_files": ["all_stamps"],
             "sigmaG_filter": True,
             "sigmaG_lims": [25, 75],
             "stamp_radius": 10,

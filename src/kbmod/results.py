@@ -210,8 +210,8 @@ class Results:
         return results
 
     @classmethod
-    def read_table(cls, filename, track_filtered=False):
-        """Read the ResultList from a table file. The file format is automatically
+    def read_table(cls, filename, track_filtered=False, load_aux_files=False):
+        """Read the Results from a table file. The file format is automatically
         determined from the file name's suffix which must be one of ".ecsv",
         ".parquet", ".parq", or ".hdf5".
 
@@ -221,6 +221,10 @@ class Results:
             The name of the file to load.
         track_filtered : `bool`
             Indicates whether the object should track future filtered points.
+        load_aux_files : `bool`
+            If True the code will check the file path for any auxiliary files
+            that share the same base name as the main file and load them.
+            Default: False
 
         Raises
         ------
@@ -252,6 +256,15 @@ class Results:
             results.set_mjd_utc_mid(np.array(data.meta["mjd_utc_mid"]))
         elif "mjd_mid" in data.meta:
             results.set_mjd_utc_mid(np.array(data.meta["mjd_mid"]))
+
+        if load_aux_files:
+            # Check for any auxiliary files that share the same base name,
+            # but have _colname in the stem.
+            aux_files = filepath.parent.glob(f"{filepath.stem}_*")
+            for aux_file in aux_files:
+                colname = aux_file.stem.replace(f"{filepath.stem}_", "")
+                logger.info(f"Loading column {colname} results from {aux_file}")
+                results.load_column(aux_file, colname=colname)
 
         return results
 
@@ -563,6 +576,21 @@ class Results:
                 result[idx] = True
         return result
 
+    def is_image_like(self, colname):
+        """Check whether the column contains image-like data (numpy arrays 
+        with at least 2 dimensions).
+        
+        Parameters
+        ----------
+        colname : `str`
+            The name of the column to check.
+        """
+        for idx in range(len(self.table)):
+            entry = self.table[colname][idx]
+            if not isinstance(entry, np.ndarray) or len(entry.shape) < 2:
+                return False
+        return True
+
     def filter_rows(self, rows, label=""):
         """Filter the rows in the `Results` to only include those indices
         that are provided in a list of row indices (integers) or marked
@@ -755,7 +783,7 @@ class Results:
         # Write out the table.
         self.table.write(filename, overwrite=overwrite, **kwargs)
 
-    def write_column(self, colname, filename, overwrite=True, remove_col=False):
+    def write_column(self, colname, filename, overwrite=True):
         """Save a single column's data as its own data file. The file
         type is inferred from the filename suffix. Supported formats include
         numpy (.npy), ecsv (.ecsv), parquet (.parq or .parquet), or
@@ -771,11 +799,6 @@ class Results:
         overwrite : `bool`
             Overwrite the file if it already exists.
             Default: True
-        remove_col : `bool`
-            Remove the column from the results after it is written out.
-            This is used when breaking the results into multiple files to
-            write out.
-            Default: False
 
         Raises
         ------
@@ -799,12 +822,7 @@ class Results:
             single_table.write(filename, overwrite=overwrite)
         elif filename.suffix == ".fits":
             # Check if this the data is looks like images.
-            is_img = True
-            for idx in range(len(self.table)):
-                entry = self.table[colname][idx]
-                if not isinstance(entry, np.ndarray) or len(entry.shape) < 2:
-                    is_img = False
-                    break
+            is_img = self.is_image_like(colname)
 
             # Create a HDU List and primary header with basic meta data.
             hdul = fits.HDUList()
@@ -839,9 +857,6 @@ class Results:
             hdul.writeto(filename, overwrite=overwrite)
         else:
             raise ValueError(f"Unsupported suffix {filename.suffix}")
-
-        if remove_col:
-            self.table.remove_column(colname)
 
     def load_column(self, filename, colname=None):
         """Read in a file containing a single column as its own data file.
@@ -943,3 +958,86 @@ class Results:
 
         trj_list = Results.load_trajectory_file(filename)
         return cls.from_trajectories(trj_list, track_filtered)
+
+
+def write_results_to_files_destructive(
+    filename,
+    results,
+    extra_meta=None,
+    separate_col_files=None,
+    drop_columns=None,
+    overwrite=True,
+):
+    """Write the results to one or more files.
+    
+    Note
+    ----
+    This function modifies the `results` object in-place to drop columns
+    as they are written out. This avoid creating unnecessary copies of the data, but
+    destroys the original data.
+
+    Parameters
+    ----------
+    filename : `str` or `Path`
+        The name of the file to output the results to.
+    results : `Results`
+        The results to output. These results are modified in-place to drop
+        columns as they are written out.
+    extra_meta : `dict`, optional
+        Any additional meta data to save with the table. This is saved in the
+        table's meta data and can be retrieved later.
+    separate_col_files : `list` of `str`, optional
+        A list of column names to write to separate files. If None, no separate files
+        are written.
+    drop_columns : `list` of `str`, optional
+        A list of column names to skip when outputting results. If None, no columns are skipped.
+    overwrite : `bool`, optional
+        If True, overwrite existing files. If False, do not overwrite existing files.
+        Defaults to True.
+    """
+    if not filename:
+        raise ValueError("No filename provided for outputting results.")
+    filepath = Path(filename)
+    if filepath.exists() and not overwrite:
+        raise ValueError(f"File {filepath} already exists. Not overwriting.")
+
+    # Write out the auxiliary columns to their own files and drop them from the main table.
+    if separate_col_files is not None:
+        for col in separate_col_files:
+            if col not in results.colnames:
+                logger.warning(f"Column {col} not found in results. Skipping.")
+                continue
+
+            # Create a separate file for this column.  If the column is an image-like data type,
+            # save it as a FITS file. Otherwise, save it using the same extension as the main file.
+            if results.is_image_like(col):
+                # If the column is an image, save it as a FITS file.
+                col_file = filepath.with_name(filepath.stem + f"_{col}.fits")
+            else:
+                col_file = filepath.with_name(filepath.stem + f"_{col}" + filepath.suffix)
+
+            logger.info(f"Saving column {col} to {col_file}")
+            results.write_column(col, col_file, overwrite=overwrite)
+            results.remove_column(col)
+
+    # Drop any other columns specified.
+    if drop_columns is not None:
+        for col in drop_columns:
+            if col not in results.colnames:
+                logger.warning(f"Column {col} not found in results. Skipping.")
+            else:
+                results.remove_column(col)
+
+    # Add the dropped column information to the meta data.
+    if extra_meta is None:
+        extra_meta = {}
+    extra_meta["separate_col_files"] = separate_col_files
+    extra_meta["dropped_columns"] = drop_columns
+
+    # Write the remaining data from the results to the main file.
+    logger.info(f"Saving results table to {filepath}")
+    results.write_table(
+        filepath,
+        overwrite=overwrite,
+        extra_meta=extra_meta
+    )

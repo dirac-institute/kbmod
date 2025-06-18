@@ -72,6 +72,9 @@ Configuration Parameters
 |                        |                             | remove duplicates and known objects.   |
 |                        |                             | See :ref:`Clustering` for more.        |
 +------------------------+-----------------------------+----------------------------------------+
+| ``drop_columns``       | []                          | A list of column names to skip when    |
+|                        |                             | outputting results.                    |
++------------------------+-----------------------------+----------------------------------------+
 | ``encode_num_bytes``   | -1                          | The number of bytes to use to encode   |
 |                        |                             | ``psi`` and ``phi`` images on GPU. By  |
 |                        |                             | default a ``float`` encoding is used.  |
@@ -124,6 +127,11 @@ Configuration Parameters
 +------------------------+-----------------------------+----------------------------------------+
 | ``save_all_stamps``    | True                        | Save the individual stamps for each    |
 |                        |                             | result and timestep.                   |
++------------------------+-----------------------------+----------------------------------------+
+| ``separate_col_files`` | ["all_stamps"]              | A list of column names to break out    |
+|                        |                             | into separate files. These files will  |
+|                        |                             | be saved in the same directory as the  |
+|                        |                             | main result file.                      |
 +------------------------+-----------------------------+----------------------------------------+
 | ``sigmaG_lims``        | [25, 75]                    | The percentiles to use in sigmaG       |
 |                        |                             | filtering, if                          |
