@@ -170,7 +170,7 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True, n
 
 def append_all_stamps(result_data, im_stack, stamp_radius):
     """Get the stamps for the final results from a kbmod search. These are appended
-    onto the corresponding entries in a ResultList.
+    onto the corresponding entries in a Results.
 
     Parameters
     ----------
