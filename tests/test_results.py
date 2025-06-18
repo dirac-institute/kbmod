@@ -607,7 +607,7 @@ class test_results(unittest.TestCase):
         # Create a table with two extra columns one of scalars and one of lists.
         table = Results.from_trajectories(self.trj_list)
         table.table["extra_scalar"] = [100 + i for i in range(self.num_entries)]
-        table.table["extra_array"] = [np.array([100 + i, 100 - i, 100 * i]) for i in range(self.num_entries)]
+        table.table["extra_array"] = [[100 + i, 100 - i, 100 * i] for i in range(self.num_entries)]
 
         # Try outputting a single column using the cross product of all the supported
         # formats and the two columns.
@@ -766,8 +766,8 @@ class test_results(unittest.TestCase):
         table = Results.from_trajectories(self.trj_list)
         table.table["all_stamps"] = [np.zeros((25, 21, 21)) + i / 50.0 for i in range(self.num_entries)]
         table.table["coadd_mean"] = [np.zeros((31, 31)) + i / 50.0 for i in range(self.num_entries)]
-        table.table["psi_curve"] = [np.zeros(10) + i for i in range(self.num_entries)]
-        table.table["phi_curve"] = [np.zeros(10) + i for i in range(self.num_entries)]
+        table.table["psi_curve"] = [[i, i, i, i, i] for i in range(self.num_entries)]
+        table.table["phi_curve"] = [[i, i, i, i, i] for i in range(self.num_entries)]
 
         # Test writing the results to files.
         with tempfile.TemporaryDirectory() as dir_name:
@@ -796,7 +796,7 @@ class test_results(unittest.TestCase):
             for idx in range(len(table2)):
                 self.assertTrue(np.allclose(table2["all_stamps"][idx], np.zeros((25, 21, 21)) + idx / 50.0))
                 self.assertTrue(np.allclose(table2["coadd_mean"][idx], np.zeros((31, 31)) + idx / 50.0))
-                self.assertTrue(np.allclose(table2["psi_curve"][idx], np.zeros(10) + idx))
+                self.assertTrue(np.allclose(table2["psi_curve"][idx], np.zeros(5) + idx))
 
             # Check the metadata in the main file.
             self.assertEqual(table2.table.meta["test_meta"], "value")
