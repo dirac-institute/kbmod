@@ -819,7 +819,15 @@ class Results:
         elif filename.suffix in [".ecsv", ".parq", ".parquet"]:
             # Create a table with just this column.
             single_table = Table({colname: self.table[colname].data})
-            single_table.write(filename, overwrite=overwrite)
+
+            # Parquet might fail on some output types, so we
+            # try to convert it into a string in that case.
+            try:
+                single_table.write(filename, overwrite=overwrite)
+            except Exception as e:
+                data = [str(x) for x in single_table[colname].data]
+                single_table = Table({colname: data})
+                single_table.write(filename, overwrite=overwrite)
         elif filename.suffix == ".fits":
             # Check if this the data is looks like images.
             is_img = self.is_image_like(colname)
