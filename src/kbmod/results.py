@@ -825,6 +825,7 @@ class Results:
             try:
                 single_table.write(filename, overwrite=overwrite)
             except Exception as e:
+                logger.debug(f"Failed to write {colname}. Retrying as a string: {e}")
                 data = [str(x) for x in single_table[colname].data]
                 single_table = Table({colname: data})
                 single_table.write(filename, overwrite=overwrite)
@@ -1013,7 +1014,7 @@ def write_results_to_files_destructive(
     if separate_col_files is not None:
         for col in separate_col_files:
             if col not in results.colnames:
-                logger.warning(f"Column {col} not found in results. Skipping.")
+                logger.info(f"Column {col} not found in results. Skipping.")
                 continue
 
             # Create a separate file for this column.  If the column is an image-like data type,
@@ -1032,7 +1033,7 @@ def write_results_to_files_destructive(
     if drop_columns is not None:
         for col in drop_columns:
             if col not in results.colnames:
-                logger.warning(f"Column {col} not found in results. Skipping.")
+                logger.debug(f"Column {col} not found in results. Skipping.")
             else:
                 results.remove_column(col)
 
