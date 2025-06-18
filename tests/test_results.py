@@ -603,7 +603,39 @@ class test_results(unittest.TestCase):
                 file_path = os.path.join(dir_name, f"results.fits")
                 table.write_table(file_path)
 
-    def test_write_and_load_column(self):
+    def test_write_and_load_data_column(self):
+        # Create a table with two extra columns one of scalars and one of lists.
+        table = Results.from_trajectories(self.trj_list)
+        table.table["extra_scalar"] = [100 + i for i in range(self.num_entries)]
+        table.table["extra_array"] = [np.array([100 + i, 100 - i, 100 * i]) for i in range(self.num_entries)]
+
+        # Try outputting a single column using the cross product of all the supported
+        # formats and the two columns.
+        with tempfile.TemporaryDirectory() as dir_name:
+            for fmt in ["npy", "ecsv", "parq", "parquet", "fits"]:
+                for col in ["extra_scalar", "extra_array"]:
+                    with self.subTest(fmt_used=fmt, col_written=col):
+                        file_path = os.path.join(dir_name, f"{col}.{fmt}")
+
+                        # Can't load if the file is not there.
+                        with self.assertRaises(FileNotFoundError):
+                            table.load_column(file_path, col)
+
+                        # Before loading, the column is not in the table.
+                        table2 = Results.from_trajectories(self.trj_list)
+                        assert col not in table2.colnames
+
+                        # Save the data.
+                        table.write_column(col, file_path)
+
+                        # After loading the column is in the table and is the same
+                        # as that of the original table.
+                        table2.load_column(file_path, col)
+                        self.assertTrue(col in table.colnames)
+                        for i in range(len(table2)):
+                            self.assertTrue(np.allclose(table[col][i], table2[col][i]))
+
+    def test_write_and_load_column_np(self):
         table = Results.from_trajectories(self.trj_list)
         self.assertFalse("all_stamps" in table.colnames)
 
@@ -642,6 +674,29 @@ class test_results(unittest.TestCase):
             # Loading to table 1 should now give a size mismatch error.
             with self.assertRaises(ValueError):
                 table.load_column(file_path, "all_stamps_smaller")
+
+    def test_write_and_load_stamps_column_fits(self):
+        # Create a table with an extra column of all stamps with 21 x 21 stamps
+        # at 100 times and a coadd column with 51 x 51 stamps.
+        table = Results.from_trajectories(self.trj_list)
+        table.table["all_stamps"] = [np.zeros((100, 21, 21)) + i / 100.0 for i in range(self.num_entries)]
+        table.table["codd_mean"] = [np.zeros((51, 51)) + i / 100.0 for i in range(self.num_entries)]
+
+        # Try outputting the ResultList
+        with tempfile.TemporaryDirectory() as dir_name:
+            for col in ["all_stamps", "codd_mean"]:
+                with self.subTest(col_written=col):
+                    file_path = os.path.join(dir_name, f"{col}.fits")
+                    table.write_column(col, file_path)
+
+                    # Load the results into a new data structure and confirm they match.
+                    table2 = Results.from_trajectories(self.trj_list)
+                    self.assertFalse(col in table2.colnames)
+
+                    table2.load_column(file_path, col)
+                    self.assertTrue(col in table.colnames)
+                    for i in range(self.num_entries):
+                        self.assertTrue(np.allclose(table.table[col][i], table2.table[col][i]))
 
     def test_write_filter_stats(self):
         table = Results.from_trajectories(self.trj_list)

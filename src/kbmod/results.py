@@ -8,6 +8,7 @@ import logging
 import numpy as np
 import uuid
 
+from astropy.io import fits
 from astropy.table import Column, Table, vstack
 from astropy.time import Time
 from pathlib import Path
@@ -754,15 +755,27 @@ class Results:
         # Write out the table.
         self.table.write(filename, overwrite=overwrite, **kwargs)
 
-    def write_column(self, colname, filename):
-        """Save a single column's data as a numpy data file.
+    def write_column(self, colname, filename, overwrite=True, remove_col=False):
+        """Save a single column's data as its own data file. The file
+        type is inferred from the filename suffix. Supported formats include
+        numpy (.npy), ecsv (.ecsv), parquet (.parq or .parquet), or
+        fits (.fits).
 
         Parameters
         ----------
         colname : `str`
            The name of the column to save.
-        filename : `str`
-            The file name for the ouput file.
+        filename : `str` or `Path`
+            The file name for the ouput file. Must have a suffix matching one of ".npy",
+            ".ecsv", ".parquet", ".parq", or ".fits".
+        overwrite : `bool`
+            Overwrite the file if it already exists.
+            Default: True
+        remove_col : `bool`
+            Remove the column from the results after it is written out.
+            This is used when breaking the results into multiple files to
+            write out.
+            Default: False
 
         Raises
         ------
@@ -772,21 +785,78 @@ class Results:
         if colname not in self.table.colnames:
             raise KeyError(f"Column {colname} missing from data.")
 
-        # Save the column.
-        data = np.asarray(self.table[colname])
-        np.save(filename, data, allow_pickle=False)
+        filename = Path(filename)
+        if filename.exists() and not overwrite:
+            raise FileExistsError(f"File {filename} arleady exists.")
 
-    def load_column(self, filename, colname):
-        """Read in a file containing a single column as numpy data
-        and join it into the table. The column must be the same length
-        as the current table.
+        if filename.suffix == ".npy":
+            # Extract and save the column.
+            data = np.asarray(self.table[colname])
+            np.save(filename, data, allow_pickle=False)
+        elif filename.suffix in [".ecsv", ".parq", ".parquet"]:
+            # Create a table with just this column.
+            single_table = Table({colname: self.table[colname].data})
+            single_table.write(filename, overwrite=overwrite)
+        elif filename.suffix == ".fits":
+            # Check if this the data is looks like images.
+            is_img = True
+            for idx in range(len(self.table)):
+                entry = self.table[colname][idx]
+                if not isinstance(entry, np.ndarray) or len(entry.shape) < 2:
+                    is_img = False
+                    break
+
+            # Create a HDU List and primary header with basic meta data.
+            hdul = fits.HDUList()
+            pri = fits.PrimaryHDU()
+            pri.header["NUMRES"] = len(self.table)
+            pri.header["ISIMG"] = is_img
+            pri.header["COLNAME"] = colname
+            hdul.append(pri)
+
+            if is_img:
+                # Create a separate HDU for each entry.
+                for idx in range(len(self.table)):
+                    img_hdu = fits.CompImageHDU(
+                        self.table[colname][idx],
+                        compression_type="RICE_1",
+                        quantize_level=-0.01,
+                    )
+
+                    # If we have the UUID, save that as the meta data.
+                    if "uuid" in self.table.colnames:
+                        img_hdu.header["uuid"] = self.table["uuid"][idx]
+
+                    img_hdu.name = f"IMG_{idx}"
+                    hdul.append(img_hdu)
+            else:
+                # Create one bin table for the data.
+                single_table = Table({colname: self.table[colname].data})
+                data_hdu = fits.BinTableHDU(single_table)
+                data_hdu.name = "DATA"
+                hdul.append(data_hdu)
+
+            hdul.writeto(filename, overwrite=overwrite)
+        else:
+            raise ValueError(f"Unsupported suffix {filename.suffix}")
+
+        if remove_col:
+            self.table.remove_column(colname)
+
+    def load_column(self, filename, colname=None):
+        """Read in a file containing a single column as its own data file.
+        The file type is inferred from the filename suffix. Supported formats
+        include numpy (.npy), ecsv (.ecsv), parquet (.parq or .parquet), or
+        fits (.fits).
 
         Parameters
         ----------
-        filename : `str`
-            The file name to read.
+        filename : `str` or `Path`
+            The file name for the ouput file. Must have a suffix matching one of ".npy",
+            ".ecsv", ".parquet", ".parq", or ".fits".
         colname : `str`
-           The name of the column in which to save the data.
+           The name of the column to save. If None this is automatically
+           inferred from the data.
 
         Raises
         ------
@@ -794,9 +864,40 @@ class Results:
         Raises a ValueError if column is of the wrong length.
         """
         logger.info(f"Loading column data from {filename} as {colname}")
-        if not Path(filename).is_file():
+        filename = Path(filename)
+        if not filename.is_file():
             raise FileNotFoundError(f"{filename} not found for load.")
-        data = np.load(filename, allow_pickle=False)
+
+        if filename.suffix == ".npy":
+            data = np.load(filename, allow_pickle=False)
+        elif filename.suffix in [".ecsv", ".parq", ".parquet"]:
+            # Create a table with just this column.
+            single_table = Table.read(filename)
+
+            if len(single_table.colnames) != 1:
+                raise ValueError(f"Expected one column. Found: {single_table.colnames}")
+            single_col = single_table.colnames[0]
+            if colname is None:
+                colname = single_col
+
+            data = single_table[single_col].data
+        elif filename.suffix == ".fits":
+            with fits.open(filename) as hdul:
+                num_rows = hdul[0].header["NUMRES"]
+                is_img = hdul[0].header["ISIMG"]
+                if colname is None:
+                    colname = hdul[0].header["COLNAME"]
+
+                if is_img:
+                    # Extract each image from its own layer.
+                    data = []
+                    for idx in range(num_rows):
+                        img_layer = hdul[f"IMG_{idx}"]
+                        data.append(img_layer.data.astype(np.single))
+                else:
+                    # Extract the column from the data layer.
+                    single_table = Table(hdul["DATA"].data)
+                    data = single_table[hdul[0].header["COLNAME"]].data
 
         if len(data) != len(self.table):
             raise ValueError(
