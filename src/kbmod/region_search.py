@@ -502,7 +502,6 @@ class RegionSearch:
         are being used. So a given object might be in a different patch depending on the guess distance used
         for reflex correction.
 
-
         Adds an 'overlap_deg' column to the ImageCollection, which is the area of overlap
         between the patch and each image in square degrees.
 
