@@ -577,9 +577,9 @@ class Results:
         return result
 
     def is_image_like(self, colname):
-        """Check whether the column contains image-like data (numpy arrays 
+        """Check whether the column contains image-like data (numpy arrays
         with at least 2 dimensions).
-        
+
         Parameters
         ----------
         colname : `str`
@@ -969,7 +969,7 @@ def write_results_to_files_destructive(
     overwrite=True,
 ):
     """Write the results to one or more files.
-    
+
     Note
     ----
     This function modifies the `results` object in-place to drop columns
@@ -1036,8 +1036,4 @@ def write_results_to_files_destructive(
 
     # Write the remaining data from the results to the main file.
     logger.info(f"Saving results table to {filepath}")
-    results.write_table(
-        filepath,
-        overwrite=overwrite,
-        extra_meta=extra_meta
-    )
+    results.write_table(filepath, overwrite=overwrite, extra_meta=extra_meta)
