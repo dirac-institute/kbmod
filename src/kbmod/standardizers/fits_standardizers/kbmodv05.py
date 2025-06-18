@@ -151,15 +151,25 @@ class KBMODV0_5(MultiExtensionFits):
         visit    EXPID      Exposure ID
         ======== ========== =========================================================
         """
-        # this is the 1 mandatory piece of metadata we need to extract
+        # This is the 1 mandatory piece of metadata we need to extract. We allow
+        # for a variety of date tags and formats.
         standardizedHeader = {}
-        obs_datetime = Time(self.primary["DATE-AVG"], format="isot")
-        standardizedHeader["mjd"] = obs_datetime.mjd
-        standardizedHeader["mjd_mid"] = obs_datetime.mjd
+        if "DATE-AVG" in self.primary:
+            obs_datetime = Time(self.primary["DATE-AVG"], format="isot").mjd
+        elif "MJD-OBS" in self.primary:
+            obs_datetime = self.primary["MJD-OBS"]
+        elif "DATE-OBS" in self.primary:
+            obs_datetime = Time(self.primary["DATE-OBS"], format="isot").mjd
+        elif "MJD" in self.primary:
+            obs_datetime = self.primary["MJD"]
+        else:
+            raise KeyError("Missing date key in the primary header.")
+        standardizedHeader["mjd"] = obs_datetime
+        standardizedHeader["mjd_mid"] = obs_datetime
 
         # these are all optional things
-        standardizedHeader["filter"] = self.primary["FILTER"]
-        standardizedHeader["visit"] = self.primary["EXPID"]
+        standardizedHeader["filter"] = self.primary.get("FILTER", "UNKNOWN")
+        standardizedHeader["visit"] = self.primary.get("EXPID", "UNKNOWN")
 
         # If no observatory information is given, default to the Deccam data
         # (Cerro Tololo Inter-American Observatory).
