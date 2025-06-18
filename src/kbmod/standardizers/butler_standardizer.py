@@ -170,10 +170,11 @@ class ButlerStandardizer(Standardizer):
         # Somewhere around w_2024_ builds the datastore.root
         # was removed as an attribute of the datastore, not sure
         # it was ever replaced with anything back-compatible
-        try:
-            super().__init__(str(butler._datastore.root), config=config)
-        except AttributeError:
-            super().__init__(butler.datastore.root, config=config)
+        #try:
+        super().__init__(str(butler._datastore.roots), config=config)
+        #except AttributeError as e:
+        #    print(e)
+        #    super().__init__(butler.datastore.root, config=config)
 
         self.butler = butler
 

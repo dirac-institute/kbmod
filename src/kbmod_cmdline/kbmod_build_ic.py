@@ -40,6 +40,7 @@ def ingest_collection(
     butler,
     collection_name,
     datasetType,
+    target=None,
     max_exposures=None,
     output_dir=None,
     overwrite=False,
@@ -55,6 +56,8 @@ def ingest_collection(
         The name of the collection to ingest.
     datasetType : str
         The dataset type to query from the collection (e.g., 'preliminary_visit_image', 'difference_image').
+    target: str, optional
+        The target name to use for the collection. If provided, will be used to filter collections.
     max_exposures : int, optional
         Maximum number of exposures to process from the collection. If None, all exposures are processed.
     output_dir : str, optional
@@ -67,15 +70,23 @@ def ingest_collection(
         output_collection_name = collection_name.replace("/", "_")
         output_path = os.path.join(output_dir, f"{output_collection_name}.ecsv")
         if not overwrite and os.path.exists(output_path):
-            logger.debug(f"Skipping {collection_name} as it already exists.")
+            logger.info(f"Skipping {collection_name} as it already exists.")
             return
-        logger.debug(f"Preparing to use output path {output_path} for {collection_name}")
+        logger.info(f"Preparing to use output path {output_path} for {collection_name}")
 
     # Get all butler references for the specified dataset type in this collection
-    refs = butler.registry.queryDatasets(datasetType, collections=[collection_name])
+    
+    try:
+        if target is None:
+            refs = butler.registry.queryDatasets(datasetType, collections=[collection_name])
+        else:
+            refs = butler.query_datasets(datasetType, where=f"instrument='LSSTCam' and exposure.target_name='{target}'", collections=[collection_name])
+    except Exception as e:
+        logger.error(f"Error querying collection {collection_name}: {e}")
+        return
     refs = list(refs)
     if max_exposures is not None:
-        refs = refs[:max_exposures]
+        refs = refs[:min(len(refs), max_exposures)]
         logger.info(f"Limiting to first {max_exposures} exposures for collection {collection_name}")
     if not refs:
         logger.debug(f"No datasets found for {datasetType} in {collection_name}.")
@@ -87,7 +98,7 @@ def ingest_collection(
     ic["collection"] = collection_name
 
     if output_dir is not None:
-        if not overwrite and not os.path.exists(output_path):
+        if not overwrite and os.path.exists(output_path):
             # Check again if we should overwrite the output path due to potential parallel processing
             logger.debug(f"Output path {output_path} already exists, skipping write.")
             return
@@ -110,15 +121,13 @@ def execute(args):
 
     if args.dry:
         # If a dry run, just print the sizes of the collections
-        collection_cnts = {}
-        for collection in collections:
-            collection_cnts[collection] = butler.registry.queryDatasets(
-                args.datasetType, collections=[collection]
-            ).count()
-        # Sort collections by largest to smallest
-        collection_cnts = {k: v for k, v in sorted(collection_cnts.items(), key=lambda x: x[1], reverse=True)}
-        for name, size in collection_cnts.items():
-            print(f"Collection {name}: has {size} exposures")
+        all_count = len(list(butler.query_datasets(
+            args.datasetType, 
+            where=f"instrument='LSSTCam' and exposure.target_name='{args.target}'",
+            collections=collections,
+        )))
+        print(f"Found {len(collections)} collections matching the regex {args.collection_regex}.")
+        print(f"Total exposures across all collections: {all_count}")
         return 0
 
     # Ingest each collection
@@ -128,6 +137,7 @@ def execute(args):
             butler,
             collection_name,
             args.datasetType,
+            args.target,
             args.max_exposures,
             args.output_dir,
             args.overwrite,
@@ -159,6 +169,10 @@ def main():
     parser.add_argument(
         "--collection_regex",
         help="Regex to match collection names",
+    )
+    parser.add_argument(
+        "--target",
+        help="Target name to use for the collection. If provided, will be used to filter collections.",
     )
 
     # Optional arguments
