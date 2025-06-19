@@ -532,6 +532,8 @@ class ImageCollection:
 
         Parameters
         ----------
+        col_name: `str`
+            The base column namer (which itself is a non reflex-corrected column.)
         guess_dist : `float`
             The guess distance in parsecs.
 
@@ -556,10 +558,9 @@ class ImageCollection:
 
         Parameters
         ----------
-        ic : ImageCollection
-            The ImageCollection to filter.
-        timestamps : list of floats
-            List of timestamps to keep.
+        mjds : `list`
+            A list of MJDs to filter the ImageCollection by.
+
         time_sep_s : float, optional
             The maximum separation in seconds between the timestamps in the ImageCollection and the timestamps to keep.
 
@@ -977,12 +978,9 @@ class ImageCollection:
         self.unpack()
         std_offset = self.meta["n_stds"]
 
-        old_metas, old_offsets = [], []
         data = []
         for ic in ics:
             n_stds = ic.data["std_idx"].max()
-            old_metas.append(ic.meta.copy())
-            old_offsets.append(std_offset)
             ic.data["std_idx"] += std_offset
             ic.data.meta = None
             data.append(ic.data)
@@ -995,10 +993,6 @@ class ImageCollection:
 
         self.data = vstack([self.data, *data], metadata_conflicts="silent")
         self.data.meta["n_stds"] = self.data["std_idx"].max()
-
-        for meta, offset, ic in zip(old_metas, old_offsets, ics):
-            ic.data["std_idx"] -= offset
-            ic._meta = meta
 
         self.reset_lazy_loading_indices()
         return self

@@ -268,7 +268,7 @@ class TestImageCollection(unittest.TestCase):
         self.assertTrue(np.all(original_separations > 0), "Original and corrected coordinates should differ.")
 
     def test_reflex_correct_col(self):
-        """Tests the helper function for geneerating reflex-corrected column names"""
+        """Tests the helper function for generating reflex-corrected column names"""
         # Create a mock ImageCollection
         fits = self.fitsFactory.get_n(3, spoof_data=True)
         ic = ImageCollection.fromTargets(fits)
@@ -352,6 +352,7 @@ class TestImageCollection(unittest.TestCase):
         ic.filter_by_time_range(end_mjd=max(mjds))
         self.assertEqual(len(ic), init_len)
         ic.filter_by_time_range(start_mjd=min(mjds), end_mjd=max(mjds))
+        self.assertEqual(len(ic), init_len)
 
         # Filter off our first time
         ic.filter_by_time_range(start_mjd=min(mjds) + 1)
