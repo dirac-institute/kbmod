@@ -180,10 +180,10 @@ class ImageStackPy:
             self.height = img.shape[0]
 
         # Check that the image is the correct size.
-        if img.shape[1] != self.width:
-            raise ValueError(f"Incorrect image width. Expected {self.width}. Received {img.shape[1]}")
-        if img.shape[0] != self.height:
-            raise ValueError(f"Incorrect image height. Expected {self.height}. Received {img.shape[0]}")
+        if img.shape[1] > self.width:
+            self.width = img.shape[1]
+        if img.shape[0] > self.height:
+            self.height = img.shape[0]
 
         return img
 
