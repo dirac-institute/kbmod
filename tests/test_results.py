@@ -7,7 +7,7 @@ import unittest
 from astropy.table import Table
 from pathlib import Path
 
-from kbmod.results import Results
+from kbmod.results import Results, write_results_to_files_destructive
 from kbmod.search import Trajectory
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 
@@ -603,7 +603,36 @@ class test_results(unittest.TestCase):
                 file_path = os.path.join(dir_name, f"results.fits")
                 table.write_table(file_path)
 
-    def test_write_and_load_column(self):
+    def test_write_and_load_data_column(self):
+        # Create a table with two extra columns one of scalars and one of lists.
+        table = Results.from_trajectories(self.trj_list)
+        table.table["extra_scalar"] = [100 + i for i in range(self.num_entries)]
+        table.table["extra_array"] = [np.array([100 + i, 100 - i, 100 * i]) for i in range(self.num_entries)]
+
+        # Try outputting a single column using the cross product of all the supported
+        # formats and the two columns.
+        with tempfile.TemporaryDirectory() as dir_name:
+            for fmt in ["npy", "ecsv", "parq", "parquet", "fits"]:
+                for col in ["extra_scalar", "extra_array"]:
+                    with self.subTest(fmt_used=fmt, col_written=col):
+                        file_path = os.path.join(dir_name, f"{col}.{fmt}")
+
+                        # Can't load if the file is not there.
+                        with self.assertRaises(FileNotFoundError):
+                            table.load_column(file_path, col)
+
+                        # Before loading, the column is not in the table.
+                        table2 = Results.from_trajectories(self.trj_list)
+                        assert col not in table2.colnames
+
+                        # Save the data.
+                        table.write_column(col, file_path)
+
+                        # Check that we can read the column in the other table.
+                        table2.load_column(file_path, col)
+                        self.assertTrue(col in table2.colnames)
+
+    def test_write_and_load_column_np(self):
         table = Results.from_trajectories(self.trj_list)
         self.assertFalse("all_stamps" in table.colnames)
 
@@ -615,7 +644,7 @@ class test_results(unittest.TestCase):
         table2.table["all_stamps"] = all_stamps
         self.assertTrue("all_stamps" in table2.colnames)
 
-        # Try outputting the ResultList
+        # Try outputting the Results
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "all_stamps.npy")
             self.assertFalse(Path(file_path).is_file())
@@ -643,12 +672,72 @@ class test_results(unittest.TestCase):
             with self.assertRaises(ValueError):
                 table.load_column(file_path, "all_stamps_smaller")
 
+    def test_write_and_load_stamps_column_fits(self):
+        # Create a table with an extra column of all stamps with 21 x 21 stamps
+        # at 100 times and a coadd column with 51 x 51 stamps.
+        table = Results.from_trajectories(self.trj_list)
+        table.table["all_stamps"] = [np.zeros((100, 21, 21)) + i / 100.0 for i in range(self.num_entries)]
+        table.table["codd_mean"] = [np.zeros((51, 51)) + i / 100.0 for i in range(self.num_entries)]
+
+        # Try outputting the Results
+        with tempfile.TemporaryDirectory() as dir_name:
+            for col in ["all_stamps", "codd_mean"]:
+                with self.subTest(col_written=col):
+                    file_path = os.path.join(dir_name, f"{col}.fits")
+                    table.write_column(col, file_path)
+
+                    # Load the results into a new data structure and confirm they match.
+                    table2 = Results.from_trajectories(self.trj_list)
+                    self.assertFalse(col in table2.colnames)
+
+                    table2.load_column(file_path, col)
+                    self.assertTrue(col in table.colnames)
+                    for i in range(self.num_entries):
+                        self.assertTrue(np.allclose(table.table[col][i], table2.table[col][i]))
+
+    def test_read_write_aux_columns(self):
+        # Create a table with an extra column of all stamps with 21 x 21 stamps
+        # at 100 times and a coadd column with 51 x 51 stamps.
+        table = Results.from_trajectories(self.trj_list)
+        table.table["all_stamps"] = [np.zeros((100, 21, 21)) + i / 100.0 for i in range(self.num_entries)]
+        table.table["coadd_mean"] = [np.zeros((51, 51)) + i / 100.0 for i in range(self.num_entries)]
+
+        # Test read/write to file.
+        with tempfile.TemporaryDirectory() as dir_name:
+            # Write out the image columns as fits files, removing them from the table.
+            file_path_all_stamps = os.path.join(dir_name, f"results_all_stamps.fits")
+            table.write_column("all_stamps", file_path_all_stamps)
+            table.remove_column("all_stamps")
+            self.assertFalse("all_stamps" in table.colnames)
+            self.assertTrue(Path(file_path_all_stamps).is_file())
+
+            file_path_coadd_mean = os.path.join(dir_name, f"results_coadd_mean.fits")
+            table.write_column("coadd_mean", file_path_coadd_mean)
+            table.remove_column("coadd_mean")
+            self.assertFalse("coadd_mean" in table.colnames)
+            self.assertTrue(Path(file_path_coadd_mean).is_file())
+
+            # Save the main table as a parquet file.
+            file_path_main = os.path.join(dir_name, f"results.parquet")
+            table.write_table(file_path_main)
+            self.assertTrue(Path(file_path_main).is_file())
+
+            # Find and load in any auxiliary columns.
+            table2 = Results.read_table(file_path_main, load_aux_files=True)
+            self.assertEqual(len(table2), self.num_entries)
+            self.assertTrue("all_stamps" in table2.colnames)
+            self.assertTrue("coadd_mean" in table2.colnames)
+
+            for i in range(self.num_entries):
+                self.assertTrue(np.allclose(table2["all_stamps"][i], np.zeros((100, 21, 21)) + i / 100.0))
+                self.assertTrue(np.allclose(table2["coadd_mean"][i], np.zeros((51, 51)) + i / 100.0))
+
     def test_write_filter_stats(self):
         table = Results.from_trajectories(self.trj_list)
         table.filter_rows([1, 3, 4, 5, 6, 7, 8, 9], label="filter1")
         table.filter_rows([1, 2, 3, 4, 7], label="filter2")
 
-        # Try outputting the ResultList
+        # Try outputting the Results
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "filtered_stats.csv")
             table.write_filtered_stats(file_path)
@@ -667,6 +756,46 @@ class test_results(unittest.TestCase):
             self.assertEqual(data[1][1], "2")
             self.assertEqual(data[2][0], "filter2")
             self.assertEqual(data[2][1], "3")
+
+    def test_write_results_to_files_destructive(self):
+        # Create a table with an extra column of all stamps with 21 x 21 stamps
+        # at 25 times and a coadd column with 31 x 31 stamps.
+        table = Results.from_trajectories(self.trj_list)
+        table.table["all_stamps"] = [np.zeros((25, 21, 21)) + i / 50.0 for i in range(self.num_entries)]
+        table.table["coadd_mean"] = [np.zeros((31, 31)) + i / 50.0 for i in range(self.num_entries)]
+        table.table["psi_curve"] = [np.zeros(10) + i for i in range(self.num_entries)]
+        table.table["phi_curve"] = [np.zeros(10) + i for i in range(self.num_entries)]
+
+        # Test writing the results to files.
+        with tempfile.TemporaryDirectory() as dir_name:
+            main_file_path = Path(dir_name) / "results.parquet"
+            write_results_to_files_destructive(
+                main_file_path,
+                table,
+                extra_meta={"test_meta": "value"},
+                separate_col_files=["all_stamps", "coadd_mean", "psi_curve"],
+                drop_columns=["phi_curve"],
+            )
+            self.assertTrue(main_file_path.is_file())
+            self.assertTrue(Path(dir_name, "results_all_stamps.fits").is_file())
+            self.assertTrue(Path(dir_name, "results_coadd_mean.fits").is_file())
+            self.assertTrue(Path(dir_name, "results_psi_curve.parquet").is_file())
+
+            # Read the table and confirm that we have the expected columns.
+            table2 = Results.read_table(main_file_path, load_aux_files=True)
+            self.assertEqual(len(table2), self.num_entries)
+            self.assertTrue("all_stamps" in table2.colnames)
+            self.assertTrue("coadd_mean" in table2.colnames)
+            self.assertTrue("psi_curve" in table2.colnames)
+            self.assertFalse("phi_curve" in table2.colnames)
+
+            # Check the metadata in the main file.
+            self.assertEqual(table2.table.meta["test_meta"], "value")
+            self.assertEqual(table2.table.meta["dropped_columns"], ["phi_curve"])
+            self.assertEqual(
+                table2.table.meta["separate_col_files"],
+                ["all_stamps", "coadd_mean", "psi_curve"],
+            )
 
 
 if __name__ == "__main__":

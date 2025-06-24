@@ -11,7 +11,7 @@ class test_clustering_filters(unittest.TestCase):
         self.num_times = len(self.times)
 
     def _make_result_data(self, objs):
-        """Create a ResultList for the given objects.
+        """Create a Results for the given objects.
 
         Parameters
         ----------

@@ -2,7 +2,6 @@ import logging
 import numpy as np
 import psutil
 import os
-import sys
 import time
 
 import kbmod.search as kb
@@ -12,7 +11,7 @@ from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds
 
-from .results import Results
+from .results import Results, write_results_to_files_destructive
 from .trajectory_generator import create_trajectory_generator
 from .trajectory_utils import predict_pixel_locations
 
@@ -460,8 +459,14 @@ class SearchRunner:
         keep.set_mjd_utc_mid(np.array(stack.times))
 
         if config["result_filename"] is not None:
-            logger.info(f"Saving results table to {config['result_filename']}")
-            keep.write_table(config["result_filename"], extra_meta=meta_to_save)
+            write_results_to_files_destructive(
+                config["result_filename"],
+                keep,
+                extra_meta=meta_to_save,
+                separate_col_files=config["separate_col_files"],
+                drop_columns=config["drop_columns"],
+                overwrite=True,
+            )
 
             if config["save_config"]:
                 # create provenance directory write out the config file

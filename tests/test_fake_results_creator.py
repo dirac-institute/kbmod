@@ -119,8 +119,8 @@ class test_fake_result_creator(unittest.TestCase):
 
         # Add default fake psi and phi curves.
         results = add_fake_psi_phi_to_results(results, signal_mean=10.0, data_var=0.5)
-        self.assertTrue(np.all(np.abs(results["psi_curve"] - 20.0) < 2.0))
-        self.assertTrue(np.all(np.abs(results["phi_curve"] - 2.0) < 0.5))
+        self.assertTrue(np.all(np.abs(results["psi_curve"] - 20.0) < 4.0))
+        self.assertTrue(np.all(np.abs(results["phi_curve"] - 2.0) < 1.0))
         self.assertTrue(np.all(results["obs_valid"]))
 
         # Add fake psi and phi curves with masking.

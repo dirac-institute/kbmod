@@ -131,6 +131,10 @@ class RegionSearch:
     with the patches in the grid. The class also provides methods for searching across the patches
     such as seeing which patches of sky contain entries from a given ephemeris table.
 
+    Note that by convention, the patches are defined to already be in whatever reflex-corrected coordinates
+    are being used. So a given object might be in a different patch depending on the guess distance used
+    for reflex correction.
+
     Also allows other methods for filtering down the ImageCollection such as by a time range or by a list of MJDs.
 
     Note that the underlying ImageCollection is an astropy Table object.
@@ -212,6 +216,22 @@ class RegionSearch:
                 shapes[visit][detector][guess_dist] = Polygon(list(zip(ra_corners, dec_corners)))
         return shapes
 
+    def _get_patch_radius(self):
+        """
+        Returns the radius of the patches in degrees, which is the distance from the center of the patch
+        to one of its corners (the radius of its circumcribing circle).
+
+        Returns
+        -------
+        astropy.units.Quantity
+            The radius of the patches in degrees.
+        """
+        if not self.patches:
+            raise ValueError("No patches have been generated yet.")
+
+        # All patches are the same size, so we can just return the radius of the first patch
+        return self.patches[0].patch_radius()
+
     def filter_by_time_range(self, start_mjd, end_mjd):
         """
         Filter the ImageCollection by the given time range. Is performed in-place.
@@ -267,6 +287,10 @@ class RegionSearch:
         how much overlap there is between adjacent patches. Note that since we are doing overlap in both
         dimension, an `overlap_percentage` of 50% will produce 4x the patches of a grid with 0% overlap.
 
+        Note that by convention, the patches are defined to already be in whatever reflex-corrected coordinates
+        are being used. So a given object might be in a different patch depending on the guess distance used
+        for reflex correction.
+
         The generated list of patches is stored in the `self.patches` attribute, with each `Patch` object
         containing the center coordinates, width, height, and image size as well as an ID corresponding
         to its index in list `self.patches`.
@@ -276,7 +300,7 @@ class RegionSearch:
         arcminutes : float
             The size of the patches in arcminutes.
         overlap_percentage : float
-            The percentage of overlap between adjacent patches.
+            The percentage of overlap between adjacent patches, expressed in [0,100]
         image_width : int
             The width of the image in pixels.
         image_height : int
@@ -362,6 +386,10 @@ class RegionSearch:
         """
         Returns all patch indices where the ephemeris entries are found.
 
+        Note that by convention, the patches are defined to already be in whatever reflex-corrected coordinates
+        are being used. So a given object in the ephemeris table might be in a different patch depending on the
+        guess distance specified.
+
         Parameters
         ----------
         ephems : region_search.Ephems
@@ -379,22 +407,17 @@ class RegionSearch:
         if guess_dist is None:
             guess_dist = 0.0
 
-        # Iterate over all items of the ephemeris and check
-        # if they are in any of the patches
+        # Prepare skycoords for the reflex-corrected ephemeris entries to efficiently search against the patch centers
         ephems_ras = ephems.get_ras(guess_dist)
         ephems_decs = ephems.get_decs(guess_dist)
-
-        # For each ephemeris entry, check if it is in any of the patches
-        # We need to check if the ephemeris entry is in any of the patches with search around sky
-        # coordinates. We do this by checking if the ephemeris entry is in any of the patches
-        # with a search radius of half the patch size
         ephems_coords = SkyCoord(
             ephems_ras,
             ephems_decs,
             unit=(u.deg, u.deg),
             frame="icrs",
         )
-        # Get the patch center coordinates
+        # Get the center coordinates of all patches. Note that by convention, we already
+        # consider the coordinates of the patches to be in our (optionally) reflex-corrected coordinate space.
         patch_centers = SkyCoord(
             [patch.ra for patch in self.patches],
             [patch.dec for patch in self.patches],
@@ -402,16 +425,16 @@ class RegionSearch:
             frame="icrs",
         )
 
-        # Use search_around_sky to find the indices of the patches that may contain the ephemeris entries
-        # As our search radius from the patch center, we use the distance between the center of the patch
-        # and the corners of the patch, which can simply be calculated using the pythagorean theorem.
-        patch_size_deg = np.sqrt((self.patches[0].width / 2) ** 2 + (self.patches[0].height / 2) ** 2) * u.deg
+        # Use search_around_sky to find the indices of the patches that may contain the ephemeris entries.
+        # This is a fast, coarse search for matching patches since it uses a circular search radius of each
+        # patch's circumscribing circle rather than the actual patch boundaries. We will next filter out
+        # results that are not actually in the patch boundaries.
+        ephems_idx, patch_idx, _, _ = search_around_sky(
+            ephems_coords, patch_centers, self._get_patch_radius()
+        )
 
-        # The elements of the returned lists are indices within the ephemeris and patch center coordinates
-        # that are within patch_size_deg of each other
-        ephems_idx, patch_idx, _, _ = search_around_sky(ephems_coords, patch_centers, patch_size_deg)
-
-        # Now we need to check if the ephemeris entry is actually in the patch
+        # Now we need to check if the ephemeris entry is actually in the boundaries of the patch
+        # rather than just its circumscribing circle.
         res_patch_indices = set([])
         for ephem_idx, patch_idx in zip(ephems_idx, patch_idx):
             if patch_idx not in res_patch_indices:
@@ -475,6 +498,10 @@ class RegionSearch:
 
         A patch may be specified by a Patch object or by its index in the PatchGrid.
 
+        Note that by convention, the patches are defined to already be in whatever reflex-corrected coordinates
+        are being used. So a given object might be in a different patch depending on the guess distance used
+        for reflex correction.
+
         Adds an 'overlap_deg' column to the ImageCollection, which is the area of overlap
         between the patch and each image in square degrees.
 
@@ -498,16 +525,55 @@ class RegionSearch:
             # Get the patch object from the index
             patch = self.get_patches()[patch]
 
+        # To check if any of the images in the ImageCollection overlap with the patch,
+        # first create a skycoord of the reflex-corrected image centers.
+        ic_coords = SkyCoord(
+            ra=self.ic.data[self.ic.reflex_corrected_col("ra", guess_dist)],
+            dec=self.ic.data[self.ic.reflex_corrected_col("dec", guess_dist)],
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+        # Get the patch center coordinates
+        patch_center = SkyCoord(
+            ra=patch.ra,
+            dec=patch.dec,
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+
+        # We want to get the maximum separation between the patch center and any corner of the chip
+        # so that we can pre-filter out images that are too far away to overlap with the patch (since
+        # checking overlap with polygons is expensive).
+        chip_distance = 0 * u.deg
+        for corner in ["tl", "tr", "br", "bl"]:
+            curr_corner = SkyCoord(
+                ra=self.ic.data[self.ic.reflex_corrected_col(f"ra_{corner}", guess_dist)][0],
+                dec=self.ic.data[self.ic.reflex_corrected_col(f"dec_{corner}", guess_dist)][0],
+                unit=(u.deg, u.deg),
+                frame="icrs",
+            )
+            chip_distance = max(chip_distance, curr_corner.separation(ic_coords[0]))
+        # The maximum separation between the patch center and the image center for there to be any overlap
+        # of the image on the patch.
+        max_sep = patch.patch_radius() + chip_distance
+
+        # Get the indices of ic_coords that are within the patch size of the patch center
+        seps = ic_coords.separation(patch_center)
+
         # Iterate over all images and check if they overlap with the patch
         new_ic = self.ic.copy()
         overlap_deg = np.zeros(len(new_ic))
-        for i in range(len(new_ic)):
-            row = new_ic[i]
-            # Get our polygon from the visit and detector and our guess distance
-            poly = self.chip_shapes[row["visit"]][row["detector"]][guess_dist]
-            overlap_deg[i] = patch.measure_overlap(poly)
+        for ic_idx in range(len(new_ic)):
+            if seps[ic_idx] <= max_sep:
+                # Get our polygon from the visit and detector and our guess distance
+                poly = self.chip_shapes[new_ic[ic_idx]["visit"]][new_ic[ic_idx]["detector"]][guess_dist]
+                overlap_deg[ic_idx] = patch.measure_overlap(poly)
         new_ic.data["overlap_deg"] = overlap_deg
         new_ic.data = new_ic.data[overlap_deg > min_overlap]
+
+        if len(new_ic.data) < 1:
+            # No images overlap with the patch
+            return new_ic
 
         if max_images is not None and len(new_ic.data) > max_images:
             # Limit the number of images to the maximum number of images requested,
@@ -521,6 +587,8 @@ class RegionSearch:
 class Patch:
     """
     A class to represent a RA-Dec aligned patch of the sky.
+    Note that by convention, patches are defined as already existing in the reflex-corrected coordinate space
+    of interest (or not reflex-corrected if guess_dist is 0.0).
     The patch is defined by its center coordinates, width, height, and the image size.
     The patch is a square with the given width and height, centered at the given coordinates.
     """
@@ -615,6 +683,8 @@ class Patch:
     def contains(self, ra, dec):
         """Returns if an (RA, Dec) coordinate is within the patch.
 
+        Note that the coordinates should be in the same coordinate system as the patch (i.e., reflex-corrected if applicable).
+
         Parameters
         ----------
         ra : float
@@ -645,6 +715,8 @@ class Patch:
         """
         Checks if the patch overlaps with a given shapely polygon.
 
+        Note that the polygon's coordinates should be in the same coordinate system as the patch (i.e., reflex-corrected if applicable).
+
         Parameters
         ----------
         poly : shapely.geometry.Polygon
@@ -657,3 +729,15 @@ class Patch:
         """
         # True if the patch overlaps at all with the given shapely polygon
         return self.measure_overlap(poly) > 0
+
+    def patch_radius(self):
+        """
+        Returns the radius of the patch in degrees, which is the distance from the center of the patch
+        to one of its corners.
+
+        Returns
+        -------
+        asropy.units.Quantity
+            The radius of the patch in degrees.
+        """
+        return np.sqrt((self.width / 2) ** 2 + (self.height / 2) ** 2) * u.deg
