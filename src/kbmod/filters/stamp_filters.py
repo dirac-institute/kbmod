@@ -230,7 +230,13 @@ def _normalize_stamps(stamps, stamp_dimm):
 
 
 def filter_stamps_by_cnn(
-    result_data, model_path, model_type="resnet18", coadd_type="mean", stamp_radius=10, coadd_radius=11, verbose=False
+    result_data,
+    model_path,
+    model_type="resnet18",
+    coadd_type="mean",
+    stamp_radius=10,
+    coadd_radius=11,
+    verbose=False,
 ):
     """Given a set of results data, run the the requested coadded stamps through a
     provided convolutional neural network and assign a new column that contains the
