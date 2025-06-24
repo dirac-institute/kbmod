@@ -65,6 +65,11 @@ class SearchConfiguration:
             "x_pixel_buffer": None,
             "y_pixel_bounds": None,
             "y_pixel_buffer": None,
+            "cnn_filter": False,
+            "cnn_model": None,
+            "cnn_coadd_type": "mean",
+            "cnn_stamp_radius": 49,
+            "cnn_model_type": "resnet18",
         }
 
         if data is not None:

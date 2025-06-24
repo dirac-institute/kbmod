@@ -230,7 +230,7 @@ def _normalize_stamps(stamps, stamp_dimm):
 
 
 def filter_stamps_by_cnn(
-    result_data, model_path, model_type="resnet18", coadd_type="mean", stamp_radius=10, verbose=False
+    result_data, model_path, model_type="resnet18", coadd_type="mean", stamp_radius=10, coadd_radius=11, verbose=False
 ):
     """Given a set of results data, run the the requested coadded stamps through a
     provided convolutional neural network and assign a new column that contains the
@@ -248,8 +248,11 @@ def filter_stamps_by_cnn(
         Which coadd type to use in the filtering. Depends on how the model was trained.
         Default is 'mean', will grab stamps from the 'coadd_mean' column.
     stamp_radius : `int`
-        The radius used to generate the stamps. The dimension of the stamps should be
+        The radius used to generate the training stamps. The dimension of the stamps should be
         (stamp_radius * 2) + 1.
+    coadd_radius : `int`
+        The radius used to generate the coadded stamps. The dimension of the coadds should be
+        (coadd_radius * 2) + 1. Must be >= stamp_radius.
     verbose : `bool`
         Verbosity option for the CNN predicition. Off by default.
     """
@@ -259,6 +262,18 @@ def filter_stamps_by_cnn(
         raise ValueError("result_data does not have provided coadd type as a column.")
 
     stamps = result_data.table[coadd_column].data
+
+    if len(stamps.shape) < 3:
+        stamps = np.array([s.reshape((coadd_radius * 2) + 1, (coadd_radius * 2) + 1) for s in stamps])
+
+    dimm_diff = coadd_radius - stamp_radius
+    if dimm_diff < 0:
+        raise ValueError(
+            f"Provided stamp_radius {stamp_radius} is too large for the coadd size {stamps.shape}"
+        )
+    if dimm_diff > 0:
+        stamps = stamps[:, dimm_diff:-dimm_diff, dimm_diff:-dimm_diff]
+
     stamp_dimm = (stamp_radius * 2) + 1
     stamp_shape = (1, stamp_dimm, stamp_dimm)
     normalized_stamps = _normalize_stamps(stamps, stamp_dimm)
