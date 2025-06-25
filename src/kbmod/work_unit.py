@@ -436,23 +436,25 @@ class WorkUnit:
 
         im_stack = ImageStackPy()
         with fits.open(filename) as hdul:
-            num_layers = len(hdul)
-            if num_layers < 5:
-                raise ValueError(f"WorkUnit file has too few extensions {len(hdul)}.")
-
-            # Read in the search parameters from the 'kbmod_config' extension.
-            config = SearchConfiguration.from_hdu(hdul["kbmod_config"])
+            # Read the configuration from the HDU.
+            if "kbmod_config" not in hdul:
+                logger.debug("No kbmod_config found in WorkUnit, creating empty configuration.")
+                config = SearchConfiguration()
+            else:
+                logger.debug("Reading kbmod_config from HDU.")
+                config = SearchConfiguration.from_hdu(hdul["kbmod_config"])
 
             # Read the size and order information from the primary header.
             num_images = hdul[0].header["NUMIMG"]
             n_constituents = hdul[0].header["NCON"] if "NCON" in hdul[0].header else num_images
-            logger.info(f"Loading {num_images} images.")
+            logger.info(f"Loading {num_images} images (with {n_constituents} constituents).")
 
             # Read in the per-image metadata for the constituent images.
             if "IMG_META" in hdul:
                 logger.debug("Reading original image metadata from IMG_META.")
                 hdu_meta = hdu_to_image_metadata_table(hdul["IMG_META"])
             else:
+                logger.debug("No IMG_META found, creating empty metadata table.")
                 hdu_meta = None
             org_image_meta = create_image_metadata(n_constituents, data=hdu_meta)
 
@@ -485,6 +487,7 @@ class WorkUnit:
                 desc="Loading images",
                 disable=not show_progress,
             ):
+                logger.debug(f"Loading image {i} from WorkUnit file.")
                 sci_hdu = hdul[f"SCI_{i}"]
 
                 # Read in the layered image from different extensions.
