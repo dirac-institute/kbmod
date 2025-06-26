@@ -177,7 +177,7 @@ def local_search_brightness(
 def apply_brightness_search_filter(
     results,
     im_stack,
-    offsets=[0.5, 0.9, 1.0, 1.1, 1.5],
+    offsets=[0.2, 0.9, 1.0, 1.1, 5.0],
     save_curves=True,
 ):
     """Apply a filter that computes the likelihood of a trajectory assuming different underlying
@@ -196,7 +196,7 @@ def apply_brightness_search_filter(
         The image stack used for the search, containing the images.
     offsets : `list` of `float`, optional
         A list of multiplicative offsets to apply to the brightness value for the local search.
-        Default: [0.5, 0.9, 1.0, 1.1, 1.5]
+        Default: [0.2, 0.9, 1.0, 1.1, 5.0]
     save_curves : `bool`, optional
         If True, the science and variance curves will be saved to the results object.
         Default: True.

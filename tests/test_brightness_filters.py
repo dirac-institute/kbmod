@@ -61,7 +61,7 @@ class TestBrightnessFilters(unittest.TestCase):
 
         # Create a fake data set a few fake objects with different fluxes.
         ds = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
-        ds.insert_random_object(flux=1)
+        ds.insert_random_object(flux=5)
         ds.insert_random_object(flux=20)
         ds.insert_random_object(flux=50)
         results = Results.from_trajectories(ds.trajectories, track_filtered=False)
@@ -70,13 +70,13 @@ class TestBrightnessFilters(unittest.TestCase):
         sci_curves, var_curves = extract_sci_var_curves(results, ds.stack_py, append=False)
 
         # Score the brightness candidates.
-        brightness_candidates = np.array([0.0, 10.0, 20.0, 30.0, 50.0, 70.0, 100.0])
+        brightness_candidates = np.array([0.0, 5.0, 10.0, 20.0, 30.0, 50.0, 70.0, 100.0])
         scores = score_brightness_candidates(sci_curves, var_curves, brightness_candidates)
         self.assertEqual(scores.shape, (len(results), len(brightness_candidates)))
 
         # Check that the best score matches the true brightness of the object.
         best_idx = np.argmin(scores, axis=1)
-        self.assertTrue(np.array_equal(best_idx, [0, 2, 4]))
+        self.assertTrue(np.array_equal(best_idx, [1, 3, 5]))
 
     def test_local_search_brightness(self):
         num_times = 10
@@ -86,7 +86,7 @@ class TestBrightnessFilters(unittest.TestCase):
 
         # Create a fake data set a few fake objects with different fluxes.
         ds = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
-        ds.insert_random_object(flux=1)
+        ds.insert_random_object(flux=5)
         ds.insert_random_object(flux=20)
         ds.insert_random_object(flux=50)
         results = Results.from_trajectories(ds.trajectories, track_filtered=False)
@@ -95,7 +95,7 @@ class TestBrightnessFilters(unittest.TestCase):
         sci_curves, var_curves = extract_sci_var_curves(results, ds.stack_py, append=False)
 
         # Score the brightness offsets. All of the objects should best match with their given flux.
-        offsets = [0.5, 1.0, 1.5]
+        offsets = [0.2, 1.0, 5.0]
         best_brightness, best_idx = local_search_brightness(sci_curves, var_curves, offsets=offsets)
         self.assertEqual(best_brightness.shape, (len(results),))
         self.assertEqual(best_idx.shape, (len(results),))
@@ -109,7 +109,7 @@ class TestBrightnessFilters(unittest.TestCase):
 
         # Create a fake data set a few fake objects with different fluxes.
         ds = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
-        ds.insert_random_object(flux=1)
+        ds.insert_random_object(flux=5)
         ds.insert_random_object(flux=20)
         ds.insert_random_object(flux=50)
         results = Results.from_trajectories(ds.trajectories, track_filtered=False)
