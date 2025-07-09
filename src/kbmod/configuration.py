@@ -70,7 +70,7 @@ class SearchConfiguration:
             "cnn_coadd_type": "mean",
             "cnn_stamp_radius": 49,
             "cnn_model_type": "resnet18",
-            "sns_filters": False,
+            "sns_filter": False,
         }
 
         if data is not None:
