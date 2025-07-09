@@ -1,2 +1,2 @@
 def no_op_filter(res):
-  return 5
+    return 5

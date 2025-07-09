@@ -432,10 +432,10 @@ class SearchRunner:
         append_coadds(keep, stack, coadds, stamp_radius, nightly=config["nightly_coadds"])
         if f"coadd_{stamp_type}" in keep.colnames:
             keep.table["stamp"] = keep.table[f"coadd_{stamp_type}"]
-            
+
         # sns_filter
         if config["sns_filter"]:
-          no_op_filter(keep)
+            no_op_filter(keep)
 
         # if CNN is enabled, add the classification and probabilities to the results.
         if config["cnn_filter"]:
