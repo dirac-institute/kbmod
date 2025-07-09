@@ -4,7 +4,8 @@ import unittest
 from astropy.wcs import WCS
 
 from kbmod.trajectory_utils import *
-from kbmod.search import *
+from kbmod.results import Results
+from kbmod.search import Trajectory
 
 
 class test_trajectory_utils(unittest.TestCase):
@@ -119,6 +120,27 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertAlmostEqual(mse, 0.25 + 0.01)
 
         self.assertRaises(ValueError, evaluate_trajectory_mse, trj, [], [], [])
+
+    def test_trajectory_results_best_match(self):
+        queries = [
+            Trajectory(x=0, y=0, vx=0.0, vy=0.0),
+            Trajectory(x=10, y=10, vx=0.5, vy=-2.0),
+            Trajectory(x=50, y=80, vx=-1.0, vy=0.0),
+        ]
+
+        candidates = [
+            Trajectory(x=0, y=0, vx=0.0, vy=0.0),
+            Trajectory(x=1, y=0, vx=0.0, vy=0.0),
+            Trajectory(x=15, y=15, vx=0.5, vy=-2.0),
+            Trajectory(x=49, y=82, vx=-1.0, vy=0.01),
+            Trajectory(x=10, y=10, vx=0.6, vy=-2.1),
+            Trajectory(x=0, y=0, vx=0.0, vy=0.01),
+        ]
+        results = Results.from_trajectories(candidates)
+
+        # Do a greedy matching.
+        match_dist, match_idx = trajectory_results_best_match(queries, results, times=[0.0, 10.0])
+        self.assertTrue(np.array_equal(match_idx, [0, 4, 3]))
 
     def test_match_trajectory_sets(self):
         queries = [

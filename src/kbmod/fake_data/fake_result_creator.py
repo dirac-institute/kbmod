@@ -180,13 +180,24 @@ def make_fake_results(num_times, height, width, num_results, rng=None):
     return results
 
 
-def add_fake_psi_phi_to_results(results, rng=None):
+def add_fake_psi_phi_to_results(
+        results,
+        signal_mean=10.0,
+        data_var=0.5,
+        outlier_fraction=0.0,
+        outlier_mean=20.0,
+        masked_fraction=0.0,
+        rng=None,
+    ):
     """Add fake psi and phi values to the results.
 
     Parameters
     ----------
     results : `Results`
         The results to which to add the fake values.
+    signal_mean : `float`
+        The mean value of the signal (psi / phi).
+
     rng : `numpy.random.Generator`, optional
         A random number generator to use. If None, a random generator is created.
         Default: None
@@ -202,11 +213,37 @@ def add_fake_psi_phi_to_results(results, rng=None):
     num_times = results.get_num_times()
     num_results = len(results)
 
-    # Create the fake trajectory information.
-    psi = rng.normal(10.0, 0.5, size=(num_results, num_times))
-    phi = rng.uniform(0.5, 1.0, size=(num_results, num_times))
-    results.add_psi_phi_data(psi, phi)
+    # Compute the mean psi and phi values given the signal mean and data variance.
+    # We use the facts that:
+    #   psi_i is derived from sci / var_i  (we ignore the PSF for this approximation)
+    #   phi_i is derived from 1 / var_i  (we ignore the PSF for this approximation)
+    #   lc_i = psi_i / phi_i
+    if data_var <= 0.0:
+        raise ValueError(f"Invalid data variance {data_var}")
+    phi_mean = 1.0 / data_var
+    psi_mean = signal_mean * phi_mean
 
+    # Create fake curves without outliers or masking.
+    psi = rng.normal(psi_mean, data_var, size=(num_results, num_times))
+    phi = rng.normal(phi_mean, 0.1, size=(num_results, num_times))
+    valid = np.full((num_results, num_times), True)
+
+    # Add outliers if needed.
+    if outlier_fraction > 0.0:
+        outlier_mask = rng.uniform(0.0, 1.0, size=(num_results, num_times)) < outlier_fraction
+        num_outliers = np.sum(outlier_mask)
+        psi[outlier_mask] = rng.normal(outlier_mean, data_var, size=num_outliers)
+        valid[outlier_mask] = False
+
+    # Mask pixels if needed.
+    if masked_fraction > 0.0:
+        mask = rng.uniform(0.0, 1.0, size=(num_results, num_times)) < masked_fraction
+        psi[mask] = np.nan
+        phi[mask] = np.nan
+        valid[mask] = False
+
+    # Add the data to the results.
+    results.add_psi_phi_data(psi, phi, obs_valid=valid)
     return results
 
 

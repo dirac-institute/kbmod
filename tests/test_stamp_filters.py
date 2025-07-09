@@ -30,9 +30,6 @@ class test_stamp_filters(unittest.TestCase):
         self.trj = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
         self.ds.insert_object(self.trj)
 
-        current_dir = pathlib.Path(__file__).parent.resolve()
-        self.model_path = pathlib.Path(current_dir, "data/test_model.keras")
-
         # Create a second simpler fake data set where each science layer is constant
         # according the the time index.
         height = 25
@@ -247,23 +244,28 @@ class test_stamp_filters(unittest.TestCase):
         self.assertTrue("all_stamps" in keep.colnames)
 
     def test_filter_stamps_by_cnn(self):
+        import torch
+
+        torch.manual_seed(747474747)
+
         trj_list = [
             self.trj,
             Trajectory(self.trj.x, self.trj.y, 0.0, 0.0),
             Trajectory(self.trj.x + 2, self.trj.y + 2, self.trj.vx, self.trj.vy),
         ]
         keep = Results.from_trajectories(trj_list)
-        append_coadds(keep, self.ds.stack_py, ["mean"], 3)
+        append_coadds(keep, self.ds.stack_py, ["mean"], 5)
 
         filter_stamps_by_cnn(
             keep,
-            self.model_path,
+            None,
             coadd_type="mean",
             stamp_radius=3,
+            coadd_radius=5,
         )
 
         # the test model was trained on totally random data
-        assert keep.table["cnn_class"].data[2] == False
+        assert keep.table["cnn_class"].data[2] == True
         filtered_results = keep.filter_rows(keep.table["cnn_class"])
         assert len(filtered_results) == 2
 
@@ -273,9 +275,20 @@ class test_stamp_filters(unittest.TestCase):
         with self.assertRaises(ValueError):
             filter_stamps_by_cnn(
                 keep,
-                self.model_path,
+                None,
                 coadd_type="median",
                 stamp_radius=3,
+            )
+
+        with self.assertRaises(ValueError):
+            keep2 = Results.from_trajectories(trj_list)
+            append_coadds(keep2, self.ds.stack_py, ["mean"], 1)
+            filter_stamps_by_cnn(
+                keep,
+                None,
+                coadd_type="mean",
+                stamp_radius=3,
+                coadd_radius=1,
             )
 
 

@@ -730,9 +730,9 @@ def plot_ic_polygon(ic, idx, reflex_dist=0.0, earth_loc=None, lw=1, color=None, 
     plt.gca().set_aspect("equal")
 
 
-def plot_ic_image_bounds(ic, reflex_distances=[0.0], earth_loc=None, lw=1, alpha=None):
+def plot_ic_image_bounds(ic, patch=None, reflex_distances=[0.0], earth_loc=None, lw=1, alpha=None):
     """
-    Plots the image foorprints of an input ImageCollection for one or more reflex-corrected distances.
+    Plots the image footprints of an input ImageCollection for one or more reflex-corrected distances.
 
     All chips in a given visit or plotted with the same color, regardless of their
     reflex-corrected distance. This allows it to be easier to see the impact of reflex-correction
@@ -742,6 +742,9 @@ def plot_ic_image_bounds(ic, reflex_distances=[0.0], earth_loc=None, lw=1, alpha
     -----------
     ic : astropy.table.Table
         An ImageCollection table.
+    patch: `kbmod.region_search.Patch`, optional
+        If provided, will plot the dimensions of a single patch of sky in addition
+        to plotting the ImageCollection footprints.
     reflex_distances : list of float, optional
         The reflex-corrected distances to plot. Note that a distance of 0.0 corresponds to no correction.
     earth_loc : astropy.coordinates.EarthLocation, optional
@@ -780,6 +783,27 @@ def plot_ic_image_bounds(ic, reflex_distances=[0.0], earth_loc=None, lw=1, alpha
                 )
     plt.xlabel("RA [°]")
     plt.ylabel("Dec [°]")
+
+    if patch is not None:
+        color = "black"
+        lw = 1
+        patchlabel = patch.id
+        radebox = [
+            (patch.tl_ra, patch.tl_dec),
+            (patch.tr_ra, patch.tr_dec),
+            (patch.br_ra, patch.br_dec),
+            (patch.bl_ra, patch.bl_dec),
+            (patch.tl_ra, patch.tl_dec),
+        ]
+        plt.plot(
+            [coord[0] for coord in radebox],
+            [coord[1] for coord in radebox],
+            label=patchlabel,
+            alpha=0.75,
+            color=color,
+            linewidth=lw,
+        )
+    plt.gca().set_aspect("equal")
 
     return fig
 

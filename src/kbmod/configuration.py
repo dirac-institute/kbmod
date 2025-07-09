@@ -33,6 +33,7 @@ class SearchConfiguration:
             "cpu_only": False,
             "debug": False,
             "do_clustering": True,
+            "drop_columns": [],
             "encode_num_bytes": -1,
             "generator_config": {
                 "name": "EclipticCenteredSearch",
@@ -54,6 +55,7 @@ class SearchConfiguration:
             "results_per_pixel": 8,
             "save_all_stamps": False,
             "save_config": True,
+            "separate_col_files": ["all_stamps"],
             "sigmaG_filter": True,
             "sigmaG_lims": [25, 75],
             "stamp_radius": 10,
@@ -63,6 +65,11 @@ class SearchConfiguration:
             "x_pixel_buffer": None,
             "y_pixel_bounds": None,
             "y_pixel_buffer": None,
+            "cnn_filter": False,
+            "cnn_model": None,
+            "cnn_coadd_type": "mean",
+            "cnn_stamp_radius": 49,
+            "cnn_model_type": "resnet18",
         }
 
         if data is not None:

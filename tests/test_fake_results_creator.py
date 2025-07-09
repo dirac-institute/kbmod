@@ -110,6 +110,49 @@ class test_fake_result_creator(unittest.TestCase):
             self.assertEqual(results["coadd_mean"][i].shape, (7, 7))
             self.assertEqual(results["coadd_median"][i].shape, (21, 21))
 
+    def test_add_fake_psi_phi_to_results(self):
+        num_results = 100
+        num_times = 10
+        num_pts = num_results * num_times
+
+        results = make_fake_results(num_times, 200, 250, num_results)
+
+        # Add default fake psi and phi curves.
+        results = add_fake_psi_phi_to_results(results, signal_mean=10.0, data_var=0.5)
+        self.assertTrue(np.all(np.abs(results["psi_curve"] - 20.0) < 4.0))
+        self.assertTrue(np.all(np.abs(results["phi_curve"] - 2.0) < 1.0))
+        self.assertTrue(np.all(results["obs_valid"]))
+
+        # Add fake psi and phi curves with masking.
+        results = make_fake_results(num_times, 200, 250, num_results)
+        results = add_fake_psi_phi_to_results(results, masked_fraction=0.2)
+        valid = results["obs_valid"]
+
+        self.assertFalse(np.any(np.isnan(results["psi_curve"][valid])))
+        self.assertFalse(np.any(np.isnan(results["phi_curve"][valid])))
+        self.assertTrue(np.all(np.isnan(results["psi_curve"][~valid])))
+        self.assertTrue(np.all(np.isnan(results["psi_curve"][~valid])))
+
+        self.assertAlmostEqual(np.sum(valid) / num_pts, 0.8, delta=0.1)
+        self.assertAlmostEqual(np.mean(results["psi_curve"][valid]), 20.0, delta=4.0)
+        self.assertAlmostEqual(np.mean(results["phi_curve"][valid]), 2.0, delta=0.5)
+
+        # Add fake psi and phi curves with outliers.
+        results = make_fake_results(num_times, 200, 250, num_results)
+        results = add_fake_psi_phi_to_results(
+            results,
+            signal_mean=10.0,
+            data_var=0.5,
+            outlier_fraction=0.3,
+            outlier_mean=100.0,
+            masked_fraction=0.0,
+        )
+        not_outlier = results["psi_curve"] < 50.0
+        self.assertTrue(np.all(not_outlier == results["obs_valid"]))
+        self.assertAlmostEqual(np.mean(results["psi_curve"][not_outlier]), 20.0, delta=4.0)
+        self.assertAlmostEqual(np.mean(results["psi_curve"][~not_outlier]), 100.0, delta=10.0)
+        self.assertAlmostEqual(np.mean(results["phi_curve"]), 2.0, delta=0.5)
+
 
 if __name__ == "__main__":
     unittest.main()
