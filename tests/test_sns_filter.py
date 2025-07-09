@@ -19,7 +19,7 @@ class TestSnsFilter(unittest.TestCase):
         ds.insert_random_object(flux=50)
         results = Results.from_trajectories(ds.trajectories, track_filtered=False)
         length = len(results)
-        
+
         no_op_filter(results)
         self.assertEqual(length, len(results))
 
