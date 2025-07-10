@@ -12,6 +12,10 @@ import warnings
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.core.psf import PSF
+from kbmod.core.shift_and_stack import generate_psi_phi_from_image_stack
+from kbmod.core.stamp_utils import extract_curve_values
+from kbmod.filters.stamp_filters import append_all_stamps, append_coadds
+from kbmod.results import Results
 from kbmod.search import Trajectory
 from kbmod.work_unit import WorkUnit
 
@@ -503,3 +507,61 @@ class FakeDataSet:
         """
         work = self.get_work_unit(config)
         work.to_fits(filename)
+
+    def make_results(
+            self,
+            generate_psi_phi=True,
+            generate_all_stamps=True,
+            stamp_radius=10,
+            coadds=["sum", "mean", "median"],
+        ):
+        """Create a Results object that corresponds to the trajectories inserted
+        into this fake data set. All the results will be based on true fakes.
+
+        Parameters
+        ----------
+        generate_psi_phi : `bool`, optional
+            If True, generates the PSI and PHI images from the image stack.
+            Default: True
+        generate_all_stamps : `bool`, optional
+            If True, generates all the stamps for the trajectories.
+            Default: True
+        stamp_radius : `int`, optional
+            The radius of the stamps to generate. Default: 10.
+        coadds : `list` of `str`, optional
+            A list of coadd types to generate. Can be "sum", "mean", "median", and "weighted".
+            Default: ["sum", "mean", "median"]
+
+        Returns
+        -------
+        results : `Results`
+            The results object containing the trajectories, psi/phi, and coadds.
+        """
+        if len(self.trajectories) == 0:
+            raise ValueError("No trajectories in the fake data set.")
+
+        # Create a results data set that has the inserted trajectories.
+        results = Results.from_trajectories(self.trajectories, track_filtered=False)
+
+        if generate_psi_phi:
+            # Generate the psi and phi images from the image stack.
+            psi_imgs, phi_imgs = generate_psi_phi_from_image_stack(self.stack_py)
+
+            # Generate the psi and phi curves for each trajectory.
+            psi_curves = []
+            phi_curves = []
+            for trj in self.trajectories:
+                xvals = (trj.x + self.stack_py.zeroed_times * trj.vx + 0.5).astype(int)
+                yvals = (trj.y + self.stack_py.zeroed_times * trj.vy + 0.5).astype(int)
+                psi_curves.append(extract_curve_values(psi_imgs, xvals, yvals))
+                phi_curves.append(extract_curve_values(phi_imgs, xvals, yvals))
+
+            # Append the curves to the results.
+            results.add_psi_phi_data(psi_curves, phi_curves)
+
+        # Add the stamp data.
+        if generate_all_stamps:
+            append_all_stamps(results, self.stack_py, stamp_radius=stamp_radius)
+        append_coadds(results, self.stack_py, coadds, stamp_radius)
+
+        return results
