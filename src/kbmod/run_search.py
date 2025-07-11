@@ -432,7 +432,8 @@ class SearchRunner:
         if f"coadd_{stamp_type}" in keep.colnames:
             keep.table["stamp"] = keep.table[f"coadd_{stamp_type}"]
 
-        # sns_filter
+        # All of sns_filters are grouped together under one flag.
+        # Subject to change in the future if we want different flags for each sns_filter.
         if config["sns_filter"]:
             pass
 
