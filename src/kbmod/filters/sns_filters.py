@@ -21,9 +21,6 @@ def peak_offset_filter(res, peak_offset_max=6):
 
     Returns
     -------
-    stamps : `np.ndarray`
-        The filtered stamps.
-
     res : `Results`
         The search results after filtering out rows.
     """
