@@ -22,7 +22,7 @@ class TestSnsFilter(unittest.TestCase):
         # Create a fake data set a few fake objects with different fluxes.
         ds = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
         for itr in np.arange(5):
-            ds.insert_random_object(flux=5*itr)
+            ds.insert_random_object(flux=5 * itr)
             itr += 1
 
         results = ds.make_results()
@@ -37,7 +37,7 @@ class TestSnsFilter(unittest.TestCase):
         filtered_stamps, filtered_results = peak_offset_filter(results, peak_offset_max=10000)
         self.assertEqual(len(results), len(filtered_results))
         self.assertEqual(len(filtered_stamps), len(filtered_results))
-        
+
         # Insert a sixth object and edit it to be outside default max of 6.
         # Two objects should be filtered out.
         trj = ds.insert_random_object(flux=25)
