@@ -436,7 +436,7 @@ class SearchRunner:
         # All of sns_filters are grouped together under one flag.
         # Subject to change in the future if we want different flags for each sns_filter.
         if config["sns_filter"]:
-            peak_offset_filter(keep)
+            keep = peak_offset_filter(keep)
 
         # if CNN is enabled, add the classification and probabilities to the results.
         if config["cnn_filter"]:
