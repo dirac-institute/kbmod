@@ -42,6 +42,5 @@ def peak_offset_filter(res, peak_offset_max=6):
     radial_d = ((X - b / 2) ** 2 + (Y - a / 2) ** 2) ** 0.5
     w = np.where(radial_d < peak_offset_max)
     res = res[w]
-    stamps = stamps[w]
 
-    return stamps, res
+    return res
