@@ -10,6 +10,7 @@ from .filters.clustering_filters import apply_clustering
 from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
+from .filters.sns_filters import peak_offset_filter
 
 from .results import Results, write_results_to_files_destructive
 from .trajectory_generator import create_trajectory_generator
@@ -435,7 +436,7 @@ class SearchRunner:
         # All of sns_filters are grouped together under one flag.
         # Subject to change in the future if we want different flags for each sns_filter.
         if config["sns_filter"]:
-            pass
+            peak_offset_filter(keep)
 
         # if CNN is enabled, add the classification and probabilities to the results.
         if config["cnn_filter"]:
