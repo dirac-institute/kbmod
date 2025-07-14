@@ -38,7 +38,7 @@ class TestSnsFilter(unittest.TestCase):
         self.assertEqual(len(results), len(filtered_results))
         self.assertEqual(len(filtered_stamps), len(filtered_results))
 
-        # Insert a sixth object and edit it to be outside default max of 6.
+        # Insert a sixth object and edit it to be outside of a peak offset of 2.
         # Two objects should be filtered out.
         trj = ds.insert_random_object(flux=25)
         trj.x = trj.x - 2 if trj.x >= 38 else trj.x + 2
