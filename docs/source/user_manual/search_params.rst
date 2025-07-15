@@ -133,6 +133,8 @@ Configuration Parameters
 |                        |                             | be saved in the same directory as the  |
 |                        |                             | main result file.                      |
 +------------------------+-----------------------------+----------------------------------------+
+| ``sigmaG_filter``      | True                        | Whether to use the sigmaG filter.      |
++------------------------+-----------------------------+----------------------------------------+
 | ``sigmaG_lims``        | [25, 75]                    | The percentiles to use in sigmaG       |
 |                        |                             | filtering, if                          |
 |                        |                             | ``filter_type= clipped_sigmaG``.       |
@@ -173,4 +175,27 @@ Configuration Parameters
 |                        |                             | coordinates. If ``y_bounds`` is        |
 |                        |                             | provided that takes precedence.        |
 |                        |                             | ``None`` uses the image bounds.        |
++------------------------+-----------------------------+----------------------------------------+
+| ``cnn_filter``         | False                       | Whether or not to perform filtering    |
+|                        |                             | using a pre-provided CNN model. If     |
+|                        |                             | enabled, the user must provide a       |
+|                        |                             | path to a pre-trained `pytorch` model  |
+|                        |                             | in the `.pth` file format in the       |
+|                        |                             | ``cnn_model`` search parameter.        |
++------------------------+-----------------------------+----------------------------------------+
+| ``cnn_model``          | None                        | A filepath in string format pointing   |
+|                        |                             | to a pre-trained `pytorch` model and   |
+|                        |                             | weights in the `.pth` format.          |
++------------------------+-----------------------------+----------------------------------------+
+| ``cnn_coadd_type``     | "mean"                      | The stamp coadd type to use during     |
+|                        |                             | CNN classification. Must be part of    |
+|                        |                             | ``coadds`` parameter.                  |
++------------------------+-----------------------------+----------------------------------------+
+| ``cnn_stamp_radius``   | 49                          | The stamp radius used in the CNN       |
+|                        |                             | training, i.e. the stamp radius for    |
+|                        |                             | the model input. Must be equal or      |
+|                        |                             | smaller than the ``stamp_radius``.     |
++------------------------+-----------------------------+----------------------------------------+
+| ``cnn_model_type``     | "resnet18"                  | The prebuilt `pytorch` model that was  |
+|                        |                             | used for training.                     |
 +------------------------+-----------------------------+----------------------------------------+

@@ -335,6 +335,37 @@ class test_fake_image_creator(unittest.TestCase):
                 self.assertEqual(li.width, 15)
                 self.assertEqual(li.height, 10)
 
+    def test_make_results(self):
+        num_images = 25
+        times = create_fake_times(num_images, 57130.2, 3, 0.01, 1)
+        ds = FakeDataSet(150, 200, times)
+
+        # Insert three random objects.
+        ds.insert_random_object(500)
+        ds.insert_random_object(200)
+        ds.insert_random_object(10)  # very dim
+
+        # Create results with all stamps and PSI/PHI images.
+        results = ds.make_results(stamp_radius=5)
+        self.assertEqual(len(results), 3)
+        self.assertTrue("psi_curve" in results.colnames)
+        self.assertEqual(results["psi_curve"].shape, (3, num_images))
+
+        self.assertTrue("phi_curve" in results.colnames)
+        self.assertEqual(results["phi_curve"].shape, (3, num_images))
+
+        self.assertTrue("coadd_mean" in results.colnames)
+        self.assertEqual(results["coadd_mean"].shape, (3, 11, 11))
+
+        self.assertTrue("coadd_median" in results.colnames)
+        self.assertEqual(results["coadd_median"].shape, (3, 11, 11))
+
+        self.assertTrue("coadd_sum" in results.colnames)
+        self.assertEqual(results["coadd_sum"].shape, (3, 11, 11))
+
+        self.assertTrue("all_stamps" in results.colnames)
+        self.assertEqual(results["all_stamps"].shape, (3, num_images, 11, 11))
+
 
 if __name__ == "__main__":
     unittest.main()

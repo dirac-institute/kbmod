@@ -254,13 +254,14 @@ class test_stamp_filters(unittest.TestCase):
             Trajectory(self.trj.x + 2, self.trj.y + 2, self.trj.vx, self.trj.vy),
         ]
         keep = Results.from_trajectories(trj_list)
-        append_coadds(keep, self.ds.stack_py, ["mean"], 3)
+        append_coadds(keep, self.ds.stack_py, ["mean"], 5)
 
         filter_stamps_by_cnn(
             keep,
             None,
             coadd_type="mean",
             stamp_radius=3,
+            coadd_radius=5,
         )
 
         # the test model was trained on totally random data
@@ -277,6 +278,17 @@ class test_stamp_filters(unittest.TestCase):
                 None,
                 coadd_type="median",
                 stamp_radius=3,
+            )
+
+        with self.assertRaises(ValueError):
+            keep2 = Results.from_trajectories(trj_list)
+            append_coadds(keep2, self.ds.stack_py, ["mean"], 1)
+            filter_stamps_by_cnn(
+                keep,
+                None,
+                coadd_type="mean",
+                stamp_radius=3,
+                coadd_radius=1,
             )
 
 
