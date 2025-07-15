@@ -9,7 +9,7 @@ def peak_offset_filter(res, peak_offset_max=6):
 
     Parameters
     ----------
-    res : `Results``
+    res : `Results`
         The search results containing trajectories.
     peak_offset_max : `int`
         The max allowable distance between stamp peak and centre of stamp.
@@ -38,6 +38,6 @@ def peak_offset_filter(res, peak_offset_max=6):
     Y = gy[args]
     radial_d = ((X - b / 2) ** 2 + (Y - a / 2) ** 2) ** 0.5
     w = np.where(radial_d < peak_offset_max)
-    res = res[w]
+    res.table = res.table[w]
 
     return res
