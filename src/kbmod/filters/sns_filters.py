@@ -13,6 +13,7 @@ def peak_offset_filter(res, peak_offset_max=6):
         The search results containing trajectories.
     peak_offset_max : `int`
         The max allowable distance between stamp peak and centre of stamp.
+        The default value is 6.
 
     Raises
     ------
