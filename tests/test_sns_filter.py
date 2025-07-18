@@ -29,20 +29,21 @@ class TestSnsFilter(unittest.TestCase):
         self.assertTrue("coadd_mean" in results.colnames)
 
         # Ensure that a peak_offset_max of 0 filters everything out
-        filtered_results = peak_offset_filter(results, peak_offset_max=0)
-        self.assertEqual(0, len(filtered_results))
+        peak_offset_filter(results, peak_offset_max=0)
+        self.assertEqual(0, len(results))
 
         # Ensure that a peak_offset_max of 10,000 filters nothing out
-        filtered_results = peak_offset_filter(results, peak_offset_max=10000)
-        self.assertEqual(len(results), len(filtered_results))
+        results = ds.make_results()
+        peak_offset_filter(results, peak_offset_max=10000)
+        self.assertEqual(5, len(results))
 
         # Insert a sixth object and edit it to be outside of a peak offset of 2.
         # Two objects should be filtered out.
         trj = ds.insert_random_object(flux=25)
         trj.x = trj.x - 2 if trj.x >= 38 else trj.x + 2
-        results2 = ds.make_results()
-        filtered_results = peak_offset_filter(results2, peak_offset_max=1)
-        self.assertEqual(4, len(filtered_results))
+        results = ds.make_results()
+        peak_offset_filter(results, peak_offset_max=1)
+        self.assertEqual(4, len(results))
 
 
 if __name__ == "__main__":

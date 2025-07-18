@@ -11,6 +11,7 @@ def peak_offset_filter(res, peak_offset_max=6):
     ----------
     res : `Results`
         The search results containing trajectories.
+        This object is modified by filtering out rows.
     peak_offset_max : `int`
         The max allowable distance between stamp peak and centre of stamp.
         The default value is 6.
@@ -19,11 +20,6 @@ def peak_offset_filter(res, peak_offset_max=6):
     ------
     RuntimeError :
       Input results do not contain "coadd_mean" column.
-
-    Returns
-    -------
-    res : `Results`
-        The search results after filtering out rows.
     """
     if "coadd_mean" not in res.colnames:
         raise RuntimeError("coadd_mean column not present in results")
@@ -40,5 +36,3 @@ def peak_offset_filter(res, peak_offset_max=6):
     radial_d = ((X - b / 2) ** 2 + (Y - a / 2) ** 2) ** 0.5
     w = np.where(radial_d < peak_offset_max)
     res.table = res.table[w]
-
-    return res
