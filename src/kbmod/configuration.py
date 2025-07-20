@@ -71,6 +71,7 @@ class SearchConfiguration:
             "cnn_stamp_radius": 49,
             "cnn_model_type": "resnet18",
             "sns_filter": False,
+            "peak_offset_max": 6,
         }
 
         if data is not None:
