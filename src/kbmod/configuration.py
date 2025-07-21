@@ -71,6 +71,8 @@ class SearchConfiguration:
             "cnn_stamp_radius": 49,
             "cnn_model_type": "resnet18",
             "peak_offset_max": None,
+            "predictive_line_cluster": False,
+            "predictive_line_clister_params": [4.0, 2, 60],
         }
 
         if data is not None:

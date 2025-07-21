@@ -437,6 +437,9 @@ class SearchRunner:
         if config["peak_offset_max"] is not None:
             peak_offset_filter(keep, peak_offset_max=config["peak_offset_max"])
 
+        if config["predictive_line_cluster"]:
+            pass
+
         # if CNN is enabled, add the classification and probabilities to the results.
         if config["cnn_filter"]:
             if config["cnn_model"] is None:

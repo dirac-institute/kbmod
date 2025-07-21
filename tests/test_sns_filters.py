@@ -45,6 +45,9 @@ class TestSnsFilter(unittest.TestCase):
         peak_offset_filter(results, peak_offset_max=1)
         self.assertEqual(4, len(results))
 
+    def test_predictive_line_cluster(self):
+        pass
+
 
 if __name__ == "__main__":
     unittest.main()
