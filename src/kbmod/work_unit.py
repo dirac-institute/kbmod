@@ -18,7 +18,7 @@ from tqdm import tqdm
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
-from kbmod.reprojection_utils import invert_correct_parallax
+from kbmod.reprojection_utils import invert_correct_parallax, image_positions_to_original_icrs
 from kbmod.search import Logging
 from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
@@ -878,89 +878,24 @@ class WorkUnit:
                 "`WorkUnit` not reprojected. This method is purpose built \
                 for handling post reproject coordinate tranformations."
             )
-        if input_format not in ["xy", "radec"]:
-            raise ValueError(f"input format must be 'xy' or 'radec' , '{input_format}' provided")
-        if input_format == "xy":
-            if not all(isinstance(i, tuple) and len(i) == 2 for i in positions):
-                raise ValueError("positions in incorrect format for input_format='xy'")
-        if input_format == "radec" and not all(isinstance(i, SkyCoord) for i in positions):
-            raise ValueError("positions in incorrect format for input_format='radec'")
-        if len(positions) != len(image_indices):
-            raise ValueError(f"wrong number of inputs, expected {len(image_indices)}, got {len(positions)}")
+        
+        original_wcses = [w for w in self.org_img_meta["per_image_wcs"]]
 
-        if output_format not in ["xy", "radec"]:
-            raise ValueError(f"output format must be 'xy' or 'radec' , '{output_format}' provided")
-
-        position_reprojected_coords = positions
-
-        # convert to radec if input is xy
-        if input_format == "xy":
-            radec_coords = []
-            for pos, ind in zip(positions, image_indices):
-                ebd_wcs = self.get_wcs(ind)
-                ra, dec = ebd_wcs.all_pix2world(pos[0], pos[1], 0)
-                radec_coords.append(SkyCoord(ra=ra, dec=dec, unit="deg"))
-            position_reprojected_coords = radec_coords
-
-        # invert the parallax correction if in ebd space
-        original_coords = position_reprojected_coords
-        if self.reprojection_frame == "ebd":
-            bary_dist = self.barycentric_distance
-            geo_dists = [self.org_img_meta["geocentric_distance"][i] for i in image_indices]
-            all_times = self.get_all_obstimes()
-            obstimes = [all_times[i] for i in image_indices]
-
-            # this should be part of the WorkUnit metadata
-            location = EarthLocation.of_site("ctio")
-
-            inverted_coords = []
-            for coord, ind, obstime, geo_dist in zip(
-                position_reprojected_coords, image_indices, obstimes, geo_dists
-            ):
-                inverted_coord = invert_correct_parallax(
-                    coord=coord,
-                    obstime=Time(obstime, format="mjd"),
-                    point_on_earth=location,
-                    barycentric_distance=bary_dist,
-                    geocentric_distance=geo_dist,
-                )
-                inverted_coords.append(inverted_coord)
-            original_coords = inverted_coords
-
-        if output_format == "radec" and not filter_in_frame:
-            return original_coords
-
-        # convert coordinates into original pixel positions
-        positions = []
-        for i in image_indices:
-            inds = self._per_image_indices[i]
-            coord = original_coords[i]
-            pos = []
-            for j in inds:
-                con_image = self.org_img_meta["data_loc"][j]
-                con_wcs = self.org_img_meta["per_image_wcs"][j]
-                height, width = con_wcs.array_shape
-                x, y = skycoord_to_pixel(coord, con_wcs)
-                x, y = float(x), float(y)
-                if output_format == "xy":
-                    result_coord = (x, y)
-                else:
-                    result_coord = coord
-                to_allow = (y >= 0.0 and y <= height and x >= 0 and x <= width) or (not filter_in_frame)
-                if to_allow:
-                    pos.append((result_coord, con_image))
-            if len(pos) == 0:
-                positions.append(None)
-            elif len(pos) > 1:
-                positions.append(pos)
-                if filter_in_frame:
-                    warnings.warn(
-                        f"ambiguous image origin for coordinate {i}, including all potential constituent images.",
-                        Warning,
-                    )
-            else:
-                positions.append(pos[0])
-        return positions
+        return image_positions_to_original_icrs(
+            image_indices,
+            positions,
+            self.wcs,
+            original_wcses,
+            self.get_all_obstimes(),
+            input_format=input_format,
+            output_format=output_format,
+            filter_in_frame=filter_in_frame,
+            reprojection_frame=self.reprojection_frame,
+            barycentric_distance=self.barycentric_distance,
+            geocentric_distances= self.org_img_meta["geocentric_distance"],
+            per_image_indices=self._per_image_indices,
+            org_img_meta=self.org_img_meta,
+        )
 
     def load_images(self):
         """Function for loading in `ImageStackPy` data when `WorkUnit`
