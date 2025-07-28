@@ -10,7 +10,7 @@ from .filters.clustering_filters import apply_clustering
 from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
-from .filters.sns_filters import peak_offset_filter
+from .filters.sns_filters import peak_offset_filter, predictive_line_cluster
 
 from .results import Results, write_results_to_files_destructive
 from .trajectory_generator import create_trajectory_generator
@@ -437,8 +437,11 @@ class SearchRunner:
         if config["peak_offset_max"] is not None:
             peak_offset_filter(keep, peak_offset_max=config["peak_offset_max"])
 
+        # if predictive_line_cluster is enabled, it expects 3 parameters.
+        # default values are [4.0, 2, 60]
         if config["predictive_line_cluster"]:
-            pass
+            params = config["predictive_line_cluster_params"]
+            predictive_line_cluster(keep, stack.times, params[0], params[1], params[2])
 
         # if CNN is enabled, add the classification and probabilities to the results.
         if config["cnn_filter"]:

@@ -11,7 +11,7 @@ class TestSnsFilter(unittest.TestCase):
     def test_peak_offset_filter_throws_exception(self):
         # empty results raises runtime exception since there is not "coadd_mean" column
         empty_results = Results()
-        self.assertRaises(RuntimeError, peak_offset_filter, empty_results, 10)
+        self.assertRaises(RuntimeError, peak_offset_filter, empty_results)
 
     def test_peak_offset_filter(self):
         num_times = 10
@@ -45,8 +45,27 @@ class TestSnsFilter(unittest.TestCase):
         peak_offset_filter(results, peak_offset_max=1)
         self.assertEqual(4, len(results))
 
+    # def test_predictive_line_cluster_throws_exception(self):
+    #     # empty results throws exceptio
+    #     empty_results = Results()
+    #     self.assertRaises(RuntimeError, predictive_line_cluster, empty_results)
+
     def test_predictive_line_cluster(self):
-        pass
+        num_times = 10
+        height = 40
+        width = 50
+        times = np.arange(num_times) + 60676  # MJD for Jan 1, 2025
+
+        # Create a fake data set a few fake objects with different fluxes.
+        ds = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
+        for itr in np.arange(5):
+            ds.insert_random_object(flux=5 * itr)
+            itr += 1
+
+        results = ds.make_results()
+        self.assertTrue("coadd_mean" in results.colnames)
+
+        predictive_line_cluster(results, times)
 
 
 if __name__ == "__main__":
