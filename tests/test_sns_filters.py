@@ -45,11 +45,6 @@ class TestSnsFilter(unittest.TestCase):
         peak_offset_filter(results, peak_offset_max=1)
         self.assertEqual(4, len(results))
 
-    # def test_predictive_line_cluster_throws_exception(self):
-    #     # empty results throws exceptio
-    #     empty_results = Results()
-    #     self.assertRaises(RuntimeError, predictive_line_cluster, empty_results)
-
     def test_predictive_line_cluster(self):
         num_times = 10
         height = 40
