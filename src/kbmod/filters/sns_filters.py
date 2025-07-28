@@ -47,6 +47,8 @@ def predictive_line_cluster(res, dmjds, dist_lim=4.0, min_samp=2, init_select_pr
     res : `Results`
         The search results containing trajectories.
         This object is modified by filtering out rows.
+    dmjds : `list`
+        List of dates in dmjd format.
     dist_lim : `double`
     min_samp : `int`
     init_select_proc_distance : `int`
