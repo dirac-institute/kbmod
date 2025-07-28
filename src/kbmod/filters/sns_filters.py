@@ -134,10 +134,10 @@ def predictive_line_cluster(res, dmjds, dist_lim=4.0, min_samp=2, init_select_pr
         dy2 = dy**2
         top = np.abs(dyp - dxp + xm - ym)
         bottom = np.sqrt(dx2 + dy2)
-        if 0 in bottom:
-          print("zero found in bottom")
-          print(bottom)
-          raise RuntimeError("zero found in bottom")
+        # if 0 in bottom:
+        #   print("zero found in bottom")
+        #   print(bottom)
+        #   raise RuntimeError("zero found in bottom")
         dist = top / bottom
 
         # unused variables in original code
