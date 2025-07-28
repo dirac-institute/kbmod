@@ -58,14 +58,32 @@ class TestSnsFilter(unittest.TestCase):
 
         # Create a fake data set a few fake objects with different fluxes.
         ds = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
-        for itr in np.arange(5):
-            ds.insert_random_object(flux=5 * itr)
-            itr += 1
 
+        trj = ds.insert_random_object(5)
+        for it in np.arange(5):
+          ds.trajectories.append(trj)
         results = ds.make_results()
-        self.assertTrue("coadd_mean" in results.colnames)
-
+        
+        self.assertEqual(6, len(results))  # 6 total trajectories inserted
         predictive_line_cluster(results, times)
+        # 3 trajectories are the same so expect them to be clustered into 1
+        self.assertEqual(1, len(results))
+        
+        ds = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
+        ds.insert_object(trj)
+        trj.x += 1
+        ds.trajectories.append(trj)
+        trj.y += 1
+        ds.trajectories.append(trj)
+        trj.x -= 2
+        ds.trajectories.append(trj)
+        trj.y -= 2
+        ds.trajectories.append(trj)
+        results = ds.make_results()
+        self.assertEqual(5, len(results))  # 5 total trajectories inserted
+        predictive_line_cluster(results, times)
+        # All 5 trajectories are close together so expect them to be clustered into 1
+        self.assertEqual(1, len(results))
 
 
 if __name__ == "__main__":
