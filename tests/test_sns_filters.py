@@ -61,7 +61,7 @@ class TestSnsFilter(unittest.TestCase):
 
         self.assertEqual(6, len(results))  # 6 total trajectories inserted
         predictive_line_cluster(results, times)
-        # 3 trajectories are the same so expect them to be clustered into 1
+        # All 6 trajectories are the same so expect them to be clustered into 1
         self.assertEqual(1, len(results))
 
         ds = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
