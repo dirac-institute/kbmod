@@ -5,6 +5,7 @@ from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.configuration import SearchConfiguration
 from kbmod.search import Trajectory
 from kbmod.filters.sns_filters import *
+from copy import copy, deepcopy
 
 
 class TestSnsFilter(unittest.TestCase):
@@ -52,29 +53,43 @@ class TestSnsFilter(unittest.TestCase):
         times = np.arange(num_times) + 60676  # MJD for Jan 1, 2025
 
         # Create a fake data set a few fake objects with different fluxes.
-        ds = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
+        ds1 = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
 
-        trj = ds.insert_random_object(5)
+        trj = ds1.insert_random_object(5)
         for it in np.arange(5):
-            ds.trajectories.append(trj)
-        results = ds.make_results()
+            ds1.trajectories.append(trj)
+        results = ds1.make_results()
 
         self.assertEqual(6, len(results))  # 6 total trajectories inserted
         predictive_line_cluster(results, times)
         # All 6 trajectories are the same so expect them to be clustered into 1
         self.assertEqual(1, len(results))
 
-        ds = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
-        ds.insert_object(trj)
-        trj.x += 1
-        ds.trajectories.append(trj)
-        trj.y += 1
-        ds.trajectories.append(trj)
-        trj.x -= 2
-        ds.trajectories.append(trj)
-        trj.y -= 2
-        ds.trajectories.append(trj)
-        results = ds.make_results()
+        # Insert 5 trajectories slightly perturbed from each other
+        ds2 = FakeDataSet(width=width, height=height, times=times, use_seed=11, psf_val=1e-6)
+        trj = ds2.insert_random_object(5)
+
+        trj1 = Trajectory()
+        trj1.x = trj.x + 1
+        trj1.y = trj.y + 1
+
+        trj2 = Trajectory()
+        trj2.x = trj.x + 1
+        trj2.y = trj.y - 1
+
+        trj3 = Trajectory()
+        trj3.x = trj.x - 1
+        trj3.x = trj.x + 1
+
+        trj4 = Trajectory()
+        trj4.x = trj.x - 1
+        trj4.x = trj.x - 1
+
+        ds2.trajectories.append(trj1)
+        ds2.trajectories.append(trj2)
+        ds2.trajectories.append(trj3)
+        ds2.trajectories.append(trj4)
+        results = ds2.make_results()
         self.assertEqual(5, len(results))  # 5 total trajectories inserted
         predictive_line_cluster(results, times)
         # All 5 trajectories are close together so expect them to be clustered into 1
