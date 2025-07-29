@@ -5,7 +5,6 @@ from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.configuration import SearchConfiguration
 from kbmod.search import Trajectory
 from kbmod.filters.sns_filters import *
-from copy import copy, deepcopy
 
 
 class TestSnsFilter(unittest.TestCase):
