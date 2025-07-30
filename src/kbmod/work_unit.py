@@ -878,7 +878,7 @@ class WorkUnit:
                 "`WorkUnit` not reprojected. This method is purpose built \
                 for handling post reproject coordinate tranformations."
             )
-        
+
         original_wcses = [w for w in self.org_img_meta["per_image_wcs"]]
 
         return image_positions_to_original_icrs(
@@ -892,9 +892,9 @@ class WorkUnit:
             filter_in_frame=filter_in_frame,
             reprojection_frame=self.reprojection_frame,
             barycentric_distance=self.barycentric_distance,
-            geocentric_distances= self.org_img_meta["geocentric_distance"],
+            geocentric_distances=self.org_img_meta["geocentric_distance"],
             per_image_indices=self._per_image_indices,
-            org_img_meta=self.org_img_meta,
+            image_locations=self.org_img_meta["data_loc"],
         )
 
     def load_images(self):

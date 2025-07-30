@@ -1,7 +1,14 @@
 import astropy.units as u
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord, GCRS, ICRS, solar_system_ephemeris, get_body_barycentric, EarthLocation
+from astropy.coordinates import (
+    SkyCoord,
+    GCRS,
+    ICRS,
+    solar_system_ephemeris,
+    get_body_barycentric,
+    EarthLocation,
+)
 from astropy.time import Time
 from astropy.wcs.utils import fit_wcs_from_points, skycoord_to_pixel
 
@@ -579,7 +586,7 @@ def image_positions_to_original_icrs(
     barycentric_distance=None,
     geocentric_distances=None,
     per_image_indices=None,
-    org_img_meta=None,
+    image_locations=None,
 ):
     """Method to transform image positions in EBD reprojected images
     into coordinates in the orignal ICRS frame of reference.
@@ -590,6 +597,12 @@ def image_positions_to_original_icrs(
         The `ImageStackPy` indices to transform coordinates.
     positions : `list` of `astropy.coordinates.SkyCoord`s or `tuple`s
         The positions to be transformed.
+    reprojected_wcs : `astropy.wcs.WCS`
+        The WCS of the reprojected image in EBD space.
+    original_wcses : `list` of `astropy.wcs.WCS`
+        The WCSes of the original images in ICRS space.
+    all_times : `list` of mjds.
+        The observation times of the original images in MJD.
     input_format : `str`
         The input format for the positions. Either 'xy' or 'radec'.
         If 'xy' is given, positions must be in the format of a
@@ -606,6 +619,22 @@ def image_positions_to_original_icrs(
         Whether or not to filter the output based on whether they fit within the
         original `constituent_image` frame. If `True`, only results that fall within
         the bounds of the original WCS will be returned.
+    reprojection_frame : `str`
+        The frame of reference to use for reprojection. Either 'ebd' or 'original'.
+        If 'ebd' is given, barycentric_distance, geoncentric_distances, and
+        per_image_indices must be provided.
+    barycentric_distance : `float` or `None`
+        The guess distance from the solar system barycenter to the "objects" in AU.
+    geocentric_distances : `list` of `float`s or `None`
+        The geocentric distances to the objects in AU. If `reprojection_frame` is 'ebd',
+        this must be provided. If `None`, the function will raise an error.
+    per_image_indices : `dict` or `None`
+        A dictionary mapping image indices to the indices of the constituent images
+        used to track which images have been mosaicked together.
+    image_locations : `list` of `tuple`s or `None`
+        A list of tuples containing the URI strings of the constituent images
+        matched to the positions. If `None`, the function will return only the
+        transformed positions with both image indices.
 
     Returns
     -------
@@ -628,11 +657,13 @@ def image_positions_to_original_icrs(
         raise ValueError(f"output format must be 'xy' or 'radec' , '{output_format}' provided")
     if reprojection_frame not in ["ebd", "original"]:
         raise ValueError(f"reprojection frame must be 'ebd' or 'original', '{reprojection_frame}' provided")
-    if (reprojection_frame == "ebd" and any([
-        barycentric_distance is None,
-        geocentric_distances is None,
-        per_image_indices is None,
-    ])):
+    if reprojection_frame == "ebd" and any(
+        [
+            barycentric_distance is None,
+            geocentric_distances is None,
+            per_image_indices is None,
+        ]
+    ):
         raise ValueError(
             "barycentric_distance or geocentric_distances must be provided when reprojection_frame is 'ebd'"
         )
@@ -660,9 +691,7 @@ def image_positions_to_original_icrs(
         location = EarthLocation.of_site("ctio")
 
         inverted_coords = []
-        for coord, obstime, geo_dist in zip(
-            position_reprojected_coords, obstimes, geo_dists
-        ):
+        for coord, obstime, geo_dist in zip(position_reprojected_coords, obstimes, geo_dists):
             inverted_coord = invert_correct_parallax(
                 coord=coord,
                 obstime=Time(obstime, format="mjd"),
@@ -683,8 +712,8 @@ def image_positions_to_original_icrs(
         coord = original_coords[i]
         pos = []
         for j in inds:
-            con_image = org_img_meta["data_loc"][j]
-            con_wcs = org_img_meta["per_image_wcs"][j]
+            con_wcs = original_wcses[j]
+            con_image = image_locations[j] if image_locations is not None else (i, j)
             height, width = con_wcs.array_shape
             x, y = skycoord_to_pixel(coord, con_wcs)
             x, y = float(x), float(y)
