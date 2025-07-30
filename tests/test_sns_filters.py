@@ -91,8 +91,6 @@ class TestSnsFilter(unittest.TestCase):
         results = ds2.make_results()
         self.assertEqual(5, len(results))  # 5 total trajectories inserted
         predictive_line_cluster(results, times)
-        # All 5 trajectories are close together so expect them to be clustered into 1
-        self.assertEqual(1, len(results))
 
         # All 5 trajectories are close together so expect them to be clustered into 1
         self.assertEqual(1, len(results))
