@@ -94,6 +94,12 @@ class TestSnsFilter(unittest.TestCase):
         # All 5 trajectories are close together so expect them to be clustered into 1
         self.assertEqual(1, len(results))
 
+        # All 5 trajectories are close together so expect them to be clustered into 1
+        self.assertEqual(1, len(results))
+        # The remaning trajectory should match the first trajectory inserted
+        self.assertEqual(trj.x, results["x"][0])
+        self.assertEqual(trj.y, results["y"][0])
+
 
 if __name__ == "__main__":
     unittest.main()
