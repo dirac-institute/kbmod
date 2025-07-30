@@ -37,8 +37,10 @@ class TestSnsFilter(unittest.TestCase):
         peak_offset_filter(results, peak_offset_max=10000)
         self.assertEqual(5, len(results))
 
-        # Insert a sixth object and edit it to be outside of a peak offset of 2.
-        # Two objects should be filtered out.
+        # Insert a sixth object and edit it to be outside of a peak offset of 1.
+        # Two objects should be filtered out:
+        #   - one with a flux of zero
+        #   - one outside of the peak_offset
         trj = ds.insert_random_object(flux=25)
         trj.x = trj.x - 2 if trj.x >= 38 else trj.x + 2
         results = ds.make_results()
