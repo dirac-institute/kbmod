@@ -75,18 +75,22 @@ def ingest_collection(
         logger.info(f"Preparing to use output path {output_path} for {collection_name}")
 
     # Get all butler references for the specified dataset type in this collection
-    
+
     try:
         if target is None:
             refs = butler.registry.queryDatasets(datasetType, collections=[collection_name])
         else:
-            refs = butler.query_datasets(datasetType, where=f"instrument='LSSTCam' and exposure.target_name='{target}'", collections=[collection_name])
+            refs = butler.query_datasets(
+                datasetType,
+                where=f"instrument='LSSTCam' and exposure.target_name='{target}'",
+                collections=[collection_name],
+            )
     except Exception as e:
         logger.error(f"Error querying collection {collection_name}: {e}")
         return
     refs = list(refs)
     if max_exposures is not None:
-        refs = refs[:min(len(refs), max_exposures)]
+        refs = refs[: min(len(refs), max_exposures)]
         logger.info(f"Limiting to first {max_exposures} exposures for collection {collection_name}")
     if not refs:
         logger.debug(f"No datasets found for {datasetType} in {collection_name}.")
@@ -121,11 +125,19 @@ def execute(args):
 
     if args.dry:
         # If a dry run, just print the sizes of the collections
-        all_count = len(list(butler.query_datasets(
-            args.datasetType, 
-            where=f"instrument='LSSTCam' and exposure.target_name='{args.target}'",
-            collections=collections,
-        )))
+        where_filter = "instrument='LSSTCam'"
+        if args.target is not None:
+            where_filter += f"and exposure.target_name='{args.target}'"
+
+        all_count = len(
+            list(
+                butler.query_datasets(
+                    args.datasetType,
+                    where=where_filter,
+                    collections=collections,
+                )
+            )
+        )
         print(f"Found {len(collections)} collections matching the regex {args.collection_regex}.")
         print(f"Total exposures across all collections: {all_count}")
         return 0
@@ -172,7 +184,7 @@ def main():
     )
     parser.add_argument(
         "--target",
-        help="Target name to use for the collection. If provided, will be used to filter collections.",
+        help="Target name to use for the collection. If provided, will be used to filter collections for this target field.",
     )
 
     # Optional arguments
