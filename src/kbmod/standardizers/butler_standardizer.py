@@ -183,7 +183,7 @@ class ButlerStandardizer(Standardizer):
             else:
                 raise AttributeError("Butler does not have a valid datastore root attribute.")
         else:
-            raise AttributeError("Butler does not have a valid datastore root attribute.")
+            raise AttributeError("Butler does not have a valid datastore attribute.")
 
         super().__init__(str(datastore_root), config=config)
 
