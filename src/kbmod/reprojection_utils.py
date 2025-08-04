@@ -1,9 +1,18 @@
 import astropy.units as u
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord, GCRS, ICRS, solar_system_ephemeris, get_body_barycentric
+from astropy.coordinates import (
+    SkyCoord,
+    GCRS,
+    ICRS,
+    solar_system_ephemeris,
+    get_body_barycentric,
+    EarthLocation,
+)
 from astropy.time import Time
-from astropy.wcs.utils import fit_wcs_from_points
+from astropy.wcs.utils import fit_wcs_from_points, skycoord_to_pixel
+
+import warnings
 
 
 __all__ = [
@@ -562,3 +571,168 @@ def transform_wcses_to_ebd(
         geocentric_dists.append(geo_dist)
 
     return transformed_wcses, geocentric_dists
+
+
+def image_positions_to_original_icrs(
+    image_indices,
+    positions,
+    reprojected_wcs,
+    original_wcses,
+    all_times,
+    input_format="xy",
+    output_format="xy",
+    filter_in_frame=True,
+    reprojection_frame="original",
+    barycentric_distance=None,
+    geocentric_distances=None,
+    per_image_indices=None,
+    image_locations=None,
+):
+    """Method to transform image positions in EBD reprojected images
+    into coordinates in the orignal ICRS frame of reference.
+
+    Parameters
+    ----------
+    image_indices : `numpy.array`
+        The `ImageStackPy` indices to transform coordinates.
+    positions : `list` of `astropy.coordinates.SkyCoord`s or `tuple`s
+        The positions to be transformed.
+    reprojected_wcs : `astropy.wcs.WCS`
+        The WCS of the reprojected image in EBD space.
+    original_wcses : `list` of `astropy.wcs.WCS`
+        The WCSes of the original images in ICRS space.
+    all_times : `list` of mjds.
+        The observation times of the original images in MJD.
+    input_format : `str`
+        The input format for the positions. Either 'xy' or 'radec'.
+        If 'xy' is given, positions must be in the format of a
+        `tuple` with two float or integer values, like (x, y).
+        If 'radec' is given, positions must be in the format of
+        a `astropy.coordinates.SkyCoord`.
+    output_format : `str`
+        The output format for the positions. Either 'xy' or 'radec'.
+        If 'xy' is given, positions will be returned in the format of a
+        `tuple` with two `int`s, like (x, y).
+        If 'radec' is given, positions will be returned in the format of
+        a `astropy.coordinates.SkyCoord`.
+    filter_in_frame : `bool`
+        Whether or not to filter the output based on whether they fit within the
+        original `constituent_image` frame. If `True`, only results that fall within
+        the bounds of the original WCS will be returned.
+    reprojection_frame : `str`
+        The frame of reference to use for reprojection. Either 'ebd' or 'original'.
+        If 'ebd' is given, barycentric_distance, geoncentric_distances, and
+        per_image_indices must be provided.
+    barycentric_distance : `float` or `None`
+        The guess distance from the solar system barycenter to the "objects" in AU.
+    geocentric_distances : `list` of `float`s or `None`
+        The geocentric distances to the objects in AU. If `reprojection_frame` is 'ebd',
+        this must be provided. If `None`, the function will raise an error.
+    per_image_indices : `dict` or `None`
+        A dictionary mapping image indices to the indices of the constituent images
+        used to track which images have been mosaicked together.
+    image_locations : `list` of `tuple`s or `None`
+        A list of tuples containing the URI strings of the constituent images
+        matched to the positions. If `None`, the function will return only the
+        transformed positions with both image indices.
+
+    Returns
+    -------
+    positions : `list` of `astropy.coordinates.SkyCoord`s or `tuple`s
+        The transformed positions. If `filter_in_frame` is true, each
+        element of the result list will also be a tuple with the
+        URI string of the constituent image matched to the position.
+    """
+    # input value validation
+    if input_format not in ["xy", "radec"]:
+        raise ValueError(f"input format must be 'xy' or 'radec' , '{input_format}' provided")
+    if input_format == "xy":
+        if not all(isinstance(i, tuple) and len(i) == 2 for i in positions):
+            raise ValueError("positions in incorrect format for input_format='xy'")
+    if input_format == "radec" and not all(isinstance(i, SkyCoord) for i in positions):
+        raise ValueError("positions in incorrect format for input_format='radec'")
+    if len(positions) != len(image_indices):
+        raise ValueError(f"wrong number of inputs, expected {len(image_indices)}, got {len(positions)}")
+    if output_format not in ["xy", "radec"]:
+        raise ValueError(f"output format must be 'xy' or 'radec' , '{output_format}' provided")
+    if reprojection_frame not in ["ebd", "original"]:
+        raise ValueError(f"reprojection frame must be 'ebd' or 'original', '{reprojection_frame}' provided")
+    if reprojection_frame == "ebd" and any(
+        [
+            barycentric_distance is None,
+            geocentric_distances is None,
+            per_image_indices is None,
+        ]
+    ):
+        raise ValueError(
+            "barycentric_distance or geocentric_distances must be provided when reprojection_frame is 'ebd'"
+        )
+
+    position_reprojected_coords = positions
+
+    # convert to radec if input is xy
+    # TODO: I should probably rename ebd_wcs
+    if input_format == "xy":
+        radec_coords = []
+        for pos in positions:
+            ebd_wcs = reprojected_wcs
+            ra, dec = ebd_wcs.all_pix2world(pos[0], pos[1], 0)
+            radec_coords.append(SkyCoord(ra=ra, dec=dec, unit="deg"))
+        position_reprojected_coords = radec_coords
+
+    # invert the parallax correction if in ebd space
+    original_coords = position_reprojected_coords
+    if reprojection_frame == "ebd":
+        bary_dist = barycentric_distance
+        geo_dists = [geocentric_distances[i] for i in image_indices]
+        obstimes = [all_times[i] for i in image_indices]
+
+        # this should be part of the WorkUnit metadata
+        location = EarthLocation.of_site("ctio")
+
+        inverted_coords = []
+        for coord, obstime, geo_dist in zip(position_reprojected_coords, obstimes, geo_dists):
+            inverted_coord = invert_correct_parallax(
+                coord=coord,
+                obstime=Time(obstime, format="mjd"),
+                point_on_earth=location,
+                barycentric_distance=bary_dist,
+                geocentric_distance=geo_dist,
+            )
+            inverted_coords.append(inverted_coord)
+        original_coords = inverted_coords
+
+    if output_format == "radec" and not filter_in_frame:
+        return original_coords
+
+    # convert coordinates into original pixel positions
+    positions = []
+    for i in image_indices:
+        inds = per_image_indices[i]
+        coord = original_coords[i]
+        pos = []
+        for j in inds:
+            con_wcs = original_wcses[j]
+            con_image = image_locations[j] if image_locations is not None else (i, j)
+            height, width = con_wcs.array_shape
+            x, y = skycoord_to_pixel(coord, con_wcs)
+            x, y = float(x), float(y)
+            if output_format == "xy":
+                result_coord = (x, y)
+            else:
+                result_coord = coord
+            to_allow = (y >= 0.0 and y <= height and x >= 0 and x <= width) or (not filter_in_frame)
+            if to_allow:
+                pos.append((result_coord, con_image))
+        if len(pos) == 0:
+            positions.append(None)
+        elif len(pos) > 1:
+            positions.append(pos)
+            if filter_in_frame:
+                warnings.warn(
+                    f"ambiguous image origin for coordinate {i}, including all potential constituent images.",
+                    Warning,
+                )
+        else:
+            positions.append(pos[0])
+    return positions
