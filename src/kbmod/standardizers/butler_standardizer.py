@@ -169,12 +169,23 @@ class ButlerStandardizer(Standardizer):
 
         # Somewhere around w_2024_ builds the datastore.root
         # was removed as an attribute of the datastore, not sure
-        # it was ever replaced with anything back-compatible
-        try:
-            super().__init__(str(butler._datastore.roots), config=config)
-        except AttributeError as e:
-            print(e)
-            super().__init__(butler.datastore.root, config=config)
+        # it was ever replaced with anything back-compatible. We simply
+        # check for the which _datastore attribute is available for this
+        # butler and then check wherther it has a root or roots attribute.
+        
+        if hasattr(butler, "datastore"):
+            datastore_root = butler.datastore.root
+        elif hasattr(butler, "_datastore"):
+            if hasattr(butler._datastore, "root"):
+                datastore_root = butler._datastore.root
+            elif hasattr(butler._datastore, "roots"):
+                datastore_root = butler._datastore.roots
+            else:
+                raise AttributeError("Butler does not have a valid datastore root attribute.")
+        else:
+            raise AttributeError("Butler does not have a valid datastore root attribute.")
+    
+        super().__init__(str(datastore_root), config=config)
 
         self.butler = butler
 
