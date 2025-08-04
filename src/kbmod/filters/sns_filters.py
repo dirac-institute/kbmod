@@ -54,7 +54,7 @@ def predictive_line_cluster(res, dmjds, dist_lim=4.0, min_samp=2, init_select_pr
     init_select_proc_distance : `int`
     """
 
-    snr = res["psi_curve"] / res["phi_curve"]
+    snr = res["psi_curve"] / np.sqrt(res["phi_curve"])
     max_snr = np.max(snr, axis=1)
 
     x_col = res["x"].data
