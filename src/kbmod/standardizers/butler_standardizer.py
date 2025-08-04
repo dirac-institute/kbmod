@@ -172,7 +172,7 @@ class ButlerStandardizer(Standardizer):
         # it was ever replaced with anything back-compatible. We simply
         # check for the which _datastore attribute is available for this
         # butler and then check wherther it has a root or roots attribute.
-        
+
         if hasattr(butler, "datastore"):
             datastore_root = butler.datastore.root
         elif hasattr(butler, "_datastore"):
@@ -184,7 +184,7 @@ class ButlerStandardizer(Standardizer):
                 raise AttributeError("Butler does not have a valid datastore root attribute.")
         else:
             raise AttributeError("Butler does not have a valid datastore root attribute.")
-    
+
         super().__init__(str(datastore_root), config=config)
 
         self.butler = butler
