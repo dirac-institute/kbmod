@@ -49,6 +49,7 @@ class UUID:
 class Datastore:
     def __init__(self, root):
         self.root = root
+        self.roots = [root]
 
 
 class DatasetType:
@@ -257,6 +258,7 @@ class MockButler:
 
     def __init__(self, root, ref=None, mock_images_f=None, registry=None, missing_headers=[]):
         self.datastore = Datastore(root)
+        self._datastore = Datastore(root)
         self.registry = Registry() if registry is None else registry
         self.mockImages = mock_images_f
         self.missing_headers = missing_headers
