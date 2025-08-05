@@ -42,12 +42,12 @@ class LayeredImagePy:
 
     @property
     def width(self):
-        """The width of the image."""
+        """The width of the widest image in the stack."""
         return self.sci.shape[1]
 
     @property
     def height(self):
-        """The height of the image."""
+        """The height of the tallest image in the stack."""
         return self.sci.shape[0]
 
 
@@ -179,11 +179,13 @@ class ImageStackPy:
             self.width = img.shape[1]
             self.height = img.shape[0]
 
-        # Check that the image is the correct size.
-        if img.shape[1] != self.width:
-            raise ValueError(f"Incorrect image width. Expected {self.width}. Received {img.shape[1]}")
-        if img.shape[0] != self.height:
-            raise ValueError(f"Incorrect image height. Expected {self.height}. Received {img.shape[0]}")
+        # We allow images of different sizes to be added to the stack,
+        # so update our height and width properties if this image is larger.
+        # In practice, we expect most images will be the same or similar in size.
+        if img.shape[1] > self.width:
+            self.width = img.shape[1]
+        if img.shape[0] > self.height:
+            self.height = img.shape[0]
 
         return img
 
