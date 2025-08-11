@@ -116,6 +116,7 @@ def load_deccam_layered_image(filename, psf):
 
     return img
 
+
 def get_unique_obstimes(all_obstimes):
     """Get the unique observation times and their indices.
     Used to group observations for mosaicking.
@@ -136,6 +137,7 @@ def get_unique_obstimes(all_obstimes):
     unique_indices = [list(np.where(all_obstimes == time)[0]) for time in unique_obstimes]
     return unique_obstimes, unique_indices
 
+
 def get_magnitude(flux, zero_point):
     """Convert a flux value to a magnitude using the zero point.
 
@@ -145,14 +147,15 @@ def get_magnitude(flux, zero_point):
         The flux value to convert.
     zero_point : `float`
         The zero point of the observations.
-    
+
     Returns
     -------
     mag : `float`
         The calculated magnitude.
     """
-    mag = (-2.5 * np.log10(flux) + zero_point)
+    mag = -2.5 * np.log10(flux) + zero_point
     return mag
+
 
 def unravel_results(results, image_collection, obscode="X05", batch_id=None):
     """Take a results file and transform it into a table of individual observations.

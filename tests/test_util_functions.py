@@ -70,15 +70,8 @@ class test_util_functions(unittest.TestCase):
         obs_count = [num_images for _ in range(num_trjs)]
         obs_count[int(num_images / 2)] = num_images - 1
         res.table["obs_count"] = obs_count
-        res.table["img_ra"] = [
-            np.array([j + (i * 0.1) for j in range(num_images)]) for i in range(num_trjs)
-        ]
-        res.table["img_dec"] = [
-            np.array([j + (i * 0.1) for j in range(num_images)]) for i in range(num_trjs)
-        ]
-        print(res.table["img_ra"])
-        print(res.table["img_ra"][0])
-        print(res.table["obs_valid"])
+        res.table["img_ra"] = [np.array([j + (i * 0.1) for j in range(num_images)]) for i in range(num_trjs)]
+        res.table["img_dec"] = [np.array([j + (i * 0.1) for j in range(num_images)]) for i in range(num_trjs)]
 
         df = unravel_results(res, ic)
         self.assertEqual(len(df), (num_images * num_trjs) - 1)
