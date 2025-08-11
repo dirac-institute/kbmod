@@ -6,6 +6,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.time import Time
 from itertools import product
+import pandas as pd
 
 from kbmod.core.image_stack_py import LayeredImagePy
 
@@ -114,3 +115,115 @@ def load_deccam_layered_image(filename, psf):
         )
 
     return img
+
+def get_unique_obstimes(all_obstimes):
+    """Get the unique observation times and their indices.
+    Used to group observations for mosaicking.
+
+    Parameters
+    ----------
+    all_obstimes : `np.ndarray`
+        The array of observation times.
+
+    Returns
+    -------
+    unique_obstimes : `np.ndarray`
+        The unique observation times.
+    unique_indices : `list`
+        A list of lists, where each sublist contains the indices of the grouping.
+    """
+    unique_obstimes = np.unique(all_obstimes)
+    unique_indices = [list(np.where(all_obstimes == time)[0]) for time in unique_obstimes]
+    return unique_obstimes, unique_indices
+
+def get_magnitude(flux, zero_point):
+    """Convert a flux value to a magnitude using the zero point.
+
+    Parameters
+    ----------
+    flux : `float`
+        The flux value to convert.
+    zero_point : `float`
+        The zero point of the observations.
+    
+    Returns
+    -------
+    mag : `float`
+        The calculated magnitude.
+    """
+    mag = (-2.5 * np.log10(flux) + zero_point)
+    return mag
+
+def unravel_results(results, image_collection, obscode="X05", batch_id=None):
+    """Take a results file and transform it into a table of individual observations.
+
+    Parameters
+    ----------
+    results : `kbmod.results.Results`
+        The results.
+    image_collection : `kbmod.image_collection.ImageCollection`
+        The image collection containing the images used in the results.
+    obscode : `str`, optional
+        The observatory code to use for the observations.
+        Default: "X05" (LSST).
+    batch_id : `str`, optional
+        The batch ID to use for this result set.
+        individual observation ids will be in the format of
+        "{batch_id}-{result #}-{observation #}".
+
+    Returns
+    -------
+    final_df : `pandas.DataFrame`
+        A DataFrame containing the individual observations with columns:
+        - id: The unique identifier for the observation.
+        - ra: The right ascension of the observation.
+        - dec: The declination of the observation.
+        - magnitude: The magnitude of the observation.
+        - mjd: The modified Julian date of the observation.
+        - band: The band of the observation.
+        - obscode: The observatory code for the observation.
+    """
+    zp = np.mean(image_collection["zeroPoint"])
+
+    ids = []
+    ras = []
+    decs = []
+    mags = []
+    mjds = []
+    bands = []
+    obscodes = []
+
+    all_times = results.table.meta["mjd_mid"]
+    all_bands = image_collection["band"]
+
+    _, unique_indices = get_unique_obstimes(image_collection["mjd_mid"])
+    first_of_each_frame = np.array([i[0] for i in unique_indices])
+
+    for i, row in enumerate(results):
+        valid_obs = row["obs_valid"]
+        num_valid = row["obs_count"]
+
+        # need to figure out a better way to do this
+        if batch_id is not None:
+            ids.append([f"{batch_id}-{i}-{j}" for j in range(num_valid)])
+        else:
+            ids.append([f"{i}-{j}" for j in range(num_valid)])
+
+        ras.append(row["img_ra"][valid_obs])
+        decs.append(row["img_dec"][valid_obs])
+
+        mags.append([get_magnitude(row["flux"], zp)] * num_valid)
+        mjds.append(all_times[valid_obs])
+        bands.append(all_bands[first_of_each_frame][valid_obs])
+        obscodes.append([obscode] * num_valid)
+
+    final_df = pd.DataFrame()
+    final_df["id"] = np.concatenate(ids)
+    final_df["ra"] = np.concatenate(ras)
+    final_df["dec"] = np.concatenate(decs)
+    final_df["magnitude"] = np.concatenate(mags)
+    final_df["mjd"] = np.concatenate(mjds)
+    final_df["band"] = np.concatenate(bands)
+    final_df["obscode"] = np.concatenate(obscodes)
+
+    return final_df
