@@ -5,13 +5,13 @@ from kbmod.run_search import SearchRunner
 import numpy as np
 
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 wu = WorkUnit.from_fits("/epyc/projects/kbmod/data/20210908_B1h_047_test_data/20210908_B1h_047.wu")
 t = Table.read("inframe_fakes_b1h.ecsv")
 orbids = np.unique(t["ORBITID"])
 
-for i in range(19, len(orbids)):
+for i in range(18, len(orbids)):
   oid = orbids[i]
   cols = ["oid", "total_num_results",
           "num_results_no_filter", "check_results_no_filter",
@@ -94,5 +94,5 @@ for i in range(19, len(orbids)):
           mean_dy, max_dy, min_dy, max_dy_diff, min_dy_diff]
 
   df = pd.DataFrame(l).T
-  df.to_csv("./summary2.csv", index=False, header=False, mode='a')
+  df.to_csv("./summary1.csv", index=False, header=False, mode='a')
   
