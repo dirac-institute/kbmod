@@ -40,7 +40,7 @@ def peak_offset_filter(res, peak_offset_max=6):
 
 
 def predictive_line_cluster(res, dmjds, dist_lim=4.0, min_samp=2, init_select_proc_distance=60):
-    """???
+    """Determine clustering based on the linearity of the best centroid.
 
     Parameters
     ----------
@@ -75,9 +75,9 @@ def predictive_line_cluster(res, dmjds, dist_lim=4.0, min_samp=2, init_select_pr
 
         # this secondary where command is necessary because of memory overflows in large detection lists
         w = np.where(
-            (x_col > x_o - 55)
+            (x_col > x_o - init_select_proc_distance)
             & (x_col < x_o + init_select_proc_distance)
-            & (y_col > y_o - 55)
+            & (y_col > y_o - init_select_proc_distance)
             & (y_col < y_o + init_select_proc_distance)
         )
 
