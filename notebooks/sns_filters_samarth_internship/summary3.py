@@ -69,7 +69,7 @@ for i in range(20, len(orbids)):
     wu.config.set("do_clustering", False)
     wu.config.set("sigmaG_filter", False)
     wu.config.set("peak_offset_max", None)
-    wu.config.set("predictive_line_cluster", False)
+    wu.config.set("pred_line_cluster", False)
     wu.config.set("lh_level", 10.0)
 
     # wu.config.set("result_filename", f"./no_filter/{oid}_pencil.ecsv")

@@ -439,8 +439,10 @@ class SearchRunner:
 
         # if predictive_line_cluster is enabled, it expects 3 parameters.
         # default values are [4.0, 2, 60]
-        if config["predictive_line_cluster"]:
-            dist_lim, min_samp, proc_distance = config["predictive_line_cluster_params"]
+        if config["pred_line_cluster"]:
+            if len(config["pred_line_params"]) != 3:
+                raise ValueError("Exactly three predictive line cluster parameters must be set")
+            dist_lim, min_samp, proc_distance = config["pred_line_params"]
             predictive_line_cluster(keep, stack.times, dist_lim, min_samp, proc_distance)
 
         # if CNN is enabled, add the classification and probabilities to the results.

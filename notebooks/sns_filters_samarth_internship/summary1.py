@@ -70,7 +70,7 @@ for i in range(18, len(orbids)):
     wu.config.set("do_clustering", False)
     wu.config.set("sigmaG_filter", False)
     wu.config.set("peak_offset_max", None)
-    wu.config.set("predictive_line_cluster", False)
+    wu.config.set("pred_line_cluster", False)
     wu.config.set("lh_level", 10.0)
 
     wu.config.set("result_filename", f"./no_filter/{oid}_pencil.ecsv")
@@ -92,7 +92,7 @@ for i in range(18, len(orbids)):
         check_results_peak = len(r_check)
 
         wu.config.set("peak_offset_max", None)
-        wu.config.set("predictive_line_cluster", True)
+        wu.config.set("pred_line_cluster", True)
         wu.config.set("result_filename", f"./predictive_line/{oid}_pencil.ecsv")
 
         r = SearchRunner().run_search_from_work_unit(wu)
