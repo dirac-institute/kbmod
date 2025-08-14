@@ -50,8 +50,12 @@ def predictive_line_cluster(res, dmjds, dist_lim=4.0, min_samp=2, init_select_pr
     dmjds : `list`
         List of dates in dmjd format.
     dist_lim : `double`
+        Distance limits for final clustering.
     min_samp : `int`
+        Minimum number of trajectories clustered to be included in final result.
     init_select_proc_distance : `int`
+        Radius range through x, y and vx, vy space to search for clusters.
+        Mainly used for memory management.
     """
 
     snr = res["psi_curve"] / np.sqrt(res["phi_curve"])
