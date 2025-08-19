@@ -1,3 +1,4 @@
+from astropy.table import Table
 import numpy as np
 import unittest
 
@@ -5,10 +6,13 @@ from pathlib import Path
 
 from kbmod.core.image_stack_py import LayeredImagePy
 from kbmod.core.psf import PSF
+from kbmod.results import Results
+from kbmod.search import Trajectory
 from kbmod.util_functions import (
     get_matched_obstimes,
     load_deccam_layered_image,
     mjd_to_day,
+    unravel_results,
 )
 
 
@@ -33,6 +37,48 @@ class test_util_functions(unittest.TestCase):
         self.assertTrue(isinstance(img, LayeredImagePy))
         self.assertGreater(img.width, 0)
         self.assertGreater(img.height, 0)
+
+    def test_unravel_results(self):
+        trj_list = []
+        num_images = 10
+        num_trjs = 11
+
+        for i in range(num_trjs):
+            trj = Trajectory(
+                x=i,
+                y=i + 0,
+                vx=i - 2.0,
+                vy=i + 5.0,
+                flux=5.0 * i,
+                lh=100.0 + i,
+                obs_count=num_images,
+            )
+            trj_list.append(trj)
+
+        res = Results.from_trajectories(trj_list)
+
+        # create an "image collection" with all required fields
+        ic = Table()
+        ic["mjd_mid"] = [60000 + i for i in range(num_images)]
+        ic["band"] = ["g" for _ in range(num_images)]
+        ic["zeroPoint"] = [31.4 for _ in range(num_images)]
+
+        res.table.meta["mjd_mid"] = ic["mjd_mid"]
+        obs_count = [num_images for _ in range(num_trjs)]
+        res.table["obs_count"] = obs_count
+        res.table["img_ra"] = [np.array([j + (i * 0.1) for j in range(num_images)]) for i in range(num_trjs)]
+        res.table["img_dec"] = [np.array([j + (i * 0.1) for j in range(num_images)]) for i in range(num_trjs)]
+
+        df = unravel_results(res, ic)
+        self.assertEqual(len(df), (num_images * num_trjs))
+
+        obs_count[int(num_images / 2)] = num_images - 1
+        valids = [[True] * num_images for _ in range(num_trjs)]
+        valids[int(num_images / 2)][-1] = False  # make one observation invalid
+        res.table["obs_valid"] = valids
+        res.table["obs_count"] = obs_count
+        df2 = unravel_results(res, ic)
+        self.assertEqual(len(df2), (num_images * num_trjs) - 1)
 
 
 if __name__ == "__main__":
