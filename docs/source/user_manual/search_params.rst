@@ -114,6 +114,18 @@ Configuration Parameters
 |                        |                             | -1 then it is reduced to the number of |
 |                        |                             | the valid images.                      |
 +------------------------+-----------------------------+----------------------------------------+
+| ``peak_offset_max``    | None                        | The radius to use for the              |
+|                        |                             | ``peak_offset_max`` filter.            |
+|                        |                             | If ``None``, then does not apply       |
+|                        |                             | ``peak_offset_max``.                   |
++------------------------+-----------------------------+----------------------------------------+
+| ``pred_line_cluster``  | False                       | Apply the predictive line cluster.     |
+|                        |                             | Requires that the three parameters are |
+|                        |                             | set in a list for ``pred_line_params``.|
+|                        |                             | Alternatively, do not set              |
+|                        |                             | ``pred_line_params`` to use default    |
+|                        |                             | ``[4.0, 2, 60]``.                      |
++------------------------+-----------------------------+----------------------------------------+
 | ``psf_val``            | 1.4                         | The value for the standard deviation of|
 |                        |                             | the point spread function (PSF) in     |
 |                        |                             | pixels                                 |
