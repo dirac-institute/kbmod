@@ -179,8 +179,8 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None):
     final_df : `pandas.DataFrame`
         A DataFrame containing the individual observations with columns:
         - id: The unique identifier for the observation.
-        - ra: The right ascension of the observation.
-        - dec: The declination of the observation.
+        - ra: The right ascension of the observation in degrees.
+        - dec: The declination of the observation in degrees.
         - magnitude: The magnitude of the observation.
         - mjd: The modified Julian date of the observation.
         - band: The band of the observation.
@@ -203,7 +203,10 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None):
     first_of_each_frame = np.array([i[0] for i in unique_indices])
 
     for i, row in enumerate(results):
-        valid_obs = row["obs_valid"]
+        if "obs_valid" in results.table.colnames:
+            valid_obs = row["obs_valid"]
+        else:
+            valid_obs = np.full(row["obs_count"], True)
         num_valid = row["obs_count"]
 
         # need to figure out a better way to do this

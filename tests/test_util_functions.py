@@ -64,17 +64,21 @@ class test_util_functions(unittest.TestCase):
         ic["zeroPoint"] = [31.4 for _ in range(num_images)]
 
         res.table.meta["mjd_mid"] = ic["mjd_mid"]
-        valids = [[True] * num_images for _ in range(num_trjs)]
-        valids[int(num_images / 2)][-1] = False  # make one observation invalid
-        res.table["obs_valid"] = valids
         obs_count = [num_images for _ in range(num_trjs)]
-        obs_count[int(num_images / 2)] = num_images - 1
         res.table["obs_count"] = obs_count
         res.table["img_ra"] = [np.array([j + (i * 0.1) for j in range(num_images)]) for i in range(num_trjs)]
         res.table["img_dec"] = [np.array([j + (i * 0.1) for j in range(num_images)]) for i in range(num_trjs)]
 
         df = unravel_results(res, ic)
-        self.assertEqual(len(df), (num_images * num_trjs) - 1)
+        self.assertEqual(len(df), (num_images * num_trjs))
+
+        obs_count[int(num_images / 2)] = num_images - 1
+        valids = [[True] * num_images for _ in range(num_trjs)]
+        valids[int(num_images / 2)][-1] = False  # make one observation invalid
+        res.table["obs_valid"] = valids
+        res.table["obs_count"] = obs_count
+        df2 = unravel_results(res, ic)
+        self.assertEqual(len(df2), (num_images * num_trjs) - 1)
 
 
 if __name__ == "__main__":
