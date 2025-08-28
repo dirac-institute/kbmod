@@ -180,6 +180,50 @@ class Results:
         return copy.deepcopy(self)
 
     @classmethod
+    def deserialize_numpy_array(cls, array_meta):
+        """Convert serialized array metadata back to numpy array"""
+        import base64
+        if isinstance(array_meta, dict) and 'buffer' in array_meta:
+            # Decode the base64 buffer
+            buffer_bytes = base64.b64decode(array_meta['buffer'])
+            
+            # Get array properties
+            dtype = array_meta.get('dtype', 'float64')
+            shape = array_meta.get('shape', None)
+            order = array_meta.get('order', 'C')
+            
+            # Reconstruct the numpy array
+            array = np.frombuffer(buffer_bytes, dtype=dtype)
+            
+            if shape:
+                array = array.reshape(shape, order=order)
+                
+            return array
+        return array_meta
+
+    @classmethod
+    def process_metadata(cls, meta_dict):
+        """Recursively process metadata to deserialize numpy arrays"""
+        if isinstance(meta_dict, dict):
+            processed = {}
+            for key, value in meta_dict.items():
+                if isinstance(value, dict) and 'buffer' in value:
+                    # This looks like a serialized numpy array
+                    processed[key] = cls.deserialize_numpy_array(value)
+                elif isinstance(value, dict):
+                    # Recursively process nested dictionaries
+                    processed[key] = cls.process_metadata(value)
+                elif isinstance(value, list):
+                    # Process lists (might contain dicts)
+                    processed[key] = [cls.process_metadata(item) if isinstance(item, dict) else item 
+                                    for item in value]
+                else:
+                    processed[key] = value
+            return processed
+        return meta_dict
+
+
+    @classmethod
     def from_trajectories(cls, trajectories, track_filtered=False):
         """Extract data from a list of Trajectory objects.
 
@@ -240,7 +284,56 @@ class Results:
             raise ValueError(
                 f"Unsupported file type '{filepath.suffix}' " f"use one of {cls._supported_formats}."
             )
-        data = Table.read(filename)
+        # If the filename ends with .parquet first load with pandas for better dtype inference
+        if filepath.suffix == ".parquet":
+            import pandas as pd
+            import yaml
+            data = Table.from_pandas(pd.read_parquet(filename))
+            import pyarrow.parquet as pq
+            pf = pq.ParquetFile(filename)
+            meta_yaml = pf.metadata.metadata[b'table_meta_yaml'].decode('utf-8')
+
+            import base64
+            import numpy as np
+            # Define constructors for custom tags
+            def numpy_array_constructor(loader, node):
+                """Constructor for !numpy.ndarray tags in YAML"""
+                mapping = loader.construct_mapping(node, deep=True)
+                
+                # Extract buffer and metadata
+                buffer_bytes = base64.b64decode(mapping['buffer'])
+                dtype = mapping.get('dtype', 'float64')
+                shape = mapping.get('shape', None)
+                order = mapping.get('order', 'C')
+                
+                # Reconstruct the array
+                array = np.frombuffer(buffer_bytes, dtype=dtype)
+                if shape:
+                    array = array.reshape(shape, order=order)
+                
+                return array
+
+            def tuple_constructor(loader, node):
+                """Constructor for !!python/tuple tags"""
+                # Construct the sequence and convert to tuple
+                values = loader.construct_sequence(node)
+                return tuple(values)
+
+            # Create a custom YAML loader
+            class AstropyYAMLLoader(yaml.SafeLoader):
+                pass
+
+            # Register the constructors
+            AstropyYAMLLoader.add_constructor('!numpy.ndarray', numpy_array_constructor)
+            AstropyYAMLLoader.add_constructor('tag:yaml.org,2002:python/tuple', tuple_constructor)
+            # Also handle the shorter form
+            AstropyYAMLLoader.add_constructor('!!python/tuple', tuple_constructor)
+
+            raw_meta_dict = yaml.load(meta_yaml, Loader=AstropyYAMLLoader)
+            meta = dict(raw_meta_dict['meta']) #cls.process_metadata(dict(raw_meta_dict['meta']))
+            data.meta = meta
+        else:
+            data = Table.read(filename)
 
         # Check if we have stored a global WCS.
         if "wcs" in data.meta:
@@ -252,6 +345,7 @@ class Results:
         results = Results(data, track_filtered=track_filtered, wcs=wcs)
 
         # Check if we have a list of observed times.
+        import numpy as np
         if "mjd_utc_mid" in data.meta:
             results.set_mjd_utc_mid(np.array(data.meta["mjd_utc_mid"]))
         elif "mjd_mid" in data.meta:
