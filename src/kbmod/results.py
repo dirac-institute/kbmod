@@ -179,48 +179,6 @@ class Results:
         """Return a deep copy of the current Results object."""
         return copy.deepcopy(self)
 
-    @classmethod
-    def deserialize_numpy_array(cls, array_meta):
-        """Convert serialized array metadata back to numpy array"""
-        import base64
-        if isinstance(array_meta, dict) and 'buffer' in array_meta:
-            # Decode the base64 buffer
-            buffer_bytes = base64.b64decode(array_meta['buffer'])
-            
-            # Get array properties
-            dtype = array_meta.get('dtype', 'float64')
-            shape = array_meta.get('shape', None)
-            order = array_meta.get('order', 'C')
-            
-            # Reconstruct the numpy array
-            array = np.frombuffer(buffer_bytes, dtype=dtype)
-            
-            if shape:
-                array = array.reshape(shape, order=order)
-                
-            return array
-        return array_meta
-
-    @classmethod
-    def process_metadata(cls, meta_dict):
-        """Recursively process metadata to deserialize numpy arrays"""
-        if isinstance(meta_dict, dict):
-            processed = {}
-            for key, value in meta_dict.items():
-                if isinstance(value, dict) and 'buffer' in value:
-                    # This looks like a serialized numpy array
-                    processed[key] = cls.deserialize_numpy_array(value)
-                elif isinstance(value, dict):
-                    # Recursively process nested dictionaries
-                    processed[key] = cls.process_metadata(value)
-                elif isinstance(value, list):
-                    # Process lists (might contain dicts)
-                    processed[key] = [cls.process_metadata(item) if isinstance(item, dict) else item 
-                                    for item in value]
-                else:
-                    processed[key] = value
-            return processed
-        return meta_dict
 
 
     @classmethod
@@ -330,7 +288,7 @@ class Results:
             AstropyYAMLLoader.add_constructor('!!python/tuple', tuple_constructor)
 
             raw_meta_dict = yaml.load(meta_yaml, Loader=AstropyYAMLLoader)
-            meta = dict(raw_meta_dict['meta']) #cls.process_metadata(dict(raw_meta_dict['meta']))
+            meta = dict(raw_meta_dict['meta'])
             data.meta = meta
         else:
             data = Table.read(filename)
