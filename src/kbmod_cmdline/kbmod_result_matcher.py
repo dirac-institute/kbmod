@@ -64,8 +64,8 @@ def reflex_correct_ephem_table(ephem_table, barycentric_dist, obs_site="Rubin"):
         )
         ephem_table[f"ra_{barycentric_dist}"] = corrected_skycoord.ra.deg
         ephem_table[f"dec_{barycentric_dist}"] = corrected_skycoord.dec.deg
-    if barycentric_dist == 0.0:
-        # If no correction is applied, just copy the original RA and Dec columns.
+    else:
+        # If no correction is applied (distance of 0.0), just copy the original RA and Dec columns.
         ephem_table[f"ra_{barycentric_dist}"] = ephem_table["RA"]
         ephem_table[f"dec_{barycentric_dist}"] = ephem_table["Dec"]
     return ephem_table
@@ -83,6 +83,7 @@ def get_ic_from_results_file(res_filepath):
     ----------
     res_filepath : str
         The path to the results file.
+
     Returns
     -------
     str
@@ -144,7 +145,7 @@ def process_results_file(
     if max_results is not None:
         if max_results <= 0:
             raise ValueError("max_results must be a positive integer.")
-        if max_results < len(res):
+        if verbose and max_results < len(res):
             print(f"Limiting processing to the first {max_results} results.")
             res.table = res.table[:max_results]
     known_objs_matcher = KnownObjsMatcher(
