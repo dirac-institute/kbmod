@@ -1,7 +1,7 @@
 """A program to match one or more KBMOD results files against an ephemeris of known objects.
 
-This script is designed to be run from the commandline and will process results files, matching them against known objects in a SkyTable database.
-It will output a tbale of which results mathched with which known objects, parameters used, and any exceptions encountered during processing.
+This script is designed to be run from the commandline and will process results files, matching them against known objects.
+It will output a table of which results matched with which known objects, parameters used, and any exceptions encountered during processing.
 
 Usage:
     python kbmod_result_matcher.py --results_glob <results_file> --ephem <ephemeris_file> [--output <output_dir>]
