@@ -70,6 +70,9 @@ class SearchConfiguration:
             "cnn_coadd_type": "mean",
             "cnn_stamp_radius": 49,
             "cnn_model_type": "resnet18",
+            "peak_offset_max": None,
+            "pred_line_cluster": False,
+            "pred_line_params": [4.0, 2, 60],
         }
 
         if data is not None:

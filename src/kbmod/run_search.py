@@ -10,6 +10,7 @@ from .filters.clustering_filters import apply_clustering
 from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
+from .filters.sns_filters import peak_offset_filter, predictive_line_cluster
 
 from .results import Results, write_results_to_files_destructive
 from .trajectory_generator import create_trajectory_generator
@@ -431,6 +432,18 @@ class SearchRunner:
         append_coadds(keep, stack, coadds, stamp_radius, nightly=config["nightly_coadds"])
         if f"coadd_{stamp_type}" in keep.colnames:
             keep.table["stamp"] = keep.table[f"coadd_{stamp_type}"]
+
+        # peak_offset_filter is used only if max offset is declared
+        if config["peak_offset_max"] is not None:
+            peak_offset_filter(keep, peak_offset_max=config["peak_offset_max"])
+
+        # if predictive_line_cluster is enabled, it expects 3 parameters.
+        # default values are [4.0, 2, 60]
+        if config["pred_line_cluster"]:
+            if len(config["pred_line_params"]) != 3:
+                raise ValueError("Exactly three predictive line cluster parameters must be set")
+            dist_lim, min_samp, proc_distance = config["pred_line_params"]
+            predictive_line_cluster(keep, stack.times, dist_lim, min_samp, proc_distance)
 
         # if CNN is enabled, add the classification and probabilities to the results.
         if config["cnn_filter"]:

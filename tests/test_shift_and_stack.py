@@ -2,7 +2,11 @@ import math
 import numpy as np
 import unittest
 
-from kbmod.core.shift_and_stack import generate_psi_phi_images
+from kbmod.core.shift_and_stack import (
+    generate_all_psi_phi_images,
+    generate_psi_phi_from_image_stack,
+    generate_psi_phi_images,
+)
 
 
 class test_shift_and_stack(unittest.TestCase):
@@ -76,6 +80,23 @@ class test_shift_and_stack(unittest.TestCase):
 
         self.assertTrue(np.allclose(psi, psi_expected, rtol=0.001, atol=0.001, equal_nan=True))
         self.assertTrue(np.allclose(phi, phi_expected, rtol=0.001, atol=0.001, equal_nan=True))
+
+        # Test that we can handle a list of images.
+        sci_mult = [sci, sci * 2, sci]
+        var_mult = [var, var, var]
+        psf_mult = [psf_kernel, psf_kernel, np.ones((1, 1))]
+        psi_list, phi_list = generate_all_psi_phi_images(sci_mult, var_mult, psf_mult)
+        self.assertEqual(len(psi_list), 3)
+        self.assertEqual(len(phi_list), 3)
+
+        self.assertTrue(np.allclose(psi_list[0], psi_expected, rtol=0.001, atol=0.001, equal_nan=True))
+        self.assertTrue(np.allclose(phi_list[0], phi_expected, rtol=0.001, atol=0.001, equal_nan=True))
+        self.assertFalse(np.allclose(psi_list[1], psi_expected, rtol=0.001, atol=0.001, equal_nan=True))
+
+        psi_expected3 = sci / var
+        phi_expected3 = 1.0 / var
+        self.assertTrue(np.allclose(psi_list[2], psi_expected3, rtol=0.001, atol=0.001, equal_nan=True))
+        self.assertTrue(np.allclose(phi_list[2], phi_expected3, rtol=0.001, atol=0.001, equal_nan=True))
 
 
 if __name__ == "__main__":

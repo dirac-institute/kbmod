@@ -114,6 +114,18 @@ Configuration Parameters
 |                        |                             | -1 then it is reduced to the number of |
 |                        |                             | the valid images.                      |
 +------------------------+-----------------------------+----------------------------------------+
+| ``peak_offset_max``    | None                        | The radius to use for the              |
+|                        |                             | ``peak_offset_max`` filter.            |
+|                        |                             | If ``None``, then does not apply       |
+|                        |                             | ``peak_offset_max``.                   |
++------------------------+-----------------------------+----------------------------------------+
+| ``pred_line_cluster``  | False                       | Apply the predictive line cluster.     |
+|                        |                             | Requires that the three parameters are |
+|                        |                             | set in a list for ``pred_line_params``.|
+|                        |                             | Alternatively, do not set              |
+|                        |                             | ``pred_line_params`` to use default    |
+|                        |                             | ``[4.0, 2, 60]``.                      |
++------------------------+-----------------------------+----------------------------------------+
 | ``psf_val``            | 1.4                         | The value for the standard deviation of|
 |                        |                             | the point spread function (PSF) in     |
 |                        |                             | pixels                                 |
@@ -132,6 +144,8 @@ Configuration Parameters
 |                        |                             | into separate files. These files will  |
 |                        |                             | be saved in the same directory as the  |
 |                        |                             | main result file.                      |
++------------------------+-----------------------------+----------------------------------------+
+| ``sigmaG_filter``      | True                        | Whether to use the sigmaG filter.      |
 +------------------------+-----------------------------+----------------------------------------+
 | ``sigmaG_lims``        | [25, 75]                    | The percentiles to use in sigmaG       |
 |                        |                             | filtering, if                          |
@@ -173,4 +187,27 @@ Configuration Parameters
 |                        |                             | coordinates. If ``y_bounds`` is        |
 |                        |                             | provided that takes precedence.        |
 |                        |                             | ``None`` uses the image bounds.        |
++------------------------+-----------------------------+----------------------------------------+
+| ``cnn_filter``         | False                       | Whether or not to perform filtering    |
+|                        |                             | using a pre-provided CNN model. If     |
+|                        |                             | enabled, the user must provide a       |
+|                        |                             | path to a pre-trained `pytorch` model  |
+|                        |                             | in the `.pth` file format in the       |
+|                        |                             | ``cnn_model`` search parameter.        |
++------------------------+-----------------------------+----------------------------------------+
+| ``cnn_model``          | None                        | A filepath in string format pointing   |
+|                        |                             | to a pre-trained `pytorch` model and   |
+|                        |                             | weights in the `.pth` format.          |
++------------------------+-----------------------------+----------------------------------------+
+| ``cnn_coadd_type``     | "mean"                      | The stamp coadd type to use during     |
+|                        |                             | CNN classification. Must be part of    |
+|                        |                             | ``coadds`` parameter.                  |
++------------------------+-----------------------------+----------------------------------------+
+| ``cnn_stamp_radius``   | 49                          | The stamp radius used in the CNN       |
+|                        |                             | training, i.e. the stamp radius for    |
+|                        |                             | the model input. Must be equal or      |
+|                        |                             | smaller than the ``stamp_radius``.     |
++------------------------+-----------------------------+----------------------------------------+
+| ``cnn_model_type``     | "resnet18"                  | The prebuilt `pytorch` model that was  |
+|                        |                             | used for training.                     |
 +------------------------+-----------------------------+----------------------------------------+

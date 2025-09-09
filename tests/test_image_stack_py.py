@@ -305,6 +305,44 @@ class test_image_stack_py(unittest.TestCase):
         expected = [-1, 0, 0, -1, 1, 4, 5, 5, 7, 7, -1]
         self.assertTrue(np.array_equal(matched_inds, expected))
 
+    def test_image_stack_py_grows_with_larger_images(self):
+        """Test that ImageStackPy updates width and height to match the largest image added and does not shrink."""
+        stack = ImageStackPy()
+        # Add 10x10 image
+        sci1 = np.ones((10, 10))
+        var1 = np.ones((10, 10))
+        stack.append_image(0.0, sci1, var1)
+        self.assertEqual(stack.width, 10)
+        self.assertEqual(stack.height, 10)
+
+        # Add 5x20 image (wider)
+        sci2 = np.ones((5, 20))
+        var2 = np.ones((5, 20))
+        stack.append_image(1.0, sci2, var2)
+        self.assertEqual(stack.width, 20)
+        self.assertEqual(stack.height, 10)  # Height stays the same, width grows
+
+        # Add 30x20 image (taller and wider)
+        sci3 = np.ones((30, 20))
+        var3 = np.ones((30, 20))
+        stack.append_image(2.0, sci3, var3)
+        self.assertEqual(stack.width, 20)
+        self.assertEqual(stack.height, 30)  # Height grows, width stays
+
+        # Add 35x25 image (both grow)
+        sci4 = np.ones((35, 25))
+        var4 = np.ones((35, 25))
+        stack.append_image(3.0, sci4, var4)
+        self.assertEqual(stack.width, 25)
+        self.assertEqual(stack.height, 35)
+
+        # Add another 10x10 image (should not shrink)
+        sci5 = np.ones((10, 10))
+        var5 = np.ones((10, 10))
+        stack.append_image(4.0, sci5, var5)
+        self.assertEqual(stack.width, 25)
+        self.assertEqual(stack.height, 35)
+
     def test_get_masked_fractions(self):
         """Test that we can compute the fraction of pixels masked at each index."""
         num_times = 20

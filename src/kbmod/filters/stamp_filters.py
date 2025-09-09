@@ -78,7 +78,7 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True, n
     im_stack : `ImageStackPy`
         The images from which to build the co-added stamps.
     coadd_types : `list`
-        A list of coadd types to generate. Can be "sum", "mean", and "median".
+        A list of coadd types to generate. Can be "sum", "mean", "median", and "weighted".
     radius : `int`
         The stamp radius to use.
     valid_only : `bool`

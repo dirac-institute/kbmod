@@ -48,7 +48,7 @@ void PsiPhiArray::clear() {
 
 void PsiPhiArray::clear_from_gpu() {
     // We only clear the data from the GPU if it is allocated there.
-    if (!data_on_gpu) {
+    if (data_on_gpu) {
         logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
 
         if (gpu_time_array.on_gpu()) {
