@@ -131,7 +131,7 @@ class ImageStackPy:
         if mask is not None:
             for idx in range(self.num_times):
                 current_mask = np.asanyarray(mask[idx])
-                if current_mask.shape != (self.height, self.width):
+                if current_mask.shape != self.sci[idx].shape:
                     raise ValueError("Science and Mask data must have the same shape.")
                 masked_pixels = current_mask > 0
                 self.sci[idx][masked_pixels] = np.nan
@@ -333,7 +333,7 @@ class ImageStackPy:
         # Apply the mask if it is provided.
         if mask is not None:
             mask = np.asanyarray(mask)
-            if mask.shape != (self.height, self.width):
+            if mask.shape != self.sci[current_idx].shape:
                 raise ValueError("Science and Mask data must have the same shape.")
             masked_pixels = mask > 0
             self.sci[current_idx][masked_pixels] = np.nan
