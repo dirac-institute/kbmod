@@ -324,6 +324,7 @@ class test_image_stack_py(unittest.TestCase):
         with pytest.raises(ValueError):
             # Using a mask of the wrong size should fail
             stack.append_image(1.0, sci2, var2, mask=mask1)
+        self.assertEqual(len(stack), 1)  # Should still only have 1 image
         stack.append_image(1.0, sci2, var2, mask=mask2)
         self.assertEqual(stack.width, 20)
         self.assertEqual(stack.height, 10)  # Height stays the same, width grows
@@ -351,6 +352,7 @@ class test_image_stack_py(unittest.TestCase):
             # for a smaller image
             mask4 = np.ones((35, 25))
             stack.append_image(4.0, sci5, var5, mask=mask4)
+        self.assertEqual(len(stack), 4)  # Should still only have 4 images
         stack.append_image(4.0, sci5, var5, mask=mask5)
         self.assertEqual(stack.width, 25)
         self.assertEqual(stack.height, 35)

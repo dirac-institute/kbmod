@@ -321,6 +321,12 @@ class ImageStackPy:
         psfs : np.array or PSF
             The PSF information for this time.
         """
+        # Validate the mask if it is provided before making any modifications to the image stack.
+        if mask is not None:
+            mask = np.asanyarray(mask)
+            if mask.shape != sci.shape:
+                raise ValueError("Science and Mask data must have the same shape.")
+
         current_idx = self.num_times
         self.sci.append(self._standardize_image(sci))
         self.var.append(self._standardize_image(var))
@@ -332,9 +338,6 @@ class ImageStackPy:
 
         # Apply the mask if it is provided.
         if mask is not None:
-            mask = np.asanyarray(mask)
-            if mask.shape != self.sci[current_idx].shape:
-                raise ValueError("Science and Mask data must have the same shape.")
             masked_pixels = mask > 0
             self.sci[current_idx][masked_pixels] = np.nan
             self.var[current_idx][masked_pixels] = np.nan
