@@ -1,7 +1,6 @@
 import logging
 import numpy as np
 import unittest
-import pytest
 
 from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
 
@@ -321,7 +320,7 @@ class test_image_stack_py(unittest.TestCase):
         sci2 = np.ones((5, 20))
         var2 = np.ones((5, 20))
         mask2 = np.ones((5, 20))
-        with pytest.raises(ValueError):
+        with self.assertRaises(ValueError):
             # Using a mask of the wrong size should fail
             stack.append_image(1.0, sci2, var2, mask=mask1)
         self.assertEqual(len(stack), 1)  # Should still only have 1 image
@@ -347,7 +346,7 @@ class test_image_stack_py(unittest.TestCase):
         sci5 = np.ones((10, 10))
         var5 = np.ones((10, 10))
         mask5 = np.ones((10, 10))
-        with pytest.raises(ValueError):
+        with self.assertRaises(ValueError):
             # Using a mask with the shape of the largest image should still fail
             # for a smaller image
             mask4 = np.ones((35, 25))
