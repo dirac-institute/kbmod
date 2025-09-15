@@ -311,14 +311,20 @@ class test_image_stack_py(unittest.TestCase):
         # Add 10x10 image
         sci1 = np.ones((10, 10))
         var1 = np.ones((10, 10))
-        stack.append_image(0.0, sci1, var1)
+        mask1 = np.ones((10, 10))
+        stack.append_image(0.0, sci1, var1, mask=mask1)
         self.assertEqual(stack.width, 10)
         self.assertEqual(stack.height, 10)
 
         # Add 5x20 image (wider)
         sci2 = np.ones((5, 20))
         var2 = np.ones((5, 20))
-        stack.append_image(1.0, sci2, var2)
+        mask2 = np.ones((5, 20))
+        with self.assertRaises(ValueError):
+            # Using a mask of the wrong size should fail
+            stack.append_image(1.0, sci2, var2, mask=mask1)
+        self.assertEqual(len(stack), 1)  # Should still only have 1 image
+        stack.append_image(1.0, sci2, var2, mask=mask2)
         self.assertEqual(stack.width, 20)
         self.assertEqual(stack.height, 10)  # Height stays the same, width grows
 
@@ -339,7 +345,14 @@ class test_image_stack_py(unittest.TestCase):
         # Add another 10x10 image (should not shrink)
         sci5 = np.ones((10, 10))
         var5 = np.ones((10, 10))
-        stack.append_image(4.0, sci5, var5)
+        mask5 = np.ones((10, 10))
+        with self.assertRaises(ValueError):
+            # Using a mask with the shape of the largest image should still fail
+            # for a smaller image
+            mask4 = np.ones((35, 25))
+            stack.append_image(4.0, sci5, var5, mask=mask4)
+        self.assertEqual(len(stack), 4)  # Should still only have 4 images
+        stack.append_image(4.0, sci5, var5, mask=mask5)
         self.assertEqual(stack.width, 25)
         self.assertEqual(stack.height, 35)
 
