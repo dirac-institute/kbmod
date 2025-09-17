@@ -469,8 +469,6 @@ class MockButler:
         wcshdr["NAXIS1"] = hdul[1].header["NAXIS1"]
         wcshdr["NAXIS2"] = hdul[1].header["NAXIS2"]
         if self.failed_fits_appoximation:
-            # raise ValueError("Simulated failure in WCS approximation")
-            # TODO what is the proper way of doing this?
             mocked.hasWcs.side_effect = Exception("WCS not available")
             mocked.wcs.getFitsMetadata.side_effect = Exception("WCS metadata not available")
         else:

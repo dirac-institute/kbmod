@@ -96,10 +96,10 @@ class TestButlerStandardizer(unittest.TestCase):
 
         # Validate that getFitsMetadata raises an error forcing us to use a fallback WCS
         std._wcs is not None
+        wcs_ref = std.ref.makeComponentRef("wcs")
+        wcs = missing_wcs_butler.get(wcs_ref)
         with self.assertRaises(Exception):
-            wcs_ref = std.ref.makeComponentRef("wcs")
-            wcs = missing_wcs_butler.get(wcs_ref)
-            wcs.getFitsMetadata()  # should not raise
+            wcs.getFitsMetadata()
 
         fits = FitsFactory.get_fits(7, spoof_data=True)
 
