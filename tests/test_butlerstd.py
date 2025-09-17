@@ -88,6 +88,28 @@ class TestButlerStandardizer(unittest.TestCase):
         np.testing.assert_equal([fits["MASK"].data,], standardized["mask"])
         # fmt: on
 
+    def test_standardize_missing_wcs(self):
+        """Test ButlerStandardizer instantiates and standardizes as expected een when fits appoximation of the WCS failed."""
+        missing_wcs_butler = MockButler("/far/far/away", failed_fits_appoximation=True)
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=missing_wcs_butler)
+        standardized = std.standardize()
+
+        # Validate that getFitsMetadata raises an error forcing us to use a fallback WCS
+        std._wcs is not None
+        with self.assertRaises(Exception):
+            wcs_ref = std.ref.makeComponentRef("wcs")
+            wcs = missing_wcs_butler.get(wcs_ref)
+            wcs.getFitsMetadata()  # should not raise
+
+        fits = FitsFactory.get_fits(7, spoof_data=True)
+
+        # The CRVAL1/2 are with respect to the origin (CRPIX), Our center_ra
+        # definition uses the pixel in the center of the CCD. The permissible
+        # deviation should be on the scale of half a CCD's footprint, unless
+        # it's DECam then it could be as big as half an FOV of the focal plane
+        self.assertAlmostEqual(standardized["meta"]["ra"], fits[1].header["CRVAL1"], 0)
+        self.assertAlmostEqual(standardized["meta"]["dec"], fits[1].header["CRVAL2"], 0)
+
     def test_standardize_missing_headers(self):
         """Test ButlerStandardizer works even with certain missing headers."""
         # A list of optional headers that were present in the DEEP butler but
