@@ -3,18 +3,26 @@ via the Rubin Data Butler.
 """
 
 import importlib
+import logging
 import uuid
 
+from astropy.coordinates import SkyCoord
 import astropy.nddata as bitmask
 from astropy.wcs import WCS
+from astropy.wcs.utils import fit_wcs_from_points
 import astropy.units as u
 
+from networkx import center
 import numpy as np
 
 from .standardizer import Standardizer, StandardizerConfig
 
 from kbmod.core.psf import PSF
+
 from kbmod.core.image_stack_py import LayeredImagePy
+
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
 
 __all__ = [
@@ -96,6 +104,15 @@ class ButlerStandardizerConfig(StandardizerConfig):
 
     standardize_uri = False
     """Include an URL-like path to the file"""
+
+    wcs_fallback_points = 100
+    """Number of random points to sample across the detector when
+    an astropy WCS cannot be constructed from the Rubin SkyWCS metadata."""
+
+    wcs_fallback_sips_degree = 3
+    """Degree of the SIP distortion to fit when creating a fallback WCS when
+    an astropy WCS cannot be constructed from the Rubin SkyWCS metadata.
+    If ``None``, no SIP distortion is fitted."""
 
     zero_point = 31
     """Photometric zero point to which all the science and variance will be scaled to."""
@@ -219,6 +236,61 @@ class ButlerStandardizer(Standardizer):
         self._metadata = None
         self._naxis1 = None
         self._naxis2 = None
+
+    def _fitWCSFallback(self, wcs, naxis1, naxis2, n_rand_pts, sip_degree, sample_outside_chip=True):
+        """Create a simple TAN WCS centered on the detector through sampling random points.
+
+        Parameters
+        ----------
+        wcs : `SkyWCS`
+            Rubin SkyWCS object.
+        naxis1: `int`
+            naxis1 matching the dimensions of the SkyWCS BBOX
+        naxis2: `int`
+            naxis2 matching the dimensions of the SkyWCS BBOX
+        n_rand_pts : `int`
+            Number of random points to sample across the detector.
+        sip_degree : `int` or `None`, optional
+            Degree of the SIP distortion to fit. If ``None``, no SIP distortion
+            is fitted.
+        sample_outside_chip: `bool`, optional
+            Whether to sample points outside of the chip bounds to interpolate rather
+            than extrapolate the WCS fit. Default is `True`.
+        Returns
+        -------
+        wcs : `astropy.wcs.WCS`
+            Fitted WCS object.
+        """
+        if not sample_outside_chip:
+            # Sample random X, Y points across this detector
+            rand_xy = np.random.rand(n_rand_pts, 2) * [naxis1, naxis2]
+            rand_x, rand_y = rand_xy[:, 0], rand_xy[:, 1]
+        else:
+            # Expand our X, Y grid slightly beyond the bounds of the detector.
+            grid_offset_percent = 0.1
+            rand_xy = np.random.rand(n_rand_pts, 2) * np.array(
+                [[naxis1 * (1 + 2 * grid_offset_percent), naxis2 * (1 + 2 * grid_offset_percent)]]
+            )
+            # Subtract our offset from each dimension to ensure we do not begin sampling at "0"
+            rand_x = rand_xy[:, 0] - (naxis1 * grid_offset_percent)
+            rand_y = rand_xy[:, 1] - (naxis2 * grid_offset_percent)
+
+        # Turn our random X, Y points into an RA, Dec SkyCoord
+        rand_ra, rand_dec = wcs.pixelToSkyArray(rand_x, rand_y, degrees=True)
+        world_coords = SkyCoord(ra=rand_ra * u.deg, dec=rand_dec * u.deg, frame="icrs")
+
+        # For our center point, we just use the center of the detector
+        detector_center = wcs.pixelToSky(int(naxis1 // 2), int(naxis2 // 2))
+        detector_center_coord = SkyCoord(
+            ra=detector_center.getRa().asDegrees() * u.deg,
+            dec=detector_center.getDec().asDegrees() * u.deg,
+            frame="icrs",
+        )
+
+        # Fit a TAN WCS to these points, with optional SIP distortion
+        return fit_wcs_from_points(
+            (rand_x, rand_y), world_coords, detector_center_coord, sip_degree=sip_degree
+        )
 
     def _computeSkyBBox(self, wcs, dimX, dimY):
         """Given an Rubin SkyWCS object and the dimensions of an image
@@ -347,10 +419,17 @@ class ButlerStandardizer(Standardizer):
         # a copy.
         wcs_ref = self.ref.makeComponentRef("wcs")
         wcs = self.butler.get(wcs_ref)
-        meta = dict(wcs.getFitsMetadata())
-        meta["NAXIS1"] = self._naxis1
-        meta["NAXIS2"] = self._naxis2
-        self._wcs = WCS(meta)
+        try:
+            meta = dict(wcs.getFitsMetadata())
+            meta["NAXIS1"] = self._naxis1
+            meta["NAXIS2"] = self._naxis2
+            self._wcs = WCS(meta)
+        except Exception as e:
+            logger.debug(f"Could not parse WCS metadata for {self.ref}, got {e}. Creating fallback fit.")
+            # Create a simple TAN WCS centered on the detector through sampling random points.
+            n_rand_pts = self.config["wcs_fallback_points"]
+            sip_degree = self.config["wcs_fallback_sips_degree"]
+            self._wcs = self._fitWCSFallback(wcs, self._naxis1, self._naxis2, n_rand_pts, sip_degree)
 
         self._metadata["pixel_scale"] = wcs.getPixelScale().asArcseconds()
 
