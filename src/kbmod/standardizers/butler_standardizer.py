@@ -105,11 +105,11 @@ class ButlerStandardizerConfig(StandardizerConfig):
     standardize_uri = False
     """Include an URL-like path to the file"""
 
-    wcs_fallback_points = 1000
+    wcs_fallback_points = 100
     """Number of random points to sample across the detector when
     an astropy WCS cannot be constructed from the Rubin SkyWCS metadata."""
 
-    wcs_fallback_sips_degree = 5
+    wcs_fallback_sips_degree = 3
     """Degree of the SIP distortion to fit when creating a fallback WCS when
     an astropy WCS cannot be constructed from the Rubin SkyWCS metadata.
     If ``None``, no SIP distortion is fitted."""
@@ -263,24 +263,24 @@ class ButlerStandardizer(Standardizer):
         """
         if not sample_outside_chip:
             # Sample random X, Y points across this detector
-            rand_xy = np.random.rand(n_rand_pts, 2) * [naxis2, naxis1]
+            rand_xy = np.random.rand(n_rand_pts, 2) * [naxis1, naxis2]
             rand_x, rand_y = rand_xy[:, 0], rand_xy[:, 1]
         else:
             # Expand our X, Y grid slightly beyond the bounds of the detector.
             grid_offset_percent = 0.1
             rand_xy = np.random.rand(n_rand_pts, 2) * np.array(
-                [[naxis2 * (1 + 2 * grid_offset_percent), naxis1 * (1 + 2 * grid_offset_percent)]]
+                [[naxis1 * (1 + 2 * grid_offset_percent), naxis2 * (1 + 2 * grid_offset_percent)]]
             )
             # Subtract our offset from each dimension to ensure we do not begin sampling at "0"
-            rand_x = rand_xy[:, 0] - (naxis2 * grid_offset_percent)
-            rand_y = rand_xy[:, 1] - (naxis1 * grid_offset_percent)
+            rand_x = rand_xy[:, 0] - (naxis1 * grid_offset_percent)
+            rand_y = rand_xy[:, 1] - (naxis2 * grid_offset_percent)
 
         # Turn our random X, Y points into an RA, Dec SkyCoord
         rand_ra, rand_dec = wcs.pixelToSkyArray(rand_x, rand_y, degrees=True)
         world_coords = SkyCoord(ra=rand_ra * u.deg, dec=rand_dec * u.deg, frame="icrs")
 
         # For our center point, we just use the center of the detector
-        detector_center = wcs.pixelToSky(int(naxis2 // 2), int(naxis1 // 2))
+        detector_center = wcs.pixelToSky(int(naxis1 // 2), int(naxis2 // 2))
         detector_center_coord = SkyCoord(
             ra=detector_center.getRa().asDegrees() * u.deg,
             dec=detector_center.getDec().asDegrees() * u.deg,
