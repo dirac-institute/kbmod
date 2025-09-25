@@ -13,7 +13,7 @@ Examples of datasetTypes include `calexp`, `preliminary_visit_image`, or `differ
 If you want to ingest all Butler collections matching a regex pattern, you can run:
         `python kbmod_build_ic.py <repo_path> <datasetType> --collection_regex <regex_pattern> --output_dir <output_directory> --overwrite`
 
-The ingested ImageCollections will be saved as `.ecsv` files in the specified output directory, with the original Butler collection name as the filename (substituting slashes with underscores).
+The ingested ImageCollections will be saved as `.collection` files in the specified output directory, with the original Butler collection name as the filename (substituting slashes with underscores).
 
 For testing purposes, you can run with the `--dry` flag to see the sizes of the Butler collections without actually ingesting them, or
 you can use the `--max_exposures` flag to limit the number of exposures processed per collection.
@@ -46,7 +46,7 @@ def ingest_collection(
     overwrite=False,
 ):
     """
-    Ingest a single collection from the LSST Butler repository into a KBMOD ImageCollection, which is then saved as an ECSV file.
+    Ingest a single collection from the LSST Butler repository into a KBMOD ImageCollection, which is then saved as a .collection file.
 
     Parameters
     ----------
@@ -68,7 +68,7 @@ def ingest_collection(
     if output_dir is not None:
         # Generate an output path based on the collection name and replace slashes with underscores
         output_collection_name = collection_name.replace("/", "_")
-        output_path = os.path.join(output_dir, f"{output_collection_name}.ecsv")
+        output_path = os.path.join(output_dir, f"{output_collection_name}.collection")
         if not overwrite and os.path.exists(output_path):
             logger.info(f"Skipping {collection_name} as it already exists.")
             return
@@ -135,10 +135,14 @@ def execute(args):
                     args.datasetType,
                     where=where_filter,
                     collections=collections,
+                    limit=args.max_exposures,
                 )
             )
         )
-        print(f"Found {len(collections)} collections matching the regex {args.collection_regex}.")
+        if args.collections is not None:
+            print(f"Found {len(collections)} collections matching the provided names.")
+        else:
+            print(f"Found {len(collections)} collections matching the regex {args.collection_regex}.")
         print(f"Total exposures across all collections: {all_count}")
         return 0
 
