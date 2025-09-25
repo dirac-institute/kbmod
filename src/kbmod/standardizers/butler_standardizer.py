@@ -76,7 +76,7 @@ class ButlerStandardizerConfig(StandardizerConfig):
     do_threshold = False
     """Mask all pixels above the given count threshold."""
 
-    grow_mask = True
+    grow_mask = False
     """Grow mask footprint by ``grow_kernel_shape``"""
 
     brightness_treshold = 10
@@ -86,7 +86,30 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """Size of the symmetric square kernel by which mask footprints will be
     increased by."""
 
-    mask_flags = ["BAD", "CLIPPED", "CR", "CROSSTALK", "EDGE", "NO_DATA", "SAT", "SENSOR_EDGE", "SUSPECT"]
+    mask_flags = [
+        "BAD",
+        "CLIPPED",
+        "CR",
+        "CROSSTALK",
+        "DETECTED",
+        "DETECTED_NEGATIVE",
+        "EDGE",
+        "INEXACT_PSF",
+        "INJECTED",
+        "INJECTED_TEMPLATE",
+        "INTRP",
+        "ITL_DIP",
+        "NOT_DEBLENDED",
+        "NO_DATA",
+        "REJECTED",
+        "SAT",
+        "SAT_TEMPLATE",
+        "SENSOR_EDGE",
+        "STREAK",
+        "SUSPECT",
+        "UNMASKEDNAN",
+        "VIGNETTED",
+    ]
     """List of flags that will be masked."""
 
     psf_std = 1
@@ -105,11 +128,11 @@ class ButlerStandardizerConfig(StandardizerConfig):
     standardize_uri = False
     """Include an URL-like path to the file"""
 
-    wcs_fallback_points = 100
+    wcs_fallback_points = 1000
     """Number of random points to sample across the detector when
     an astropy WCS cannot be constructed from the Rubin SkyWCS metadata."""
 
-    wcs_fallback_sips_degree = 3
+    wcs_fallback_sips_degree = 4
     """Degree of the SIP distortion to fit when creating a fallback WCS when
     an astropy WCS cannot be constructed from the Rubin SkyWCS metadata.
     If ``None``, no SIP distortion is fitted."""
