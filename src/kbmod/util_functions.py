@@ -212,9 +212,12 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None, fir
             valid_obs = np.full(row["obs_count"], True)
         
         if first_and_last:
-            valid_obs = np.array([valid_obs[0], valid_obs[-1]])
+            valid_inds = np.where(valid_obs == True)
+            valid_obs = np.full(len(valid_obs), False)
+            valid_obs[valid_inds[0][0]] = True
+            valid_obs[valid_inds[0][-1]] = True
         
-        num_valid = len(valid_obs)
+        num_valid = len(valid_obs[valid_obs == True])
 
         # need to figure out a better way to do this
         if batch_id is not None:
