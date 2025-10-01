@@ -198,6 +198,7 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None, fir
     mjds = []
     bands = []
     obscodes = []
+    uuids = []
 
     all_times = results.table.meta["mjd_mid"]
     all_bands = image_collection["band"]
@@ -232,6 +233,8 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None, fir
         mjds.append(all_times[valid_obs])
         bands.append(all_bands[first_of_each_frame][valid_obs])
         obscodes.append([obscode] * num_valid)
+        if "uuid" in results.table.colnames:
+            uuids.append([row["uuid"]] * num_valid)
 
     final_df = pd.DataFrame()
     final_df["id"] = np.concatenate(ids)
@@ -241,6 +244,8 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None, fir
     final_df["mjd"] = np.concatenate(mjds)
     final_df["band"] = np.concatenate(bands)
     final_df["obscode"] = np.concatenate(obscodes)
+    if len(uuids) > 0:
+        final_df["uuid"] = np.concatenate(uuids)
 
     return final_df
 
@@ -252,6 +257,8 @@ def make_manual_tracklets(df):
     tracklet_df : `pandas.DataFrame`
         A DataFrame containing the tracklets
     """
+    if "uuid" not in df.columns:
+        raise ValueError("DataFrame must contain a 'uuid' column")
 
     unique_obstimes = np.unique(df["mjd"])
     unique_obstimes = np.sort(unique_obstimes)
