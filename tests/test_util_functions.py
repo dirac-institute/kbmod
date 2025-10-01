@@ -47,8 +47,12 @@ class test_util_functions(unittest.TestCase):
         res.table.meta["mjd_mid"] = ic["mjd_mid"]
         obs_count = [self.num_images for _ in range(self.num_trjs)]
         res.table["obs_count"] = obs_count
-        res.table["img_ra"] = [np.array([j + (i * 0.1) for j in range(self.num_images)]) for i in range(self.num_trjs)]
-        res.table["img_dec"] = [np.array([j + (i * 0.1) for j in range(self.num_images)]) for i in range(self.num_trjs)]
+        res.table["img_ra"] = [
+            np.array([j + (i * 0.1) for j in range(self.num_images)]) for i in range(self.num_trjs)
+        ]
+        res.table["img_dec"] = [
+            np.array([j + (i * 0.1) for j in range(self.num_images)]) for i in range(self.num_trjs)
+        ]
 
         self.ic = ic
         self.res = res

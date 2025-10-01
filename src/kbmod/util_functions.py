@@ -211,13 +211,13 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None, fir
             valid_obs = row["obs_valid"]
         else:
             valid_obs = np.full(row["obs_count"], True)
-        
+
         if first_and_last:
             valid_inds = np.where(valid_obs == True)
             valid_obs = np.full(len(valid_obs), False)
             valid_obs[valid_inds[0][0]] = True
             valid_obs[valid_inds[0][-1]] = True
-        
+
         num_valid = len(valid_obs[valid_obs == True])
 
         # need to figure out a better way to do this
@@ -248,6 +248,7 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None, fir
         final_df["uuid"] = np.concatenate(uuids)
 
     return final_df
+
 
 def make_manual_tracklets(df):
     """Take the results from `unravel_results` and group them into tracklets.
