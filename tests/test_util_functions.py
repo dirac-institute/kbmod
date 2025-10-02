@@ -121,7 +121,6 @@ class test_util_functions(unittest.TestCase):
                 self.assertEqual(det2["RA2"], o_det2["ra"])
                 self.assertEqual(det2["Dec2"], o_det2["dec"])
 
-
     def test_make_manual_tracklets_without_uuid(self):
         test_res = self.res
         test_res.table.remove_column("uuid")
