@@ -256,12 +256,21 @@ class MockButler:
     list of keys in `missing_headers`.
     """
 
-    def __init__(self, root, ref=None, mock_images_f=None, registry=None, missing_headers=[]):
+    def __init__(
+        self,
+        root,
+        ref=None,
+        mock_images_f=None,
+        registry=None,
+        missing_headers=[],
+        failed_fits_appoximation=False,
+    ):
         self.datastore = Datastore(root)
         self._datastore = Datastore(root)
         self.registry = Registry() if registry is None else registry
         self.mockImages = mock_images_f
         self.missing_headers = missing_headers
+        self.failed_fits_appoximation = failed_fits_appoximation
 
     def getURI(self, ref, dataId=None, collections=None):
         mocked = mock.Mock(name="ButlerURI")
@@ -390,19 +399,31 @@ class MockButler:
         mocked_coord = mock.Mock(name="RubinCoord")
         wcs = WCS(hdul[1].header)
 
-        def fake_skywcs_transform(*args, **kwargs):
-            coord = wcs.pixel_to_world(*args, **kwargs)
+        def fake_skywcs_transform(*args, degrees=True, **kwargs):
+            # Remove 'degrees' from kwargs if present, do not pass to pixel_to_world
+            coord = wcs.pixel_to_world(*args, **{k: v for k, v in kwargs.items() if k != "degrees"})
             mocked_angle = mock.Mock(name="RubinAngle")
-            mocked_angle.asDegrees.return_value = coord.ra.deg
+            mocked_angle.asDegrees.return_value = coord.ra.deg if degrees else coord.ra.radian
             mocked_coord.getRa.return_value = mocked_angle
             mocked_angle = mock.Mock(name="RubinAngle")
-            mocked_angle.asDegrees.return_value = coord.dec.deg
+            mocked_angle.asDegrees.return_value = coord.dec.deg if degrees else coord.dec.radian
             mocked_coord.getDec.return_value = mocked_angle
             return mocked_coord
 
-        mocked.pixelToSky.side_effect = fake_skywcs_transform
+        def fake_skywcs_transform_array(*args, degrees=True, **kwargs):
+            mocked_coord = [fake_skywcs_transform(xi, yi, degrees=degrees) for xi, yi in zip(*args)]
+            return [c.getRa().asDegrees() for c in mocked_coord], [
+                c.getDec().asDegrees() for c in mocked_coord
+            ]
 
-        mocked.getFitsMetadata.return_value = hdul[1].header
+        mocked.pixelToSky.side_effect = fake_skywcs_transform
+        mocked.pixelToSkyArray.side_effect = fake_skywcs_transform_array
+
+        if self.failed_fits_appoximation:
+            # Raise an exception to simulate failure in WCS approximation
+            mocked.getFitsMetadata.side_effect = Exception("Failed to fit WCS approximation")
+        else:
+            mocked.getFitsMetadata.return_value = hdul[1].header
         return mocked
 
     def mock_bbox(self, ref):
@@ -447,8 +468,12 @@ class MockButler:
         wcshdr = WCS(hdul[1].header).to_header(relax=True)
         wcshdr["NAXIS1"] = hdul[1].header["NAXIS1"]
         wcshdr["NAXIS2"] = hdul[1].header["NAXIS2"]
-        mocked.hasWcs.return_value = True
-        mocked.wcs.getFitsMetadata.return_value = wcshdr
+        if self.failed_fits_appoximation:
+            mocked.hasWcs.side_effect = Exception("WCS not available")
+            mocked.wcs.getFitsMetadata.side_effect = Exception("WCS metadata not available")
+        else:
+            mocked.hasWcs.return_value = True
+            mocked.wcs.getFitsMetadata.return_value = wcshdr
 
         # Mocking the images consists of using the Factory default, then
         # invoking any user specified method on the mocked exposure obj.
