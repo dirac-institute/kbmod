@@ -97,12 +97,30 @@ class test_util_functions(unittest.TestCase):
         self.assertEqual(len(df2), self.num_trjs * 2)
 
     def test_make_manual_tracklets(self):
-        print(self.res.table["uuid"])
         df = unravel_results(self.res, self.ic)
         tracklets, trk2det = make_manual_tracklets(df)
 
         self.assertEqual(len(tracklets), (self.num_trjs * (self.num_images - 1)))
         self.assertEqual(len(trk2det), self.num_trjs * ((self.num_images - 1) * 2))
+
+        for trk_idx in range(self.num_trjs):
+            for img_idx in range(self.num_images - 1):
+                tracklet = tracklets.iloc[trk_idx * (self.num_images - 1) + img_idx]
+                det1 = tracklet[["#Image1", "RA1", "Dec1"]]
+                det2 = tracklet[["Image2", "RA2", "Dec2"]]
+
+                o_idx = trk_idx * (self.num_images) + img_idx
+                o_det1 = df.iloc[o_idx]
+                o_det2 = df.iloc[o_idx + 1]
+
+                self.assertEqual(det1["#Image1"], o_det1["mjd"])
+                self.assertEqual(det1["RA1"], o_det1["ra"])
+                self.assertEqual(det1["Dec1"], o_det1["dec"])
+
+                self.assertEqual(det2["Image2"], o_det2["mjd"])
+                self.assertEqual(det2["RA2"], o_det2["ra"])
+                self.assertEqual(det2["Dec2"], o_det2["dec"])
+
 
     def test_make_manual_tracklets_without_uuid(self):
         test_res = self.res

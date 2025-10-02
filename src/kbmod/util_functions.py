@@ -276,11 +276,12 @@ def make_manual_tracklets(df):
     dec2 = []
     trk_ids = []
 
-    trk_2_det = []
+    trk_to_det = []
     inds = []
 
     trk_id = 0
 
+    # for looping over each result's unraveled observations
     for u in uuids:
         sub_df = df[df["uuid"] == u].copy()
         sub_df = sub_df.sort_values(by="mjd")
@@ -289,6 +290,8 @@ def make_manual_tracklets(df):
 
         sub_df.reset_index(drop=True)
 
+        # for looping over each pair of observations
+        # adjacent in time
         for i in range(len(sub_df) - 1):
             curr_row = sub_df.iloc[i]
             next_row = sub_df.iloc[i + 1]
@@ -301,9 +304,11 @@ def make_manual_tracklets(df):
             dec2.append(next_row["dec"])
             trk_ids.append(trk_id)
 
-            trk_2_det.append(trk_id)
+            # for mapping indices in the tracklet file
+            # back to the original detection file
+            trk_to_det.append(trk_id)
             inds.append(indicies[i])
-            trk_2_det.append(trk_id)
+            trk_to_det.append(trk_id)
             inds.append(indicies[i + 1])
 
             trk_id += 1
@@ -319,7 +324,7 @@ def make_manual_tracklets(df):
     trackletfile["trk_ID"] = trk_ids
 
     trk2detfile = pd.DataFrame()
-    trk2detfile["#trk_ID"] = trk_2_det
+    trk2detfile["#trk_ID"] = trk_to_det
     trk2detfile["detnum"] = inds
 
     return trackletfile, trk2detfile
