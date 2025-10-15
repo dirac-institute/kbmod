@@ -6,13 +6,14 @@ import time
 
 import kbmod.search as kb
 
-from .filters.clustering_filters import apply_clustering
+from .filters.clustering_filters import apply_clustering, NNSweepFilter
 from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
 from .filters.sns_filters import peak_offset_filter, predictive_line_cluster
 
 from .results import Results, write_results_to_files_destructive
+from .trajectory_explorer import TrajectoryExplorer
 from .trajectory_generator import create_trajectory_generator
 from .trajectory_utils import predict_pixel_locations
 
@@ -638,3 +639,86 @@ def append_positions_to_results(workunit, results):
 
         results.table["img_x"] = img_x
         results.table["img_y"] = img_y
+
+
+def refine_results(
+        results,
+        im_stack,
+        config,
+        *,
+        deduplicate=True,
+        pixel_radius=50,
+        max_dv=10.0,
+        dv_steps=21,
+    ):
+    """Refine the trajectories in results by re-running the search in a small
+    neighborhood around each trajectory.
+
+    Parameters
+    ----------
+    results : `Results`
+        The current table of results including the per-pixel trajectories.
+        This is modified in-place.
+    im_stack : `ImageStackPy`
+        The stack of image data.
+    config : `SearchConfiguration`
+        The configuration parameters
+    deduplicate : `bool`, optional
+        If True, remove duplicate trajectories after refinement (this includes
+        any trajectories whose start and end points are within the pixel radius).
+    pixel_radius : `int`
+        The number of pixels to evaluate to each side of the Trajectory's starting pixel.
+    max_dv : `float`
+        The maximum change in per-coordinate pixel velocity to explore (in pixels/day)
+    dv_steps: `int`
+        The number of steps to explore in each velocity dimension.
+
+    Returns
+    -------
+    refined : `Results`
+        A new Results object with the refined trajectories.
+    """
+    # Get the information from the result table.
+    num_res = len(results)
+    if num_res == 0:
+        return results  # Nothing to do
+
+    new_trjs = []
+    trj_explorer = TrajectoryExplorer(im_stack, config=config, preload_data=True)
+    for idx in range(num_res):
+        refined = trj_explorer.refine_around_linear_trajectory(
+            results["x"][idx],
+            results["y"][idx],
+            results["vx"][idx],
+            results["vy"][idx],
+            pixel_radius=pixel_radius,
+            max_dv=max_dv,
+            dv_steps=dv_steps,
+            max_results=1,
+        )
+        best_trj = kb.Trajectory(
+            x=refined["x"][0],
+            y=refined["y"][0],
+            vx=refined["vx"][0],
+            vy=refined["vy"][0],
+            flux=refined["flux"][0],
+            lh=refined["likelihood"][0],
+            obs_count=refined["obs_count"][0],
+        )
+        new_trjs.append(best_trj)
+
+    # Create and sort the results. Preserve the UUID if present.
+    new_results = Results.from_trajectories(new_trjs)
+    if "uuid" in results.colnames:
+        new_results.table["uuid"] = results["uuid"]
+    new_results.sort("likelihood", descending=True)
+    
+    # Deduplicate the results (if needed). We keep results that are the best
+    # in their neighborhood at either the starting or ending point.
+    if deduplicate:
+        zeroed_times = im_stack.zeroed_times
+        keep_t0 = NNSweepFilter(pixel_radius, [0.0]).keep_indices(new_results)
+        keep_tL = NNSweepFilter(pixel_radius, [zeroed_times[-1]]).keep_indices(new_results)
+        new_results.filter_rows(keep_t0 | keep_tL, "deduplicate")
+
+    return new_results

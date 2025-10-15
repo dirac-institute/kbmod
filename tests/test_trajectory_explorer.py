@@ -135,6 +135,26 @@ class test_trajectory_explorer(unittest.TestCase):
             counts[y, x] += 1
         self.assertTrue(np.all(counts == 615))
 
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
+    def test_refine_linear_trajectory(self):
+        # Start with a trajectory that is offset from the true one.
+        results = self.explorer.refine_linear_trajectory(
+            self.x0 + 1,
+            self.y0 - 1,
+            self.vx + 2.5,
+            self.vy - 2.5,
+            pixel_radius=3,
+            max_dv=10.0,
+            dv_steps=21,
+        )
+
+        # We get one result (and it is the correct one).
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results["x"][0], self.x0)
+        self.assertEqual(results["y"][0], self.y0)
+        self.assertLess(np.abs(results["vx"][0] - self.vx), 1.0)
+        self.assertLess(np.abs(results["vy"][0] - self.vy), 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()

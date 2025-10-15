@@ -259,7 +259,7 @@ class TrajectoryExplorer:
         y,
         vx,
         vy,
-        *
+        *,
         pixel_radius=50,
         max_dv=10.0,
         dv_steps=21,

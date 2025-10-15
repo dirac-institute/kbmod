@@ -5,7 +5,7 @@ import numpy as np
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.run_search import SearchRunner
-from kbmod.search import StackSearch, Trajectory
+from kbmod.search import StackSearch, Trajectory, kb_has_gpu
 
 
 class test_search(unittest.TestCase):
@@ -31,7 +31,7 @@ class test_search(unittest.TestCase):
     @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_preload_unload_psi_phi_array(self):
         self.assertFalse(self.search.psi_phi_array_on_gpu())
-        self.search.preload_psi_phi_array(self.fake_trjs)
+        self.search.preload_psi_phi_array()
         self.assertTrue(self.search.psi_phi_array_on_gpu())
         self.search.unload_psi_phi_array()
         self.assertFalse(self.search.psi_phi_array_on_gpu())
