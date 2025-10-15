@@ -16,7 +16,6 @@ from kbmod.results import Results
 from kbmod.run_search import (
     append_positions_to_results,
     configure_kb_search_stack,
-    refine_results,
     SearchRunner,
 )
 from kbmod.search import *
