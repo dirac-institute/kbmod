@@ -6,7 +6,7 @@ import time
 
 import kbmod.search as kb
 
-from .filters.clustering_filters import apply_clustering, NNSweepFilter
+from .filters.clustering_filters import apply_clustering
 from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
