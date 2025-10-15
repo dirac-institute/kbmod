@@ -156,7 +156,6 @@ class test_trajectory_explorer(unittest.TestCase):
         self.assertLess(np.abs(results["vx"][0] - self.vx), 1.0)
         self.assertLess(np.abs(results["vy"][0] - self.vy), 1.0)
 
-
     @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_refine_all_results(self):
         # Create a small fake data set.
@@ -181,29 +180,31 @@ class test_trajectory_explorer(unittest.TestCase):
             Trajectory(x=400, y=101, vx=-4.0, vy=11.0, lh=10.0, obs_count=5),
             Trajectory(x=401, y=99, vx=-6.0, vy=9.0, lh=10.0, obs_count=5),
             Trajectory(x=399, y=100, vx=-5.0, vy=10.0, lh=10.0, obs_count=5),
-            Trajectory(x=400, y=100, vx=-15.0, vy=30.0, lh=10.0, obs_count=5),
+            Trajectory(x=400, y=100, vx=-25.0, vy=31.0, lh=10.0, obs_count=5),
         ]
         org_results = Results.from_trajectories(results_list)
 
         # Do the refining. We should get three results after deduplication.
-        new_results = refine_all_results(org_results, fake_ds.stack_py)
+        config = SearchConfiguration()
+        config.set("num_obs", 4)
+        new_results = refine_all_results(org_results, fake_ds.stack_py, config)
         self.assertEqual(len(new_results), 3)
 
         # The first two refined results should be close to the true inserted
-        # objects in order of their flux. The third result is junk, but is not
-        # close to either of the first two (due to velocity difference).
+        # objects in order of their flux.
         self.assertAlmostEqual(new_results["x"][0], trj1.x, delta=1.0)
         self.assertAlmostEqual(new_results["y"][0], trj1.y, delta=1.0)
         self.assertAlmostEqual(new_results["vx"][0], trj1.vx, delta=1.0)
         self.assertAlmostEqual(new_results["vy"][0], trj1.vy, delta=1.0)
-
         self.assertAlmostEqual(new_results["x"][1], trj2.x, delta=1.0)
         self.assertAlmostEqual(new_results["y"][1], trj2.y, delta=1.0)
         self.assertAlmostEqual(new_results["vx"][1], trj2.vx, delta=1.0)
         self.assertAlmostEqual(new_results["vy"][1], trj2.vy, delta=1.0)
 
-        self.assertAlmostEqual(new_results["x"][2], 400, delta=1.0)
-        self.assertAlmostEqual(new_results["y"][2], 100, delta=1.0)
+        # The third result is junk, but should be somewhere around the location of the
+        # third trajectory (not a very close match, because refine will have moved it).
+        self.assertAlmostEqual(new_results["x"][2], 400, delta=50.0)
+        self.assertAlmostEqual(new_results["y"][2], 100, delta=50.0)
 
 
 if __name__ == "__main__":

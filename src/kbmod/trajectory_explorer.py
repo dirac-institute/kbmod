@@ -349,15 +349,15 @@ class TrajectoryExplorer:
 
 
 def refine_all_results(
-        results,
-        im_stack,
-        config,
-        *,
-        deduplicate=True,
-        pixel_radius=50,
-        max_dv=10.0,
-        dv_steps=21,
-    ):
+    results,
+    im_stack,
+    config,
+    *,
+    deduplicate=True,
+    pixel_radius=50,
+    max_dv=10.0,
+    dv_steps=21,
+):
     """Refine the trajectories in results by re-running the search in a small
     neighborhood around each trajectory.
 
@@ -393,7 +393,7 @@ def refine_all_results(
     new_trjs = []
     trj_explorer = TrajectoryExplorer(im_stack, config=config, preload_data=True)
     for idx in range(num_res):
-        refined = trj_explorer.refine_around_linear_trajectory(
+        refined = trj_explorer.refine_linear_trajectory(
             results["x"][idx],
             results["y"][idx],
             results["vx"][idx],
@@ -419,13 +419,14 @@ def refine_all_results(
     if "uuid" in results.colnames:
         new_results.table["uuid"] = results["uuid"]
     new_results.sort("likelihood", descending=True)
-    
+
     # Deduplicate the results (if needed). We keep results that are the best
     # in their neighborhood at either the starting or ending point.
     if deduplicate:
         zeroed_times = im_stack.zeroed_times
         keep_t0 = NNSweepFilter(pixel_radius, [0.0]).keep_indices(new_results)
         keep_tL = NNSweepFilter(pixel_radius, [zeroed_times[-1]]).keep_indices(new_results)
-        new_results.filter_rows(keep_t0 | keep_tL, "deduplicate")
+        keep_inds = np.union1d(keep_t0, keep_tL)
+        new_results.filter_rows(keep_inds, "deduplicate")
 
     return new_results
