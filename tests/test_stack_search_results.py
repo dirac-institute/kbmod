@@ -28,6 +28,14 @@ class test_search(unittest.TestCase):
         )
         self.fake_trjs = self.fake_ds.trajectories
 
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
+    def test_preload_unload_psi_phi_array(self):
+        self.assertFalse(self.search.psi_phi_array_on_gpu())
+        self.search.preload_psi_phi_array(self.fake_trjs)
+        self.assertTrue(self.search.psi_phi_array_on_gpu())
+        self.search.unload_psi_phi_array()
+        self.assertFalse(self.search.psi_phi_array_on_gpu())
+
     def test_set_get_results(self):
         results = self.search.get_results(0, 10)
         self.assertEqual(len(results), 0)

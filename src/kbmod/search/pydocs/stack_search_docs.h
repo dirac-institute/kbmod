@@ -144,6 +144,35 @@ static const auto DOC_StackSearch_get_image_height = R"doc(
   Returns the height of the images in pixels.
   )doc";
 
+static const auto DOC_StackSearch_preload_psi_phi_array = R"doc(
+  Preload the psi/phi array to the GPU memory. This is only needed when
+  running multiple searches in a row and can save time by avoiding
+  repeated transfers of the psi/phi array to the GPU.
+
+  Notes
+  -----
+  If the psi/phi array is already on the GPU, this function does nothing.
+  )doc";
+
+static const auto DOC_StackSearch_unload_psi_phi_array = R"doc(
+  Unload the psi/phi array from the GPU memory. This is only needed when
+  running multiple searches in a row and can save time by avoiding
+  repeated transfers of the psi/phi array to the GPU.
+
+  Notes
+  -----
+  If the psi/phi array is not on the GPU, this function does nothing.
+  )doc";
+
+static const auto DOC_StackSearch_psi_phi_array_on_gpu = R"doc(
+  Check if the psi/phi array is currently loaded on the GPU.
+
+  Returns
+  -------
+  result : `bool`
+      True if the psi/phi array is on the GPU, False otherwise.
+  )doc";
+
 static const auto DOC_StackSearch_get_all_psi_phi_curves = R"doc(
   Return a single matrix with both the psi and phi curves. Each
   row corresponds to a single trajectory and the columns hold
