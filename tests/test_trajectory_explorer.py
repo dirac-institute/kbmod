@@ -4,8 +4,9 @@ import numpy as np
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import FakeDataSet
+from kbmod.results import Results
 from kbmod.search import kb_has_gpu, Trajectory
-from kbmod.trajectory_explorer import TrajectoryExplorer
+from kbmod.trajectory_explorer import refine_all_results, TrajectoryExplorer
 
 
 class test_trajectory_explorer(unittest.TestCase):
@@ -134,6 +135,76 @@ class test_trajectory_explorer(unittest.TestCase):
             y = results["y"][row] - self.y0 + 3
             counts[y, x] += 1
         self.assertTrue(np.all(counts == 615))
+
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
+    def test_refine_linear_trajectory(self):
+        # Start with a trajectory that is offset from the true one.
+        results = self.explorer.refine_linear_trajectory(
+            self.x0 + 1,
+            self.y0 - 1,
+            self.vx + 2.5,
+            self.vy - 2.5,
+            pixel_radius=3,
+            max_dv=10.0,
+            dv_steps=21,
+        )
+
+        # We get one result (and it is the correct one).
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results["x"][0], self.x0)
+        self.assertEqual(results["y"][0], self.y0)
+        self.assertLess(np.abs(results["vx"][0] - self.vx), 1.0)
+        self.assertLess(np.abs(results["vy"][0] - self.vy), 1.0)
+
+    @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
+    def test_refine_all_results(self):
+        # Create a small fake data set.
+        num_times = 5
+        width = 500
+        height = 500
+        fake_times = [59000.0 + float(i) for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        # Insert two fake objects.
+        trj1 = Trajectory(x=17, y=12, vx=21.0, vy=16.0, flux=500.0)
+        fake_ds.insert_object(trj1)
+
+        trj2 = Trajectory(x=400, y=100, vx=-5.0, vy=10.0, flux=250.0)
+        fake_ds.insert_object(trj2)
+
+        # Create fake results around the true trajectories with noise and duplicates.
+        results_list = [
+            Trajectory(x=17, y=13, vx=21.0, vy=16.0, lh=10.0, obs_count=5),
+            Trajectory(x=16, y=15, vx=20.0, vy=15.0, lh=10.0, obs_count=5),
+            Trajectory(x=15, y=9, vx=22.0, vy=17.0, lh=10.0, obs_count=5),
+            Trajectory(x=400, y=101, vx=-4.0, vy=11.0, lh=10.0, obs_count=5),
+            Trajectory(x=401, y=99, vx=-6.0, vy=9.0, lh=10.0, obs_count=5),
+            Trajectory(x=399, y=100, vx=-5.0, vy=10.0, lh=10.0, obs_count=5),
+            Trajectory(x=400, y=100, vx=-25.0, vy=31.0, lh=10.0, obs_count=5),
+        ]
+        org_results = Results.from_trajectories(results_list)
+
+        # Do the refining. We should get three results after deduplication.
+        config = SearchConfiguration()
+        config.set("num_obs", 4)
+        new_results = refine_all_results(org_results, fake_ds.stack_py, config)
+        self.assertEqual(len(new_results), 3)
+
+        # The first two refined results should be close to the true inserted
+        # objects in order of their flux.
+        self.assertAlmostEqual(new_results["x"][0], trj1.x, delta=1.0)
+        self.assertAlmostEqual(new_results["y"][0], trj1.y, delta=1.0)
+        self.assertAlmostEqual(new_results["vx"][0], trj1.vx, delta=1.0)
+        self.assertAlmostEqual(new_results["vy"][0], trj1.vy, delta=1.0)
+        self.assertAlmostEqual(new_results["x"][1], trj2.x, delta=1.0)
+        self.assertAlmostEqual(new_results["y"][1], trj2.y, delta=1.0)
+        self.assertAlmostEqual(new_results["vx"][1], trj2.vx, delta=1.0)
+        self.assertAlmostEqual(new_results["vy"][1], trj2.vy, delta=1.0)
+
+        # The third result is junk, but should be somewhere around the location of the
+        # third trajectory (not a very close match, because refine will have moved it).
+        self.assertAlmostEqual(new_results["x"][2], 400, delta=50.0)
+        self.assertAlmostEqual(new_results["y"][2], 100, delta=50.0)
 
 
 if __name__ == "__main__":

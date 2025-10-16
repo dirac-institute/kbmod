@@ -64,11 +64,15 @@ StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_i
     DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
     fill_psi_phi_array_from_image_arrays(psi_phi_array, num_bytes, sci_imgs, var_imgs, psf_kernels,
                                          zeroed_times);
+    psi_phi_preloaded = false;
     timer.stop();
 }
 
 StackSearch::~StackSearch() {
     // Clear the memory allocated for psi and phi.
+    if (psi_phi_array.on_gpu()) {
+        psi_phi_array.clear_from_gpu();
+    }
     psi_phi_array.clear();
 }
 
@@ -157,6 +161,21 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
     params.y_start_max = y_max;
 }
 
+void StackSearch::preload_psi_phi_array() {
+    if (!psi_phi_array.on_gpu()) {
+        psi_phi_array.move_to_gpu();
+        psi_phi_preloaded = true;
+    }
+}
+
+void StackSearch::unload_psi_phi_array() {
+    if (psi_phi_array.on_gpu()) {
+        psi_phi_array.clear_from_gpu();
+        psi_phi_preloaded = false;
+    }
+}
+
+
 // --------------------------------------------
 // Core search functions
 // --------------------------------------------
@@ -209,7 +228,7 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
         if (!has_gpu()) throw std::runtime_error("GPU is not available for search.");
 
         // Moved the needed data to the GPU.
-        psi_phi_array.move_to_gpu();
+        if (!psi_phi_preloaded) psi_phi_array.move_to_gpu();
         candidate_list.move_to_gpu();
         results.move_to_gpu();
 
@@ -218,10 +237,11 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
         deviceSearchFilter(psi_phi_array, params, candidate_list, results);
 #endif
 
-        // Free up the GPU memory.
+        // Free up the GPU memory.  Keep the psi/phi array on the GPU if
+        // it is preloaded.
         results.move_to_cpu();
         candidate_list.move_to_cpu();
-        psi_phi_array.clear_from_gpu();
+        if (!psi_phi_preloaded) psi_phi_array.clear_from_gpu();
     } else {
         search_cpu_only(psi_phi_array, params, candidate_list, results);
     }
@@ -335,6 +355,12 @@ static void stack_search_bindings(py::module& m) {
             .def("get_image_height", &ks::get_image_height, pydocs::DOC_StackSearch_get_image_height)
             .def("get_all_psi_phi_curves", &ks::get_all_psi_phi_curves,
                  pydocs::DOC_StackSearch_get_all_psi_phi_curves)
+            .def("preload_psi_phi_array", &ks::preload_psi_phi_array,
+                 pydocs::DOC_StackSearch_preload_psi_phi_array)
+            .def("unload_psi_phi_array", &ks::unload_psi_phi_array,
+                 pydocs::DOC_StackSearch_unload_psi_phi_array)
+            .def("psi_phi_array_on_gpu", &ks::psi_phi_array_on_gpu,
+                 pydocs::DOC_StackSearch_psi_phi_array_on_gpu)
             // For testings
             .def("get_number_total_results", &ks::get_number_total_results,
                  pydocs::DOC_StackSearch_get_number_total_results)

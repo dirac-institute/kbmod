@@ -37,6 +37,12 @@ public:
     void set_start_bounds_y(int y_min, int y_max);
     void set_results_per_pixel(int new_value);
 
+    // Functions to manually control the psi/phi array GPU memory.
+    // These are only needed when running multiple searches in a row.
+    void preload_psi_phi_array();
+    void unload_psi_phi_array();
+    bool psi_phi_array_on_gpu() const { return psi_phi_array.on_gpu(); }
+
     // The primary search functions
     void evaluate_single_trajectory(Trajectory& trj, bool use_kernel);
     Trajectory search_linear_trajectory(int x, int y, float vx, float vy, bool use_kernel);
@@ -65,6 +71,7 @@ protected:
     std::vector<double> zeroed_times;
 
     // Precomputed and cached search data
+    bool psi_phi_preloaded;
     PsiPhiArray psi_phi_array;
 
     // Results from the grid search.
