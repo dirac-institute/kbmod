@@ -427,6 +427,8 @@ class ImageCollection:
             return self.__class__(new_meta, standardizers=self._standardizers)
 
     def __setitem__(self, key, val):
+        if key not in self.data.columns:
+            self._userColumns.append(key)
         self.data[key] = val
 
     def __len__(self):
@@ -452,6 +454,41 @@ class ImageCollection:
         if isinstance(equal, bool):
             return equal
         return equal.all()
+
+    def remove_column(self, name):
+        """Remove a column from the table.
+
+        Removed column is not allowed to be one of the required metadata
+        columns or one of the columns used internally by ImageCollection:
+
+        >>>  ImageCollection.required_metadata
+        ['mjd_mid', 'ra', 'dec', 'wcs', 'obs_lon', 'obs_lat', 'obs_elev']
+        >>>  ImageCollection._supporting_metadata
+        'std_name', 'std_idx', 'ext_idx', 'config']
+
+        To remove several columns at the same time use `remove_columns`.
+        """
+        if (name not in self.required_metadata) and (name not in self._supporting_metadata):
+            self.data.remove_column(name)
+            self._userColumns.remove(name)
+        else:
+            warnings.warn(
+                f"Column {name} is required metadata for image collection " "and will not be removed."
+            )
+
+    def remove_columns(self, names):
+        """Remove several columns from the table.
+
+        Removed column is not allowed to be one of the required metadata
+        columns or one of the columns used internally by ImageCollection:
+
+        >>>  ImageCollection.required_metadata
+        ['mjd_mid', 'ra', 'dec', 'wcs', 'obs_lon', 'obs_lat', 'obs_elev']
+        >>>  ImageCollection._supporting_metadata
+        'std_name', 'std_idx', 'ext_idx', 'config']
+        """
+        for name in names:
+            self.remove_column(name)
 
     @property
     def meta(self):
