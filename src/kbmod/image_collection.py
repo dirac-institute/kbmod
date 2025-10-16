@@ -472,9 +472,7 @@ class ImageCollection:
             self.data.remove_column(name)
             self._userColumns.remove(name)
         else:
-            warnings.warn(
-                f"Column {name} is required metadata for image collection " "and will not be removed."
-            )
+            warnings.warn(f"Column {name} is required metadata for image collection and will not be removed.")
 
     def remove_columns(self, names):
         """Remove several columns from the table.
