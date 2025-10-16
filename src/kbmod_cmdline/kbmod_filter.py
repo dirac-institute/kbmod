@@ -126,7 +126,8 @@ def execute(args):
         logger.debug(f"After clustering, result size = {len(results)}")
 
     # Save the modified results file.
-    results.write_table(args.outfile)
+    if len(results) > 0 or args.output_empty_table:
+        results.write_table(args.outfile)
 
 
 def main():
@@ -216,6 +217,13 @@ def main():
         dest="verbose",
         action="store_true",
         help="Output verbose status messages.",
+    )
+    optional.add_argument(
+        "--output_empty_table",
+        default=False,
+        dest="output_empty_table",
+        action="store_true",
+        help="Output an empty table if no results remain after filtering.",
     )
 
     # Run the actual program.
