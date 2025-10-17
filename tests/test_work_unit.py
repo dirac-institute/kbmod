@@ -1,4 +1,4 @@
-from astropy.table import Table
+from astropy.table import Table, vstack
 from astropy.wcs import WCS
 from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
@@ -773,6 +773,67 @@ class test_work_unit(unittest.TestCase):
         self.assertEqual(len(work.org_img_meta), 0)
         self.assertEqual(len(work.org_img_meta.columns), 0)
         self.assertEqual(work._per_image_indices, default_img_indices)
+
+    def test_filter_images_no_reproject(self):
+        """Test that we can filter some images from a non-reprojected WorkUnit."""
+        work = WorkUnit(
+            im_stack=self.im_stack_py,
+            config=self.config,
+            org_image_meta=self.org_image_meta,
+        )
+        self.assertEqual(len(work), self.num_images)
+        self.assertEqual(len(work.org_img_meta), self.num_images)
+        self.assertEqual(work.n_constituents, self.num_images)
+
+        # Filter out images 2 and 3.
+        work.filter_images([True, True, False, False, True])
+        self.assertEqual(len(work), 3)
+        self.assertEqual(len(work.org_img_meta), 3)
+        self.assertEqual(work.n_constituents, 3)
+        for new_i, old_i in enumerate([0, 1, 4]):
+            self.assertAlmostEqual(work.im_stack.times[new_i], self.times[old_i])
+            self.assertEqual(
+                work.org_img_meta["data_loc"][new_i],
+                self.constituent_images[old_i],
+            )
+
+            # The per image indices should map to themselves.
+            self.assertTrue(np.array_equal(work._per_image_indices[new_i], [new_i]))
+
+    def test_filter_images_reprojected(self):
+        """Test that we can filter some images from a reprojected WorkUnit."""
+        meta_data = vstack([self.org_image_meta, self.org_image_meta])
+        work = WorkUnit(
+            im_stack=self.im_stack_py,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
+            barycentric_distance=41.0,
+            reprojected=True,
+            reprojection_frame="ebd",
+            per_image_indices=[[0, 5], [1, 6], [2, 7], [3, 8], [4, 9]],
+            org_image_meta=meta_data,
+        )
+        self.assertEqual(len(work), self.num_images)
+        self.assertEqual(len(work.org_img_meta), 2 * self.num_images)
+        self.assertEqual(work.n_constituents, 2 * self.num_images)
+
+        # Filter out the reprojected images 2 and 3.
+        work.filter_images([True, True, False, False, True])
+        self.assertEqual(len(work), 3)
+        self.assertEqual(len(work.org_img_meta), 2 * self.num_images)
+        self.assertEqual(work.n_constituents, 2 * self.num_images)
+        for new_i, old_i in enumerate([0, 1, 4]):
+            self.assertAlmostEqual(work.im_stack.times[new_i], self.times[old_i])
+
+            # We still map back to the original image indices.
+            self.assertTrue(np.array_equal(work._per_image_indices[new_i], [old_i, old_i + 5]))
+
+        # We do not change the original metadata table.
+        for old_i in range(2 * self.num_images):
+            self.assertEqual(
+                work.org_img_meta["data_loc"][old_i],
+                self.constituent_images[old_i % self.num_images],
+            )
 
     def test_disorder_obstimes(self):
         # Check that we can disorder the obstimes.

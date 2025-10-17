@@ -355,6 +355,39 @@ class WorkUnit:
         unique_indices = [list(np.where(all_obstimes == time)[0]) for time in unique_obstimes]
         return unique_obstimes, unique_indices
 
+    def filter_images(self, mask):
+        """Filter the images in the WorkUnit by a Boolean mask, keeping
+        only the images where the mask is True.  If the images have been
+        reprojected all constituent metadata will be kept.
+
+        Parameters
+        ----------
+        mask : `list` or `numpy.ndarray`
+            A Boolean array of length equal to the number of images in the
+            WorkUnit. True values indicate that the image should be kept.
+        """
+        if len(mask) != self.im_stack.num_times:
+            raise ValueError(
+                f"Mask length {len(mask)} does not match number of images {self.im_stack.num_times}."
+            )
+        if np.all(mask):
+            return  # Nothing to do.
+
+        # Filter the image stack.
+        self.im_stack.filter_images(mask)
+        if self.file_paths is not None:
+            self.file_paths = [val for idx, val in enumerate(self.file_paths) if mask[idx]]
+        if self._obstimes is not None:
+            self._obstimes = [val for idx, val in enumerate(self._obstimes) if mask[idx]]
+
+        # If the stack has not been reprojected, we are filtering the original images.
+        if not self.reprojected:
+            self.org_img_meta = self.org_img_meta[mask]
+            self.n_constituents = len(self.org_img_meta)
+            self._per_image_indices = [[i] for i in range(self.n_constituents)]
+        else:
+            self._per_image_indices = [val for idx, val in enumerate(self._per_image_indices) if mask[idx]]
+
     def disorder_obstimes(self):
         """Reorders the timestamps in the WorkUnit to be random. Random offsets
         are chosen for each unique obstime and added to the original obstime.
