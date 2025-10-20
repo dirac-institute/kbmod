@@ -95,6 +95,10 @@ Configuration Parameters
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
 +------------------------+-----------------------------+----------------------------------------+
+| ``max_masked_pixels``  | 1.0                         | The maximum fraction of masked pixels  |
+|                        |                             | allowed in an image for it to be       |
+|                        |                             | included in the search.                |
++------------------------+-----------------------------+----------------------------------------+
 | ``max_results``        | 100000                      | The maximum number of results to save  |
 |                        |                             | after all filtering.  The highest      |
 |                        |                             | likelihood results are saved. Use -1   |

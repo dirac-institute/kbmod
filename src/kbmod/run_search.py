@@ -375,6 +375,16 @@ class SearchRunner:
             logger.debug("Config:")
             logger.debug(str(config))
 
+        # Filter invalid images if needed. We do this at the WorkUnit level if one is provided
+        # so that the metadata is correctly handled. Otherwise we just filter the image stack.
+        if config["max_masked_pixels"] < 1.0:
+            keep_mask = stack.get_masked_fractions() <= config["max_masked_pixels"]
+            if workunit is not None:
+                workunit.filter_images(keep_mask)
+                stack = workunit.im_stack
+            else:
+                stack.filter_images(keep_mask)
+
         # Determine how many images have at least 10% valid pixels.  Make sure
         # num_obs is no larger than 80% of the valid images.
         img_count = np.count_nonzero(stack.get_masked_fractions() < 0.9)
@@ -473,14 +483,18 @@ class SearchRunner:
                 append_positions_to_results(workunit, keep)
             self._end_phase("append_positions_to_results")
 
-        # Create and save any additional meta data that should be saved with the results.
         num_img = stack.num_times
 
+        # Create and save any additional meta data that should be saved with the results,
+        # including special fields to retrieve from the WorkUnit (if provided).
         self._start_phase("write results")
         if extra_meta is not None:
             meta_to_save = extra_meta.copy()
         else:
             meta_to_save = {}
+        if workunit is not None:
+            wu_meta = workunit.get_constituent_meta(["visit", "filter", "data_loc", "dataId"])
+            meta_to_save.update(wu_meta)
         meta_to_save["num_img"] = num_img
         meta_to_save["dims"] = stack.width, stack.height
         keep.set_mjd_utc_mid(np.array(stack.times))
@@ -529,27 +543,11 @@ class SearchRunner:
             The results.
         """
         trj_generator = create_trajectory_generator(work.config, work_unit=work)
-
-        # Extract extra metadata. We do not use the full org_image_meta table from the WorkUnit
-        # because this can be very large and varies with the source. Instead we only save a
-        # few pre-defined fields to the results data.  If these columns are not present in the
-        # WorkUnit, they are skipped in the meta data.
-        extra_meta = work.get_constituent_meta(
-            [
-                "visit",  # The visit number of the original images.
-                "filter",  # The filter used for the original images.
-                "data_loc",  # The location of the original image data.
-                "dataId",  # The Butler data set ID for the original images.
-            ]
-        )
-
-        # Run the search.
         return self.run_search(
             work.config,
             work.im_stack,
             trj_generator=trj_generator,
             workunit=work,
-            extra_meta=extra_meta,
         )
 
 

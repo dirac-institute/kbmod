@@ -46,6 +46,7 @@ class SearchConfiguration:
             "generate_psi_phi": True,
             "gpu_filter": False,
             "lh_level": 10.0,
+            "max_masked_pixels": 0.5,
             "max_results": 100_000,
             "near_dup_thresh": 10,
             "nightly_coadds": False,
