@@ -5,6 +5,7 @@ from astropy.table import Table
 from astropy.time import Time
 
 import logging
+import tempfile
 import unittest
 
 import numpy as np
@@ -453,6 +454,54 @@ class test_run_search(unittest.TestCase):
         config.set("max_results", -1)
         keep3 = runner.run_search(config, fake_ds.stack_py, trj_generator=trj_gen)
         self.assertGreater(len(keep3), 100)
+
+    def test_search_runner_filtering_masked(self):
+        """Test that the SearchRunner correctly filters images based on max_masked_pixels."""
+        num_times = 10
+        width = 15
+        height = 10
+
+        # Mask out everything except one row at times 1, 3, and 4.
+        fake_times = create_fake_times(num_times, t0=60676.0)
+        fake_ds = FakeDataSet(width, height, fake_times)
+        for time_idx in [1, 3, 4]:
+            sci = fake_ds.stack_py.sci[time_idx]
+            var = fake_ds.stack_py.var[time_idx]
+            sci[:, 1:width] = np.nan
+            var[:, 1:width] = np.nan
+
+        work = fake_ds.get_work_unit()
+        work.org_img_meta["filter"] = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
+        work.config.set("max_masked_pixels", 0.5)
+        work.config.set("cnn_filter", False)
+        work.config.set("cpu_only", True)
+        work.config.set("do_clustering", False)
+        work.config.set("generator_config", {"name": "SingleVelocitySearch", "vx": 0.0, "vy": 0.0})
+        work.config.set("lh_level", 0.0)
+        work.config.set("num_obs", 5)
+        work.config.set("pred_line_cluster", False)
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            res_file = f"{dir_name}/results.ecsv"
+            work.config.set("result_filename", res_file)
+
+            runner = SearchRunner()
+            results = runner.run_search_from_work_unit(work)
+            self.assertGreater(len(results), 0)
+
+            # We should have time steps 1, 3, and 4 filtered out.
+            self.assertTrue(
+                np.array_equal(
+                    results.mjd_mid,
+                    [fake_times[i] for i in range(num_times) if i not in [1, 3, 4]],
+                )
+            )
+
+            # Check that we correctly saved the meta data.
+            table = Table.read(res_file)
+            self.assertEqual(table.meta["num_img"], 7)
+            self.assertEqual(len(table.meta["data_loc"]), 7)
+            self.assertEqual(table.meta["filter"], ["a", "c", "f", "g", "h", "i", "j"])
 
 
 if __name__ == "__main__":
