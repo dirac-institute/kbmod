@@ -36,6 +36,7 @@ from kbmod.standardizers import ButlerStandardizerConfig
 
 logger = kbmod.Logging.getLogger(__name__)
 
+# Default Rubin mask flags to use if none are provided
 RUBIN_MASK_FLAGS = [
     "BAD",
     "CLIPPED",
@@ -182,6 +183,7 @@ def execute(args):
         print(f"Total exposures across all collections: {all_count}")
         return 0
 
+    # Update a default ButlerStandardizer config based on command-line arguments
     std_config = ButlerStandardizerConfig()
     std_config["grow_mask"] = args.grow_mask
     if args.grow_kernel_shape is not None:
