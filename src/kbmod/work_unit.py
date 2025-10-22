@@ -416,15 +416,13 @@ class WorkUnit:
                 )
             if const_filters[0] not in color_scale:
                 raise ValueError(f"Color scale missing entry for filter {const_filters[0]}.")
-            
+
             scaling_factors[i] = color_scale[const_filters[0]]
         self.im_stack.scale_images(scaling_factors, is_magnitude=True)
 
         # Save the scaling factors to the metadata. These need to be per-constituent image
         # (instead of per-current image).
-        self.org_img_meta["color_scale"] = np.array(
-            [color_scale[filter_name] for filter_name in filters]
-        )
+        self.org_img_meta["color_scale"] = np.array([color_scale[filt] for filt in filters])
 
     def disorder_obstimes(self):
         """Reorders the timestamps in the WorkUnit to be random. Random offsets
