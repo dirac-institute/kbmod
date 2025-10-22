@@ -409,7 +409,7 @@ class WorkUnit:
         for i in range(num_img):
             const_indices = np.asarray(self._per_image_indices[i])
             const_filters = filters[const_indices]
-            if np.unique(const_filters) > 1:
+            if len(np.unique(const_filters)) != 1:
                 raise ValueError(
                     "More than one filter found for a single image in the WorkUnit. "
                     f"Image {i} has filters {const_filters}."
@@ -419,6 +419,12 @@ class WorkUnit:
             
             scaling_factors[i] = color_scale[const_filters[0]]
         self.im_stack.scale_images(scaling_factors, is_magnitude=True)
+
+        # Save the scaling factors to the metadata. These need to be per-constituent image
+        # (instead of per-current image).
+        self.org_img_meta["color_scale"] = np.array(
+            [color_scale[filter_name] for filter_name in filters]
+        )
 
     def disorder_obstimes(self):
         """Reorders the timestamps in the WorkUnit to be random. Random offsets
