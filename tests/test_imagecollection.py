@@ -113,8 +113,11 @@ class TestImageCollection(unittest.TestCase):
 
         # Test that the ImageCollection is still created when fail_on_error is
         # False, skipping the one failed target with missing metadata.
+        logging.disable(logging.WARNING)
         ic = ImageCollection.fromTargets(fits, fail_on_error=False)
         self.assertEqual(len(ic), n_targets - 1)
+        self.assertEqual(ic.meta["n_stds"], n_targets - 1)
+        self.assertEqual(len(ic._standardizers), n_targets - 1)
 
     def test_write_read_unreachable(self):
         """Test ImageCollection can write itself to disk, and read the written
