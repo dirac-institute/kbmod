@@ -128,7 +128,11 @@ def ingest_collection(
 
     logger.debug(f"Creating ImageCollection for collection {collection_name}")
     ic = kbmod.ImageCollection.fromTargets(
-        refs, butler=butler, force="ButlerStandardizer", fail_on_error=fail_on_error
+        refs,
+        butler=butler,
+        force="ButlerStandardizer",
+        config=butler_standardizer_config,
+        fail_on_error=fail_on_error,
     )
     logger.debug(f"Created ImageCollection for collection {collection_name} with {len(ic)} images")
     ic["collection"] = collection_name
@@ -178,13 +182,15 @@ def execute(args):
         print(f"Total exposures across all collections: {all_count}")
         return 0
 
-    std_config = ButlerStandardizerConfig(
-        grow_mask=args.grow_mask,
-        grow_kernel_shape=tuple(args.grow_kernel_shape),
-        mask_flags=args.mask_flags if args.mask_flags else RUBIN_MASK_FLAGS,
-        wcs_fallback_points=1000,
-        wcs_fallback_sips_degree=4,
-    )
+    std_config = ButlerStandardizerConfig()
+    std_config["grow_mask"] = args.grow_mask
+    if args.grow_kernel_shape is not None:
+        std_config["grow_kernel_shape"] = tuple(args.grow_kernel_shape)
+    std_config["mask_flags"] = args.mask_flags if args.mask_flags else RUBIN_MASK_FLAGS
+    if args.wcs_fallback_points is not None:
+        std_config["wcs_fallback_points"] = args.wcs_fallback_points
+    if args.wcs_fallback_sips_degree is not None:
+        std_config["wcs_fallback_sips_degree"] = args.wcs_fallback_sips_degree
 
     # Ingest each collection
     for collection_name in collections:
@@ -262,7 +268,7 @@ def main():
         "--grow_kernel_shape",
         type=int,
         nargs=2,
-        default=(5, 5),
+        default=None,
         metavar=("ROWS", "COLS"),
         help="Size of the kernel used for growing the mask, as two integers (rows, cols). Example: --grow_kernel_shape 5 5",
     )
@@ -274,13 +280,13 @@ def main():
     parser.add_argument(
         "--wcs_fallback_points",
         type=int,
-        default=1000,
+        default=None,
         help="Number of random points to sample across the detector when an astropy WCS cannot be constructed from the Rubin SkyWCS metadata.",
     )
     parser.add_argument(
         "--wcs_fallback_sips_degree",
         type=int,
-        default=4,
+        default=None,
         help="Degree of the SIP distortion to fit when creating a fallback WCS when an astropy WCS cannot be constructed from the Rubin SkyWCS metadata.",
     )
     parser.add_argument(

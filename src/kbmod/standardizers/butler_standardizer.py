@@ -262,6 +262,10 @@ class ButlerStandardizer(Standardizer):
         wcs : `astropy.wcs.WCS`
             Fitted WCS object.
         """
+        if n_rand_pts <= 0:
+            raise ValueError("Number of random points must be positive.")
+        if sip_degree is not None and sip_degree <= 0:
+            raise ValueError("SIP degree must be non-negative or None.")
         if not sample_outside_chip:
             # Sample random X, Y points across this detector
             rand_xy = np.random.rand(n_rand_pts, 2) * [naxis1, naxis2]
