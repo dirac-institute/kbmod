@@ -301,6 +301,46 @@ class ImageStackPy:
             raise IndexError(f"Index {index} out of range for image stack.")
         return np.isnan(self.sci[index]) | np.isnan(self.var[index])
 
+    def scale_images(self, scale_factor, is_magnitude=True):
+        """Scale the science and variance images by the given (magnitude) correction factor.
+
+        If is_magnitude is True, the scale factor is interpreted as a magnitude
+        correction and converted to a flux scale factor via:
+
+        flux_scale_factor = 10 ** (scale_factor / 2.5)
+
+        The science images are divided by the flux scale factor and the variance
+        images are divided by the square of the flux scale factor.
+
+        Parameters
+        ----------
+        scale_factor : `float` or `np.ndarray`
+            The scale factor to apply.
+        is_magnitude : `bool`
+            Whether the scale factor is a magnitude correction. Default: True
+        """
+        if np.isscalar(scale_factor):
+            scale_factor = np.full(self.num_times, scale_factor)
+        else:
+            scale_factor = np.asanyarray(scale_factor)
+            if scale_factor.shape != (self.num_times,):
+                raise ValueError(
+                    f"Scale factor array must have shape ({self.num_times},). "
+                    f"Received shape {scale_factor.shape}."
+                )
+
+        # Convert from magnitude scale factor to flux scale factor if needed.
+        if is_magnitude:
+            flux_scale_factor = 10 ** (scale_factor / 2.5)
+        else:
+            flux_scale_factor = scale_factor
+
+        # Apply each factor to each time step.
+        for idx in range(self.num_times):
+            mask = np.isnan(self.sci[idx]) | np.isnan(self.var[idx])
+            self.sci[idx][~mask] /= flux_scale_factor[idx]
+            self.var[idx][~mask] /= flux_scale_factor[idx] * flux_scale_factor[idx]
+
     def append_image(self, time, sci, var, mask=None, psf=None):
         """Append an image onto the back of the stack.
 
