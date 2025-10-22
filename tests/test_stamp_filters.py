@@ -291,6 +291,29 @@ class test_stamp_filters(unittest.TestCase):
                 coadd_radius=1,
             )
 
+    def test_filter_stamps_by_cnn_single(self):
+        """Test CNN filtering a single trajectory."""
+        import torch
+
+        torch.manual_seed(747474747)
+
+        trj_list = [self.trj]
+        keep = Results.from_trajectories(trj_list)
+        append_coadds(keep, self.ds.stack_py, ["mean"], 5)
+        assert len(keep) == 1
+
+        filter_stamps_by_cnn(
+            keep,
+            None,
+            coadd_type="mean",
+            stamp_radius=3,
+            coadd_radius=5,
+        )
+
+        # the test model was trained on totally random data
+        filtered_results = keep.filter_rows(keep.table["cnn_class"])
+        assert len(filtered_results) == 1
+
 
 if __name__ == "__main__":
     unittest.main()

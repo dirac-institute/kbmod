@@ -368,6 +368,34 @@ class TestImageCollection(unittest.TestCase):
         ic.filter_by_time_range(start_mjd=min_time, end_mjd=max_time)
         self.assertEqual(len(ic), init_len - 4)
 
+    def test_modifying_columns(self):
+        """Test adding and removing columns."""
+        # Create a mock ImageCollection
+        init_len = 10
+        fits = self.fitsFactory.get_n(init_len, spoof_data=True)
+        ic = ImageCollection.fromTargets(fits)
+        ic["testcol"] = [
+            1,
+        ] * len(ic)
+        self.assertTrue("testcol" in ic._userColumns)
+        self.assertTrue("testcol" in ic.data.columns)
+
+        ic.remove_column("testcol")
+        self.assertFalse("testcol" in ic._userColumns)
+        self.assertFalse("testcol" in ic.data.columns)
+
+        ic["testcol"] = [
+            1,
+        ] * len(ic)
+        with self.assertWarns(Warning):
+            ic.remove_columns(["testcol", "config"])
+        self.assertFalse("testcol" in ic._userColumns)
+        self.assertFalse("testcol" in ic.data.columns)
+        self.assertTrue("config" in ic.data.columns)
+
+        with self.assertRaises(KeyError):
+            ic.remove_column("testcol")
+
 
 if __name__ == "__main__":
     unittest.main()

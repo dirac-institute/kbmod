@@ -74,12 +74,21 @@ def correct_parallax(
     ICRS, and the best fit geocentric distance (float).
 
     """
-    if use_minimizer or barycentric_distance < 1.02:
-        return correct_parallax_with_minimizer(
+    new_coord = None
+    geo_dist = -1.0
+
+    # Try the geometric solution first for objects beyond 1au and fall back to the minimizer if it fails
+    # (or we can't use the geometric solution because the object is too close).
+    if not use_minimizer and barycentric_distance > 1.02:
+        new_coord, geo_dist = correct_parallax_geometrically(
+            coord, obstime, point_on_earth, barycentric_distance
+        )
+    if new_coord is None or geo_dist < 0.0:
+        new_coord, geo_dist = correct_parallax_with_minimizer(
             coord, obstime, point_on_earth, barycentric_distance, geocentric_distance, method, use_bounds
         )
-    else:
-        return correct_parallax_geometrically(coord, obstime, point_on_earth, barycentric_distance)
+
+    return new_coord, geo_dist
 
 
 def correct_parallax_with_minimizer(

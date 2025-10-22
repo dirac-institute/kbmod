@@ -157,7 +157,7 @@ def get_magnitude(flux, zero_point):
     return mag
 
 
-def unravel_results(results, image_collection, obscode="X05", batch_id=None):
+def unravel_results(results, image_collection, obscode="X05", batch_id=None, first_and_last=False):
     """Take a results file and transform it into a table of individual observations.
 
     Parameters
@@ -173,6 +173,9 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None):
         The batch ID to use for this result set.
         individual observation ids will be in the format of
         "{batch_id}-{result #}-{observation #}".
+    first_and_last : `bool`, optional
+        If True, only include the first and last observations for each result.
+        Default: False
 
     Returns
     -------
@@ -195,6 +198,7 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None):
     mjds = []
     bands = []
     obscodes = []
+    uuids = []
 
     all_times = results.table.meta["mjd_mid"]
     all_bands = image_collection["band"]
@@ -207,7 +211,14 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None):
             valid_obs = row["obs_valid"]
         else:
             valid_obs = np.full(row["obs_count"], True)
-        num_valid = row["obs_count"]
+
+        if first_and_last:
+            valid_inds = np.where(valid_obs == True)
+            valid_obs = np.full(len(valid_obs), False)
+            valid_obs[valid_inds[0][0]] = True
+            valid_obs[valid_inds[0][-1]] = True
+
+        num_valid = len(valid_obs[valid_obs == True])
 
         # need to figure out a better way to do this
         if batch_id is not None:
@@ -222,6 +233,8 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None):
         mjds.append(all_times[valid_obs])
         bands.append(all_bands[first_of_each_frame][valid_obs])
         obscodes.append([obscode] * num_valid)
+        if "uuid" in results.table.colnames:
+            uuids.append([row["uuid"]] * num_valid)
 
     final_df = pd.DataFrame()
     final_df["id"] = np.concatenate(ids)
@@ -231,5 +244,87 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None):
     final_df["mjd"] = np.concatenate(mjds)
     final_df["band"] = np.concatenate(bands)
     final_df["obscode"] = np.concatenate(obscodes)
+    if len(uuids) > 0:
+        final_df["uuid"] = np.concatenate(uuids)
 
     return final_df
+
+
+def make_manual_tracklets(df):
+    """Take the results from `unravel_results` and group them into tracklets.
+
+    Returns
+    -------
+    tracklet_df : `pandas.DataFrame`
+        A DataFrame containing the tracklets
+    """
+    if "uuid" not in df.columns:
+        raise ValueError("DataFrame must contain a 'uuid' column")
+
+    unique_obstimes = np.unique(df["mjd"])
+    unique_obstimes = np.sort(unique_obstimes)
+
+    # pandas unique is faster than numpy unique
+    # and preserves order
+    uuids = df["uuid"].unique()
+
+    mjd1 = []
+    ra1 = []
+    dec1 = []
+    mjd2 = []
+    ra2 = []
+    dec2 = []
+    trk_ids = []
+
+    trk_to_det = []
+    inds = []
+
+    trk_id = 0
+
+    # for looping over each result's unraveled observations
+    for u in uuids:
+        sub_df = df[df["uuid"] == u].copy()
+        sub_df = sub_df.sort_values(by="mjd")
+
+        indicies = sub_df.index.tolist()
+
+        sub_df.reset_index(drop=True)
+
+        # for looping over each pair of observations
+        # adjacent in time
+        for i in range(len(sub_df) - 1):
+            curr_row = sub_df.iloc[i]
+            next_row = sub_df.iloc[i + 1]
+
+            mjd1.append(curr_row["mjd"])
+            ra1.append(curr_row["ra"])
+            dec1.append(curr_row["dec"])
+            mjd2.append(next_row["mjd"])
+            ra2.append(next_row["ra"])
+            dec2.append(next_row["dec"])
+            trk_ids.append(trk_id)
+
+            # for mapping indices in the tracklet file
+            # back to the original detection file
+            trk_to_det.append(trk_id)
+            inds.append(indicies[i])
+            trk_to_det.append(trk_id)
+            inds.append(indicies[i + 1])
+
+            trk_id += 1
+
+    trackletfile = pd.DataFrame()
+    trackletfile["#Image1"] = mjd1
+    trackletfile["RA1"] = ra1
+    trackletfile["Dec1"] = dec1
+    trackletfile["Image2"] = mjd2
+    trackletfile["RA2"] = ra2
+    trackletfile["Dec2"] = dec2
+    trackletfile["npts"] = 2
+    trackletfile["trk_ID"] = trk_ids
+
+    trk2detfile = pd.DataFrame()
+    trk2detfile["#trk_ID"] = trk_to_det
+    trk2detfile["detnum"] = inds
+
+    return trackletfile, trk2detfile

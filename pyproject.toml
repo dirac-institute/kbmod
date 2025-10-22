@@ -55,9 +55,11 @@ dependencies = [
 [project.scripts]
 kbmod-create-test-data = "kbmod_cmdline.kbmod_create_test_data:main"
 kbmod-filter = "kbmod_cmdline.kbmod_filter:main"
+kbmod-merge-results = "kbmod_cmdline.kbmod_merge_results:main"
 kbmod-rater = "kbmod_cmdline.kbmod_results_rater:main"
 kbmod-stamps = "kbmod_cmdline.kbmod_stamps:main"
 kbmod-stats = "kbmod_cmdline.kbmod_stats:main"
+kbmod-strip-results = "kbmod_cmdline.kbmod_strip_results:main"
 kbmod-version = "kbmod_cmdline.kbmod_version:main"
 
 [project.urls]
