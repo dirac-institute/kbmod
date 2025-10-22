@@ -8,6 +8,7 @@ import uuid
 
 from astropy.coordinates import SkyCoord
 import astropy.nddata as bitmask
+import astropy.time
 from astropy.wcs import WCS
 from astropy.wcs.utils import fit_wcs_from_points
 import astropy.units as u
@@ -356,6 +357,25 @@ class ButlerStandardizer(Standardizer):
 
         return pts
 
+    @staticmethod
+    def _mjd_to_obs_day(mjd_mid):
+        """Convert MJD to observing day in YYYYMMDD format.
+
+        Parameters
+        ----------
+        mjd_mid : `float`
+            Modified Julian Date at the middle of the exposure.
+
+        Returns
+        -------
+        obs_day : `int`
+            Observing day in YYYYMMDD format.
+        """
+        observing_date = astropy.time.Time(mjd_mid, format="mjd", scale="tai")
+        offset = astropy.time.TimeDelta(12 * 3600, format="sec", scale="tai")
+        observing_date -= offset
+        return int(observing_date.strftime("%Y%m%d"))
+
     def _fetch_meta(self):
         """Fetch metadata and any dataset components that do not
         load the image or large amount of data.
@@ -395,6 +415,7 @@ class ButlerStandardizer(Standardizer):
         # Name mjd into mjd_mid - make it obvious it's middle of exposure.
         self._metadata["mjd_start"] = mjd_start.utc.mjd
         self._metadata["mjd_mid"] = half_way.utc.mjd
+        self._metadata["obs_day"] = ButlerStandardizer._mjd_to_obs_day(half_way.utc.mjd)
 
         self._metadata["object"] = visit.object
         self._metadata["pointing_ra"] = visit.boresightRaDec.getRa().asDegrees()
