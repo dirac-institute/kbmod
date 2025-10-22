@@ -96,6 +96,18 @@ class TestImageCollection(unittest.TestCase):
         self.assertEqual(list(ic.columns.keys()), expected_cols)
         self.assertEqual(list(row.keys()), expected_cols)
 
+    def test_missing_metadata(self):
+        """Test ImageCollection raises error when required metadata is missing."""
+        fits = self.fitsFactory.get_n(1)
+        hdr = fits[0].header
+        # Remove a required keyword
+        del hdr["MJD-MID"]
+
+        with self.assertRaises(ValueError):
+            ImageCollection.fromTargets(fits, fail_on_error=True)
+
+        ImageCollection.fromTargets(fits, fail_on_error=False)
+
     def test_write_read_unreachable(self):
         """Test ImageCollection can write itself to disk, and read the written
         table without raising errors when original data is unreachable.

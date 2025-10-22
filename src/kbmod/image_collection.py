@@ -193,7 +193,7 @@ class ImageCollection:
             self.validate()
 
     @classmethod
-    def fromStandardizers(cls, standardizers, meta=None):
+    def fromStandardizers(cls, standardizers, meta=None, fail_on_error=False):
         """Create ImageCollection from a collection `Standardizers`.
 
         The `Standardizer` is "unravelled", i.e. the shared metadata is
@@ -218,7 +218,14 @@ class ImageCollection:
         unravelledStdMetadata = []
         for i, std in enumerate(standardizers):
             # needs a "validate standardized" method here or in standardizers
-            stdMeta = std.standardizeMetadata()
+            try:
+                stdMeta = std.standardizeMetadata()
+            except Exception as e:
+                if fail_on_error:
+                    raise e
+                # Log the exception and continue with the next standardizer
+                logger.warning(f"Failed to standardize metadata for {std.name}: {e}")
+                continue
 
             # unravel all standardized keys whose values are iterables unless
             # they are a string. "Unraveling" means that each processable item
@@ -259,7 +266,7 @@ class ImageCollection:
 
         # We could even track things like `whoami`, `uname`, `time` etc.
         meta = meta if meta is not None else {}
-        meta["n_stds"] = len(standardizers)
+        meta["n_stds"] = len(unravelledStdMetadata)
         metadata = Table(rows=unravelledStdMetadata, meta=meta)
         return cls(metadata=metadata, standardizers=standardizers)
 
