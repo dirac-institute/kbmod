@@ -271,7 +271,7 @@ class ImageCollection:
         return cls(metadata=metadata, standardizers=standardizers)
 
     @classmethod
-    def fromTargets(cls, tgts, force=None, config=None, **kwargs):
+    def fromTargets(cls, tgts, force=None, config=None, fail_on_error=False, **kwargs):
         """Instantiate a ImageCollection class from a collection of targets
         recognized by at least one of the standardizers.
 
@@ -304,7 +304,7 @@ class ImageCollection:
             given target.
         """
         standardizers = [Standardizer.get(tgt, force=force, config=config, **kwargs) for tgt in tgts]
-        return cls.fromStandardizers(standardizers)
+        return cls.fromStandardizers(standardizers, fail_on_error=fail_on_error)
 
     @classmethod
     def fromDir(cls, dirpath, recursive=False, force=None, config=None, **kwargs):

@@ -98,15 +98,23 @@ class TestImageCollection(unittest.TestCase):
 
     def test_missing_metadata(self):
         """Test ImageCollection raises error when required metadata is missing."""
-        fits = self.fitsFactory.get_n(1)
-        hdr = fits[0].header
-        # Remove a required keyword
-        del hdr["MJD-MID"]
+        # Generate a set of 5 test targets to standardize
+        n_targets = 5
+        fits = self.fitsFactory.get_n(n_targets)
 
-        with self.assertRaises(ValueError):
+        # Remove a required metadata keyword from one of the targets.
+        missing_header = "DATE-AVG"
+        del fits[1]["PRIMARY"].header[missing_header]
+
+        # Test that an exception is raised when fail_on_error is True, and that
+        # the exception includes the missing header keyword.
+        with self.assertRaisesRegex(Exception, missing_header):
             ImageCollection.fromTargets(fits, fail_on_error=True)
 
-        ImageCollection.fromTargets(fits, fail_on_error=False)
+        # Test that the ImageCollection is still created when fail_on_error is
+        # False, skipping the one failed target with missing metadata.
+        ic = ImageCollection.fromTargets(fits, fail_on_error=False)
+        self.assertEqual(len(ic), n_targets - 1)
 
     def test_write_read_unreachable(self):
         """Test ImageCollection can write itself to disk, and read the written
