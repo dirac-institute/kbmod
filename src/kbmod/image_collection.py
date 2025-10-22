@@ -216,6 +216,8 @@ class ImageCollection:
         logger.info(f"Creating ImageCollection from {len(standardizers)} standardizers.")
 
         unravelledStdMetadata = []
+        # Standardizers that were successfully processed
+        valid_standardizers = []
         for i, std in enumerate(standardizers):
             # needs a "validate standardized" method here or in standardizers
             try:
@@ -263,12 +265,14 @@ class ImageCollection:
                 header_dict = {k: v for k, v in header.items()}
                 row["wcs"] = json.dumps(header_dict, separators=(",", ":"))
                 unravelledStdMetadata.append(row)
+            valid_standardizers.append(std)
 
         # We could even track things like `whoami`, `uname`, `time` etc.
         meta = meta if meta is not None else {}
-        meta["n_stds"] = len(unravelledStdMetadata)
+        # Note that we should only use the standardizers that were successfully processed.
+        meta["n_stds"] = len(valid_standardizers)
         metadata = Table(rows=unravelledStdMetadata, meta=meta)
-        return cls(metadata=metadata, standardizers=standardizers)
+        return cls(metadata=metadata, standardizers=valid_standardizers)
 
     @classmethod
     def fromTargets(cls, tgts, force=None, config=None, fail_on_error=False, **kwargs):
