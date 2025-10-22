@@ -74,6 +74,7 @@ class SearchConfiguration:
             "peak_offset_max": None,
             "pred_line_cluster": False,
             "pred_line_params": [4.0, 2, 60],
+            "color_scale": None,
         }
 
         if data is not None:

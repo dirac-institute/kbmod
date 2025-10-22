@@ -33,6 +33,10 @@ Configuration Parameters
 +------------------------+-----------------------------+----------------------------------------+
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
 +------------------------+-----------------------------+----------------------------------------+
+| ``color_scale``        | None                        | If provided this should be a dict      |
+|                        |                             | mapping filter names to a magnitude    |
+|                        |                             | color scaling factor.                  |
++------------------------+-----------------------------+----------------------------------------+
 | ``clip_negative``      | False                       | An option used with sigmaG filtering,  |
 |                        |                             | remove all negative values prior to    |
 |                        |                             | computing the percentiles.             |
