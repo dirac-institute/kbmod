@@ -96,6 +96,29 @@ class TestImageCollection(unittest.TestCase):
         self.assertEqual(list(ic.columns.keys()), expected_cols)
         self.assertEqual(list(row.keys()), expected_cols)
 
+    def test_missing_metadata(self):
+        """Test ImageCollection raises error when required metadata is missing."""
+        # Generate a set of 5 test targets to standardize
+        n_targets = 5
+        fits = self.fitsFactory.get_n(n_targets)
+
+        # Remove a required metadata keyword from one of the targets.
+        missing_header = "DATE-AVG"
+        del fits[1]["PRIMARY"].header[missing_header]
+
+        # Test that an exception is raised when fail_on_error is True, and that
+        # the exception includes the missing header keyword.
+        with self.assertRaisesRegex(Exception, missing_header):
+            ImageCollection.fromTargets(fits, fail_on_error=True)
+
+        # Test that the ImageCollection is still created when fail_on_error is
+        # False, skipping the one failed target with missing metadata.
+        logging.disable(logging.WARNING)
+        ic = ImageCollection.fromTargets(fits, fail_on_error=False)
+        self.assertEqual(len(ic), n_targets - 1)
+        self.assertEqual(ic.meta["n_stds"], n_targets - 1)
+        self.assertEqual(len(ic._standardizers), n_targets - 1)
+
     def test_write_read_unreachable(self):
         """Test ImageCollection can write itself to disk, and read the written
         table without raising errors when original data is unreachable.
