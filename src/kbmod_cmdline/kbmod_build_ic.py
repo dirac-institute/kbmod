@@ -32,18 +32,46 @@ except ImportError:
     )
 
 import kbmod
+from kbmod.standardizers import ButlerStandardizerConfig
 
 logger = kbmod.Logging.getLogger(__name__)
+
+RUBIN_MASK_FLAGS = [
+    "BAD",
+    "CLIPPED",
+    "CR",
+    "CROSSTALK",
+    "DETECTED",
+    "DETECTED_NEGATIVE",
+    "EDGE",
+    "INEXACT_PSF",
+    "INJECTED",
+    "INJECTED_TEMPLATE",
+    "INTRP",
+    "ITL_DIP",
+    "NOT_DEBLENDED",
+    "NO_DATA",
+    "REJECTED",
+    "SAT",
+    "SAT_TEMPLATE",
+    "SENSOR_EDGE",
+    "STREAK",
+    "SUSPECT",
+    "UNMASKEDNAN",
+    "VIGNETTED",
+]
 
 
 def ingest_collection(
     butler,
     collection_name,
     datasetType,
+    butler_standardizer_config,
     target=None,
     max_exposures=None,
     output_dir=None,
     overwrite=False,
+    fail_on_error=False,
 ):
     """
     Ingest a single collection from the LSST Butler repository into a KBMOD ImageCollection, which is then saved as a .collection file.
@@ -64,6 +92,8 @@ def ingest_collection(
         Directory to write the ImageCollection file. If None, no file is written.
     overwrite : bool, optional
         If True, overwrite existing ImageCollection files. Default is False.
+    fail_on_error : bool, optional
+        If True, fail the entire ingestion of a collection if any images for the collection failed to standardize. Default is False.
     """
     if output_dir is not None:
         # Generate an output path based on the collection name and replace slashes with underscores
@@ -97,7 +127,9 @@ def ingest_collection(
         return
 
     logger.debug(f"Creating ImageCollection for collection {collection_name}")
-    ic = kbmod.ImageCollection.fromTargets(refs, butler=butler, force="ButlerStandardizer")
+    ic = kbmod.ImageCollection.fromTargets(
+        refs, butler=butler, force="ButlerStandardizer", fail_on_error=fail_on_error
+    )
     logger.debug(f"Created ImageCollection for collection {collection_name} with {len(ic)} images")
     ic["collection"] = collection_name
 
@@ -146,6 +178,14 @@ def execute(args):
         print(f"Total exposures across all collections: {all_count}")
         return 0
 
+    std_config = ButlerStandardizerConfig(
+        grow_mask=args.grow_mask,
+        grow_kernel_shape=tuple(args.grow_kernel_shape),
+        mask_flags=args.mask_flags if args.mask_flags else RUBIN_MASK_FLAGS,
+        wcs_fallback_points=1000,
+        wcs_fallback_sips_degree=4,
+    )
+
     # Ingest each collection
     for collection_name in collections:
         logger.info(f"Ingesting {collection_name}")
@@ -153,10 +193,12 @@ def execute(args):
             butler,
             collection_name,
             args.datasetType,
+            std_config,
             args.target,
             args.max_exposures,
             args.output_dir,
             args.overwrite,
+            args.fail_on_error,
         )
 
 
@@ -211,7 +253,46 @@ def main():
         type=int,
         help="Maximum number of exposures to process per collection",
     )
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose debug logging")
+    parser.add_argument(
+        "--grow_mask",
+        action="store_true",
+        help="Enable growing the mask to include neighboring pixels",
+    )
+    parser.add_argument(
+        "--grow_kernel_shape",
+        type=int,
+        nargs=2,
+        default=(5, 5),
+        metavar=("ROWS", "COLS"),
+        help="Size of the kernel used for growing the mask, as two integers (rows, cols). Example: --grow_kernel_shape 5 5",
+    )
+    parser.add_argument(
+        "--mask_flags",
+        nargs="+",
+        help="List of mask flags to use when standardizing images. If not provided, a default set of Rubin mask flags will be used.",
+    )
+    parser.add_argument(
+        "--wcs_fallback_points",
+        type=int,
+        default=1000,
+        help="Number of random points to sample across the detector when an astropy WCS cannot be constructed from the Rubin SkyWCS metadata.",
+    )
+    parser.add_argument(
+        "--wcs_fallback_sips_degree",
+        type=int,
+        default=4,
+        help="Degree of the SIP distortion to fit when creating a fallback WCS when an astropy WCS cannot be constructed from the Rubin SkyWCS metadata.",
+    )
+    parser.add_argument(
+        "--fail_on_error",
+        action="store_true",
+        help="Fail the entire ingestion of a collection if any images for the collection failed to standardize",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging",
+    )
 
     args = parser.parse_args()
     if args.verbose:

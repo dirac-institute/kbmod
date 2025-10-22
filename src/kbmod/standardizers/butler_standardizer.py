@@ -77,7 +77,7 @@ class ButlerStandardizerConfig(StandardizerConfig):
     do_threshold = False
     """Mask all pixels above the given count threshold."""
 
-    grow_mask = False
+    grow_mask = True
     """Grow mask footprint by ``grow_kernel_shape``"""
 
     brightness_treshold = 10
@@ -87,30 +87,7 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """Size of the symmetric square kernel by which mask footprints will be
     increased by."""
 
-    mask_flags = [
-        "BAD",
-        "CLIPPED",
-        "CR",
-        "CROSSTALK",
-        "DETECTED",
-        "DETECTED_NEGATIVE",
-        "EDGE",
-        "INEXACT_PSF",
-        "INJECTED",
-        "INJECTED_TEMPLATE",
-        "INTRP",
-        "ITL_DIP",
-        "NOT_DEBLENDED",
-        "NO_DATA",
-        "REJECTED",
-        "SAT",
-        "SAT_TEMPLATE",
-        "SENSOR_EDGE",
-        "STREAK",
-        "SUSPECT",
-        "UNMASKEDNAN",
-        "VIGNETTED",
-    ]
+    mask_flags = ["BAD", "CLIPPED", "CR", "CROSSTALK", "EDGE", "NO_DATA", "SAT", "SENSOR_EDGE", "SUSPECT"]
     """List of flags that will be masked."""
 
     psf_std = 1
