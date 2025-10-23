@@ -90,6 +90,18 @@ static const auto DOC_Trajectory_get_y_index = R"doc(
      The predicted row index.
   )doc";
 
+
+static const auto DOC_Trajectory_is_valid = R"doc(
+  Returns whether the trajectory has valid values for its parameters,
+  including finite velocities, likelihood, flux, and non-negative
+  observation count.
+
+  Returns
+  -------
+  `bool`
+     True if all parameters are valid, False otherwise.
+  )doc";
+
 }  // namespace pydocs
 
 #endif /* COMMON_DOCS */
