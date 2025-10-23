@@ -382,7 +382,20 @@ class RegionSearch:
             raise ValueError(f"Patch ID {patch_id} is out of range.")
         return self.patches[patch_id]
 
-    def search_patches_by_ephems(self, ephems, guess_dist=None):
+    def match_ic_to_patches(self, ic, guess_dist, earth_loc):
+        if guess_dist not in self.guess_dists and guess_dist != 0.0:
+            raise ValueError(f"Guess distance {guess_dist} not specified for RegionSearch")
+        ic_as_ephem = Ephems(
+            ic.data,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[guess_dist],
+            earth_loc=earth_loc,
+        )
+        return self.search_patches_by_ephems(ic_as_ephem, guess_dist=guess_dist)
+
+    def search_patches_by_ephems(self, ephems, guess_dist=None, patches_to_search=None):
         """
         Returns all patch indices where the ephemeris entries are found.
 
@@ -396,6 +409,8 @@ class RegionSearch:
             The ephemeris data to search for.
         guess_dist : float, optional
             The guess distance to use for reflex correction. If None or 0.0, the original coordinates are used.
+        patch_to_search : list of int, optional
+            The IDs of the patches to search. If None, all patches are searched.
 
         Returns
         -------
@@ -406,6 +421,10 @@ class RegionSearch:
             raise ValueError(f"Guess distance {guess_dist} not specified for RegionSearch")
         if guess_dist is None:
             guess_dist = 0.0
+
+        patches_to_search = (
+            self.patches if patches_to_search is None else [self.get_patch(id) for id in patches_to_search]
+        )
 
         # Prepare skycoords for the reflex-corrected ephemeris entries to efficiently search against the patch centers
         ephems_ras = ephems.get_ras(guess_dist)
@@ -419,8 +438,8 @@ class RegionSearch:
         # Get the center coordinates of all patches. Note that by convention, we already
         # consider the coordinates of the patches to be in our (optionally) reflex-corrected coordinate space.
         patch_centers = SkyCoord(
-            [patch.ra for patch in self.patches],
-            [patch.dec for patch in self.patches],
+            [patch.ra for patch in patches_to_search],
+            [patch.dec for patch in patches_to_search],
             unit=(u.deg, u.deg),
             frame="icrs",
         )
@@ -435,14 +454,15 @@ class RegionSearch:
 
         # Now we need to check if the ephemeris entry is actually in the boundaries of the patch
         # rather than just its circumscribing circle.
-        res_patch_indices = set([])
+        res_patch_ids = set([])
         for ephem_idx, patch_idx in zip(ephems_idx, patch_idx):
-            if patch_idx not in res_patch_indices:
+            curr_patch = patches_to_search[patch_idx]
+            if curr_patch.id not in res_patch_ids:
                 # Check if the ephemeris entry is in the patch
                 curr_ra, curr_dec = ephems_coords[ephem_idx].ra.deg, ephems_coords[ephem_idx].dec.deg
-                if self.patches[patch_idx].contains(curr_ra, curr_dec):
-                    res_patch_indices.add(patch_idx)
-        return res_patch_indices
+                if curr_patch.contains(curr_ra, curr_dec):
+                    res_patch_ids.add(curr_patch.id)
+        return res_patch_ids
 
     def export_image_collection(self, ic_to_export=None, guess_dist=None, patch=None):
         """

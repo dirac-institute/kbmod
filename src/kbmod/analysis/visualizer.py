@@ -27,6 +27,7 @@ class Visualizer:
             self.obstimes = im_stack.times
         self.results = results
         self.trajectories = results.make_trajectory_list()
+        self.im_stack = im_stack
 
     def generate_all_stamps(self, radius=10):
         """Creates a stamp cutout for each image for each
