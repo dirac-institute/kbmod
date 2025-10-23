@@ -107,7 +107,7 @@ class TrajectoryGenerator(abc.ABC):
 
     @abc.abstractmethod
     def generate(self, *args, **kwargs):
-        """Produces a single candidate trajectory to test.
+        """Internal function to produce a single candidate trajectory to test.
 
         Returns
         -------
@@ -148,6 +148,10 @@ class SingleVelocitySearch(TrajectoryGenerator):
             The velocity in y pixels (pixels per day).
         """
         super().__init__(**kwargs)
+        if not np.isfinite(vx):
+            raise ValueError(f"Invalid vx value for SingleVelocitySearch = {vx}")
+        if not np.isfinite(vy):
+            raise ValueError(f"Invalid vy value for SingleVelocitySearch = {vy}")
         self.vx = vx
         self.vy = vy
 
@@ -196,8 +200,11 @@ class VelocityGridSearch(TrajectoryGenerator):
 
         if vx_steps < 2 or vy_steps < 2:
             raise ValueError("VelocityGridSearch requires at least 2 steps in each dimension")
-        if max_vx < min_vx or max_vy < min_vy:
-            raise ValueError("Invalid VelocityGridSearch bounds.")
+        if max_vx < min_vx or max_vy < min_vy or np.any(~np.isfinite([min_vx, max_vx, min_vy, max_vy])):
+            raise ValueError(
+                f"Invalid VelocityGridSearch bounds. Got: min_vx={min_vx}, max_vx={max_vx}, "
+                f"min_vy={min_vy}, max_vy={max_vy}"
+            )
 
         self.vx_steps = vx_steps
         self.min_vx = min_vx
@@ -276,19 +283,36 @@ class PencilSearch(TrajectoryGenerator):
     ):
         super().__init__(**kwargs)
 
-        if ang_step <= 0.0 or vel_step <= 0.0 or max_ang_offset <= 0.0 or max_vel_offset <= 0.0:
-            raise ValueError("Invalid parameters. All ranges and step sizes must be > 0.0.")
+        params = np.array([vx, vy, ang_step, vel_step, max_ang_offset, max_vel_offset])
+        if (
+            np.any(~np.isfinite(params))
+            or ang_step <= 0
+            or vel_step <= 0
+            or max_ang_offset < 0
+            or max_vel_offset < 0
+        ):
+            raise ValueError(
+                "Invalid parameters. All ranges and step sizes must be finite and > 0. "
+                f"Got: vx={vx}, vy={vy}, ang_step={ang_step}, vel_step={vel_step}, "
+                f"max_ang_offset={max_ang_offset}, max_vel_offset={max_vel_offset}"
+            )
 
         self.center_vx = vx
         self.center_vy = vy
 
-        self.center_ang = np.arctan2(vy, vx)
+        # The angle computation (arctan2) is undefined for (0,0), so handle that case separately.
+        if vx == 0.0 and vy == 0.0:
+            self.center_ang = 0.0
+            self.center_vel = 0.0
+        else:
+            self.center_ang = np.arctan2(vy, vx)
+            self.center_vel = np.sqrt(vx * vx + vy * vy)
+
         self.min_ang = self.center_ang - max_ang_offset
         self.max_ang = self.center_ang + max_ang_offset
         self.ang_step = ang_step
         self.ang_array = np.arange(self.min_ang, self.max_ang + 1e-8, self.ang_step)
 
-        self.center_vel = np.sqrt(vx * vx + vy * vy)
         self.min_vel = np.max([self.center_vel - max_vel_offset, 0.0])
         self.max_vel = self.center_vel + max_vel_offset
         self.vel_step = vel_step
@@ -351,9 +375,20 @@ class KBMODV1Search(TrajectoryGenerator):
         super().__init__(**kwargs)
 
         if vel_steps < 1 or ang_steps < 1:
-            raise ValueError("KBMODV1Search requires at least 1 step in each dimension")
-        if max_vel < min_vel or max_ang < min_ang:
-            raise ValueError("Invalid KBMODV1Search bounds.")
+            raise ValueError(
+                f"KBMODV1Search requires at least 1 step in each dimension. "
+                f"Got vel_steps={vel_steps}, ang_steps={ang_steps}."
+            )
+        if (
+            max_vel < min_vel
+            or max_ang < min_ang
+            or np.any(~np.isfinite([min_vel, max_vel, min_ang, max_ang]))
+        ):
+            raise ValueError(
+                f"Invalid KBMODV1Search bounds. Got: "
+                f"min_vel={min_vel}, max_vel={max_vel}, "
+                f"min_ang={min_ang}, max_ang={max_ang}."
+            )
 
         self.vel_steps = vel_steps
         self.min_vel = min_vel
@@ -503,16 +538,18 @@ class EclipticCenteredSearch(TrajectoryGenerator):
             logger.warning("No ecliptic angle provided. Using 0.0.")
             self.ecliptic_angle = 0.0
 
-        if len(angles) != 3:
-            raise ValueError("Invalid angles parameter. Expected a length 3 list.")
-        if len(velocities) != 3:
-            raise ValueError("Invalid velocity parameter. Expected a length 3 list.")
+        if len(angles) != 3 or np.any(~np.isfinite(angles)):
+            raise ValueError(f"Invalid angles parameter. Expected a length 3 list. Got {angles}")
+        if len(velocities) != 3 or np.any(~np.isfinite(velocities)):
+            raise ValueError(f"Invalid velocity parameter. Expected a length 3 list. Got {velocities}")
         if angles[2] < 1:
-            raise ValueError("EclipticCenteredSearch requires at least 1 step in angles.")
+            raise ValueError(f"EclipticCenteredSearch requires at least 1 step in angles. Got {angles[2]}")
         if velocities[1] < velocities[0]:
-            raise ValueError(f"Invalid EclipticCenteredSearch: {velocities[1]} < {velocities[0]}")
+            raise ValueError(f"Invalid EclipticCenteredSearch velocities: {velocities[1]} < {velocities[0]}")
         if velocities[2] < 1:
-            raise ValueError("EclipticCenteredSearch requires at least 1 step in velocities.")
+            raise ValueError(
+                f"EclipticCenteredSearch requires at least 1 step in velocities. Got {velocities[2]}"
+            )
 
         self.velocities = [
             (velocities[0] * vel_units).to(u.pixel / u.day).value,
@@ -589,10 +626,12 @@ class RandomVelocitySearch(TrajectoryGenerator):
             infinite loops in KBMOD code.
         """
         super().__init__(**kwargs)
-        if max_vx < min_vx or max_vy < min_vy:
-            raise ValueError("Invalid RandomVelocitySearch bounds.")
+        if max_vx < min_vx or max_vy < min_vy or np.any(~np.isfinite([min_vx, max_vx, min_vy, max_vy])):
+            raise ValueError(
+                f"Invalid RandomVelocitySearch bounds: [{min_vx}, {max_vx}] and [{min_vy}, {max_vy}]"
+            )
         if max_samples <= 0:
-            raise ValueError(f"Invalid maximum samples.")
+            raise ValueError(f"Invalid maximum samples: {max_samples}")
 
         self.min_vx = min_vx
         self.max_vx = max_vx
