@@ -85,6 +85,8 @@ def ingest_collection(
         The name of the collection to ingest.
     datasetType : str
         The dataset type to query from the collection (e.g., 'preliminary_visit_image', 'difference_image').
+    butler_standardizer_config : ButlerStandardizerConfig
+        Configuration for the ButlerStandardizer to use when standardizing images.
     target: str, optional
         The target name to use for the collection. If provided, will be used to filter collections.
     max_exposures : int, optional
