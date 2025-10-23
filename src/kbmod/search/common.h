@@ -84,6 +84,10 @@ struct Trajectory {
                " obs_count: " + std::to_string(obs_count);
     }
 
+    const bool is_valid() const {
+        return (std::isfinite(vx) && std::isfinite(vy) && std::isfinite(lh) && std::isfinite(flux) && (obs_count >= 0));
+    }
+
     // This is a hack to provide a constructor with non-default arguments in Python. If we include
     // the constructor as a method in the Trajectory struct CUDA will complain when creating new objects
     // because it cannot call out to a host function.
@@ -163,6 +167,7 @@ static void trajectory_bindings(py::module &m) {
                  pydocs::DOC_Trajectory_get_y_pos)
             .def("get_x_index", &tj::get_x_index, pydocs::DOC_Trajectory_get_x_index)
             .def("get_y_index", &tj::get_y_index, pydocs::DOC_Trajectory_get_y_index)
+            .def("is_valid", &tj::is_valid, pydocs::DOC_Trajectory_is_valid)
             .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
             .def("__str__", &tj::to_string)
             .def(py::pickle(

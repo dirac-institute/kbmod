@@ -31,6 +31,9 @@ TrajectoryList::TrajectoryList(const std::vector<Trajectory>& prev_list) {
     // Start with the data on CPU.
     data_on_gpu = false;
     gpu_array.resize(max_size);
+
+    // Validate the data.
+    assert_valid();
 }
 
 TrajectoryList::~TrajectoryList() {
@@ -46,6 +49,13 @@ void TrajectoryList::resize(uint64_t new_size) {
 
     cpu_list.resize(new_size);
     gpu_array.resize(new_size);
+
+    // Make sure the new entries have the default parameters.
+    uint64_t new_entries = (new_size > max_size) ? new_size - max_size : 0;
+    for (uint64_t i = 0; i < new_entries; ++i) {
+        cpu_list[max_size + i] = Trajectory();
+    }
+
     max_size = new_size;
 }
 
@@ -57,6 +67,9 @@ void TrajectoryList::set_trajectories(const std::vector<Trajectory>& new_values)
     for (uint64_t i = 0; i < new_size; ++i) {
         cpu_list[i] = new_values[i];
     }
+
+    // Validate the data.
+    assert_valid();
 }
 
 std::vector<Trajectory> TrajectoryList::get_batch(uint64_t start, uint64_t count) {
@@ -124,7 +137,22 @@ void TrajectoryList::move_to_cpu() {
     gpu_array.copy_gpu_to_vector(cpu_list);
     gpu_array.free_gpu_memory();
     data_on_gpu = false;
+
+    // Validate the data after moving back to CPU.
+    assert_valid();
 }
+
+void TrajectoryList::assert_valid() const {
+    if (data_on_gpu) throw std::runtime_error("Data on GPU");
+
+    for (size_t i = 0; i < cpu_list.size(); ++i) {
+        if (!cpu_list[i].is_valid()) {
+            throw std::runtime_error("Invalid trajectory detected at index " + std::to_string(i) + ": " +
+                                     cpu_list[i].to_string());
+        }
+    }
+}
+
 
 // -------------------------------------------
 // --- Helper functions ----------------------
@@ -229,6 +257,7 @@ static void trajectory_list_binding(py::module& m) {
                  pydocs::DOC_TrajectoryList_filter_by_likelihood)
             .def("filter_by_obs_count", &trjl::filter_by_obs_count,
                  pydocs::DOC_TrajectoryList_filter_by_obs_count)
+            .def("assert_valid", &trjl::assert_valid, pydocs::DOC_TrajectoryList_assert_valid)
             .def("move_to_cpu", &trjl::move_to_cpu, pydocs::DOC_TrajectoryList_move_to_cpu)
             .def("move_to_gpu", &trjl::move_to_gpu, pydocs::DOC_TrajectoryList_move_to_gpu);
 
