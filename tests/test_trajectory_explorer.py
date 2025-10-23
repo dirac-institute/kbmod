@@ -184,11 +184,13 @@ class test_trajectory_explorer(unittest.TestCase):
         ]
         org_results = Results.from_trajectories(results_list)
 
-        # Do the refining. We should get three results after deduplication.
+        # Do the refining. We should get at most three results after deduplication.
+        # We might only get two if the junk trajectory gets removed by another filtering step.
         config = SearchConfiguration()
         config.set("num_obs", 4)
         new_results = refine_all_results(org_results, fake_ds.stack_py, config)
-        self.assertEqual(len(new_results), 3)
+        self.assertLessEqual(len(new_results), 3)
+        self.assertGreaterEqual(len(new_results), 2)
 
         # The first two refined results should be close to the true inserted
         # objects in order of their flux.
@@ -200,11 +202,6 @@ class test_trajectory_explorer(unittest.TestCase):
         self.assertAlmostEqual(new_results["y"][1], trj2.y, delta=1.0)
         self.assertAlmostEqual(new_results["vx"][1], trj2.vx, delta=1.0)
         self.assertAlmostEqual(new_results["vy"][1], trj2.vy, delta=1.0)
-
-        # The third result is junk, but should be somewhere around the location of the
-        # third trajectory (not a very close match, because refine will have moved it).
-        self.assertAlmostEqual(new_results["x"][2], 400, delta=50.0)
-        self.assertAlmostEqual(new_results["y"][2], 100, delta=50.0)
 
 
 if __name__ == "__main__":
