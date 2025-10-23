@@ -463,7 +463,7 @@ class test_run_search(unittest.TestCase):
 
         # Mask out everything except one row at times 1, 3, and 4.
         fake_times = create_fake_times(num_times, t0=60676.0)
-        fake_ds = FakeDataSet(width, height, fake_times)
+        fake_ds = FakeDataSet(width, height, fake_times, use_seed=101)
         for time_idx in [1, 3, 4]:
             sci = fake_ds.stack_py.sci[time_idx]
             var = fake_ds.stack_py.var[time_idx]

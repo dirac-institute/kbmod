@@ -379,17 +379,21 @@ class SearchRunner:
         # so that the metadata is correctly handled. Otherwise we just filter the image stack.
         if config["max_masked_pixels"] < 1.0:
             keep_mask = stack.get_masked_fractions() <= config["max_masked_pixels"]
+            logger.info(
+                f"Filtering images with > {config['max_masked_pixels']*100}% masked pixels. "
+                f"Keeping {np.count_nonzero(keep_mask)} images."
+            )
             if workunit is not None:
                 workunit.filter_images(keep_mask)
                 stack = workunit.im_stack
             else:
                 stack.filter_images(keep_mask)
+        if len(stack) == 0:
+            raise ValueError("No valid images in input after filtering.")
 
         # Determine how many images have at least 10% valid pixels.  Make sure
         # num_obs is no larger than 80% of the valid images.
         img_count = np.count_nonzero(stack.get_masked_fractions() < 0.9)
-        if img_count == 0:
-            raise ValueError("No valid images in input.")
         if config["num_obs"] == -1 or config["num_obs"] >= img_count:
             logger.info(f"Automatically setting num_obs = {img_count} (from {config['num_obs']}).")
             config.set("num_obs", img_count)
