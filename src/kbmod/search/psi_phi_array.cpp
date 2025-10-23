@@ -114,11 +114,15 @@ void PsiPhiArray::set_meta_data(int new_num_bytes, uint64_t new_num_times, uint6
                                 uint64_t new_width) {
     // Validity checking of parameters.
     if (new_num_bytes != -1 && new_num_bytes != 1 && new_num_bytes != 2 && new_num_bytes != 4) {
-        throw std::runtime_error("Invalid setting of num_bytes. Must be (-1 [use default], 1, 2, or 4).");
+        throw std::runtime_error("Invalid setting of num_bytes. Must be (-1 [use default], 1, 2, or 4). Got " +
+                                 std::to_string(new_num_bytes));
     }
-    if (new_num_times == 0) throw std::runtime_error("Invalid num_times passed to set_meta_data.");
-    if (new_width == 0) throw std::runtime_error("Invalid width passed to set_meta_data.");
-    if (new_height == 0) throw std::runtime_error("Invalid height passed to set_meta_data.");
+    if (new_num_times == 0) throw std::runtime_error("Invalid num_times passed to set_meta_data: " +
+                                                     std::to_string(new_num_times));
+    if (new_width == 0) throw std::runtime_error("Invalid width passed to set_meta_data: " +
+                                                 std::to_string(new_width));
+    if (new_height == 0) throw std::runtime_error("Invalid height passed to set_meta_data: " +
+                                                  std::to_string(new_height));
 
     // Check that we do not have an array allocated.
     if (cpu_array_ptr != nullptr) {
@@ -144,16 +148,20 @@ void PsiPhiArray::set_meta_data(int new_num_bytes, uint64_t new_num_times, uint6
 }
 
 void PsiPhiArray::set_psi_scaling(float min_val, float max_val, float scale_val) {
-    if (min_val > max_val) throw std::runtime_error("Min value needs to be < max value");
-    if (scale_val <= 0) throw std::runtime_error("Scale value must be greater than zero.");
+    if (min_val > max_val) throw std::runtime_error("Min value needs to be < max value. Got " +
+                                                    std::to_string(min_val) + " and " + std::to_string(max_val));
+    if (scale_val <= 0) throw std::runtime_error("Scale value must be greater than zero. Got " +
+                                                 std::to_string(scale_val));
     meta_data.psi_min_val = min_val;
     meta_data.psi_max_val = max_val;
     meta_data.psi_scale = scale_val;
 }
 
 void PsiPhiArray::set_phi_scaling(float min_val, float max_val, float scale_val) {
-    if (min_val > max_val) throw std::runtime_error("Min value needs to be < max value");
-    if (scale_val <= 0) throw std::runtime_error("Scale value must be greater than zero.");
+    if (min_val > max_val) throw std::runtime_error("Min value needs to be < max value. Got " +
+                                                    std::to_string(min_val) + " and " + std::to_string(max_val));
+    if (scale_val <= 0) throw std::runtime_error("Scale value must be greater than zero. Got " +
+                                                 std::to_string(scale_val));
     meta_data.phi_min_val = min_val;
     meta_data.phi_max_val = max_val;
     meta_data.phi_scale = scale_val;
@@ -372,7 +380,8 @@ void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_byte
         throw std::runtime_error("Trying to fill PsiPhi from empty vectors.");
     }
     if (num_images != var_imgs.size()) {
-        throw std::runtime_error("Number of images in sci and var do not match.");
+        throw std::runtime_error("Number of images in sci and var do not match. Sci=" +
+                                 std::to_string(num_images) + ", Var=" + std::to_string(var_imgs.size()));
     }
     const uint64_t height = sci_imgs[0].rows();
     const uint64_t width = sci_imgs[0].cols();

@@ -77,6 +77,13 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertEqual(arr.num_entries, 2 * self.width * self.height * self.num_times)
         self.assertEqual(arr.total_array_size, 2 * arr.num_entries)
 
+        # Check that we fail with bad parameters.
+        self.assertRaises(RuntimeError, arr.set_meta_data, 3, self.num_times, self.height, self.width)
+        self.assertRaises(RuntimeError, arr.set_meta_data, 0, self.num_times, self.height, self.width)
+        self.assertRaises(RuntimeError, arr.set_meta_data, 1, 0, self.height, self.width)
+        self.assertRaises(RuntimeError, arr.set_meta_data, 1, self.num_times, 0, self.width)
+        self.assertRaises(RuntimeError, arr.set_meta_data, 1, self.num_times, self.height, 0)
+
     def test_decode_uint_scalar(self):
         self.assertAlmostEqual(decode_uint_scalar(1.0, 0.0, 5.0), 0.0)
         self.assertAlmostEqual(decode_uint_scalar(2.0, 0.0, 5.0), 5.0)

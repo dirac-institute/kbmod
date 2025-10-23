@@ -46,13 +46,19 @@ StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_i
         throw std::runtime_error("No images in the to process.");
     }
     if (sci_imgs.size() != var_imgs.size()) {
-        throw std::runtime_error("The number of science and variance images do not match.");
+        throw std::runtime_error("The number of science and variance images do not match. Science: " +
+                                 std::to_string(sci_imgs.size()) + ", Variance: " +
+                                 std::to_string(var_imgs.size()));
     }
     if (sci_imgs.size() != psf_kernels.size()) {
-        throw std::runtime_error("The number of science and PSF kernel images do not match.");
+        throw std::runtime_error("The number of science and PSF kernel images do not match. Science: " +
+                                 std::to_string(sci_imgs.size()) + ", PSF Kernels: " +
+                                 std::to_string(psf_kernels.size()));
     }
     if (sci_imgs.size() != zeroed_times.size()) {
-        throw std::runtime_error("The number of science images and zeroed times do not match.");
+        throw std::runtime_error("The number of science images and zeroed times do not match. Science: " +
+                                 std::to_string(sci_imgs.size()) + ", Zeroed Times: " +
+                                 std::to_string(zeroed_times.size()));
     }
     width = sci_imgs[0].cols();
     height = sci_imgs[0].rows();
@@ -97,7 +103,7 @@ void StackSearch::set_default_parameters(int num_bytes) {
     } else if (num_bytes == -1 || num_bytes == 4) {
         params.encode_num_bytes = -1;
     } else {
-        throw std::runtime_error("Invalid encoding size. Must be -1, 1, 2 or 4.");
+        throw std::runtime_error("Invalid encoding size. Must be -1, 1, 2 or 4. Got " + std::to_string(num_bytes));
     }
 
     // Default the results per pixel.
@@ -111,9 +117,10 @@ void StackSearch::set_default_parameters(int num_bytes) {
 }
 
 void StackSearch::set_min_obs(int new_value) {
-    if (new_value < 0) throw std::runtime_error("min_obs must be >= 0.");
+    if (new_value < 0) throw std::runtime_error("min_obs must be >= 0. Got " + std::to_string(new_value));
     if (new_value > num_imgs)
-        throw std::runtime_error("min_obs cannot be greater than the number of images.");
+        throw std::runtime_error("min_obs cannot be greater than the number of images. min_obs = " +
+                                 std::to_string(new_value) + ", num_imgs = " + std::to_string(num_imgs) + ".");
 
     params.min_observations = new_value;
 }
@@ -121,17 +128,20 @@ void StackSearch::set_min_obs(int new_value) {
 void StackSearch::set_min_lh(float new_value) { params.min_lh = new_value; }
 
 void StackSearch::set_results_per_pixel(int new_value) {
-    if (new_value <= 0) throw std::runtime_error("Invalid results per pixel.");
+    if (new_value <= 0) throw std::runtime_error("Invalid results per pixel. Got " + std::to_string(new_value));
     params.results_per_pixel = new_value;
 }
 
 void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh) {
     if ((percentiles.size() != 2) || (percentiles[0] >= percentiles[1]) || (percentiles[0] <= 0.0) ||
         (percentiles[1] >= 1.0)) {
-        throw std::runtime_error("Invalid percentiles for sigma G filtering.");
+        throw std::runtime_error("Invalid percentiles for sigma G filtering. Got [" +
+                                 std::to_string(percentiles[0]) + ", " +
+                                 std::to_string(percentiles[1]) + "].");
     }
     if (sigmag_coeff <= 0.0) {
-        throw std::runtime_error("Invalid coefficient for sigma G filtering.");
+        throw std::runtime_error("Invalid coefficient for sigma G filtering. Got " +
+                                 std::to_string(sigmag_coeff) + ".");
     }
 
     params.do_sigmag_filter = true;
