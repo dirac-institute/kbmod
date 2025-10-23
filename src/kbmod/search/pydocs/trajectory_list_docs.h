@@ -191,6 +191,15 @@ static const auto DOC_TrajectoryList_filter_by_obs_count = R"doc(
   Raises a ``RuntimeError`` the data is on GPU.
   )doc";
 
+static const auto DOC_TrajectoryList_assert_valid = R"doc(
+  Validate that all trajectories in the list are valid.
+  The data must reside on the CPU.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` if invalid trajectories are found.
+  )doc";
+
 static const auto DOC_TrajectoryList_extract_all_x = R"doc(
   Extract all the x values from a list of trajectories.
 
