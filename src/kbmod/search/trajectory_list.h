@@ -74,6 +74,9 @@ public:
     // Array access functions. For use when passing to the GPU only.
     inline Trajectory* get_gpu_list_ptr() { return gpu_array.get_ptr(); }
 
+    // Validation function
+    void assert_valid() const;
+
 private:
     uint64_t max_size;
     bool data_on_gpu;
