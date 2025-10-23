@@ -107,7 +107,7 @@ class TrajectoryGenerator(abc.ABC):
 
     @abc.abstractmethod
     def generate(self, *args, **kwargs):
-        """Internal function to produce a single candidate trajectory to test.
+        """Produces a single candidate trajectory to test.
 
         Returns
         -------
