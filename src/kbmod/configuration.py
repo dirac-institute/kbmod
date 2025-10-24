@@ -123,14 +123,14 @@ _SUPPORTED_PARAMS = [
     _ParamInfo(
         name="cnn_stamp_radius",
         default_value=49,
-        description="The radius (in pixels) of the stamp to use for CNN filtering.",
+        description="The radius (in pixels) of the stamp to use for CNN filtering if cnn_filter is True.",
         section="filtering",
         validate_func=lambda x: isinstance(x, int) and x > 0,
     ),
     _ParamInfo(
         name="cnn_model_type",
         default_value="resnet18",
-        description="The type of CNN model to use ('resnet18', 'resnet34', etc.).",
+        description="The type of CNN model to use ('resnet18', 'resnet34', etc.) if cnn_filter is True.",
         section="filtering",
         validate_func=lambda x: isinstance(x, str),
     ),
@@ -139,7 +139,7 @@ _SUPPORTED_PARAMS = [
         default_value=[],
         description="The list of coadd images to compute ('mean', 'median', 'sum', 'weighted').",
         section="stamps",
-        validate_func=lambda x: isinstance(x, list) and all(isinstance(i, int) for i in x),
+        validate_func=lambda x: isinstance(x, list) and all(i in ["mean", "median", "sum", "weighted"] for i in x),
     ),
     _ParamInfo(
         name="compute_ra_dec",
