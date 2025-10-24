@@ -92,7 +92,19 @@ class TestButlerStandardizer(unittest.TestCase):
     def test_standardize_missing_wcs(self):
         """Test ButlerStandardizer instantiates and standardizes as expected een when fits appoximation of the WCS failed."""
         missing_wcs_butler = MockButler("/far/far/away", failed_fits_appoximation=True)
-        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=missing_wcs_butler)
+        std_config = StandardizerConfig()
+        std_config["wcs_fallback_sips_degree"] = 4
+        # Test that we raise an error when requesting negative points.
+        with self.assertRaises(ValueError):
+            std_config["wcs_fallback_points"] = -5
+            std = Standardizer.get(
+                DatasetId(7, fill_metadata=True),
+                butler=missing_wcs_butler,
+                config=std_config,
+            )
+            std.standardize()
+        std_config["wcs_fallback_points"] = 10
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), config=std_config, butler=missing_wcs_butler)
         standardized = std.standardize()
 
         # Validate that getFitsMetadata raises an error forcing us to use a fallback WCS

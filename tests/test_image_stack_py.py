@@ -289,6 +289,43 @@ class test_image_stack_py(unittest.TestCase):
         self.assertNotEqual(stack.var[1][3, 3], 100.0)
         self.assertFalse(stack == stack2)
 
+    def test_scale_image_stack_py(self):
+        """Test that we can scale the images in an ImageStackPy."""
+        times = np.array([0.0, 1.0, 2.0])
+        sci = np.array(
+            [
+                [[1.0, 2.0], [3.0, 4.0]],
+                [[5.0, 6.0], [7.0, 8.0]],
+                [[9.0, 10.0], [11.0, 12.0]],
+            ],
+            dtype=np.float32,
+        )
+        var = sci * 0.1
+        mask = np.zeros_like(sci)
+        mask[0, 0, 1] = 1
+        mask[1, 1, 1] = 1
+        mask = mask.astype(bool)
+
+        # Do a constant scaling.
+        stack = ImageStackPy(times, sci.copy(), var.copy(), mask=mask)
+        stack.scale_images(2.0, is_magnitude=False)
+        for i in range(len(times)):
+            assert np.all(np.isnan(stack.sci[i][mask[i]]))
+            assert np.all(np.isnan(stack.var[i][mask[i]]))
+            assert np.allclose(stack.sci[i][~mask[i]], sci[i][~mask[i]] / 2.0)
+            assert np.allclose(stack.var[i][~mask[i]], var[i][~mask[i]] / 4.0)
+
+        # Do a per-image scaling.
+        stack = ImageStackPy(times, sci.copy(), var.copy(), mask=mask)
+        scale_factors = np.array([1.0, 2.0, 3.0])
+        stack.scale_images(scale_factors, is_magnitude=False)
+
+        for i in range(len(times)):
+            assert np.all(np.isnan(stack.sci[i][mask[i]]))
+            assert np.all(np.isnan(stack.var[i][mask[i]]))
+            assert np.allclose(stack.sci[i][~mask[i]], sci[i][~mask[i]] / scale_factors[i])
+            assert np.allclose(stack.var[i][~mask[i]], var[i][~mask[i]] / (scale_factors[i] ** 2))
+
     def test_get_matched_obstimes(self):
         obstimes = [1.0, 2.0, 3.0, 4.0, 6.0, 7.5, 9.0, 10.1]
 
