@@ -4,6 +4,7 @@ The ``ImageCollection`` class stores additional information for the
 input FITS files that is used during a variety of analysis.
 """
 
+import datetime
 import logging
 import os
 import glob
@@ -695,9 +696,9 @@ class ImageCollection:
         if len(self.data) < 1:
             return 0
         # Convert "YYYYMMDD" strings datetime objects
-        dates = np.array([np.datetime64(str(date), "D") for date in self.data[date_col]])
+        dates = [datetime.datetime.strptime(d, "%Y%m%d") for d in self.data[date_col]]
         # Subtract the largest and smallest date, and add 1 to include both endpoints
-        return (dates.max() - dates.min()).astype(int) + 1
+        return (max(dates) - min(dates)).days + 1
 
     def get_wcs(self, idxs):
         """Get a list of WCS objects for selected rows.
