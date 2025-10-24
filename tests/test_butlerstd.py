@@ -66,6 +66,7 @@ class TestButlerStandardizer(unittest.TestCase):
             + (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0,
             "filter": hdr["FILTER"],
         }
+        expected["obs_day"] = ButlerStandardizer._mjd_to_obs_day(expected["mjd_mid"])
 
         for k, v in expected.items():
             with self.subTest("Value not standardized as expected.", key=k):
@@ -91,7 +92,19 @@ class TestButlerStandardizer(unittest.TestCase):
     def test_standardize_missing_wcs(self):
         """Test ButlerStandardizer instantiates and standardizes as expected een when fits appoximation of the WCS failed."""
         missing_wcs_butler = MockButler("/far/far/away", failed_fits_appoximation=True)
-        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=missing_wcs_butler)
+        std_config = StandardizerConfig()
+        std_config["wcs_fallback_sips_degree"] = 4
+        # Test that we raise an error when requesting negative points.
+        with self.assertRaises(ValueError):
+            std_config["wcs_fallback_points"] = -5
+            std = Standardizer.get(
+                DatasetId(7, fill_metadata=True),
+                butler=missing_wcs_butler,
+                config=std_config,
+            )
+            std.standardize()
+        std_config["wcs_fallback_points"] = 10
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), config=std_config, butler=missing_wcs_butler)
         standardized = std.standardize()
 
         # Validate that getFitsMetadata raises an error forcing us to use a fallback WCS
@@ -285,6 +298,22 @@ class TestButlerStandardizer(unittest.TestCase):
         # times can only be compred approximately, because sometimes we
         # calculate the time in the middle of the exposure
         self.assertAlmostEqual(expected_mjd, img.time, 2)
+
+    def test_mjd_to_obs_day(self):
+        """Test that _mjd_to_obs_day works as expected."""
+        # Check that all entries for the night of June 1-2, 2025 map to 20250601 as obs_day
+        # We test from June 1, 2025 22:00 to June 2, 2025 08:00
+        for hour in range(0, 10):
+            mjd = 60827.91666667 + hour / 24.0
+            obs_day = ButlerStandardizer._mjd_to_obs_day(mjd)
+            self.assertEqual(obs_day, 20250601)
+
+        # Check that all entries for the night of June 2-3, 2025 map to 20250602 as obs_day
+        # We test from June 2, 2025 22:00 to June 3, 2025 08:00
+        for hour in range(0, 10):
+            mjd = 60828.91666667 + hour / 24.0
+            obs_day = ButlerStandardizer._mjd_to_obs_day(mjd)
+            self.assertEqual(obs_day, 20250602)
 
 
 if __name__ == "__main__":

@@ -39,12 +39,12 @@ class TrajectoryClusterGrid:
         bin_width : `int`, optional
             The width of each of the spatial bins (in pixels).
         """
-        if bin_width < 1:
-            raise ValueError("Bin width must be at least 1.")
+        if bin_width < 1 or not np.isfinite(bin_width):
+            raise ValueError(f"Bin width must be at least 1. Got {bin_width}.")
         self.bin_width = bin_width
 
-        if max_time < 0:
-            raise ValueError("Max time must be positive.")
+        if max_time < 0 or not np.isfinite(max_time):
+            raise ValueError(f"Max time must be >= 0. Got {max_time}.")
         self.max_time = max_time
 
         self.table = {}

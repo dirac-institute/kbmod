@@ -47,13 +47,19 @@ class test_trajectory_list(unittest.TestCase):
         for i in range(5):
             self.assertEqual(self.trj_list.get_trajectory(i).x, i)
 
-        # Resizing up adds values at the end.
+        # Resizing up adds values at the end. They all have the default parameters.
         self.trj_list.resize(8)
         self.assertEqual(self.trj_list.get_size(), 8)
         for i in range(5):
             self.assertEqual(self.trj_list.get_trajectory(i).x, i)
         for i in range(5, 8):
             self.assertEqual(self.trj_list.get_trajectory(i).x, 0)
+            self.assertEqual(self.trj_list.get_trajectory(i).y, 0)
+            self.assertEqual(self.trj_list.get_trajectory(i).vx, 0.0)
+            self.assertEqual(self.trj_list.get_trajectory(i).vy, 0.0)
+            self.assertEqual(self.trj_list.get_trajectory(i).flux, 0.0)
+            self.assertEqual(self.trj_list.get_trajectory(i).lh, 0.0)
+            self.assertEqual(self.trj_list.get_trajectory(i).obs_count, 0)
 
     def test_get_set(self):
         for i in range(self.max_size):
@@ -163,6 +169,19 @@ class test_trajectory_list(unittest.TestCase):
         # Moving back to CPU again doesn't do anything.
         self.trj_list.move_to_cpu()
         self.assertFalse(self.trj_list.on_gpu)
+
+    def test_assert_valid(self):
+        """Test that the assert_valid function works correctly."""
+        # Initially valid
+        self.trj_list.assert_valid()
+
+        # Set an invalid trajectory
+        invalid_trj = Trajectory(x=0, y=0, vx=0.0, vy=np.nan, lh=-10.0, flux=0.0, obs_count=5)
+        self.trj_list.set_trajectory(0, invalid_trj)
+
+        # Assert that it raises an error
+        with self.assertRaises(RuntimeError):
+            self.trj_list.assert_valid()
 
     def test_extraction_helpers(self):
         """Test that we can extract components of trajectories from a list."""

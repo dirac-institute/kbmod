@@ -8,6 +8,7 @@ import uuid
 
 from astropy.coordinates import SkyCoord
 import astropy.nddata as bitmask
+import astropy.time
 from astropy.wcs import WCS
 from astropy.wcs.utils import fit_wcs_from_points
 import astropy.units as u
@@ -105,11 +106,11 @@ class ButlerStandardizerConfig(StandardizerConfig):
     standardize_uri = False
     """Include an URL-like path to the file"""
 
-    wcs_fallback_points = 100
+    wcs_fallback_points = 1000
     """Number of random points to sample across the detector when
     an astropy WCS cannot be constructed from the Rubin SkyWCS metadata."""
 
-    wcs_fallback_sips_degree = 3
+    wcs_fallback_sips_degree = 4
     """Degree of the SIP distortion to fit when creating a fallback WCS when
     an astropy WCS cannot be constructed from the Rubin SkyWCS metadata.
     If ``None``, no SIP distortion is fitted."""
@@ -261,6 +262,10 @@ class ButlerStandardizer(Standardizer):
         wcs : `astropy.wcs.WCS`
             Fitted WCS object.
         """
+        if n_rand_pts <= 0:
+            raise ValueError("Number of random points must be positive.")
+        if sip_degree is not None and sip_degree <= 0:
+            raise ValueError("SIP degree must be non-negative or None.")
         if not sample_outside_chip:
             # Sample random X, Y points across this detector
             rand_xy = np.random.rand(n_rand_pts, 2) * [naxis1, naxis2]
@@ -356,6 +361,25 @@ class ButlerStandardizer(Standardizer):
 
         return pts
 
+    @staticmethod
+    def _mjd_to_obs_day(mjd_mid):
+        """Convert MJD to observing day in YYYYMMDD format.
+
+        Parameters
+        ----------
+        mjd_mid : `float`
+            Modified Julian Date at the middle of the exposure.
+
+        Returns
+        -------
+        obs_day : `int`
+            Observing day in YYYYMMDD format.
+        """
+        observing_date = astropy.time.Time(mjd_mid, format="mjd", scale="tai")
+        offset = astropy.time.TimeDelta(12 * 3600, format="sec", scale="tai")
+        observing_date -= offset
+        return int(observing_date.strftime("%Y%m%d"))
+
     def _fetch_meta(self):
         """Fetch metadata and any dataset components that do not
         load the image or large amount of data.
@@ -395,6 +419,7 @@ class ButlerStandardizer(Standardizer):
         # Name mjd into mjd_mid - make it obvious it's middle of exposure.
         self._metadata["mjd_start"] = mjd_start.utc.mjd
         self._metadata["mjd_mid"] = half_way.utc.mjd
+        self._metadata["obs_day"] = ButlerStandardizer._mjd_to_obs_day(half_way.utc.mjd)
 
         self._metadata["object"] = visit.object
         self._metadata["pointing_ra"] = visit.boresightRaDec.getRa().asDegrees()
