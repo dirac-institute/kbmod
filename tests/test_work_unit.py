@@ -835,6 +835,41 @@ class test_work_unit(unittest.TestCase):
                 self.constituent_images[old_i % self.num_images],
             )
 
+    def test_apply_color_scale(self):
+        """Test that we can apply a color scale to the images in a WorkUnit."""
+        org_imgs = self.im_stack_py.copy()
+
+        meta_data = Table({"filter": ["r", "r", "g", "g", "r"]})
+        work = WorkUnit(
+            im_stack=self.im_stack_py,
+            config=self.config,
+            org_image_meta=meta_data,
+        )
+        for i in range(self.num_images):
+            self.assertTrue(np.allclose(work.im_stack.sci[i], org_imgs.sci[i], equal_nan=True))
+            self.assertTrue(np.allclose(work.im_stack.var[i], org_imgs.var[i], equal_nan=True))
+
+        # Apply a color scale of 1.0 for green and 2.0 for red.
+        color_scale = {"g": 0.0, "r": 2.5 * np.log10(2.0)}
+        work.apply_color_scale(color_scale)
+        self.assertTrue(
+            np.allclose(
+                work.org_img_meta["color_scale"],
+                [0.752575, 0.752575, 0.0, 0.0, 0.752575],  # In magnitude space.
+                rtol=1e-5,
+            )
+        )
+
+        for i in range(self.num_images):
+            if meta_data["filter"][i] == "r":
+                self.assertTrue(np.allclose(work.im_stack.sci[i], org_imgs.sci[i] / 2.0, equal_nan=True))
+                self.assertTrue(np.allclose(work.im_stack.var[i], org_imgs.var[i] / 4.0, equal_nan=True))
+            else:
+                self.assertTrue(np.allclose(work.im_stack.sci[i], org_imgs.sci[i], equal_nan=True))
+                self.assertTrue(np.allclose(work.im_stack.var[i], org_imgs.var[i], equal_nan=True))
+
+        self.assertRaises(ValueError, work.apply_color_scale, {"z": 1.0})
+
     def test_disorder_obstimes(self):
         # Check that we can disorder the obstimes.
         test_times = [

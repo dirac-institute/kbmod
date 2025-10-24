@@ -100,6 +100,13 @@ _SUPPORTED_PARAMS = [
         validate_func=lambda x: isinstance(x, (int, float)) and x >= 0,
     ),
     _ParamInfo(
+        name="color_scale",
+        default_value=None,
+        description="A dictionary mapping filter names to a color scale factor to use for those images.",
+        section="core",
+        validate_func=lambda x: x is None or isinstance(x, dict | int | float),
+    ),
+    _ParamInfo(
         name="cnn_filter",
         default_value=False,
         description="If True, applies a CNN filter to the stamps.",
