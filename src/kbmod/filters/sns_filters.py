@@ -117,6 +117,7 @@ def predictive_line_cluster(res, dmjds, dist_lim=4.0, min_samp=2, init_select_pr
         dy2 = dy**2
         top = np.abs(dyp - dxp + xm - ym)
         bottom = np.sqrt(dx2 + dy2)
+        bottom[bottom == 0.0] = 1e-12  # prevent division by zero
         dist = top / bottom
 
         clust = np.where((dist < dist_lim) | (np.isnan(dist)) | ((dist < dist_lim) & (drx == 0) & (dry == 0)))
