@@ -11,6 +11,377 @@ from kbmod.search import Logging
 logger = Logging.getLogger(__name__)
 
 
+class _ParamInfo:
+    """Class to store information about a configuration parameter.
+
+    Parameters
+    ----------
+    name : `str`
+        The parameter name.
+    default_value : any, optional
+        The default value for the parameter. If not provided, defaults to None.
+    description : `str`, optional
+        A description of the parameter. If not provided, defaults to an empty string.
+    section : `str`, optional
+        The section the parameter belongs to. If not provided, defaults to "other".
+    validate_func : `callable`, optional
+        A function to validate the parameter's value. If not provided, defaults to None.
+    required : `bool`, optional
+        Whether the parameter is required. If not provided, defaults to False.
+    """
+
+    def __init__(
+        self,
+        name,
+        default_value,
+        description="",
+        section="other",
+        validate_func=None,
+        required=False,
+    ):
+        self.name = name
+        self.default_value = default_value
+        self.description = description
+        self.section = section
+        self.validate_func = validate_func
+        self.required = required
+
+    def __str__(self):
+        return f"Parameter {self.name}: {self.description} (Default: {self.default_value})"
+
+    def validate(self, value):
+        """Validate the parameter's value using the provided validation function.
+
+        Parameters
+        ----------
+        value : any
+            The value to validate.
+
+        Returns
+        -------
+        `bool`
+            True if the value is valid, False otherwise.
+        """
+        if self.required and value is None:
+            return False
+        if self.validate_func is not None:
+            return self.validate_func(value)
+        return True
+
+
+# List of all the supported configuration parameters (in alphabetical order).
+_SUPPORTED_PARAMS = [
+    _ParamInfo(
+        name="clip_negative",
+        default_value=False,
+        description="If True remove all negative values prior to sigmaG computing the percentiles.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="cluster_eps",
+        default_value=20.0,
+        description="The epsilon parameter for clustering (in pixels).",
+        section="clustering",
+        validate_func=lambda x: isinstance(x, (int, float)) and x >= 0,
+    ),
+    _ParamInfo(
+        name="cluster_type",
+        default_value="all",
+        description="The type of clustering algorithm to use (if do_clustering = True).",
+        section="clustering",
+        validate_func=lambda x: isinstance(x, str),
+    ),
+    _ParamInfo(
+        name="cluster_v_scale",
+        default_value=1.0,
+        description="The weight of differences in velocity relative to differences in distances during clustering.",
+        section="clustering",
+        validate_func=lambda x: isinstance(x, (int, float)) and x >= 0,
+    ),
+    _ParamInfo(
+        name="cnn_filter",
+        default_value=False,
+        description="If True, applies a CNN filter to the stamps.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="cnn_model",
+        default_value=None,
+        description="The path to the CNN model file to use for filtering.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, str) or x is None,
+    ),
+    _ParamInfo(
+        name="cnn_coadd_type",
+        default_value="mean",
+        description="The type of coadd to use for CNN filtering ('mean', 'median', or 'sum').",
+        section="filtering",
+        validate_func=lambda x: x in ["mean", "median", "sum"],
+    ),
+    _ParamInfo(
+        name="cnn_stamp_radius",
+        default_value=49,
+        description="The radius (in pixels) of the stamp to use for CNN filtering.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, int) and x > 0,
+    ),
+    _ParamInfo(
+        name="cnn_model_type",
+        default_value="resnet18",
+        description="The type of CNN model to use ('resnet18', 'resnet34', etc.).",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, str),
+    ),
+    _ParamInfo(
+        name="coadds",
+        default_value=[],
+        description="The list of coadd images to compute ('mean', 'median', 'sum', 'weighted').",
+        section="stamps",
+        validate_func=lambda x: isinstance(x, list) and all(isinstance(i, int) for i in x),
+    ),
+    _ParamInfo(
+        name="compute_ra_dec",
+        default_value=True,
+        description="If True, compute RA and Dec for each result.",
+        section="output",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="cpu_only",
+        default_value=False,
+        description="If True, only use the CPU for processing, even if a GPU is available.",
+        section="other",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="debug",
+        default_value=False,
+        description="Run with debug logging enabled.",
+        section="other",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="do_clustering",
+        default_value=True,
+        description="If true, perform clustering on the results.",
+        section="clustering",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="drop_columns",
+        default_value=[],
+        description="List of result table columns to drop.",
+        section="output",
+        validate_func=lambda x: isinstance(x, list) and all(isinstance(i, str) for i in x),
+    ),
+    _ParamInfo(
+        name="encode_num_bytes",
+        default_value=-1,
+        description="Number of bytes to use for encoding pixel values on GPU. -1 means no encoding.",
+        section="core",
+        validate_func=lambda x: x in set([-1, 1, 2, 4]),
+    ),
+    _ParamInfo(
+        name="generator_config",
+        default_value={
+            "name": "EclipticCenteredSearch",
+            "velocities": [92.0, 526.0, 257],
+            "angles": [-math.pi / 15, math.pi / 15, 129],
+            "angle_units": "radian",
+            "velocity_units": "pix / d",
+            "given_ecliptic": None,
+        },
+        description="Configuration dictionary for the trajectory generator.",
+        section="core",
+        validate_func=lambda x: isinstance(x, dict) and "name" in x,
+    ),
+    _ParamInfo(
+        name="generate_psi_phi",
+        default_value=True,
+        description="If True, computes the psi and phi curves and saves them with the results.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="gpu_filter",
+        default_value=True,
+        description="If True, performs initial sigmaG filtering on GPU.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="lh_level",
+        default_value=10.0,
+        description="The log-likelihood level above which results are kept.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, (int, float)),
+    ),
+    _ParamInfo(
+        name="max_masked_pixels",
+        default_value=0.5,
+        description="The maximum fraction of masked pixels allowed before an input image is dropped.",
+        section="input",
+        validate_func=lambda x: isinstance(x, (int, float)) and 0.0 <= x <= 1.0,
+    ),
+    _ParamInfo(
+        name="max_results",
+        default_value=100_000,
+        description="The maximum number of results to save after all filtering.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, int),
+    ),
+    _ParamInfo(
+        name="near_dup_thresh",
+        default_value=10,
+        description="The threshold for considering two observations as near duplicates (in pixels).",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, int),
+    ),
+    _ParamInfo(
+        name="nightly_coadds",
+        default_value=False,
+        description="If True, generate an additional coadd for each calendar date.",
+        section="stamps",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="num_obs",
+        default_value=10,
+        description="The minimum number of valid observations for the trajectory to be accepted.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, int),
+    ),
+    _ParamInfo(
+        name="peak_offset_max",
+        default_value=None,
+        description="Maximum allowed offset (in pixels) between predicted and detected peak positions.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, (int, float)) or x is None,
+    ),
+    _ParamInfo(
+        name="pred_line_cluster",
+        default_value=False,
+        description="If True, applies line clustering to the predicted lines.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="pred_line_params",
+        default_value=[4.0, 2, 60],
+        description="Parameters for the line prediction model.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, list) and len(x) == 3,
+    ),
+    _ParamInfo(
+        name="psf_val",
+        default_value=1.4,
+        description="The standard deviation of the Gaussian PSF in pixels.",
+        section="input",
+        validate_func=lambda x: isinstance(x, (int, float)) and x > 0.0,
+    ),
+    _ParamInfo(
+        name="result_filename",
+        default_value=None,
+        description="The filename to which results will be saved.",
+        section="core",
+        validate_func=lambda x: isinstance(x, str) or x is None,
+    ),
+    _ParamInfo(
+        name="results_per_pixel",
+        default_value=8,
+        description="The maximum number of results to return from the GPU per pixel.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, int) and x > 0,
+    ),
+    _ParamInfo(
+        name="save_all_stamps",
+        default_value=False,
+        description="If True, save all stamps to the results.",
+        section="output",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="save_config",
+        default_value=True,
+        description="If True, save the configuration used for processing.",
+        section="output",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="separate_col_files",
+        default_value=["all_stamps"],
+        description="List of columns to save in separate files.",
+        section="output",
+        validate_func=lambda x: isinstance(x, list) and all(isinstance(i, str) for i in x),
+    ),
+    _ParamInfo(
+        name="sigmaG_filter",
+        default_value=True,
+        description="If True, apply sigmaG filtering.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="sigmaG_lims",
+        default_value=[25, 75],
+        description="The lower and upper limits for sigmaG filtering.",
+        section="filtering",
+        validate_func=lambda x: len(x) == 2 and x[0] < x[1] and all(isinstance(i, (int, float)) for i in x),
+    ),
+    _ParamInfo(
+        name="stamp_radius",
+        default_value=10,
+        description="The radius (in pixels) of the stamp to extract.",
+        section="stamps",
+        validate_func=lambda x: isinstance(x, int) and x > 0,
+    ),
+    _ParamInfo(
+        name="stamp_type",
+        default_value="sum",
+        description="The type of stamp to extract.",
+        section="stamps",
+        validate_func=lambda x: x in ["sum", "mean", "median", "weighted"],
+    ),
+    _ParamInfo(
+        name="track_filtered",
+        default_value=False,
+        description="If True, track the filtered objects in the results table.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="x_pixel_bounds",
+        default_value=None,
+        description="The x pixel bounds for the search starting location (None = use every pixel).",
+        section="core",
+        validate_func=lambda x: x is None or (len(x) == 2 and x[0] < x[1]),
+    ),
+    _ParamInfo(
+        name="x_pixel_buffer",
+        default_value=None,
+        description="If not None, the number of x pixels beyond the image bounds to use for starting coordinates.",
+        section="core",
+        validate_func=lambda x: x is None or (isinstance(x, int) and x >= 0),
+    ),
+    _ParamInfo(
+        name="y_pixel_bounds",
+        default_value=None,
+        description="The y pixel bounds for the search starting location (None = use every pixel).",
+        section="core",
+        validate_func=lambda x: x is None or (len(x) == 2 and x[0] < x[1]),
+    ),
+    _ParamInfo(
+        name="y_pixel_buffer",
+        default_value=None,
+        description="If not None, the number of y pixels beyond the image bounds to use for starting coordinates.",
+        section="core",
+        validate_func=lambda x: x is None or (isinstance(x, int) and x >= 0),
+    ),
+]
+
+
 class SearchConfiguration:
     """This class stores a collection of configuration parameter settings.
 
@@ -21,61 +392,9 @@ class SearchConfiguration:
     """
 
     def __init__(self, data=None):
-        self._required_params = set()
-
-        self._params = {
-            "clip_negative": False,
-            "cluster_eps": 20.0,
-            "cluster_type": "all",
-            "cluster_v_scale": 1.0,
-            "coadds": [],
-            "compute_ra_dec": True,
-            "cpu_only": False,
-            "debug": False,
-            "do_clustering": True,
-            "drop_columns": [],
-            "encode_num_bytes": -1,
-            "generator_config": {
-                "name": "EclipticCenteredSearch",
-                "velocities": [92.0, 526.0, 257],
-                "angles": [-math.pi / 15, math.pi / 15, 129],
-                "angle_units": "radian",
-                "velocity_units": "pix / d",
-                "given_ecliptic": None,
-            },
-            "generate_psi_phi": True,
-            "gpu_filter": False,
-            "lh_level": 10.0,
-            "max_masked_pixels": 0.5,
-            "max_results": 100_000,
-            "near_dup_thresh": 10,
-            "nightly_coadds": False,
-            "num_obs": 10,
-            "psf_val": 1.4,
-            "result_filename": None,
-            "results_per_pixel": 8,
-            "save_all_stamps": False,
-            "save_config": True,
-            "separate_col_files": ["all_stamps"],
-            "sigmaG_filter": True,
-            "sigmaG_lims": [25, 75],
-            "stamp_radius": 10,
-            "stamp_type": "sum",
-            "track_filtered": False,
-            "x_pixel_bounds": None,
-            "x_pixel_buffer": None,
-            "y_pixel_bounds": None,
-            "y_pixel_buffer": None,
-            "cnn_filter": False,
-            "cnn_model": None,
-            "cnn_coadd_type": "mean",
-            "cnn_stamp_radius": 49,
-            "cnn_model_type": "resnet18",
-            "peak_offset_max": None,
-            "pred_line_cluster": False,
-            "pred_line_params": [4.0, 2, 60],
-        }
-
+        # Reprocess the list of supported parameters into dictionaries for easy access.
+        self._param_info = {p.name: p for p in _SUPPORTED_PARAMS}
+        self._params = {p.name: p.default_value for p in _SUPPORTED_PARAMS}
         if data is not None:
             self.set_multiple(data)
 
@@ -142,41 +461,11 @@ class SearchConfiguration:
             Returns True if the configuration is valid and False (logging the reason)
             if the configuration is invalid.
         """
-        for p in self._required_params:
-            if self._params.get(p, None) is None:
-                logger.warning(f"Required configuration parameter {p} missing.")
-                return False
-
         # Check parameters that have known constraints.
-        if self._params["results_per_pixel"] <= 0:
-            logger.warning(f"Invalid results_per_pixel: {self._params['results_per_pixel']}")
-            return False
-
-        if self._params["encode_num_bytes"] not in set([-1, 1, 2, 4]):
-            logger.warning(
-                f"Invalid encode_num_bytes: {self._params['encode_num_bytes']} "
-                "must be one of -1, 1, 2, or 4."
-            )
-            return False
-
-        if self._params["psf_val"] <= 0.0:
-            logger.warning(f"Invalid psf_val {self._params['psf_val']}")
-            return False
-
-        if self._params["x_pixel_bounds"] is not None:
-            if len(self._params["x_pixel_bounds"]) != 2:
-                logger.warning(f"Expected two values for x_pixel_bounds")
-                return False
-            if self._params["x_pixel_bounds"][1] <= self._params["x_pixel_bounds"][0]:
-                logger.warning(f"Invalid x_pixel_bounds: {self._params['x_pixel_bounds']}")
-                return False
-
-        if self._params["y_pixel_bounds"] is not None:
-            if len(self._params["y_pixel_bounds"]) != 2:
-                logger.warning(f"Expected two values for y_pixel_bounds")
-                return False
-            if self._params["y_pixel_bounds"][1] <= self._params["y_pixel_bounds"][0]:
-                logger.warning(f"Invalid y_pixel_bounds: {self._params['y_pixel_bounds']}")
+        for key, value in self._params.items():
+            param_info = self._param_info.get(key, None)
+            if param_info is not None and not param_info.validate(value):
+                logger.warning(f"Invalid value for parameter {key}: {value}")
                 return False
 
         return True
@@ -289,6 +578,30 @@ class SearchConfiguration:
         if Path(filename).is_file() and not overwrite:
             logger.warning(f"Configuration file {filename} already exists.")
             return
+        logger.info(f"Saving configuration to {filename}")
+
+        # Output the configuration file in sections for easier reading. We add the sections
+        # in the order we want them to appear.
+        section_to_params = {
+            "core": [],
+            "filtering": [],
+            "stamps": [],
+            "clustering": [],
+            "input": [],
+            "output": [],
+            "other": [],
+        }
+        for key, value in self._param_info.items():
+            section = value.section if value.section in section_to_params else "other"
+            section_to_params[section].append(key)
 
         with open(filename, "w") as file:
-            file.write(self.to_yaml())
+            for section, section_keys in section_to_params.items():
+                file.write("# ======================================================================\n")
+                file.write(f"# {section.capitalize()} Configuration\n")
+                file.write("# ======================================================================\n")
+                for key in section_keys:
+                    if key in self._param_info and self._param_info[key].description:
+                        file.write(f"\n# {self._param_info[key].description}\n")
+                        file.write(dump({key: self._params[key]}))
+                file.write("\n")
