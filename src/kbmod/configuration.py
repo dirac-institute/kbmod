@@ -139,7 +139,8 @@ _SUPPORTED_PARAMS = [
         default_value=[],
         description="The list of coadd images to compute ('mean', 'median', 'sum', 'weighted').",
         section="stamps",
-        validate_func=lambda x: isinstance(x, list) and all(i in ["mean", "median", "sum", "weighted"] for i in x),
+        validate_func=lambda x: isinstance(x, list)
+        and all(i in ["mean", "median", "sum", "weighted"] for i in x),
     ),
     _ParamInfo(
         name="compute_ra_dec",
