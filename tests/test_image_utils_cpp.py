@@ -301,6 +301,10 @@ class test_image_utils_cpp(unittest.TestCase):
                 else:
                     self.assertFalse(np.isfinite(phi_val))
 
+        # We fail on image size mismatches.
+        sci2 = np.zeros((height + 1, width), dtype=np.float32)
+        self.assertRaises(RuntimeError, generate_psi, sci2, var, p)
+
 
 if __name__ == "__main__":
     unittest.main()
