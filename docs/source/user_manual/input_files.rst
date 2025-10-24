@@ -1,8 +1,21 @@
 Input Files
 ===========
 
+KBMOD expects Vera C. Rubin Science Pipelines calexp-style data with at least a science and variance plane for each image. The core unit of data is the :py:class:`~kbmod.work_unit.WorkUnit` object, which holds the images and related metadata. WorkUnits objects can be created from a variety of sources including a set of multi-extension FITS files or references to the data's location on a Butler instance. They can also be saved to disk and reloaded for future analyis.
 
-KBMOD expects Vera C. Rubin Science Pipelines calexp-style data. These can be provided as a set of multi-extension FITS files, references to the data's location on a Butler instance, or a saved :py:class:`~kbmod.work_unit.WorkUnit`.
+
+WorkUnit Files
+--------------
+
+The :py:class:`~kbmod.work_unit.WorkUnit` objects provide functions for writing to and loading from files. In addition to image data, the :py:class:`~kbmod.work_unit.WorkUnit` includes configuration data for the run and all necessary metadata (e.g. the WCS). To load a :py:class:`~kbmod.work_unit.WorkUnit` from a file, use::
+
+    my_wu = WorkUnit.from_fits(input_filename)
+
+
+The images in a :py:class:`~kbmod.work_unit.WorkUnit` can either be in their original frame or reprojected to a common pixel grid.  If they have been reprojected, the object’s `reprojected` is set to true. Reprojected sets of images have additional metadata, such as a mapping for the image’s index to those of the constituent images from which it was created.
+
+The metadata for the original images is stored in an AstroPy Table in the `org_img_meta` attribute. This contains details such as each image’s WCS, data location and filter.
+
 
 Butler
 ------
@@ -10,12 +23,7 @@ Butler
 TODO
 
 
-WorkUnit
---------
 
-The :py:class:`~kbmod.work_unit.WorkUnit` objects provide functions for writing to and loading from files. In addition to image data, the :py:class:`~kbmod.work_unit.WorkUnit` includes configuration data for the run and all necessary metadata (e.g. the WCS). To load a :py:class:`~kbmod.work_unit.WorkUnit` from a file, use::
-
-    my_wu = WorkUnit.from_fits(input_filename)
 
 
 FITS Files
