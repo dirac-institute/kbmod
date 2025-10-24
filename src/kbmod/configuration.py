@@ -222,7 +222,7 @@ _SUPPORTED_PARAMS = [
         name="max_masked_pixels",
         default_value=0.5,
         description="The maximum fraction of masked pixels allowed before an input image is dropped.",
-        section="input",
+        section="core",
         validate_func=lambda x: isinstance(x, (int, float)) and 0.0 <= x <= 1.0,
     ),
     _ParamInfo(
@@ -277,8 +277,8 @@ _SUPPORTED_PARAMS = [
     _ParamInfo(
         name="psf_val",
         default_value=1.4,
-        description="The standard deviation of the Gaussian PSF in pixels.",
-        section="input",
+        description="The default standard deviation of the Gaussian PSF in pixels (if not provided in the data).",
+        section="core",
         validate_func=lambda x: isinstance(x, (int, float)) and x > 0.0,
     ),
     _ParamInfo(
@@ -587,7 +587,6 @@ class SearchConfiguration:
             "filtering": [],
             "stamps": [],
             "clustering": [],
-            "input": [],
             "output": [],
             "other": [],
         }
