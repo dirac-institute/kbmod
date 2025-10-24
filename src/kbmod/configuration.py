@@ -206,7 +206,7 @@ _SUPPORTED_PARAMS = [
     ),
     _ParamInfo(
         name="gpu_filter",
-        default_value=True,
+        default_value=False,
         description="If True, performs initial sigmaG filtering on GPU.",
         section="filtering",
         validate_func=lambda x: isinstance(x, bool),
