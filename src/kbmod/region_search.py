@@ -382,6 +382,42 @@ class RegionSearch:
             raise ValueError(f"Patch ID {patch_id} is out of range.")
         return self.patches[patch_id]
 
+    def match_ic_to_patches(self, ic, guess_dist, earth_loc):
+        """
+        Retrns all patch indices where the ImageCollection images are found.
+
+        Note that by convention, the patches are defined to already be in whatever reflex-corrected coordinates
+        are being used.
+
+        Parameters
+        ----------
+        ic : ImageCollection
+            The ImageCollection to search for.
+        guess_dist : float
+            The guess distance to use for reflex correction. If 0.0, the original coordinates are used.
+        earth_loc : astropy.coordinates.EarthLocation
+            The Earth location for reflex correction.
+
+        Returns
+        -------
+        set of int
+            The indices of the patches that contain the ImageCollection images.
+        """
+        if guess_dist not in self.guess_dists and guess_dist != 0.0:
+            raise ValueError(f"Guess distance {guess_dist} not specified for RegionSearch")
+        # Since we already have a method for searching patches by ephemeris entries,
+        # we can convert the necessary columns in an ImageCollection to an Ephems object
+        # and use that method.
+        ic_as_ephem = Ephems(
+            ic.data,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[guess_dist],
+            earth_loc=earth_loc,
+        )
+        return self.search_patches_by_ephems(ic_as_ephem, guess_dist=guess_dist)
+
     def search_patches_by_ephems(self, ephems, guess_dist=None):
         """
         Returns all patch indices where the ephemeris entries are found.

@@ -646,6 +646,59 @@ class ImageCollection:
         if end_mjd is not None:
             self.data = self.data[self.data["mjd_mid"] <= end_mjd]
 
+    def filter_by_wcs_error(self, max_wcs_error, in_arcsec=True):
+        """
+        Filter the ImageCollection by the given maximum WCS error. Is performed in-place.
+
+        Parameters
+        ----------
+        max_wcs_error : float
+            The maximum WCS error to filter by.
+        in_arcsec : bool, optional
+            If True, `max_wcs_error` is in arcseconds. If False, it is in degrees.
+        """
+        if max_wcs_error < 0:
+            raise ValueError("max_wcs_error must be positive")
+        if len(self.data) < 1:
+            return
+        max_wcs_error_deg = max_wcs_error if not in_arcsec else max_wcs_error / 3600.0
+        mask = self.data["wcs_error"] <= max_wcs_error_deg
+        self.data = self.data[mask]
+
+    def drop_bands(self, bands_to_drop):
+        """
+        Drop images taken on given bands from the ImageCollection. Is performed in-place.
+
+        Parameters
+        ----------
+        bands_to_drop : `list`
+            A list of bands to exclude from the ImageCollection.
+        """
+        if len(self.data) < 1:
+            return
+        mask = ~np.isin(self.data["band"], bands_to_drop)
+        self.data = self.data[mask]
+
+    def obs_nights_spanned(self, date_col="obs_day"):
+        """Calculate the number of nights spanned by the observations in the ImageCollection.
+
+        Parameters
+        ----------
+        date_col : `str`
+            The name of the column containing the observation dates in "YYYYMMDD" string format.
+
+        Returns
+        -------
+        nights : `int`
+            The number of obs nights spanned by the observations.
+        """
+        if len(self.data) < 1:
+            return 0
+        # Convert "YYYYMMDD" strings datetime objects
+        dates = np.array([np.datetime64(str(date), "D") for date in self.data[date_col]])
+        # Subtract the largest and smallest date, and add 1 to include both endpoints
+        return (dates.max() - dates.min()).astype(int) + 1
+
     def get_wcs(self, idxs):
         """Get a list of WCS objects for selected rows.
 
