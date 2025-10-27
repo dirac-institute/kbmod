@@ -5,9 +5,11 @@ import tempfile
 import unittest
 
 import astropy.table as atbl
-import numpy as np
 from astropy.coordinates import EarthLocation, SkyCoord
+from astropy.time import Time
 import astropy.units as u
+
+import numpy as np
 
 from kbmod import ImageCollection, Standardizer
 from utils import DECamImdiffFactory
@@ -418,6 +420,63 @@ class TestImageCollection(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             ic.remove_column("testcol")
+
+    def test_drop_bands(self):
+        """Test filtering an ImageCollection to drop specified bands."""
+        # Create a mock ImageCollection
+        fits = self.fitsFactory.get_n(10, spoof_data=True)
+        ic = ImageCollection.fromTargets(fits)
+
+        # Spoof some gilters
+        filters = ["u", "g", "r", "i", "z", "y"]
+        ic.data["band"] = [filters[i % len(filters)] for i in range(len(ic))]
+
+        # Drop 'u' and 'y' bands
+        ic.drop_bands(["u", "y"])
+        self.assertTrue(all(filt not in ic.data["band"] for filt in ["u", "y"]))
+        self.assertEqual(len(ic), 7)  # Dropped two u band and 1 y band images
+
+        # Drop 'g' band
+        ic.drop_bands(["g"])
+        self.assertTrue(all(filt != "g" for filt in ic.data["band"]))
+        self.assertEqual(len(ic), 5)  # Dropped 2 g band images
+
+    def test_filter_by_wcs_error(self):
+        """Test filtering an ImageCollection by WCS error."""
+        # Create a mock ImageCollection
+        fits = self.fitsFactory.get_n(10, spoof_data=True)
+        ic = ImageCollection.fromTargets(fits)
+
+        # Spoof some WCS error values in degrees
+        wcs_errors = [0.1 * i for i in range(1, len(ic) + 1)]
+        ic.data["wcs_error"] = wcs_errors
+
+        # Filter by max WCS error of 0.5 degrees
+        ic.filter_by_wcs_error(0.5, in_arcsec=False)
+        self.assertTrue(all(err <= 0.5 for err in ic.data["wcs_error"]))
+        self.assertEqual(len(ic), 5)
+
+        # Filter again but in arcseconds
+        ic.filter_by_wcs_error(0.31 * 3600, in_arcsec=True)
+        self.assertTrue(all(err <= 0.31 for err in ic.data["wcs_error"]))
+        self.assertEqual(len(ic), 3)
+
+    def test_obs_nights_spanned(self):
+        """Test calculating the number of observation nights spanned by the ImageCollection."""
+        # Create a mock ImageCollection
+        fits = self.fitsFactory.get_n(10, spoof_data=True)
+        ic = ImageCollection.fromTargets(fits)
+
+        # Populate mjd_mid with consecutive nights (2023-01-01 .. 2023-01-10)
+        dates = [f"2023-01-{str(i).zfill(2)}" for i in range(1, 11)]
+        ic.data["mjd_mid"] = Time(dates).mjd
+        self.assertEqual(ic.obs_nights_spanned(), 10)
+
+        # Spoof some nights with repeats, out of order
+        # Note that 2024 has a leap day
+        repeated_dates = 5 * ["2024-03-03"] + 2 * ["2024-02-27"] + 3 * ["2024-03-02"]
+        ic.data["mjd_mid"] = Time(repeated_dates).mjd
+        self.assertEqual(ic.obs_nights_spanned(), 6)
 
 
 if __name__ == "__main__":

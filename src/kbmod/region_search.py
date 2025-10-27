@@ -276,8 +276,6 @@ class RegionSearch:
         self,
         arcminutes,
         overlap_percentage,
-        image_width,
-        image_height,
         pixel_scale,
         dec_range=[-90, 90],
     ):
@@ -298,13 +296,9 @@ class RegionSearch:
         Parameters
         ----------
         arcminutes : float
-            The size of the patches in arcminutes.
+            The size of the patches in arcminutes. Patches are square, so this is both the width and height.
         overlap_percentage : float
             The percentage of overlap between adjacent patches, expressed in [0,100]
-        image_width : int
-            The width of the image in pixels.
-        image_height : int
-            The height of the image in pixels.
         pixel_scale : float
             The pixel scale in arcseconds per pixel.
         dec_range : list of float, optional
@@ -315,6 +309,9 @@ class RegionSearch:
         None
         """
         self.patches = []
+
+        # Calculate the patch length in pixels
+        patch_len_pixels = patch_arcmin_to_pixels(arcminutes, pixel_scale)
 
         # Get the patch overlap in degrees
         arcdegrees = arcminutes / 60.0
@@ -348,8 +345,8 @@ class RegionSearch:
                             center_dec,
                             arcdegrees,
                             arcdegrees,
-                            image_width,
-                            image_height,
+                            patch_len_pixels,
+                            patch_len_pixels,
                             pixel_scale,
                             patch_id,
                         )
@@ -381,6 +378,42 @@ class RegionSearch:
         if patch_id < 0 or patch_id >= len(self.patches):
             raise ValueError(f"Patch ID {patch_id} is out of range.")
         return self.patches[patch_id]
+
+    def match_ic_to_patches(self, ic, guess_dist, earth_loc):
+        """
+        Returns all patch indices where the ImageCollection images are found.
+
+        Note that by convention, the patches are defined to already be in whatever reflex-corrected coordinates
+        are being used.
+
+        Parameters
+        ----------
+        ic : ImageCollection
+            The ImageCollection to search for.
+        guess_dist : float
+            The guess distance to use for reflex correction. If 0.0, the original coordinates are used.
+        earth_loc : astropy.coordinates.EarthLocation
+            The Earth location for reflex correction.
+
+        Returns
+        -------
+        set of int
+            The indices of the patches that contain the ImageCollection images.
+        """
+        if guess_dist not in self.guess_dists and guess_dist != 0.0:
+            raise ValueError(f"Guess distance {guess_dist} not specified for RegionSearch")
+        # Since we already have a method for searching patches by ephemeris entries,
+        # we can convert the necessary columns in an ImageCollection to an Ephems object
+        # and use that method.
+        ic_as_ephem = Ephems(
+            ic.data,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[guess_dist],
+            earth_loc=earth_loc,
+        )
+        return self.search_patches_by_ephems(ic_as_ephem, guess_dist=guess_dist)
 
     def search_patches_by_ephems(self, ephems, guess_dist=None):
         """
