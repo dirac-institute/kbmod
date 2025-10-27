@@ -276,8 +276,6 @@ class RegionSearch:
         self,
         arcminutes,
         overlap_percentage,
-        image_width,
-        image_height,
         pixel_scale,
         dec_range=[-90, 90],
     ):
@@ -298,13 +296,9 @@ class RegionSearch:
         Parameters
         ----------
         arcminutes : float
-            The size of the patches in arcminutes.
+            The size of the patches in arcminutes. Patches are square, so this is both the width and height.
         overlap_percentage : float
             The percentage of overlap between adjacent patches, expressed in [0,100]
-        image_width : int
-            The width of the image in pixels.
-        image_height : int
-            The height of the image in pixels.
         pixel_scale : float
             The pixel scale in arcseconds per pixel.
         dec_range : list of float, optional
@@ -315,6 +309,9 @@ class RegionSearch:
         None
         """
         self.patches = []
+
+        # Calculate the patch length in pixels
+        patch_len_pixels = patch_arcmin_to_pixels(arcminutes, pixel_scale)
 
         # Get the patch overlap in degrees
         arcdegrees = arcminutes / 60.0
@@ -348,8 +345,8 @@ class RegionSearch:
                             center_dec,
                             arcdegrees,
                             arcdegrees,
-                            image_width,
-                            image_height,
+                            patch_len_pixels,
+                            patch_len_pixels,
                             pixel_scale,
                             patch_id,
                         )
@@ -384,7 +381,7 @@ class RegionSearch:
 
     def match_ic_to_patches(self, ic, guess_dist, earth_loc):
         """
-        Retrns all patch indices where the ImageCollection images are found.
+        Returns all patch indices where the ImageCollection images are found.
 
         Note that by convention, the patches are defined to already be in whatever reflex-corrected coordinates
         are being used.

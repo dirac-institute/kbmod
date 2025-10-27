@@ -88,8 +88,8 @@ class TestRegionSearch(unittest.TestCase):
         # Create a mock EarthLocation
         self.earth_loc = EarthLocation.of_site("ctio")
 
-        # Set the patch size to 20 x 20 arcminutes
-        self.patch_size = [20, 20]
+        # Set the patch size to a square with 20 arcminutes sides.
+        self.patch_size = 20
 
     def test_init(self):
         """Test basic initialization of the RegionSearch class."""
@@ -131,10 +131,8 @@ class TestRegionSearch(unittest.TestCase):
         guess_dists = [0.1, 0.2, 0.3]
         rs = RegionSearch(self.ic, guess_dists=guess_dists, earth_loc=self.earth_loc)
         rs.generate_patches(
-            arcminutes=self.patch_size[0],
+            arcminutes=self.pathc_size,
             overlap_percentage=0,
-            image_width=patch_arcmin_to_pixels(self.patch_size[0], 0.2),
-            image_height=patch_arcmin_to_pixels(self.patch_size[1], 0.2),
             pixel_scale=0.2,
             dec_range=(-5, 5),
         )
@@ -148,10 +146,8 @@ class TestRegionSearch(unittest.TestCase):
         # Now generate the patch grid again with 50% overlap
         n_patches = len(rs.get_patches())
         rs.generate_patches(
-            arcminutes=self.patch_size[0],
+            arcminutes=self.pathc_size,
             overlap_percentage=50,
-            image_width=patch_arcmin_to_pixels(self.patch_size[0], 0.2),
-            image_height=patch_arcmin_to_pixels(self.patch_size[1], 0.2),
             pixel_scale=0.2,
             dec_range=(-5, 5),
         )
@@ -166,10 +162,8 @@ class TestRegionSearch(unittest.TestCase):
         # Generate a basic patch grid with no overlap
         dec_range = (min(self.ic.data["dec"] - 0.5), max(self.ic.data["dec"] + 0.5))
         region_search_test.generate_patches(
-            arcminutes=self.patch_size[0],
+            arcminutes=self.pathc_size,
             overlap_percentage=0,
-            image_width=patch_arcmin_to_pixels(self.patch_size[0], 0.2),
-            image_height=patch_arcmin_to_pixels(self.patch_size[1], 0.2),
             pixel_scale=0.2,
             dec_range=dec_range,
         )
@@ -224,10 +218,8 @@ class TestRegionSearch(unittest.TestCase):
 
         # Generate a basic patch grid with no overlap
         region_search_test.generate_patches(
-            arcminutes=self.patch_size[0],
+            arcminutes=self.pathc_size,
             overlap_percentage=0,
-            image_width=patch_arcmin_to_pixels(self.patch_size[0], 0.2),
-            image_height=patch_arcmin_to_pixels(self.patch_size[1], 0.2),
             pixel_scale=0.2,
             dec_range=(min_dec, max_dec),
         )
@@ -281,11 +273,11 @@ class TestRegionSearch(unittest.TestCase):
                 self.assertEqual(len(set(patch_ic.data["global_wcs_pixel_shape_1"])), 1)
                 self.assertEqual(
                     patch_ic.data["global_wcs_pixel_shape_0"][0],
-                    patch_arcmin_to_pixels(self.patch_size[0], 0.2),
+                    patch_arcmin_to_pixels(self.pathc_size, 0.2),
                 )
                 self.assertEqual(
                     patch_ic.data["global_wcs_pixel_shape_1"][0],
-                    patch_arcmin_to_pixels(self.patch_size[0], 0.2),
+                    patch_arcmin_to_pixels(self.pathc_size, 0.2),
                 )
 
                 # Check that the WCS is valid
@@ -299,9 +291,9 @@ class TestRegionSearch(unittest.TestCase):
                     x, y = wcs.world_to_pixel(SkyCoord(ra, dec, unit=(u.deg, u.deg), frame="icrs"))
                     pixel_discrep = 2  # Allow 2 pixels of discrepancy for our corners
                     self.assertGreaterEqual(x, 0 - pixel_discrep)
-                    self.assertLessEqual(x, patch_arcmin_to_pixels(self.patch_size[0], 0.2) + pixel_discrep)
+                    self.assertLessEqual(x, patch_arcmin_to_pixels(self.pathc_size, 0.2) + pixel_discrep)
                     self.assertGreaterEqual(y, 0 - pixel_discrep)
-                    self.assertLessEqual(y, patch_arcmin_to_pixels(self.patch_size[1], 0.2) + pixel_discrep)
+                    self.assertLessEqual(y, patch_arcmin_to_pixels(self.pathc_size, 0.2) + pixel_discrep)
 
                 # Check that each pre-existing column of the original ImageCollection is present
                 for col in self.ic.data.columns:

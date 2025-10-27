@@ -10,7 +10,7 @@ Also generates analysis tables summarizing the results. Additionally,
 any errors in processing patches are logged to an errors.csv file in 
 the output directory.
 
-Example Usage
+Example Usage:
 -------------
 
 The following command takes a base ImageCollection, generates patch grids
@@ -18,18 +18,17 @@ for multiple reflex-correction guess distances and patch sizes, and
 performs Region Search on each configuration. The resulting ImageCollections
 and analysis tables are saved to the specified output directory. 
 
--------------
-python region_searcher.py \
-    --ic-path path/to/image_collection.collection \
-    --guess-distances 1.0 2.0 \
-    --patch-side-len 10 20 \
-    --obs-site Rubin \
-    --pixel-scale 0.2 \
-    --patch-overlap-percentage 0.1 \
-    --bands-to-drop u y \
-    --out-dir output_directory \
-    --max-wcs-err 0.5 \
-    --overwrite
+>>> python region_searcher.py \
+        --ic-path path/to/image_collection.collection \
+        --guess-distances 1.0 2.0 \
+        --patch-side-len 10 20 \
+        --obs-site Rubin \
+        --pixel-scale 0.2 \
+        --patch-overlap-percentage 0.1 \
+        --bands-to-drop u y \
+        --out-dir output_directory \
+        --max-wcs-err 0.5 \
+        --overwrite
 """
 
 import argparse
@@ -40,7 +39,7 @@ from tqdm import tqdm
 
 import kbmod
 from kbmod import ImageCollection
-from kbmod.region_search import RegionSearch, patch_arcmin_to_pixels
+from kbmod.region_search import RegionSearch
 
 
 from astropy.coordinates import EarthLocation
@@ -75,30 +74,32 @@ def dist_patch_size_str(guess_dist, patch_size):
     ----------
     guess_dist : float
         The guess-correction distance.
-    patch_size : list of int
-        The size of the patches in arcminutes [width, height].
+    patch_size : int
+        The length of a side of a square patch in arcminutes.
 
     Returns
     -------
     str
-        A string in the format "GUESSDIST_PATCHWIDTHxPATCHHEIGHT".
+        A string in the format "GUESSDIST_PATCHSIZExPATCHSIZE".
     """
-    return f"{guess_dist}_{patch_size[0]}X{patch_size[1]}"
+    return f"{guess_dist}_{patch_size}X{patch_size}"
 
 
 def patch_id_to_ic_path(patch_id, guess_distance, patch_size, ic_dir):
     """
     Constructs the file path for the ImageCollection corresponding to a given patch ID.
+
     Parameters
     ----------
     patch_id : int
         The ID of the patch.
     guess_distance : float
-        The guess-correction distance.
-    patch_size : list of int
-        The size of the patches in arcminutes [width, height].
+        The guess-correction distance in AU.
+    patch_size : int
+        The length of a side of a square patch in arcminutes.
     ic_dir : str
         The directory where ImageCollections are stored.
+
     Returns
     -------
     str
@@ -118,15 +119,16 @@ def generate_or_load_patch_ic(patch_ids, guess_distance, patch_size, region_sear
     patch_ids : list of int
         List of patch IDs that have matched ephemerides.
     guess_distance : float
-        The reflex-correction guess distance used in the search.
-    patch_size : list of int
-        The size of the patches in arcminutes [width, height].
+        The reflex-correction guess distance used in the search, in AU.
+    patch_size : int
+        The length of a side of a square patch in arcminutes.
     region_search : kbmod.region_search.RegionSearch
         The RegionSearch object maintaining the patch grid and base ImageCollection.
     ic_dir : str
         Directory to look for existing ImageCollections.
     overwrite : bool, optional
         If True, regenerate all ImageCollections even if they exist on disk. Default is False.
+
     Returns
     -------
     dict
@@ -186,10 +188,13 @@ def generate_analysis_table(patch_id_to_ic):
     ----------
     patch_id_to_ic : dict
         A dictionary mapping patch IDs to their corresponding ImageCollections.
+
     Returns
     -------
     astropy.table.Table
-        An analysis table with columns for patch ID, overlap area, visit count,"""
+        An analysis table with columns for patch ID, overlap area, visit count,
+        unique MJDs, and observation nights spanned.
+    """
     patch_ids = []
     overlap_deg = []
     visit_counts = []
@@ -228,18 +233,23 @@ def region_searcher(
     overwrite,
 ):
     """
-    Perform Region Search on an ImageCollection for a given guess distance and patch size.
+    Perform Region Search on a base ImageCollection for a given guess distance and patch size.
+
+    This base ImageCollection is the metadata for all images we want to perform region search on.
+    The function generates patches, matches them to the images in the base ImageCollection, generates
+    new ImageCollections for each matched patch. These ImageCollections and an analysis table are saved to disk
+    in the specified output directory.
 
     Parameters
     ----------
     ic_path : str
         Path to the base ImageCollection file.
     guess_distance : float
-        The reflex-correction guess distance.
+        The reflex-correction guess distance in AU.
     site_name : str
         The name of the observatory site for EarthLocation.
-    patch_size : list of int
-        The size of the patches in arcminutes [width, height].
+    patch_size : int
+        The length of a side of a square patch in arcminutes.
     patch_overlap_percentage : float
         The percentage overlap between patches (0.0-1.0).
     pixel_scale : float
@@ -260,6 +270,9 @@ def region_searcher(
     # The start time for elapsed time tracking
     startTime = time.time()
 
+    # Load a base ImageCollection to which contains all images we want to perform
+    # region search on. We will filter for images matching our criteria and then
+    # generate subset ImageCollections for the actual searches.
     print(f"{elapsed_t(startTime)} Reading base ImageCollection from {ic_path}...")
     ic = kbmod.ImageCollection.read(ic_path)
 
@@ -275,28 +288,29 @@ def region_searcher(
         ic.filter_by_wcs_error(max_wcs_err, in_arcsec=True)
         print(f"Dropped {curr_len - len(ic)} rows due to high WCS error.")
 
-    # region search setup including patch generation
+    # region search setup including dividing the sky into grid of patches.
     print(f"{elapsed_t(startTime)} Generating {dist_patch_size_str(guess_distance, patch_size)} patches...")
     earth_loc = EarthLocation.of_site(site_name)
     region_search = RegionSearch(ic, guess_dists=[guess_distance], earth_loc=earth_loc)
     region_search.generate_patches(
-        arcminutes=patch_size[0],
+        arcminutes=patch_size,
         overlap_percentage=patch_overlap_percentage,
-        image_width=patch_arcmin_to_pixels(patch_size[0], pixel_scale),
-        image_height=patch_arcmin_to_pixels(patch_size[1], pixel_scale),
         pixel_scale=pixel_scale,
     )
     print(
         f"{elapsed_t(startTime)} Generated {len(region_search.get_patches())} {dist_patch_size_str(guess_distance, patch_size)} patches. Searching ImageCollection..."
     )
 
-    # See which of the generated patches have Images from our collection.
+    # See which of the generated patches have Images from our base collection.
     found_patches = region_search.match_ic_to_patches(region_search.ic, guess_distance, earth_loc)
     print(f"{elapsed_t(startTime)} Found {len(found_patches)} patches. Running analysis...")
 
     ic_dir = os.path.join(out_dir, dist_patch_size_str(guess_distance, patch_size))
     if not os.path.exists(ic_dir):
         os.makedirs(ic_dir)
+
+    # For all of the patches that had matches to images in or base ImageCollection,
+    # generate or load their ImageCollections (a collection of only the images overlapping that patch).
     patch_id_to_ic = generate_or_load_patch_ic(
         patch_ids=list(found_patches),
         guess_distance=guess_distance,
@@ -305,7 +319,8 @@ def region_searcher(
         ic_dir=ic_dir,
         overwrite=False,
     )
-    # Analysis table generation
+
+    # Generate and save an analysis table providing summary statistics for each patch.
     table_csvfile = os.path.join(ic_dir, f"overlap_{dist_patch_size_str(guess_distance, patch_size)}.csv")
     if overwrite and os.path.exists(table_csvfile):
         print(f"Analysis table {table_csvfile} exists and overwrite is False, not writing.")
@@ -392,7 +407,7 @@ if __name__ == "__main__":
                 ic_path=args.ic_path,
                 guess_distance=guess_distance,
                 site_name=args.obs_site,
-                patch_size=(patch_side_len, patch_side_len),
+                patch_size=patch_side_len,
                 patch_overlap_percentage=args.patch_overlap_percentage,
                 pixel_scale=args.pixel_scale,
                 bands_to_drop=args.bands_to_drop,
