@@ -5,9 +5,11 @@ import tempfile
 import unittest
 
 import astropy.table as atbl
-import numpy as np
 from astropy.coordinates import EarthLocation, SkyCoord
+from astropy.time import Time
 import astropy.units as u
+
+import numpy as np
 
 from kbmod import ImageCollection, Standardizer
 from utils import DECamImdiffFactory
@@ -465,17 +467,16 @@ class TestImageCollection(unittest.TestCase):
         fits = self.fitsFactory.get_n(10, spoof_data=True)
         ic = ImageCollection.fromTargets(fits)
 
-        with self.assertRaises(KeyError):
-            ic.obs_nights_spanned("non_existent_column")
-
-        # Generate a column of random nights in YYYYMMDD format, use the default column of obs_day
-        ic.data["obs_day"] = [f"202301{str(i).zfill(2)}" for i in range(1, 11)]
+        # Populate mjd_mid with consecutive nights (2023-01-01 .. 2023-01-10)
+        dates = [f"2023-01-{str(i).zfill(2)}" for i in range(1, 11)]
+        ic.data["mjd_mid"] = Time(dates).mjd
         self.assertEqual(ic.obs_nights_spanned(), 10)
 
         # Spoof some nights with repeats, out of order
         # Note that 2024 has a leap day
-        ic.data["obs_night"] = 5 * [f"20240303"] + 2 * [f"20240227"] + 3 * [f"20240302"]
-        self.assertEqual(ic.obs_nights_spanned("obs_night"), 6)
+        repeated_dates = 5 * ["2024-03-03"] + 2 * ["2024-02-27"] + 3 * ["2024-03-02"]
+        ic.data["mjd_mid"] = Time(repeated_dates).mjd
+        self.assertEqual(ic.obs_nights_spanned(), 6)
 
 
 if __name__ == "__main__":

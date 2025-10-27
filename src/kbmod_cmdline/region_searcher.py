@@ -41,7 +41,6 @@ from tqdm import tqdm
 import kbmod
 from kbmod import ImageCollection
 from kbmod.region_search import RegionSearch, patch_arcmin_to_pixels
-from kbmod.standardizers import ButlerStandardizer
 
 
 from astropy.coordinates import EarthLocation
@@ -198,12 +197,9 @@ def generate_analysis_table(patch_id_to_ic):
     obs_nights_spanned = []
     for patch_id, patch_ic in patch_id_to_ic.items():
         patch_ids.append(patch_id)
-        overlap_deg.append(patch_ic.data["overlap_deg"])
+        overlap_deg.append(sum(patch_ic.data["overlap_deg"]))
         visit_counts.append(len(set(patch_ic["visit"])))
         unique_mjds.append(len(set([int(m) for m in patch_ic["mjd_mid"]])))
-        if "obs_day" not in patch_ic.columns:
-            # TODO Backwards compatibility with old ICs, can be removed later.
-            patch_ic["obs_day"] = [ButlerStandardizer._mjd_to_obs_day(mjd) for mjd in patch_ic["mjd_mid"]]
         obs_nights_spanned.append(patch_ic.obs_nights_spanned())
     t = Table(
         {

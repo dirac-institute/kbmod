@@ -19,7 +19,7 @@ from astropy.utils import isiterable
 import numpy as np
 
 from kbmod.core.image_stack_py import ImageStackPy
-from .standardizers import Standardizer
+from .standardizers import Standardizer, ButlerStandardizer
 
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
@@ -680,13 +680,10 @@ class ImageCollection:
         mask = ~np.isin(self.data["band"], bands_to_drop)
         self.data = self.data[mask]
 
-    def obs_nights_spanned(self, date_col="obs_day"):
+    def obs_nights_spanned(self):
         """Calculate the number of nights spanned by the observations in the ImageCollection.
 
-        Parameters
-        ----------
-        date_col : `str`
-            The name of the column containing the observation dates in "YYYYMMDD" string format.
+        Note that we use the "mjd_mid" column to determine the local observation date.
 
         Returns
         -------
@@ -695,10 +692,16 @@ class ImageCollection:
         """
         if len(self.data) < 1:
             return 0
-        # Convert "YYYYMMDD" strings datetime objects
-        dates = [datetime.datetime.strptime(d, "%Y%m%d") for d in self.data[date_col]]
+        # Convert YYYYMMDD integers to datetime objects
+        max_date = datetime.datetime.strptime(
+            str(ButlerStandardizer._mjd_to_obs_day(max(self.data["mjd_mid"]))), "%Y%m%d"
+        )
+        min_date = datetime.datetime.strptime(
+            str(ButlerStandardizer._mjd_to_obs_day(min(self.data["mjd_mid"]))), "%Y%m%d"
+        )
+
         # Subtract the largest and smallest date, and add 1 to include both endpoints
-        return (max(dates) - min(dates)).days + 1
+        return (max_date - min_date).days + 1
 
     def get_wcs(self, idxs):
         """Get a list of WCS objects for selected rows.
