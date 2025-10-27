@@ -456,7 +456,7 @@ class TestImageCollection(unittest.TestCase):
 
         # Filter again but in arcseconds
         ic.filter_by_wcs_error(0.31 * 3600, in_arcsec=True)
-        self.assertTrue(all(err <= 0.3 for err in ic.data["wcs_error"]))
+        self.assertTrue(all(err <= 0.31 for err in ic.data["wcs_error"]))
         self.assertEqual(len(ic), 3)
 
     def test_obs_nights_spanned(self):
