@@ -1,4 +1,5 @@
 import logging
+from logging import config
 import numpy as np
 import psutil
 import os
@@ -493,7 +494,7 @@ class SearchRunner:
         else:
             meta_to_save = {}
         if workunit is not None:
-            wu_meta = workunit.get_constituent_meta(["visit", "filter", "data_loc", "dataId"])
+            wu_meta = workunit.get_constituent_meta(["visit", "filter", "data_loc", "dataId", "color_scale"])
             meta_to_save.update(wu_meta)
         meta_to_save["num_img"] = num_img
         meta_to_save["dims"] = stack.width, stack.height
@@ -543,6 +544,9 @@ class SearchRunner:
             The results.
         """
         trj_generator = create_trajectory_generator(work.config, work_unit=work)
+        if work.config["color_scale"] is not None:
+            work.im_stack.apply_color_scaling(work.config["color_scale"])
+
         return self.run_search(
             work.config,
             work.im_stack,
