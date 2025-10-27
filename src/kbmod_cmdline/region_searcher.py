@@ -251,7 +251,7 @@ def region_searcher(
     patch_size : int
         The length of a side of a square patch in arcminutes.
     patch_overlap_percentage : float
-        The percentage overlap between patches (0.0-1.0).
+        The percentage overlap between adjacent generated patches in a search (0.0-1.0).
     pixel_scale : float
         The pixel scale of images in arcseconds/pixel.
     bands_to_drop : list of str
@@ -322,7 +322,7 @@ def region_searcher(
 
     # Generate and save an analysis table providing summary statistics for each patch.
     table_csvfile = os.path.join(ic_dir, f"overlap_{dist_patch_size_str(guess_distance, patch_size)}.csv")
-    if overwrite and os.path.exists(table_csvfile):
+    if not overwrite and os.path.exists(table_csvfile):
         print(f"Analysis table {table_csvfile} exists and overwrite is False, not writing.")
     else:
         print(f"{elapsed_t(startTime)} Generating analysis table...")
@@ -340,7 +340,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--guess-distances",
         dest="guess_distances",
-        help="guess-correction distances",
+        help="guess distances for reflex-correction in AU",
         type=float,
         default=[],
         nargs="+",
