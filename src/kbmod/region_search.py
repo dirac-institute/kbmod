@@ -598,7 +598,7 @@ class RegionSearch:
         candidate_indices = np.where(seps <= max_sep)[0]
 
         # Iterate over all candidates and check if they actually overlap with the patch
-        overlap_deg = np.zeros(len(self.ic), dtype=bool)
+        overlap_deg = np.zeros(len(self.ic), dtype=float)
         for ic_idx in candidate_indices:
             # Get our polygon from the visit and detector and our guess distance
             poly = self.chip_shapes[self.ic.data["visit"][ic_idx]][self.ic.data["detector"][ic_idx]][
