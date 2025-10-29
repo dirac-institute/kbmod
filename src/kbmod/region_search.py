@@ -608,11 +608,11 @@ class RegionSearch:
         # Slice the ImageCollection to the subset of images that overlap with the patch
         overlap_mask = overlap_deg > 0
         new_ic = self.ic[overlap_mask]
+        new_ic["overlap_deg"] = overlap_deg[overlap_mask]
         if len(new_ic.data) < 1:
             # No images overlap with the patch
             return new_ic
 
-        new_ic["overlap_deg"] = overlap_deg[overlap_mask]
         if max_images is not None and len(new_ic.data) > max_images:
             # Limit the number of images to the maximum number of images requested,
             # prioritizing the images with the highest overlap by sorting
