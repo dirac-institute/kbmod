@@ -30,7 +30,7 @@ class test_util_functions(unittest.TestCase):
                 y=i + 0,
                 vx=i - 2.0,
                 vy=i + 5.0,
-                flux=5.0 * i,
+                flux=5.0 * i + 1.0,  # Flux must be > 1
                 lh=100.0 + i,
                 obs_count=self.num_images,
             )
