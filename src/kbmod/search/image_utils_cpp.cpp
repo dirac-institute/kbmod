@@ -128,7 +128,9 @@ Image generate_psi(Image& sci, Image& var, Image& psf) {
     const uint64_t width = sci.cols();
     const uint64_t num_pixels = height * width;
     if ((height != var.rows()) || (width != var.cols())) {
-        throw std::runtime_error("Science and Variance images must be the same dimensions.");
+        throw std::runtime_error("Science and Variance images must be the same dimensions.  Sci = (" +
+                                 std::to_string(sci.rows()) + "," + std::to_string(sci.cols()) + "), Var = (" +
+                                 std::to_string(var.rows()) + "," + std::to_string(var.cols()) + ").");
     }
 
     Image result = Image::Zero(height, width);
