@@ -606,7 +606,7 @@ class RegionSearch:
             overlap_deg[ic_idx] = patch.measure_overlap(poly)
 
         # Slice the ImageCollection to the subset of images that overlap with the patch
-        overlap_mask = overlap_deg > 0
+        overlap_mask = overlap_deg > min_overlap
         new_ic = self.ic[overlap_mask]
         new_ic["overlap_deg"] = overlap_deg[overlap_mask]
         if len(new_ic.data) < 1:
