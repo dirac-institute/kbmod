@@ -477,7 +477,7 @@ class RegionSearch:
                     res_patch_indices.add(patch_idx)
         return res_patch_indices
 
-    def export_image_collection(self, ic_to_export=None, guess_dist=None, patch=None):
+    def export_image_collection(self, ic_to_export=None, guess_dist=None, patch=None, in_place=True):
         """
         Exports the ImageCollection to a new ImageCollection with the given guess distance and patch information.
 
@@ -492,6 +492,8 @@ class RegionSearch:
             The guess distance associated with the patch. To be applied to the exported ImageCollection's 'helio_guess_dist' column.
         patch : Patch or int, optional
             The patch to associate with the exported ImageCollection. If None, no patch information is added. May be either a Patch object or its index in self.patches
+        in_place : bool, optional
+            Whether to modify the ImageCollection in place with additional metadata or make a copy. Default is True.
         """
         if ic_to_export is None:
             # Export the current ImageCollection
@@ -500,7 +502,7 @@ class RegionSearch:
         if len(ic_to_export) < 1:
             raise ValueError(f"ImageCollection is empty, cannot export {ic_to_export}")
 
-        new_ic = ic_to_export.copy()
+        new_ic = ic_to_export if in_place else ic_to_export.copy()
 
         # Add the metadata about the guess distance used when choosing this ImageCollection
         if guess_dist is not None:
@@ -521,7 +523,7 @@ class RegionSearch:
 
         # Reset standardizer-related metadata in our ImageCollection.
         new_ic.meta["n_stds"] = len(new_ic)
-        new_ic.data["std_idx"] = range(len(new_ic))
+        new_ic.data.meta["std_idx"] = list(range(len(new_ic)))
 
         return new_ic
 
@@ -592,18 +594,21 @@ class RegionSearch:
 
         # Get the indices of ic_coords that are within the patch size of the patch center
         seps = ic_coords.separation(patch_center)
+        candidate_indices = np.where(seps <= max_sep)[0]
 
-        # Iterate over all images and check if they overlap with the patch
-        new_ic = self.ic.copy()
-        overlap_deg = np.zeros(len(new_ic))
-        for ic_idx in range(len(new_ic)):
-            if seps[ic_idx] <= max_sep:
-                # Get our polygon from the visit and detector and our guess distance
-                poly = self.chip_shapes[new_ic[ic_idx]["visit"]][new_ic[ic_idx]["detector"]][guess_dist]
-                overlap_deg[ic_idx] = patch.measure_overlap(poly)
-        new_ic.data["overlap_deg"] = overlap_deg
-        new_ic.data = new_ic.data[overlap_deg > min_overlap]
+        # Iterate over all candidates and check if they actually overlap with the patch
+        overlap_deg = np.zeros(len(self.ic), dtype=float)
+        for ic_idx in candidate_indices:
+            # Get our polygon from the visit and detector and our guess distance
+            poly = self.chip_shapes[self.ic.data["visit"][ic_idx]][self.ic.data["detector"][ic_idx]][
+                guess_dist
+            ]
+            overlap_deg[ic_idx] = patch.measure_overlap(poly)
 
+        # Slice the ImageCollection to the subset of images that overlap with the patch
+        overlap_mask = overlap_deg > min_overlap
+        new_ic = self.ic[overlap_mask]
+        new_ic["overlap_deg"] = overlap_deg[overlap_mask]
         if len(new_ic.data) < 1:
             # No images overlap with the patch
             return new_ic
