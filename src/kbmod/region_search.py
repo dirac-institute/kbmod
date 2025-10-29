@@ -502,8 +502,7 @@ class RegionSearch:
         if len(ic_to_export) < 1:
             raise ValueError(f"ImageCollection is empty, cannot export {ic_to_export}")
 
-        if not in_place:
-            new_ic = ic_to_export.copy()
+        new_ic = ic_to_export if in_place else ic_to_export.copy()
 
         # Add the metadata about the guess distance used when choosing this ImageCollection
         if guess_dist is not None:
