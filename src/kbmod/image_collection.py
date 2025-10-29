@@ -435,7 +435,7 @@ class ImageCollection:
             # original, we need to reset the standardizer indices and the
             # standardizer list to match the number of rows in the new table.
             new_meta.meta["n_stds"] = min(len(new_meta), self.meta["n_stds"])
-            new_meta.meta["std_idx"] = range(len(new_meta))
+            new_meta.meta["std_idx"] = list(range(len(new_meta)))
             return self.__class__(new_meta, standardizers=self._standardizers)
 
     def __setitem__(self, key, val):
