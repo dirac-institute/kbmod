@@ -493,7 +493,7 @@ class RegionSearch:
         patch : Patch or int, optional
             The patch to associate with the exported ImageCollection. If None, no patch information is added. May be either a Patch object or its index in self.patches
         in_place : bool, optional
-            Whether to modify the ImageCollection in place or only a copy. Default is True.
+            Whether to modify the ImageCollection in place with additional metadata or make a copy. Default is True.
         """
         if ic_to_export is None:
             # Export the current ImageCollection
