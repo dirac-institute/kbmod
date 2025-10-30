@@ -47,7 +47,7 @@ class _ParamInfo:
         self.required = required
 
     def __str__(self):
-        return f"Parameter {self.name}: {self.description} (Default: {self.default_value})"
+        return f"{self.name}: {self.description} (Default: {self.default_value})"
 
     def validate(self, value):
         """Validate the parameter's value using the provided validation function.
@@ -429,6 +429,30 @@ class SearchConfiguration:
             result += f"{key}: {value}\n"
         return result
 
+    def help(self, param=None):
+        """Print help information for a specific parameter or all parameters.
+
+        Parameters
+        ----------
+        param : `str`, optional
+            The parameter name. If not provided, help for all parameters is printed.
+        """
+        if param is not None:
+            if param in self._param_info:
+                print(self._param_info[param])
+            else:
+                print(f"Parameter {param} is not recognized.")
+        else:
+            print("KBMOD Supported Parameters:")
+            section_to_params = self._cluster_parameters()
+            for section, section_keys in section_to_params.items():
+                print(f"\n--- {section.capitalize()} Parameters ---")
+                for key in section_keys:
+                    if key in self._param_info:
+                        print(self._param_info[key])
+                    else:
+                        print(f"{key}: No description available.")
+
     def copy(self):
         """Create a new deep copy of the configuration."""
         return copy.deepcopy(self)
@@ -573,6 +597,35 @@ class SearchConfiguration:
         """
         return dump(self._params)
 
+    def _cluster_parameters(self, sections=None):
+        """Get the clustering parameters as a dictionary.
+
+        Parameters
+        ----------
+        sections : `list` of `str`, optional
+            The sections to include. If not provided, all sections are included.
+
+        Returns
+        -------
+        result : `dict`
+            A dictionary with the parameters clustered into sections.
+        """
+        if sections is None:
+            sections = ["core", "filtering", "stamps", "clustering", "output", "other"]
+
+        # Create the empty dictionary.
+        section_to_params = {}
+        for sec in sections:
+            section_to_params[sec] = []
+        if "other" not in sections:
+            section_to_params["other"] = []
+
+        # Fill the dictionary from the parameter info.
+        for key, value in self._param_info.items():
+            section = value.section if value.section in section_to_params else "other"
+            section_to_params[section].append(key)
+        return section_to_params
+
     def to_file(self, filename, overwrite=False):
         """Save a configuration file with the parameters.
 
@@ -590,17 +643,7 @@ class SearchConfiguration:
 
         # Output the configuration file in sections for easier reading. We add the sections
         # in the order we want them to appear.
-        section_to_params = {
-            "core": [],
-            "filtering": [],
-            "stamps": [],
-            "clustering": [],
-            "output": [],
-            "other": [],
-        }
-        for key, value in self._param_info.items():
-            section = value.section if value.section in section_to_params else "other"
-            section_to_params[section].append(key)
+        section_to_params = self._cluster_parameters()
 
         with open(filename, "w") as file:
             for section, section_keys in section_to_params.items():

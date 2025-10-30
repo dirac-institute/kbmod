@@ -62,6 +62,27 @@ def create_trajectory_generator(config, work_unit=None, **kwargs):
     return TrajectoryGenerator.generators[name](**params, work_unit=work_unit)
 
 
+def describe_trajectory_generator(name=None):
+    """Provide a description of either a given trajectory generator class or all
+    available trajectory generator classes.
+
+    Parameters
+    ----------
+    name : `str`, optional
+        The name of the trajectory generator class to describe. If not provided,
+        descriptions of all available trajectory generator classes will be returned.
+    """
+    if name:
+        if name in TrajectoryGenerator.generators:
+            print(TrajectoryGenerator.generators[name].__doc__)
+        else:
+            print(f"Trajectory generator {name} is not defined.")
+    else:
+        print("Available trajectory generators:")
+        for cls in TrajectoryGenerator.generators.values():
+            print(f"\n=== {cls.__name__} ===\n{cls.__doc__}")
+
+
 class TrajectoryGenerator(abc.ABC):
     """A base class for defining search strategies by generating
     candidate trajectories for each pixel.
@@ -135,18 +156,18 @@ class TrajectoryGenerator(abc.ABC):
 
 
 class SingleVelocitySearch(TrajectoryGenerator):
-    """Search a single velocity from each pixel."""
+    """
+    Search a single velocity from each pixel.
+
+    Parameters
+    ----------
+    vx : `float`
+        The velocity in x pixels (pixels per day).
+    vy : `float`
+        The velocity in y pixels (pixels per day).
+    """
 
     def __init__(self, vx, vy, **kwargs):
-        """Create a class SingleVelocitySearch.
-
-        Parameters
-        ----------
-        vx : `float`
-            The velocity in x pixels (pixels per day).
-        vy : `float`
-            The velocity in y pixels (pixels per day).
-        """
         super().__init__(**kwargs)
         if not np.isfinite(vx):
             raise ValueError(f"Invalid vx value for SingleVelocitySearch = {vx}")
@@ -176,26 +197,26 @@ class SingleVelocitySearch(TrajectoryGenerator):
 
 
 class VelocityGridSearch(TrajectoryGenerator):
-    """Search a grid defined by steps in velocity space."""
+    """
+    Search a grid defined by steps in velocity space.
+
+    Parameters
+    ----------
+    vx_steps : `int`
+        The number of velocity steps in the x direction.
+    min_vx : `float`
+        The minimum velocity in the x-dimension (pixels per day).
+    max_vx : `float`
+        The maximum velocity in the x-dimension (pixels per day).
+    vy_steps : `int`
+        The number of velocity steps in the y direction.
+    min_vy : `float`
+        The minimum velocity in the y-dimension (pixels per day).
+    max_vy : `float`
+        The maximum velocity in the y-dimension (pixels per day).
+    """
 
     def __init__(self, vx_steps, min_vx, max_vx, vy_steps, min_vy, max_vy, **kwargs):
-        """Create a class VelocityGridSearch.
-
-        Parameters
-        ----------
-        vx_steps : `int`
-            The number of velocity steps in the x direction.
-        min_vx : `float`
-            The minimum velocity in the x-dimension (pixels per day).
-        max_vx : `float`
-            The maximum velocity in the x-dimension (pixels per day).
-        vy_steps : `int`
-            The number of velocity steps in the y direction.
-        min_vy : `float`
-            The minimum velocity in the y-dimension (pixels per day).
-        max_vy : `float`
-            The maximum velocity in the y-dimension (pixels per day).
-        """
         super().__init__(**kwargs)
 
         if vx_steps < 2 or vy_steps < 2:
@@ -352,26 +373,26 @@ class PencilSearch(TrajectoryGenerator):
 
 
 class KBMODV1Search(TrajectoryGenerator):
-    """Search a grid defined by velocities and angles."""
+    """Search a grid defined by velocities and angles as parameterized KBMOD v1.
+
+    Parameters
+    ----------
+    vel_steps : `int`
+        The number of velocity steps.
+    min_vel : `float`
+        The minimum velocity magnitude (in pixels per day)
+    max_vel : `float`
+        The maximum velocity magnitude (in pixels per day)
+    ang_steps : `int`
+        The number of angle steps.
+    min_ang : `float`
+        The minimum angle (in radians)
+    max_ang : `float`
+        The maximum angle (in radians)
+    """
 
     def __init__(self, vel_steps, min_vel, max_vel, ang_steps, min_ang, max_ang, **kwargs):
-        """Create a class KBMODV1Search.
 
-        Parameters
-        ----------
-        vel_steps : `int`
-            The number of velocity steps.
-        min_vel : `float`
-            The minimum velocity magnitude (in pixels per day)
-        max_vel : `float`
-            The maximum velocity magnitude (in pixels per day)
-        ang_steps : `int`
-            The number of angle steps.
-        min_ang : `float`
-            The minimum angle (in radians)
-        max_ang : `float`
-            The maximum angle (in radians)
-        """
         super().__init__(**kwargs)
 
         if vel_steps < 1 or ang_steps < 1:
@@ -437,25 +458,26 @@ class KBMODV1Search(TrajectoryGenerator):
 
 
 class KBMODV1SearchConfig(KBMODV1Search):
-    """Search a grid defined by velocities and angles in the format of the legacy configuration file."""
+    """
+    Search a grid defined by velocities and angles in the format and parameterization of the
+    legacy KBMOD v1 configuration file.
+
+    Parameters
+    ----------
+    v_arr : `list`
+        A triplet of the minimum velocity to use (in pixels per day), and the maximum velocity
+        magnitude (in pixels per day), and the number of velocity steps to try.
+    ang_arr : `list`
+        A triplet of the minimum angle offset (in radians), and the maximum angle offset
+        (in radians), and the number of angles to try.
+    average_angle : `float`, optional
+        The central angle to search around. Should align with the ecliptic in most cases.
+    work_unit : `WorkUnit`, optional
+        A WorkUnit to provide additional information about the data that
+        can be used to derive parameters that depend on the input.
+    """
 
     def __init__(self, v_arr, ang_arr, average_angle=None, work_unit=None, **kwargs):
-        """Create a class KBMODV1SearchConfig.
-
-        Parameters
-        ----------
-        v_arr : `list`
-            A triplet of the minimum velocity to use (in pixels per day), and the maximum velocity
-            magnitude (in pixels per day), and the number of velocity steps to try.
-        ang_arr : `list`
-            A triplet of the minimum angle offset (in radians), and the maximum angle offset
-            (in radians), and the number of angles to try.
-        average_angle : `float`, optional
-            The central angle to search around. Should align with the ecliptic in most cases.
-        work_unit : `WorkUnit`, optional
-            A WorkUnit to provide additional information about the data that
-            can be used to derive parameters that depend on the input.
-        """
         if len(v_arr) != 3:
             raise ValueError("KBMODV1SearchConfig requires v_arr to be length 3")
         if len(ang_arr) != 3:
@@ -473,7 +495,8 @@ class KBMODV1SearchConfig(KBMODV1Search):
 
 
 class EclipticCenteredSearch(TrajectoryGenerator):
-    """Search a grid defined by velocities and angles relative to the ecliptic.
+    """
+    Search a grid defined by velocities and angles relative to the ecliptic.
 
     Attributes
     ----------
@@ -489,6 +512,27 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         The minimum search angle in the image (ecliptic_angle + min_ang_offset) in radians.
     max_ang : `float`
         The maximum search angle in the image (ecliptic_angle + max_ang_offset) in radians.
+
+    Parameters
+    ----------
+    velocities : `list`
+        A triplet of the minimum velocity to use (in pixels per day), and the maximum velocity
+        magnitude (in pixels per day), and the number of velocity steps to try.
+    angles : `list`
+        A triplet of the minimum angle offset (in the units defined in ``angle_units``), the maximum
+        angle offset (in the units defined in ``angle_units``), and the number of angles to try.
+    angle_units : `str`
+        The units for the angle.
+        Default: 'radian'
+    velocity_units : `str`
+        The units for the angle.
+        Default: 'pix / d'
+    given_ecliptic : `float`, optional
+        An override for the ecliptic as given in the config (in the units defined in
+        ``angle_units``). This angle takes precedence over ``computed_ecliptic``.
+    work_unit : `WorkUnit`, optional
+        A WorkUnit to provide additional information about the data that
+        can be used to derive parameters that depend on the input.
     """
 
     def __init__(
@@ -501,29 +545,6 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         work_unit=None,
         **kwargs,
     ):
-        """Create a class EclipticCenteredSearch.
-
-        Parameters
-        ----------
-        velocities : `list`
-            A triplet of the minimum velocity to use (in pixels per day), and the maximum velocity
-            magnitude (in pixels per day), and the number of velocity steps to try.
-        angles : `list`
-            A triplet of the minimum angle offset (in the units defined in ``angle_units``), the maximum
-            angle offset (in the units defined in ``angle_units``), and the number of angles to try.
-        angle_units : `str`
-            The units for the angle.
-            Default: 'radian'
-        velocity_units : `str`
-            The units for the angle.
-            Default: 'pix / d'
-        given_ecliptic : `float`, optional
-            An override for the ecliptic as given in the config (in the units defined in
-            ``angle_units``). This angle takes precedence over ``computed_ecliptic``.
-        work_unit : `WorkUnit`, optional
-            A WorkUnit to provide additional information about the data that
-            can be used to derive parameters that depend on the input.
-        """
         super().__init__(**kwargs)
         ang_units = u.Unit(angle_units)
         vel_units = u.Unit(velocity_units)
@@ -606,25 +627,25 @@ class EclipticCenteredSearch(TrajectoryGenerator):
 
 
 class RandomVelocitySearch(TrajectoryGenerator):
-    """Search a grid defined by min/max bounds on pixel velocities."""
+    """
+    Search uniformly sampled random velocities within given bounds (vx and vy).
+
+    Parameters
+    ----------
+    min_vx : `float`
+        The minimum velocity magnitude (in pixels per day)
+    max_vx : `float`
+        The maximum velocity magnitude (in pixels per day)
+    min_vy : `float`
+        The minimum velocity magnitude (in pixels per day)
+    max_vy : `float`
+        The maximum velocity magnitude (in pixels per day)
+    max_samples : `int`
+        The maximum number of samples to generate. Used to avoid
+        infinite loops in KBMOD code.
+    """
 
     def __init__(self, min_vx, max_vx, min_vy, max_vy, max_samples=1_000_000, **kwargs):
-        """Create a class KBMODV1Search.
-
-        Parameters
-        ----------
-        min_vx : `float`
-            The minimum velocity magnitude (in pixels per day)
-        max_vx : `float`
-            The maximum velocity magnitude (in pixels per day)
-        min_vy : `float`
-            The minimum velocity magnitude (in pixels per day)
-        max_vy : `float`
-            The maximum velocity magnitude (in pixels per day)
-        max_samples : `int`
-            The maximum number of samples to generate. Used to avoid
-            infinite loops in KBMOD code.
-        """
         super().__init__(**kwargs)
         if max_vx < min_vx or max_vy < min_vy or np.any(~np.isfinite([min_vx, max_vx, min_vy, max_vy])):
             raise ValueError(
