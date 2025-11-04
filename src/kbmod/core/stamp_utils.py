@@ -467,7 +467,7 @@ def _extract_stamp_stack_list(imgs, x_vals, y_vals, radius, mask=None):
     """
     num_times = len(imgs)
     stamp_stack = typed.List()
-    
+
     # Fill in each unmasked time step.
     for idx in range(num_times):
         if mask is None or mask[idx]:
