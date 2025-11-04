@@ -2,6 +2,7 @@
 
 import numpy as np
 import torch
+import warnings
 
 from numba import jit, typed
 
@@ -40,7 +41,7 @@ def extract_stamp_stack(imgs, x_vals, y_vals, radius, to_include=None):
 
     Returns
     -------
-    stamp_stack : numpy.ndarray
+    stamp_stack : numpy.ndarray or list
         If a single array of images is passed in, returns a single T' x (2*R+1) x (2*R+1)
         sized array of stamps. If a list of images is passed in, it returns a length T'
         list of (2*R+1) x (2*R+1) arrays with one for each stamp.
@@ -64,6 +65,14 @@ def extract_stamp_stack(imgs, x_vals, y_vals, radius, to_include=None):
         elif to_include.dtype == int:
             time_mask = np.full(num_times, False)
             time_mask[to_include] = True
+
+    # Don't try to extract any stamps if none are selected.
+    if num_times == 0 or (time_mask is not None and np.count_nonzero(time_mask) == 0):
+        warnings.warn("No images selected in to_include; returning empty stamp stack.")
+        if isinstance(imgs, list):
+            return []
+        else:
+            return np.empty((0, 2 * radius + 1, 2 * radius + 1))
 
     # Make sure the indices are integers.
     x_vals = np.asarray(x_vals, dtype=int)
@@ -432,12 +441,12 @@ def _extract_stamp_stack_np(imgs, x_vals, y_vals, radius, mask=None):
 
 @jit(nopython=True)
 def _extract_stamp_stack_list(imgs, x_vals, y_vals, radius, mask=None):
-    """Generate a lenght T list of S x S sized array of stamps where T is the number
+    """Generate a length T list of S x S sized array of stamps where T is the number
     of times to use and S is the stamp width (2 * radius + 1).
 
     Parameters
     ----------
-    imgs : numpy.ndarray or list of numpy.ndarray
+    imgs : list of numpy.ndarray
         A list of T arrays H x W  of image data where T is the number
         of times, H is the image height, and W is the image width.
     x_vals : np.array of int
@@ -457,16 +466,13 @@ def _extract_stamp_stack_list(imgs, x_vals, y_vals, radius, mask=None):
         and S is the stamp width (2 * radius + 1).
     """
     num_times = len(imgs)
-    num_stamps = num_times if mask is None else np.count_nonzero(mask)
-    stamp_stack = [np.full((2 * radius + 1, 2 * radius + 1), np.nan) for i in range(num_stamps)]
-
+    stamp_stack = typed.List()
+    
     # Fill in each unmasked time step.
-    current = 0
     for idx in range(num_times):
         if mask is None or mask[idx]:
-            stamp_stack[current] = extract_stamp(imgs[idx], x_vals[idx], y_vals[idx], radius)
-            current += 1
-    return stamp_stack
+            stamp_stack.append(extract_stamp(imgs[idx], x_vals[idx], y_vals[idx], radius))
+    return list(stamp_stack)
 
 
 @jit(nopython=True)

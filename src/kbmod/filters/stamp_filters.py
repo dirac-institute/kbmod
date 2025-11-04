@@ -92,6 +92,7 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True, n
 
     # We can't use valid only if there is not obs_valid column in the data.
     valid_only = valid_only and "obs_valid" in result_data.colnames
+    logger.info(f"Appending coadds {coadd_types} to results (radius={radius}, valid_only={valid_only})")
 
     stamp_timer = DebugTimer("computing extra coadds", logger)
 
