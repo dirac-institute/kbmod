@@ -231,7 +231,11 @@ def _reproject_work_unit(
             # we'll enforce that there be no overlapping images at the same time,
             # for now. We might be able to add some ability co-add in the future.
             if np.any(footprint_add > 1):
-                raise ValueError("Images with the same obstime are overlapping.")
+                max_footprint = np.max(footprint_add)
+                bad_indices = np.where(footprint_add > 1)
+                print(
+                    f"Images with the same obstime are overlapping. obstime_index {obstime_index} obstime {time} index {index} out of {indices}. Max footprint value: {max_footprint} for {len(bad_indices)} indices {bad_indices}."
+                )
 
             reprojected_variance, _ = reproject_image(variance, original_wcs, common_wcs)
 
@@ -817,7 +821,11 @@ def _reproject_images(science_images, variance_images, mask_images, obstime, com
         # we'll enforce that there be no overlapping images at the same time,
         # for now. We might be able to add some ability co-add in the future.
         if np.any(footprint_add > 1):
-            raise ValueError("Images with the same obstime are overlapping.")
+            max_footprint = np.max(footprint_add)
+            bad_indices = np.where(footprint_add > 1)
+            print(
+                f"Images with the same obstime are overlapping. obstime {obstime} max_footprint {max_footprint} across {len(bad_indices)} bad indices {bad_indices}."
+            )
 
         # change all the NaNs to zeroes so that the matrix addition works properly.
         # `footprint_add` will maintain the information about what areas of the frame

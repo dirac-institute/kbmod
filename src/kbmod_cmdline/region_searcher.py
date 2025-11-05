@@ -39,11 +39,51 @@ from tqdm import tqdm
 
 import kbmod
 from kbmod import ImageCollection
-from kbmod.region_search import RegionSearch
+from kbmod.region_search import RegionSearch, Ephems
 
+from astropy.coordinates import Angle
+from astropy.time import Time
+from astropy.table import Table
 
 from astropy.coordinates import EarthLocation
 from astropy.table import Table
+
+
+def clean_ephem_table(ephem):
+    def clean_dec_string(dec_str):
+        # Replace delimiters to get '-17 23 27.0' which astropy can better parse
+        return dec_str.replace("'", " ").replace('"', "")
+
+    # Convert RA if needed
+    if "ra" not in ephem.colnames:
+        if "RA" in ephem.colnames:
+            ephem.rename_column("RA", "ra")
+        elif "Astrometric RA (hh:mm:ss)" in ephem.colnames:
+            ephem["ra"] = Angle(ephem["Astrometric RA (hh:mm:ss)"], unit="hourangle").deg
+        else:
+            raise ValueError("Ephemeris table must contain 'ra' column for reflex correction.")
+
+    if "dec" not in ephem.colnames:
+        if "Dec" in ephem.colnames:
+            ephem.rename_column("Dec", "dec")
+        elif "Astrometric Dec (dd mm'ss\")" in ephem.colnames:
+            cleaned_decs = [clean_dec_string(s) for s in ephem["Astrometric Dec (dd mm'ss\")"]]
+            ephem["dec"] = Angle(cleaned_decs, unit="deg").deg
+        else:
+            raise ValueError("Ephemeris table must contain 'dec' column for reflex correction.")
+
+    if "mjd_mid" not in ephem.colnames:
+        if "obs-time" in ephem.colnames:
+            ephem["mjd_mid"] = [Time(t, scale="utc").mjd for t in ephem["obs-time"]]
+        else:
+            raise ValueError("Ephemeris table must contain 'mjd_mid' column for reflex correction.")
+
+    if "Name" not in ephem.colnames:
+        if "Clean Name" in ephem.colnames:
+            ephem.rename_column("Clean Name", "Name")
+        else:
+            raise ValueError("Ephemeris table must contain 'Name' column for matching.")
+    return ephem
 
 
 def elapsed_t(startTime, sigfigs=2):
@@ -147,6 +187,13 @@ def generate_or_load_patch_ic(patch_ids, guess_distance, patch_size, region_sear
             ic_file = patch_id_to_ic_path(patch_id, guess_distance, patch_size, ic_dir=ic_dir)
             if os.path.exists(ic_file):
                 patch_id_to_ic[patch_id] = ImageCollection.read(ic_file)
+                if patch_id_to_ic[patch_id].columns.get("overlap_deg") is None:
+                    print(
+                        f"Warning: Loaded ImageCollection for patch_id {patch_id} is missing 'overlap_deg' column. Regenerating..."
+                    )
+                    patch_ics_to_generate.append(patch_id)
+                    os.remove(ic_file)
+                    del patch_id_to_ic[patch_id]
             else:
                 patch_ics_to_generate.append(patch_id)
 
@@ -202,7 +249,7 @@ def generate_analysis_table(patch_id_to_ic):
     obs_nights_spanned = []
     for patch_id, patch_ic in patch_id_to_ic.items():
         patch_ids.append(patch_id)
-        overlap_deg.append(sum(patch_ic.data["overlap_deg"]))
+        overlap_deg.append(sum(patch_ic["overlap_deg"]))
         visit_counts.append(len(set(patch_ic["visit"])))
         unique_mjds.append(len(set([int(m) for m in patch_ic["mjd_mid"]])))
         obs_nights_spanned.append(patch_ic.obs_nights_spanned())
@@ -230,7 +277,9 @@ def region_searcher(
     bands_to_drop,
     max_wcs_err,
     out_dir,
+    known_objects_ephem,
     overwrite,
+    no_generate=False,
 ):
     """
     Perform Region Search on a base ImageCollection for a given guess distance and patch size.
@@ -260,8 +309,12 @@ def region_searcher(
         Maximum WCS error in arcseconds. Rows with higher WCS error will be dropped.
     out_dir : str
         Output directory for generated ImageCollections and analysis tables.
+    known_objects_ephem : str or None
+        Path to a file containing known object ephemerides in SkyBot format.
     overwrite : bool
         Whether to overwrite existing files.
+    no_generate : bool
+        If True, skip generation of new ImageCollections and analysis tables.
 
     Returns
     -------
@@ -308,28 +361,65 @@ def region_searcher(
     ic_dir = os.path.join(out_dir, dist_patch_size_str(guess_distance, patch_size))
     if not os.path.exists(ic_dir):
         os.makedirs(ic_dir)
+    if not no_generate:
+        # For all of the patches that had matches to images in our base ImageCollection,
+        # generate or load their ImageCollections (a collection of only the images overlapping that patch).
+        patch_id_to_ic = generate_or_load_patch_ic(
+            patch_ids=list(found_patches),
+            guess_distance=guess_distance,
+            patch_size=patch_size,
+            region_search=region_search,
+            ic_dir=ic_dir,
+            overwrite=False,
+        )
 
-    # For all of the patches that had matches to images in or base ImageCollection,
-    # generate or load their ImageCollections (a collection of only the images overlapping that patch).
-    patch_id_to_ic = generate_or_load_patch_ic(
-        patch_ids=list(found_patches),
-        guess_distance=guess_distance,
-        patch_size=patch_size,
-        region_search=region_search,
-        ic_dir=ic_dir,
-        overwrite=False,
-    )
+        # Generate and save an analysis table providing summary statistics for each patch.
+        table_csvfile = os.path.join(ic_dir, f"overlap_{dist_patch_size_str(guess_distance, patch_size)}.csv")
+        if not overwrite and os.path.exists(table_csvfile):
+            print(f"Analysis table {table_csvfile} exists and overwrite is False, not writing.")
+        else:
+            print(f"{elapsed_t(startTime)} Generating analysis table...")
+            t = generate_analysis_table(patch_id_to_ic)
+            print(f"{elapsed_t(startTime)} Saving {table_csvfile} to disk.")
+            t.write(table_csvfile, overwrite=True)
+        print(f"{elapsed_t(startTime)} Finished!")
 
-    # Generate and save an analysis table providing summary statistics for each patch.
-    table_csvfile = os.path.join(ic_dir, f"overlap_{dist_patch_size_str(guess_distance, patch_size)}.csv")
-    if not overwrite and os.path.exists(table_csvfile):
-        print(f"Analysis table {table_csvfile} exists and overwrite is False, not writing.")
-    else:
-        print(f"{elapsed_t(startTime)} Generating analysis table...")
-        t = generate_analysis_table(patch_id_to_ic)
-        print(f"{elapsed_t(startTime)} Saving {table_csvfile} to disk.")
-        t.write(table_csvfile, overwrite=True)
-    print(f"{elapsed_t(startTime)} Finished!")
+    if known_objects_ephem is not None:
+        print(f"{elapsed_t(startTime)} Loading known object ephemerides from {known_objects_ephem}...")
+        # Load and clean the ephemeris table to ensure it has the required columns
+        known_objects = clean_ephem_table(Table.read(known_objects_ephem))
+        ephem_obj_name_col = "Name"
+        all_ephem_ids = set(list(set(known_objects[ephem_obj_name_col]))[0:100])
+        print(f"{elapsed_t(startTime)} Matching known objects to found patches...")
+        obj_ephems = known_objects  # known_objects[known_objects[ephem_obj_name_col].isin(all_ephem_ids)]
+        region_search_ephems = kbmod.region_search.Ephems(
+            obj_ephems,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[guess_distance],
+            earth_loc=earth_loc,
+        )
+        known_object_patch_ids, obj_to_patches = region_search.search_patches_by_ephems(
+            region_search_ephems, guess_dist=guess_distance, map_obj_to_patches=True
+        )
+        found_known_object_patch_ids = found_patches.intersection(known_object_patch_ids)
+
+        print(f"{elapsed_t(startTime)} Found {len(found_known_object_patch_ids)} known objects in patches.")
+
+        # Create a table summarizing which known objects were found in which patches
+        known_obj_patch_rows = []
+        for obj_name, patch_ids in obj_to_patches.items():
+            for patch_id in patch_ids:
+                if patch_id in found_patches:
+                    known_obj_patch_rows.append((obj_name, patch_id))
+        known_obj_patch_table = Table(rows=known_obj_patch_rows, names=(ephem_obj_name_col, "patch_id"))
+        known_obj_patch_csvfile = os.path.join(
+            ic_dir, f"known_objects_in_patches_{dist_patch_size_str(guess_distance, patch_size)}.csv"
+        )
+        print(f"{elapsed_t(startTime)} Saving known objects in patches table to {known_obj_patch_csvfile}...")
+        known_obj_patch_table.write(known_obj_patch_csvfile, overwrite=True)
+        print(f"{elapsed_t(startTime)} Finished known object matching!")
 
 
 if __name__ == "__main__":
@@ -390,9 +480,23 @@ if __name__ == "__main__":
         default=os.getcwd(),
     )
     parser.add_argument(
+        "--known-objects-ephem",
+        dest="known_objects_ephem",
+        help="path to known object ephemerides file",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
         "--overwrite",
         dest="overwrite",
         help="whether to overwrite existing IC files",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--no-generate",
+        dest="no_generate",
+        help="do not generate new IC files or analysis tables",
         action="store_true",
         default=False,
     )
@@ -413,5 +517,7 @@ if __name__ == "__main__":
                 bands_to_drop=args.bands_to_drop,
                 max_wcs_err=args.max_wcs_err,
                 out_dir=args.out_dir,
+                known_objects_ephem=args.known_objects_ephem,
                 overwrite=args.overwrite,
+                no_generate=args.no_generate,
             )
