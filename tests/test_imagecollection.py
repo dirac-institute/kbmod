@@ -447,18 +447,20 @@ class TestImageCollection(unittest.TestCase):
         fits = self.fitsFactory.get_n(10, spoof_data=True)
         ic = ImageCollection.fromTargets(fits)
 
-        # Spoof some WCS error values in degrees
+        # Spoof some WCS error values in degrees, note that
+        # wcs_err column is normally populated by a ButlerStandardizer
+        # where a reference SkyWcs object is present.
         wcs_errors = [0.1 * i for i in range(1, len(ic) + 1)]
-        ic.data["wcs_error"] = wcs_errors
+        ic.data["wcs_err"] = wcs_errors
 
         # Filter by max WCS error of 0.5 degrees
         ic.filter_by_wcs_error(0.5, in_arcsec=False)
-        self.assertTrue(all(err <= 0.5 for err in ic.data["wcs_error"]))
+        self.assertTrue(all(err <= 0.5 for err in ic.data["wcs_err"]))
         self.assertEqual(len(ic), 5)
 
         # Filter again but in arcseconds
         ic.filter_by_wcs_error(0.31 * 3600, in_arcsec=True)
-        self.assertTrue(all(err <= 0.31 for err in ic.data["wcs_error"]))
+        self.assertTrue(all(err <= 0.31 for err in ic.data["wcs_err"]))
         self.assertEqual(len(ic), 3)
 
     def test_obs_nights_spanned(self):

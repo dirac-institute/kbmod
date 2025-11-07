@@ -651,6 +651,10 @@ class ImageCollection:
         """
         Filter the ImageCollection by the given maximum WCS error. Is performed in-place.
 
+        Note that it uses the "wcs_err" column to filter, which is expected to be in degrees,
+        and is normally populated by the ButlerStandardizer and calculated against a
+        reference SkyWcs object from the Butler.
+
         Parameters
         ----------
         max_wcs_error : float
@@ -658,12 +662,14 @@ class ImageCollection:
         in_arcsec : bool, optional
             If True, `max_wcs_error` is in arcseconds. If False, it is in degrees.
         """
+        if "wcs_err" not in self.data.columns:
+            raise ValueError("Cannot filter ImageCollection by missing wcs_err column.")
         if max_wcs_error < 0:
-            raise ValueError("max_wcs_error must be positive")
+            raise ValueError("max_wcs_err must be positive")
         if len(self.data) < 1:
             return
         max_wcs_error_deg = max_wcs_error if not in_arcsec else max_wcs_error / 3600.0
-        mask = self.data["wcs_error"] <= max_wcs_error_deg
+        mask = self.data["wcs_err"] <= max_wcs_error_deg
         self.data = self.data[mask]
 
     def drop_bands(self, bands_to_drop):
