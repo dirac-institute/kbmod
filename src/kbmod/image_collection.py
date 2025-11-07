@@ -665,7 +665,7 @@ class ImageCollection:
         if "wcs_err" not in self.data.columns:
             raise ValueError("Cannot filter ImageCollection by missing wcs_err column.")
         if max_wcs_error < 0:
-            raise ValueError("max_wcs_err must be positive")
+            raise ValueError("max_wcs_error must be positive")
         if len(self.data) < 1:
             return
         max_wcs_error_deg = max_wcs_error if not in_arcsec else max_wcs_error / 3600.0
