@@ -383,6 +383,13 @@ if __name__ == "__main__":
         nargs="+",
     )
     parser.add_argument(
+        "--max-wcs-err",
+        dest="max_wcs_err",
+        help="maximum WCS error (arcseconds). Default is 0.2 arcseconds (~1 pixel in Rubin)",
+        type=float,
+        default=0.2,
+    )
+    parser.add_argument(
         "--out-dir",
         dest="out_dir",
         help="output directory for generated ImageCollections",
@@ -395,9 +402,6 @@ if __name__ == "__main__":
         help="whether to overwrite existing IC files",
         action="store_true",
         default=False,
-    )
-    parser.add_argument(
-        "--max-wcs-err", dest="max_wcs_err", help="maximum WCS error (arcseconds)", type=float, default=None
     )
 
     args = parser.parse_args()
