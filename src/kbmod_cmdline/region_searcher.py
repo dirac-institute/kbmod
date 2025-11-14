@@ -48,42 +48,76 @@ from astropy.table import Table
 from astropy.coordinates import EarthLocation
 from astropy.table import Table
 
+from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 
-def clean_ephem_table(ephem):
-    def clean_dec_string(dec_str):
-        # Replace delimiters to get '-17 23 27.0' which astropy can better parse
-        return dec_str.replace("'", " ").replace('"', "")
 
-    # Convert RA if needed
-    if "ra" not in ephem.colnames:
-        if "RA" in ephem.colnames:
-            ephem.rename_column("RA", "ra")
-        elif "Astrometric RA (hh:mm:ss)" in ephem.colnames:
-            ephem["ra"] = Angle(ephem["Astrometric RA (hh:mm:ss)"], unit="hourangle").deg
-        else:
-            raise ValueError("Ephemeris table must contain 'ra' column for reflex correction.")
+def reflex_correct_ephem_table(ephem_table, barycentric_dist, obs_site="Rubin"):
+    """Apply reflex correction to the ephemeris table if barycentric distance is provided.
 
-    if "dec" not in ephem.colnames:
-        if "Dec" in ephem.colnames:
-            ephem.rename_column("Dec", "dec")
-        elif "Astrometric Dec (dd mm'ss\")" in ephem.colnames:
-            cleaned_decs = [clean_dec_string(s) for s in ephem["Astrometric Dec (dd mm'ss\")"]]
-            ephem["dec"] = Angle(cleaned_decs, unit="deg").deg
-        else:
-            raise ValueError("Ephemeris table must contain 'dec' column for reflex correction.")
+    Assumes that the observatory is Rubin Observatory.
 
-    if "mjd_mid" not in ephem.colnames:
-        if "obs-time" in ephem.colnames:
-            ephem["mjd_mid"] = [Time(t, scale="utc").mjd for t in ephem["obs-time"]]
+    Produces columns of the form 'ra_<barycentric_dist>' and 'dec_<barycentric_dist>' in the returned table.
+
+    Parameters
+    ----------
+    ephem_table : astropy.table.Table
+        The ephemeris table containing known objects, assumes 'RA', 'Dec', and 'mjd_mid' columns.
+    barycentric_dist : float
+        The barycentric distance in AU. If 0.0, no correction is applied.
+    obs_site : str
+        The observatory site to use for reflex correction. Default is "Rubin".
+
+    Returns
+    -------
+    astropy.table.Table
+        The corrected ephemeris table.
+    """
+
+    if "mjd_mid" not in ephem_table.columns:
+        # Parse column obs-time e.g. '2025-04-16 00:40:17' as MJD
+
+        if "obs-time" in ephem_table.colnames:
+            ephem_table["mjd_mid"] = [Time(t, scale="utc").mjd for t in ephem_table["obs-time"]]
         else:
             raise ValueError("Ephemeris table must contain 'mjd_mid' column for reflex correction.")
 
-    if "Name" not in ephem.colnames:
-        if "Clean Name" in ephem.colnames:
-            ephem.rename_column("Clean Name", "Name")
-        else:
-            raise ValueError("Ephemeris table must contain 'Name' column for matching.")
-    return ephem
+    if "RA" not in ephem_table.columns:
+        if "Astrometric RA (hh:mm:ss)" not in ephem_table.columns:
+            raise ValueError("Ephemeris table must have 'RA' or 'Astrometric RA (hh:mm:ss)' column.")
+        # Convert from RA (hh:mm:ss) to degrees
+        print("Converting RA from hh:mm:ss to degrees")
+        ephem_table["RA"] = Angle(ephem_table["Astrometric RA (hh:mm:ss)"], unit=u.hourangle).deg
+
+    if "Dec" not in ephem_table.columns:
+        if "Astrometric Dec (dd mm'ss\")" not in ephem_table.columns:
+            raise ValueError("Ephemeris table must have 'Dec' or 'Astrometric Dec (dd mm'ss\")' column.")
+        # Convert from Dec (dd mm'ss") to degrees
+        # Convert e.g. 'Astrometric Dec '-43 31\'23.6"' to a format that can be converted to degrees
+        print("Converting Dec from dd mm'ss\" to degrees")
+        new_decs = []
+        for dec in ephem_table["Astrometric Dec (dd mm'ss\")"]:
+            dec = dec.replace("'", " ").replace('"', "")
+            new_decs.append(Angle(dec, unit=u.deg).deg)
+        ephem_table["Dec"] = new_decs
+
+    if barycentric_dist != 0.0 and f"ra_{barycentric_dist}" not in ephem_table.colnames:
+        print(f"Applying reflex correction with barycentric distance {barycentric_dist} au")
+        # Apply reflex correction to the RA and Dec columns.
+        corrected_skycoord, _ = correct_parallax_geometrically_vectorized(
+            ephem_table["RA"],
+            ephem_table["Dec"],
+            ephem_table["mjd_mid"],
+            barycentric_distance=barycentric_dist,
+            point_on_earth=EarthLocation.of_site(obs_site),
+        )
+        ephem_table[f"ra_{barycentric_dist}"] = corrected_skycoord.ra.deg
+        ephem_table[f"dec_{barycentric_dist}"] = corrected_skycoord.dec.deg
+    else:
+        # If no correction is applied (distance of 0.0), just copy the original RA and Dec columns.
+        ephem_table[f"ra_{barycentric_dist}"] = ephem_table["RA"]
+        ephem_table[f"dec_{barycentric_dist}"] = ephem_table["Dec"]
+    print("Finished cleaning ephemeris table")
+    return ephem_table
 
 
 def elapsed_t(startTime, sigfigs=2):
@@ -387,9 +421,8 @@ def region_searcher(
     if known_objects_ephem is not None:
         print(f"{elapsed_t(startTime)} Loading known object ephemerides from {known_objects_ephem}...")
         # Load and clean the ephemeris table to ensure it has the required columns
-        known_objects = clean_ephem_table(Table.read(known_objects_ephem))
+        known_objects = reflex_correct_ephem_table(Table.read(known_objects_ephem))
         ephem_obj_name_col = "Name"
-        all_ephem_ids = set(list(set(known_objects[ephem_obj_name_col]))[0:100])
         print(f"{elapsed_t(startTime)} Matching known objects to found patches...")
         obj_ephems = known_objects  # known_objects[known_objects[ephem_obj_name_col].isin(all_ephem_ids)]
         region_search_ephems = kbmod.region_search.Ephems(
