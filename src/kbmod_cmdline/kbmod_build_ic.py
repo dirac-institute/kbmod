@@ -42,8 +42,6 @@ RUBIN_MASK_FLAGS = [
     "CLIPPED",
     "CR",
     "CROSSTALK",
-    "DETECTED",
-    "DETECTED_NEGATIVE",
     "EDGE",
     "INEXACT_PSF",
     "INJECTED",
