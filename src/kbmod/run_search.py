@@ -626,17 +626,3 @@ def append_positions_to_results(workunit, results):
     # Add the per-image coordinates to the results table.
     results.table["img_ra"] = all_ra
     results.table["img_dec"] = all_dec
-
-    # If we have have per-image WCSes, compute the pixel location in the original image.
-    if "per_image_wcs" in workunit.org_img_meta.colnames:
-        img_x = np.zeros((len(results), num_times))
-        img_y = np.zeros((len(results), num_times))
-        for time_idx in range(num_times):
-            wcs = workunit.org_img_meta["per_image_wcs"][time_idx]
-            if wcs is not None:
-                xy_pos = wcs.world_to_pixel_values(all_ra[:, time_idx], all_dec[:, time_idx])
-                img_x[:, time_idx] = xy_pos[0]
-                img_y[:, time_idx] = xy_pos[1]
-
-        results.table["img_x"] = img_x
-        results.table["img_y"] = img_y
