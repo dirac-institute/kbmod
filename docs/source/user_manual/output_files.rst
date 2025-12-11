@@ -40,7 +40,7 @@ The columns ``img_ra`` and ``img_dec`` indicate the positions in the original im
 
 **Predicted x, y Information**
 
-KBMOD will also listed the predicted (x, y) pixel coordinates of the object for each time step. The columns ``pred_x`` and ``pred_y`` list the predicted x and y positions in the common WCS frame that KBMOD used for the search.  The columns ``img_x`` and ``img_y`` list the predicted x and y positions in each image's original WCS frame. The ``img_`` columns may be identical to the ``pred_`` columns if the images were not reprojected.
+KBMOD will also listed the predicted (x, y) pixel coordinates of the object for each time step. The columns ``pred_x`` and ``pred_y`` list the predicted x and y positions in the common WCS frame that KBMOD used for the search.
 
 **Metadata**
 

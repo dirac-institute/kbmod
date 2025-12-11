@@ -262,26 +262,6 @@ class test_run_search(unittest.TestCase):
             self.assertTrue(np.all(dec_diffs > 0.0))
             self.assertTrue(np.all(dec_diffs < 1.0))
 
-        # The per-image x should exist and be within some delta of the global predicted x.
-        self.assertEqual(len(results["pred_x"]), 3)
-        self.assertEqual(len(results["img_x"]), 3)
-        for i in range(3):
-            self.assertEqual(len(results["img_x"][i]), num_times)
-            self.assertEqual(len(results["pred_x"][i]), num_times)
-            x_diffs = np.abs(results["img_x"][i] - results["pred_x"][i])
-            self.assertTrue(np.all(x_diffs > 0.0))
-            self.assertTrue(np.all(x_diffs < 1000.0))
-
-        # The per-image y should exist and be within some delta of the global predicted y.
-        self.assertEqual(len(results["pred_y"]), 3)
-        self.assertEqual(len(results["img_y"]), 3)
-        for i in range(3):
-            self.assertEqual(len(results["img_y"][i]), num_times)
-            self.assertEqual(len(results["pred_y"][i]), num_times)
-            y_diffs = np.abs(results["img_y"][i] - results["pred_y"][i])
-            self.assertTrue(np.all(y_diffs > 0.0))
-            self.assertTrue(np.all(y_diffs < 1000.0))
-
     def test_append_positions_to_results_no_global(self):
         # Create a fake WorkUnit with 20 times, a completely random image stack,
         # and no trajectories.
@@ -340,22 +320,6 @@ class test_run_search(unittest.TestCase):
             self.assertEqual(len(results["img_dec"][i]), num_times)
             self.assertTrue(np.all(results["img_dec"][i] > -1.0))
             self.assertTrue(np.all(results["img_dec"][i] < 1.0))
-
-        # The per-image x should exist and the same as global predicted x.
-        self.assertEqual(len(results["pred_x"]), 3)
-        self.assertEqual(len(results["img_x"]), 3)
-        for i in range(3):
-            self.assertEqual(len(results["img_x"][i]), num_times)
-            self.assertEqual(len(results["pred_x"][i]), num_times)
-            self.assertTrue(np.allclose(results["img_x"][i], results["pred_x"][i]))
-
-        # The per-image y should exist and the same as global predicted y.
-        self.assertEqual(len(results["pred_y"]), 3)
-        self.assertEqual(len(results["img_y"]), 3)
-        for i in range(3):
-            self.assertEqual(len(results["img_y"][i]), num_times)
-            self.assertEqual(len(results["pred_y"][i]), num_times)
-            self.assertTrue(np.allclose(results["img_y"][i], results["pred_y"][i]))
 
     def test_core_search_cpu(self):
         # Create a very small fake data set.
