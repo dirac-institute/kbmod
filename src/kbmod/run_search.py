@@ -576,8 +576,8 @@ def append_positions_to_results(workunit, results):
 
     # Predict where each candidate trajectory will be at each time step in the
     # common WCS frame. These are the pixel locations used to assess the trajectory.
-    xp = predict_pixel_locations(times, results["x"], results["vx"], as_int=False)
-    yp = predict_pixel_locations(times, results["y"], results["vy"], as_int=False)
+    xp = predict_pixel_locations(times, results["x"], results["vx"], as_int=False, centered=False)
+    yp = predict_pixel_locations(times, results["y"], results["vy"], as_int=False, centered=False)
     results.table["pred_x"] = xp
     results.table["pred_y"] = yp
 
