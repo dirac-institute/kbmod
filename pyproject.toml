@@ -14,7 +14,7 @@ authors = [{name="KBMOD Developers"}, ]
 description = "Moving object detection library implemented on GPUs"
 license = {file="LICENSE"}
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 keywords = ["astronomy", "astrophysics", "image_processing", "gpu"]
 classifiers = [
     "Development Status :: 3 - Beta",
