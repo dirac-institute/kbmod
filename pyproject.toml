@@ -46,7 +46,7 @@ dependencies = [
     "scipy>=1.9.2",
     "scikit_learn>=1.0.0",
     "shapely",
-    "torch",
+    "torch<2.8",  # Needed to support Bendis' GPU
     "torchvision",
     "tqdm",
     "PyYAML>=6.0"
