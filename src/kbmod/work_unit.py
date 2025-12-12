@@ -1004,6 +1004,7 @@ class WorkUnit:
     def clear_metadata(self):
         """Clear all WorkUnit metadata."""
         self.org_img_meta = Table()
+        self.n_constituents = self.im_stack.num_times
         self._per_image_indices = [[i] for i in range(self.n_constituents)]
 
 

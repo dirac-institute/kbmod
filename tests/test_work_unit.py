@@ -945,6 +945,40 @@ class test_work_unit(unittest.TestCase):
             self.assertEqual(len(work.org_img_meta.columns), 0)
             self.assertEqual(work._per_image_indices, [[i] for i in range(self.num_images)])
 
+    def test_disorder_obstimes_then_filter(self):
+        """Test that filtering images after disordering obstimes works correctly.
+        This is a regression test for a bug where metadata gets cleared."""
+        work = WorkUnit(
+            im_stack=self.im_stack_py,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
+            barycentric_distance=42.0,
+            org_image_meta=self.org_image_meta,
+        )
+
+        # Set numpy random seed
+        np.random.seed(0)
+
+        # Disorder the obstimes
+        work.disorder_obstimes()
+
+        # Check that metadata was cleared
+        self.assertEqual(len(work.org_img_meta), 0)
+        self.assertEqual(work.n_constituents, self.num_images)
+
+        # Now filter images - this should work correctly
+        mask = [True, True, False, True, True]
+        work.filter_images(mask)
+
+        # Check that the filtering worked correctly
+        self.assertEqual(work.im_stack.num_times, 4)
+        self.assertEqual(work.n_constituents, 4)
+        self.assertEqual(len(work._per_image_indices), 4)
+
+        # Check that per_image_indices are correct
+        for i in range(4):
+            self.assertEqual(work._per_image_indices[i], [i])
+
 
 if __name__ == "__main__":
     unittest.main()
