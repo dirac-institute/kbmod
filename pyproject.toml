@@ -2,7 +2,7 @@
 requires = ["packaging>=21",
             "setuptools>=60",
             "setuptools_scm>=8.0",
-            "pybind11>=2.10.0"]
+            "pybind11>=2.12"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
@@ -14,7 +14,7 @@ authors = [{name="KBMOD Developers"}, ]
 description = "Moving object detection library implemented on GPUs"
 license = {file="LICENSE"}
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 keywords = ["astronomy", "astrophysics", "image_processing", "gpu"]
 classifiers = [
     "Development Status :: 3 - Beta",
@@ -46,7 +46,7 @@ dependencies = [
     "scipy>=1.9.2",
     "scikit_learn>=1.0.0",
     "shapely",
-    "torch<2.8",
+    "torch",
     "torchvision",
     "tqdm",
     "PyYAML>=6.0"
@@ -100,7 +100,7 @@ tests = [
 # formatting configuration as specified at developer.lsst.io
 [tool.black]
 line-length = 110
-target-version = ["py39", "py310", "py311"]
+target-version = ["py310", "py311", "py312"]
 extend-exclude = "data/|docs/|include/|lib/|setup.py"
 
 [tool.isort]
