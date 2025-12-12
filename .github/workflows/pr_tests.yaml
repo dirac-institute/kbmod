@@ -35,6 +35,9 @@ jobs:
           conda deactivate
           conda create --name kbmod_ci_clone --clone kbmod_ci
           conda activate kbmod_ci_clone
+      - name: List conda package versions
+        run: |
+          conda list
       - name: Checkout code
         uses: actions/checkout@v3
         with:
