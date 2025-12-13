@@ -954,16 +954,6 @@ class test_work_unit(unittest.TestCase):
             sorted_new_indices = sorted([tuple(sorted(indices)) for indices in work._per_image_indices])
             self.assertEqual(sorted_original_indices, sorted_new_indices)
 
-            # Check that the order of our metadata has changed but that frequencies of
-            # constituent images are preserved
-            self.assertFalse(np.array_equal(work._per_image_indices, original_per_image_indices))
-            self.assertEqual(len(work.org_img_meta), len(original_org_image_meta))
-            # Now check that the sorted versions of each are equal
-            sorted_original_indices = sorted(
-                [tuple(sorted(indices)) for indices in original_per_image_indices]
-            )
-            sorted_new_indices = sorted([tuple(sorted(indices)) for indices in work._per_image_indices])
-            self.assertEqual(sorted_original_indices, sorted_new_indices)
 
             # Check that our tables differ in contents but have the same size and columns
             self.assertFalse(np.all(work.org_img_meta == original_org_image_meta))
