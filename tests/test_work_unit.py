@@ -960,7 +960,7 @@ class test_work_unit(unittest.TestCase):
             self.assertEqual(len(work.org_img_meta), len(original_org_image_meta))
             self.assertEqual(set(work.org_img_meta.colnames), set(original_org_image_meta.colnames))
 
-    def disorder_obstimes_then_filter_images(self):
+    def test_disorder_obstimes_then_filter_images(self):
         """Test reordering the obstimes for a reprojected WorkUnit, and then filtering the images"""
         work = WorkUnit(
             im_stack=self.im_stack_py,
