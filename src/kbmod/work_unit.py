@@ -469,7 +469,13 @@ class WorkUnit:
         self.im_stack.sort_by_time()
 
         # Clear metadata and reset the cached obstimes to use what was sorted in the image stack.
+        new_per_image_indices = []
+        for i in range(self.im_stack.num_times):
+            orig_obstime = self.im_stack.times[i]
+            orig_index = np.where(np.asarray(new_obstimes) == orig_obstime)[0][0]
+            new_per_image_indices.append(self._per_image_indices[orig_index])
         self.clear_metadata()
+        self._per_image_indices = new_per_image_indices
         self._obstimes = None
 
     @classmethod
@@ -1004,7 +1010,6 @@ class WorkUnit:
     def clear_metadata(self):
         """Clear all WorkUnit metadata."""
         self.org_img_meta = Table()
-        self.n_constituents = self.im_stack.num_times
         self._per_image_indices = [[i] for i in range(self.n_constituents)]
 
 
