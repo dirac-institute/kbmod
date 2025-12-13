@@ -1004,11 +1004,6 @@ class WorkUnit:
         config_path = provenance_dir_path.joinpath(config_filename)
         self.config.to_file(config_path, overwrite)
 
-    def clear_metadata(self):
-        """Clear all WorkUnit metadata."""
-        self.org_img_meta = Table()
-        self._per_image_indices = [[i] for i in range(self.n_constituents)]
-
 
 def load_layered_image_from_shard(file_path):
     """Function for loading a `LayeredImagePy` from a `WorkUnit` shard.
