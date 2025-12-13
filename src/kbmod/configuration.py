@@ -1,6 +1,8 @@
 import copy
 import math
 
+import numpy as np
+
 from astropy.io import fits
 from astropy.table import Table
 from pathlib import Path
@@ -259,7 +261,7 @@ _SUPPORTED_PARAMS = [
         default_value=10,
         description="The minimum number of valid observations for the trajectory to be accepted.",
         section="filtering",
-        validate_func=lambda x: isinstance(x, int),
+        validate_func=lambda x: np.isscalar(x),
     ),
     _ParamInfo(
         name="peak_offset_max",
