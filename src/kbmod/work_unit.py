@@ -466,16 +466,13 @@ class WorkUnit:
 
         # Sort our image stack by our updated obstimes. This WorkUnit may have already
         # been sorted so we do this to preserve that expectation after reordering.
-        self.im_stack.sort_by_time()
+        sorted_indices = self.im_stack.sort_by_time()
 
-        # Clear metadata and reset the cached obstimes to use what was sorted in the image stack.
-        new_per_image_indices = []
-        for i in range(self.im_stack.num_times):
-            orig_obstime = self.im_stack.times[i]
-            orig_index = np.where(np.asarray(new_obstimes) == orig_obstime)[0][0]
-            new_per_image_indices.append(self._per_image_indices[orig_index])
-        self.clear_metadata()
-        self._per_image_indices = new_per_image_indices
+        # Sort our metadata in the same way to match the new image order.
+        self.org_img_meta = self.org_img_meta[sorted_indices]
+        self._per_image_indices = [self._per_image_indices[i] for i in sorted_indices]
+
+        # Reset the WorkUnit's cached obstimes.
         self._obstimes = None
 
     @classmethod

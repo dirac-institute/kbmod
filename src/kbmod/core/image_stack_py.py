@@ -540,6 +540,8 @@ class ImageStackPy:
         self.times = self.times[sorted_indices]
         self.zeroed_times = self.times - self.times[0]
 
+        return sorted_indices
+
     def get_matched_obstimes(self, query_times, threshold=0.0007):
         """Given a list of times, returns the indices of images that are close
         enough to the query times.

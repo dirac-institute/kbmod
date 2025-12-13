@@ -894,6 +894,9 @@ class test_work_unit(unittest.TestCase):
             )
             # Change the per image metadata to something other than the default
             work._per_image_indices[3] = [3, 4]
+            # save a copy of the original per_image_indices and org_image_meta
+            original_per_image_indices = work._per_image_indices.copy()
+            original_org_image_meta = work.org_img_meta.copy()
 
             # Set numpy random seed
             np.random.seed(0)
@@ -940,44 +943,55 @@ class test_work_unit(unittest.TestCase):
                 )
             )
 
-            # Check that old metadata was cleared
-            self.assertEqual(len(work.org_img_meta), 0)
-            self.assertEqual(len(work.org_img_meta.columns), 0)
-            self.assertEqual(work._per_image_indices, [[i] for i in range(self.num_images)])
+            # Check that the order of our metadata has changed but that frequencies of
+            # constituent images are preserved
+            self.assertFalse(np.array_equal(work._per_image_indices, original_per_image_indices))
+            self.assertEqual(len(work.org_img_meta), len(original_org_image_meta))
+            # Now check that the sorted versions of each are equal
+            sorted_original_indices = sorted(
+                [tuple(sorted(indices)) for indices in original_per_image_indices]
+            )
+            sorted_new_indices = sorted([tuple(sorted(indices)) for indices in work._per_image_indices])
+            self.assertEqual(sorted_original_indices, sorted_new_indices)
 
-    def test_disorder_obstimes_then_filter(self):
-        """Test that filtering images after disordering obstimes works correctly.
-        This is a regression test for a bug where metadata gets cleared."""
+            # Check that the order of our metadata has changed but that frequencies of
+            # constituent images are preserved
+            self.assertFalse(np.array_equal(work._per_image_indices, original_per_image_indices))
+            self.assertEqual(len(work.org_img_meta), len(original_org_image_meta))
+            # Now check that the sorted versions of each are equal
+            sorted_original_indices = sorted(
+                [tuple(sorted(indices)) for indices in original_per_image_indices]
+            )
+            sorted_new_indices = sorted([tuple(sorted(indices)) for indices in work._per_image_indices])
+            self.assertEqual(sorted_original_indices, sorted_new_indices)
+
+            # Check that our tables differ in contents but have the same size and columns
+            self.assertFalse(np.all(work.org_img_meta == original_org_image_meta))
+            self.assertEqual(len(work.org_img_meta), len(original_org_image_meta))
+            self.assertEqual(set(work.org_img_meta.colnames), set(original_org_image_meta.colnames))
+
+    def disorder_obstimes_then_filter_images(self):
+        """Test reordering the obstimes for a reprojected WorkUnit, and then filtering the images"""
         work = WorkUnit(
             im_stack=self.im_stack_py,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
-            barycentric_distance=42.0,
-            org_image_meta=self.org_image_meta,
+            barycentric_distance=41.0,
+            reprojected=True,
+            reprojection_frame="ebd",
+            per_image_indices=[[0, 5], [1, 6], [2, 7], [3, 8], [4, 9]],
+            org_image_meta=vstack([self.org_image_meta, self.org_image_meta]),
         )
 
-        # Set numpy random seed
-        np.random.seed(0)
-
         # Disorder the obstimes
+        np.random.seed(0)
         work.disorder_obstimes()
 
-        # Check that metadata was cleared
-        self.assertEqual(len(work.org_img_meta), 0)
-        self.assertEqual(work.n_constituents, self.num_images)
-
-        # Now filter images - this should work correctly
-        mask = [True, True, False, True, True]
-        work.filter_images(mask)
-
-        # Check that the filtering worked correctly
-        self.assertEqual(work.im_stack.num_times, 4)
-        self.assertEqual(work.n_constituents, 4)
-        self.assertEqual(len(work._per_image_indices), 4)
-
-        # Check that per_image_indices are correct
-        for i in range(4):
-            self.assertEqual(work._per_image_indices[i], [i])
+        # Filter out mosaicked images 2 and 3.
+        work.filter_images([True, True, False, False, True])
+        self.assertEqual(len(work), 3)
+        self.assertEqual(len(work.org_img_meta), 2 * self.num_images)
+        self.assertEqual(work.n_constituents, 2 * self.num_images)
 
 
 if __name__ == "__main__":
