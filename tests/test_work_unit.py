@@ -746,34 +746,6 @@ class test_work_unit(unittest.TestCase):
             np.array([1.0, 300.0]),  # time
         )
 
-    def test_clear_metadata(self):
-        """Test that we can clear the metadata from a WorkUnit."""
-        work = WorkUnit(
-            im_stack=self.im_stack_py,
-            config=self.config,
-            wcs=self.per_image_ebd_wcs,
-            barycentric_distance=41.0,
-            org_image_meta=self.org_image_meta,
-        )
-        # Change the per image metadata to something other than the default
-        work._per_image_indices[3] = [3, 4]
-        default_img_indices = [[i] for i in range(self.num_images)]
-
-        # Check that the metadata is present.
-        self.assertEqual(len(work.org_img_meta), self.num_images)
-
-        # Check thet the per_image_idices are not a single single mapping
-        # to the original image.
-        self.assertNotEqual(work._per_image_indices, default_img_indices)
-
-        # Clear the metadata.
-        work.clear_metadata()
-
-        # Check that the metadata has been cleared.
-        self.assertEqual(len(work.org_img_meta), 0)
-        self.assertEqual(len(work.org_img_meta.columns), 0)
-        self.assertEqual(work._per_image_indices, default_img_indices)
-
     def test_filter_images_no_reproject(self):
         """Test that we can filter some images from a non-reprojected WorkUnit."""
         work = WorkUnit(
@@ -894,6 +866,9 @@ class test_work_unit(unittest.TestCase):
             )
             # Change the per image metadata to something other than the default
             work._per_image_indices[3] = [3, 4]
+            # save a copy of the original per_image_indices and org_image_meta
+            original_per_image_indices = work._per_image_indices.copy()
+            original_org_image_meta = work.org_img_meta.copy()
 
             # Set numpy random seed
             np.random.seed(0)
@@ -940,10 +915,42 @@ class test_work_unit(unittest.TestCase):
                 )
             )
 
-            # Check that old metadata was cleared
-            self.assertEqual(len(work.org_img_meta), 0)
-            self.assertEqual(len(work.org_img_meta.columns), 0)
-            self.assertEqual(work._per_image_indices, [[i] for i in range(self.num_images)])
+            # Check that the order of our metadata has changed but that frequencies of
+            # constituent images are preserved
+            self.assertFalse(np.array_equal(work._per_image_indices, original_per_image_indices))
+            self.assertEqual(len(work.org_img_meta), len(original_org_image_meta))
+            # Now check that the sorted versions of each are equal
+            sorted_original_indices = sorted(
+                [tuple(sorted(indices)) for indices in original_per_image_indices]
+            )
+            sorted_new_indices = sorted([tuple(sorted(indices)) for indices in work._per_image_indices])
+            self.assertEqual(sorted_original_indices, sorted_new_indices)
+
+            # Check that our tables differ in contents but have the same size and columns
+            self.assertFalse(np.all(work.org_img_meta == original_org_image_meta))
+            self.assertEqual(len(work.org_img_meta), len(original_org_image_meta))
+            self.assertEqual(set(work.org_img_meta.colnames), set(original_org_image_meta.colnames))
+
+    def test_disorder_obstimes_then_filter_images(self):
+        """Test reordering the obstimes for a reprojected WorkUnit, and then filtering the images."""
+        work = WorkUnit(
+            im_stack=self.im_stack_py,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
+            barycentric_distance=41.0,
+            reprojected=True,
+            reprojection_frame="ebd",
+            per_image_indices=[[0, 5], [1, 6], [2, 7], [3, 8], [4, 9]],
+            org_image_meta=vstack([self.org_image_meta, self.org_image_meta]),
+        )
+
+        # Disorder the obstimes
+        np.random.seed(0)
+        work.disorder_obstimes()
+
+        # Filter out mosaicked images 2 and 3.
+        work.filter_images([True, True, False, False, True])
+        self.assertEqual(len(work), 3)
 
 
 if __name__ == "__main__":

@@ -466,10 +466,13 @@ class WorkUnit:
 
         # Sort our image stack by our updated obstimes. This WorkUnit may have already
         # been sorted so we do this to preserve that expectation after reordering.
-        self.im_stack.sort_by_time()
+        sorted_indices = self.im_stack.sort_by_time()
 
-        # Clear metadata and reset the cached obstimes to use what was sorted in the image stack.
-        self.clear_metadata()
+        # Sort our metadata in the same way to match the new image order.
+        self.org_img_meta = self.org_img_meta[sorted_indices]
+        self._per_image_indices = [self._per_image_indices[i] for i in sorted_indices]
+
+        # Reset the WorkUnit's cached obstimes.
         self._obstimes = None
 
     @classmethod
@@ -1000,11 +1003,6 @@ class WorkUnit:
         config_filename = f"{base_filename}_config.yaml"
         config_path = provenance_dir_path.joinpath(config_filename)
         self.config.to_file(config_path, overwrite)
-
-    def clear_metadata(self):
-        """Clear all WorkUnit metadata."""
-        self.org_img_meta = Table()
-        self._per_image_indices = [[i] for i in range(self.n_constituents)]
 
 
 def load_layered_image_from_shard(file_path):
