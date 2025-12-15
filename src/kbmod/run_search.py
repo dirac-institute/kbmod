@@ -393,7 +393,7 @@ class SearchRunner:
             raise ValueError("No valid images in input.")
         if config["num_obs"] == -1 or config["num_obs"] >= img_count:
             logger.info(f"Automatically setting num_obs = {img_count} (from {config['num_obs']}).")
-            config.set("num_obs", img_count)
+            config.set("num_obs", int(img_count))
 
         self._start_phase("KBMOD")
 
