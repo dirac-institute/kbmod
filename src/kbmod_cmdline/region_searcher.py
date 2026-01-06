@@ -46,6 +46,78 @@ from astropy.coordinates import EarthLocation
 from astropy.table import Table
 
 
+from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
+
+
+def reflex_correct_ephem_table(ephem_table, barycentric_dist, obs_site="Rubin"):
+    """Apply reflex correction to the ephemeris table if barycentric distance is provided.
+
+    Assumes that the observatory is Rubin Observatory.
+
+    Produces columns of the form 'ra_<barycentric_dist>' and 'dec_<barycentric_dist>' in the returned table.
+
+    Parameters
+    ----------
+    ephem_table : astropy.table.Table
+        The ephemeris table containing known objects, assumes 'RA', 'Dec', and 'mjd_mid' columns.
+    barycentric_dist : float
+        The barycentric distance in AU. If 0.0, no correction is applied.
+    obs_site : str
+        The observatory site to use for reflex correction. Default is "Rubin".
+
+    Returns
+    -------
+    astropy.table.Table
+        The corrected ephemeris table.
+    """
+
+    if "mjd_mid" not in ephem_table.columns:
+        # Parse column obs-time e.g. '2025-04-16 00:40:17' as MJD
+
+        if "obs-time" in ephem_table.colnames:
+            ephem_table["mjd_mid"] = [Time(t, scale="utc").mjd for t in ephem_table["obs-time"]]
+        else:
+            raise ValueError("Ephemeris table must contain 'mjd_mid' column for reflex correction.")
+
+    if "RA" not in ephem_table.columns:
+        if "Astrometric RA (hh:mm:ss)" not in ephem_table.columns:
+            raise ValueError("Ephemeris table must have 'RA' or 'Astrometric RA (hh:mm:ss)' column.")
+        # Convert from RA (hh:mm:ss) to degrees
+        print("Converting RA from hh:mm:ss to degrees")
+        ephem_table["ra"] = Angle(ephem_table["Astrometric RA (hh:mm:ss)"], unit=u.hourangle).deg
+
+    if "Dec" not in ephem_table.columns:
+        if "Astrometric Dec (dd mm'ss\")" not in ephem_table.columns:
+            raise ValueError("Ephemeris table must have 'Dec' or 'Astrometric Dec (dd mm'ss\")' column.")
+        # Convert from Dec (dd mm'ss") to degrees
+        # Convert e.g. 'Astrometric Dec '-43 31\'23.6"' to a format that can be converted to degrees
+        print("Converting Dec from dd mm'ss\" to degrees")
+        new_decs = []
+        for dec in ephem_table["Astrometric Dec (dd mm'ss\")"]:
+            dec = dec.replace("'", " ").replace('"', "")
+            new_decs.append(Angle(dec, unit=u.deg).deg)
+        ephem_table["dec"] = new_decs
+
+    if barycentric_dist != 0.0 and f"ra_{barycentric_dist}" not in ephem_table.colnames:
+        print(f"Applying reflex correction with barycentric distance {barycentric_dist} au")
+        # Apply reflex correction to the RA and Dec columns.
+        corrected_skycoord, _ = correct_parallax_geometrically_vectorized(
+            ephem_table["ra"],
+            ephem_table["dec"],
+            ephem_table["mjd_mid"],
+            barycentric_distance=barycentric_dist,
+            point_on_earth=EarthLocation.of_site(obs_site),
+        )
+        ephem_table[f"ra_{barycentric_dist}"] = corrected_skycoord.ra.deg
+        ephem_table[f"dec_{barycentric_dist}"] = corrected_skycoord.dec.deg
+    else:
+        # If no correction is applied (distance of 0.0), just copy the original RA and Dec columns.
+        ephem_table[f"ra_{barycentric_dist}"] = ephem_table["ra"]
+        ephem_table[f"dec_{barycentric_dist}"] = ephem_table["dec"]
+    print("Finished cleaning ephemeris table")
+    return ephem_table
+
+
 def elapsed_t(startTime, sigfigs=2):
     """
     Returns a string representing the elapsed time since startTime.
@@ -147,6 +219,13 @@ def generate_or_load_patch_ic(patch_ids, guess_distance, patch_size, region_sear
             ic_file = patch_id_to_ic_path(patch_id, guess_distance, patch_size, ic_dir=ic_dir)
             if os.path.exists(ic_file):
                 patch_id_to_ic[patch_id] = ImageCollection.read(ic_file)
+                if "overlap_deg" not in patch_id_to_ic[patch_id].columns:
+                    print(
+                        f"Warning: Loaded ImageCollection for patch_id {patch_id} is missing 'overlap_deg' column. Regenerating..."
+                    )
+                    patch_ics_to_generate.append(patch_id)
+                    os.remove(ic_file)
+                    del patch_id_to_ic[patch_id]
             else:
                 patch_ics_to_generate.append(patch_id)
 
@@ -202,7 +281,7 @@ def generate_analysis_table(patch_id_to_ic):
     obs_nights_spanned = []
     for patch_id, patch_ic in patch_id_to_ic.items():
         patch_ids.append(patch_id)
-        overlap_deg.append(sum(patch_ic.data["overlap_deg"]))
+        overlap_deg.append(sum(patch_ic["overlap_deg"]))
         visit_counts.append(len(set(patch_ic["visit"])))
         unique_mjds.append(len(set([int(m) for m in patch_ic["mjd_mid"]])))
         obs_nights_spanned.append(patch_ic.obs_nights_spanned())
@@ -230,7 +309,9 @@ def region_searcher(
     bands_to_drop,
     max_wcs_err,
     out_dir,
-    overwrite,
+    known_objects_ephem=None,
+    overwrite=False,
+    no_generate=False,
 ):
     """
     Perform Region Search on a base ImageCollection for a given guess distance and patch size.
@@ -309,27 +390,67 @@ def region_searcher(
     if not os.path.exists(ic_dir):
         os.makedirs(ic_dir)
 
-    # For all of the patches that had matches to images in or base ImageCollection,
-    # generate or load their ImageCollections (a collection of only the images overlapping that patch).
-    patch_id_to_ic = generate_or_load_patch_ic(
-        patch_ids=list(found_patches),
-        guess_distance=guess_distance,
-        patch_size=patch_size,
-        region_search=region_search,
-        ic_dir=ic_dir,
-        overwrite=False,
-    )
+    if not no_generate:
+        # For all of the patches that had matches to images in or base ImageCollection,
+        # generate or load their ImageCollections (a collection of only the images overlapping that patch).
+        patch_id_to_ic = generate_or_load_patch_ic(
+            patch_ids=list(found_patches),
+            guess_distance=guess_distance,
+            patch_size=patch_size,
+            region_search=region_search,
+            ic_dir=ic_dir,
+            overwrite=False,
+        )
 
-    # Generate and save an analysis table providing summary statistics for each patch.
-    table_csvfile = os.path.join(ic_dir, f"overlap_{dist_patch_size_str(guess_distance, patch_size)}.csv")
-    if not overwrite and os.path.exists(table_csvfile):
-        print(f"Analysis table {table_csvfile} exists and overwrite is False, not writing.")
-    else:
-        print(f"{elapsed_t(startTime)} Generating analysis table...")
-        t = generate_analysis_table(patch_id_to_ic)
-        print(f"{elapsed_t(startTime)} Saving {table_csvfile} to disk.")
-        t.write(table_csvfile, overwrite=True)
-    print(f"{elapsed_t(startTime)} Finished!")
+        # Generate and save an analysis table providing summary statistics for each patch.
+        table_csvfile = os.path.join(ic_dir, f"overlap_{dist_patch_size_str(guess_distance, patch_size)}.csv")
+        if not overwrite and os.path.exists(table_csvfile):
+            print(f"Analysis table {table_csvfile} exists and overwrite is False, not writing.")
+        else:
+            print(f"{elapsed_t(startTime)} Generating analysis table...")
+            t = generate_analysis_table(patch_id_to_ic)
+            print(f"{elapsed_t(startTime)} Saving {table_csvfile} to disk.")
+            t.write(table_csvfile, overwrite=True)
+        print(f"{elapsed_t(startTime)} Finished!")
+
+    if known_objects_ephem is not None:
+        print(f"{elapsed_t(startTime)} Loading known object ephemerides from {known_objects_ephem}...")
+        # Load and clean the ephemeris table to ensure it has the required columns
+        known_objects = reflex_correct_ephem_table(
+            Table.read(known_objects_ephem), barycentric_dist=guess_distance, obs_site=site_name
+        )
+        ephem_obj_name_col = "Clean Name"
+        known_objects["Name"] = known_objects[ephem_obj_name_col]
+        print(f"{elapsed_t(startTime)} Matching known objects to found patches...")
+        obj_ephems = known_objects  # known_objects[known_objects[ephem_obj_name_col].isin(all_ephem_ids)]
+        region_search_ephems = kbmod.region_search.Ephems(
+            obj_ephems,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[guess_distance],
+            earth_loc=earth_loc,
+        )
+        known_object_patch_ids, obj_to_patches = region_search.search_patches_by_ephems(
+            region_search_ephems, guess_dist=guess_distance, map_obj_to_patches=True
+        )
+        found_known_object_patch_ids = found_patches.intersection(known_object_patch_ids)
+
+        print(f"{elapsed_t(startTime)} Found {len(found_known_object_patch_ids)} known objects in patches.")
+
+        # Create a table summarizing which known objects were found in which patches
+        known_obj_patch_rows = []
+        for obj_name, patch_ids in obj_to_patches.items():
+            for patch_id in patch_ids:
+                if patch_id in found_patches:
+                    known_obj_patch_rows.append((obj_name, patch_id))
+        known_obj_patch_table = Table(rows=known_obj_patch_rows, names=(ephem_obj_name_col, "patch_id"))
+        known_obj_patch_csvfile = os.path.join(
+            ic_dir, f"known_objects_in_patches_{dist_patch_size_str(guess_distance, patch_size)}.csv"
+        )
+        print(f"{elapsed_t(startTime)} Saving known objects in patches table to {known_obj_patch_csvfile}...")
+        known_obj_patch_table.write(known_obj_patch_csvfile, overwrite=True)
+        print(f"{elapsed_t(startTime)} Finished known object matching!")
 
 
 if __name__ == "__main__":
@@ -397,9 +518,23 @@ if __name__ == "__main__":
         default=os.getcwd(),
     )
     parser.add_argument(
+        "--known-objects-ephem",
+        dest="known_objects_ephem",
+        help="path to known object ephemerides file",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
         "--overwrite",
         dest="overwrite",
         help="whether to overwrite existing IC files",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--no-generate",
+        dest="no_generate",
+        help="do not generate new IC files or analysis tables",
         action="store_true",
         default=False,
     )
@@ -417,5 +552,7 @@ if __name__ == "__main__":
                 bands_to_drop=args.bands_to_drop,
                 max_wcs_err=args.max_wcs_err,
                 out_dir=args.out_dir,
+                known_objects_ephem=args.known_objects_ephem,
                 overwrite=args.overwrite,
+                no_generate=args.no_generate,
             )

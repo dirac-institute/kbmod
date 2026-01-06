@@ -415,7 +415,7 @@ class RegionSearch:
         )
         return self.search_patches_by_ephems(ic_as_ephem, guess_dist=guess_dist)
 
-    def search_patches_by_ephems(self, ephems, guess_dist=None):
+    def search_patches_by_ephems(self, ephems, guess_dist=None, map_obj_to_patches=False):
         """
         Returns all patch indices where the ephemeris entries are found.
 
@@ -429,6 +429,9 @@ class RegionSearch:
             The ephemeris data to search for.
         guess_dist : float, optional
             The guess distance to use for reflex correction. If None or 0.0, the original coordinates are used.
+        map_obj_to_patches : bool, optional
+            Whether to return a mapping of list of ephemeris objects to patch indices where they were found.
+            If False, only the set of patch indices is returned. Default is False.
 
         Returns
         -------
@@ -469,13 +472,22 @@ class RegionSearch:
         # Now we need to check if the ephemeris entry is actually in the boundaries of the patch
         # rather than just its circumscribing circle.
         res_patch_indices = set([])
+        obj_to_patches = {}
         for ephem_idx, patch_idx in zip(ephems_idx, patch_idx):
-            if patch_idx not in res_patch_indices:
+            if map_obj_to_patches or patch_idx not in res_patch_indices:
                 # Check if the ephemeris entry is in the patch
                 curr_ra, curr_dec = ephems_coords[ephem_idx].ra.deg, ephems_coords[ephem_idx].dec.deg
                 if self.patches[patch_idx].contains(curr_ra, curr_dec):
                     res_patch_indices.add(patch_idx)
-        return res_patch_indices
+                    if map_obj_to_patches:
+                        obj_name = ephems.ephems_data[ephem_idx]["Name"]
+                        if obj_name not in obj_to_patches:
+                            obj_to_patches[obj_name] = set([])
+                        obj_to_patches[obj_name].add(patch_idx)
+
+        if not map_obj_to_patches:
+            return res_patch_indices
+        return res_patch_indices, obj_to_patches
 
     def export_image_collection(self, ic_to_export=None, guess_dist=None, patch=None, in_place=True):
         """
