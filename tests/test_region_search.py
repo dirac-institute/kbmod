@@ -250,15 +250,11 @@ class TestRegionSearch(unittest.TestCase):
             pixel_scale=0.2,
             dec_range=(-10, 10),
         )
-        print(f"DEBUG: Generated {len(region_search_test.patches)} patches.")
         # Use a patch from the middle of the ID list to avoid RA=0/360 wrapping issues
         mid_idx = len(region_search_test.patches) // 2
         patch_0 = region_search_test.patches[mid_idx]
         test_ra = patch_0.ra
         test_dec = patch_0.dec
-        
-        print(f"DEBUG: Using Patch {mid_idx} RA: {test_ra}, Dec: {test_dec}")
-        print(f"DEBUG: Patch radius: {patch_0.patch_radius()}")
 
         # Single point ephemeris
         ephem_table = Table({
@@ -281,7 +277,6 @@ class TestRegionSearch(unittest.TestCase):
         found_patches = region_search_test.search_patches_within_radius(
             region_search_test_ephems, search_radius=0.5
         )
-        print(f"DEBUG: Found {len(found_patches)} patches: {found_patches}")
         self.assertIn(mid_idx, found_patches)
 
         
