@@ -495,7 +495,7 @@ class RegionSearch:
     def search_patches_within_radius(self, ephems, search_radius, guess_dist=None):
         """
         Returns all patch indices where the ephemeris entries are found within a search radius.
-        
+
         Parameters
         ----------
         ephems : region_search.Ephems
@@ -504,7 +504,7 @@ class RegionSearch:
             The search radius in degrees.
         guess_dist : float, optional
             The guess distance to use for reflex correction. If None or 0.0, the original coordinates are used.
-            
+
         Returns
         -------
         set of int
@@ -524,7 +524,7 @@ class RegionSearch:
             unit=(u.deg, u.deg),
             frame="icrs",
         )
-        
+
         # Get the center coordinates of all patches
         patch_centers = SkyCoord(
             [patch.ra for patch in self.patches],
@@ -540,11 +540,151 @@ class RegionSearch:
 
         # search_around_sky returns indices of matches
         # idx1 is index into ephems_coords, idx2 is index into patch_centers
-        _, patch_idx, _, _ = search_around_sky(
-            ephems_coords, patch_centers, search_limit
-        )
+        _, patch_idx, _, _ = search_around_sky(ephems_coords, patch_centers, search_limit)
 
         return set(patch_idx)
+
+    def plot_patches(
+        self,
+        patch_ids,
+        output_path=None,
+        ephems_ra=None,
+        ephems_dec=None,
+        title=None,
+        figsize=(12, 10),
+        show_all_patches=False,
+    ):
+        """
+        Plot specified patches on an RA-Dec grid with optional ephemeris overlay.
+
+        Parameters
+        ----------
+        patch_ids : list or set of int
+            The IDs of patches to plot.
+        output_path : str, optional
+            Path to save the plot. If None, plot is displayed.
+        ephems_ra : array-like, optional
+            RA coordinates of ephemeris points to overlay.
+        ephems_dec : array-like, optional
+            Dec coordinates of ephemeris points to overlay.
+        title : str, optional
+            Title for the plot.
+        figsize : tuple, optional
+            Figure size (width, height).
+        show_all_patches : bool, optional
+            If True, show all patches in light gray as background.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The figure object.
+        """
+        import matplotlib.pyplot as plt
+        import matplotlib.patches as mpatches
+        from matplotlib.collections import PatchCollection
+
+        fig, ax = plt.subplots(figsize=figsize)
+
+        # Collect patch rectangles
+        rectangles = []
+        patch_centers_ra = []
+        patch_centers_dec = []
+
+        for patch_id in patch_ids:
+            if patch_id >= len(self.patches):
+                print(f"Warning: patch_id {patch_id} out of range")
+                continue
+            patch = self.patches[patch_id]
+            # Create rectangle from bottom-left corner
+            rect = mpatches.Rectangle(
+                (patch.bl_ra, patch.bl_dec),
+                patch.width,
+                patch.height,
+                linewidth=1.5,
+                edgecolor="blue",
+                facecolor="lightblue",
+                alpha=0.5,
+            )
+            rectangles.append(rect)
+            patch_centers_ra.append(patch.ra)
+            patch_centers_dec.append(patch.dec)
+
+        # Add rectangles to plot
+        for rect in rectangles:
+            ax.add_patch(rect)
+
+        # Plot patch centers
+        if patch_centers_ra:
+            ax.scatter(
+                patch_centers_ra,
+                patch_centers_dec,
+                c="blue",
+                s=20,
+                marker="x",
+                label="Patch Centers",
+                zorder=3,
+            )
+
+        # Overlay ephemeris points if provided
+        if ephems_ra is not None and ephems_dec is not None:
+            ax.plot(
+                ephems_ra, ephems_dec, "ro-", markersize=3, label="Ephemeris Trajectory", alpha=0.8, zorder=4
+            )
+
+        # Set axis limits based on data
+        if patch_centers_ra:
+            ra_margin = max(0.5, (max(patch_centers_ra) - min(patch_centers_ra)) * 0.1)
+            dec_margin = max(0.5, (max(patch_centers_dec) - min(patch_centers_dec)) * 0.1)
+            ax.set_xlim(
+                max(patch_centers_ra) + ra_margin, min(patch_centers_ra) - ra_margin
+            )  # Inverted for RA
+            ax.set_ylim(min(patch_centers_dec) - dec_margin, max(patch_centers_dec) + dec_margin)
+
+        ax.set_xlabel("RA (deg)")
+        ax.set_ylabel("Dec (deg)")
+        ax.set_title(title or f"Patches ({len(patch_ids)} shown)")
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        # Invert RA axis (astronomical convention)
+        ax.invert_xaxis()
+
+        plt.tight_layout()
+
+        if output_path:
+            plt.savefig(output_path, dpi=150)
+            print(f"Plot saved to {output_path}")
+
+        return fig
+
+    def get_patch_info(self, patch_id):
+        """
+        Get detailed information about a patch.
+
+        Parameters
+        ----------
+        patch_id : int
+            The ID of the patch.
+
+        Returns
+        -------
+        dict
+            Dictionary with patch center, corners, and dimensions.
+        """
+        if patch_id >= len(self.patches):
+            raise ValueError(f"patch_id {patch_id} out of range (max: {len(self.patches)-1})")
+
+        patch = self.patches[patch_id]
+        return {
+            "id": patch_id,
+            "center_ra": patch.ra,
+            "center_dec": patch.dec,
+            "width_deg": patch.width,
+            "height_deg": patch.height,
+            "corners": patch.corners,
+            "image_width": patch.image_width,
+            "image_height": patch.image_height,
+        }
 
     def export_image_collection(self, ic_to_export=None, guess_dist=None, patch=None, in_place=True):
         """
