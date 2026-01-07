@@ -236,8 +236,6 @@ class TestRegionSearch(unittest.TestCase):
             for pid in patch_ids:
                 self.assertIn(pid, found_patches)
 
-
-
     def test_search_patches_within_radius(self):
         """Test search_patches_within_radius filtering."""
         region_search_test = RegionSearch(self.ic, guess_dists=[], earth_loc=self.earth_loc)
@@ -255,15 +253,20 @@ class TestRegionSearch(unittest.TestCase):
         patch_0 = region_search_test.patches[mid_idx]
         test_ra = patch_0.ra
         test_dec = patch_0.dec
+        patch_radius = patch_0.patch_radius()
+        if hasattr(patch_radius, "value"):
+            patch_radius = patch_radius.value
 
-        # Single point ephemeris
-        ephem_table = Table({
-            "mjd_mid": [self.ic.data["mjd_mid"][0]],
-            "ra": [test_ra],
-            "dec": [test_dec],
-            "Name": ["TestObject"]
-        })
-        
+        # Test 1: Single point ephemeris at patch center - should find the patch
+        ephem_table = Table(
+            {
+                "mjd_mid": [self.ic.data["mjd_mid"][0]],
+                "ra": [test_ra],
+                "dec": [test_dec],
+                "Name": ["TestObject"],
+            }
+        )
+
         region_search_test_ephems = Ephems(
             ephem_table,
             ra_col="ra",
@@ -273,18 +276,95 @@ class TestRegionSearch(unittest.TestCase):
             earth_loc=self.earth_loc,
         )
 
-        # Search with a small radius
+        # Search with a small radius - should find the patch
         found_patches = region_search_test.search_patches_within_radius(
             region_search_test_ephems, search_radius=0.5
         )
         self.assertIn(mid_idx, found_patches)
+        # Check that the center points of all of the found patches are within the search
+        # radius plus patch radius of our single ephemeris point. First, generate the
+        # skycoord for the ephemeris point.
+        ephem_skycoord = SkyCoord(test_ra, test_dec, frame="icrs", unit=("deg", "deg"))
+        # Now get the skycoord for the center points of each patch
+        found_patch_skycoords = [
+            SkyCoord(
+                region_search_test.patches[pid].ra,
+                region_search_test.patches[pid].dec,
+                frame="icrs",
+                unit=("deg", "deg"),
+            )
+            for pid in found_patches
+        ]
+        # Check that all of the found patches are within the search radius plus patch radius
+        # of the ephemeris point.
+        for found_patch_skycoord in found_patch_skycoords:
+            self.assertLessEqual(
+                found_patch_skycoord.separation(ephem_skycoord).deg,
+                0.5 + patch_radius + 0.5,  # search_radius=0.5 + patch_radius + margin
+            )
 
-        
-        # Test that a far away search returns nothing
-        # Shift ephemeris way off
-        ephem_table["ra"] = [test_ra + 10.0]
+        # Test 2: Larger search radius should find more patches (neighbors)
+        found_patches_large = region_search_test.search_patches_within_radius(
+            region_search_test_ephems, search_radius=2.0
+        )
+        self.assertIn(mid_idx, found_patches_large)
+        # With 2 degree radius and ~10 arcmin patches, should find many more
+        self.assertGreater(len(found_patches_large), len(found_patches))
+
+        # Get a SkyCoord for found_patches_large
+        # Now get the skycoord for the center points of each patch
+        found_patch_skycoords_large = [
+            SkyCoord(
+                region_search_test.patches[pid].ra,
+                region_search_test.patches[pid].dec,
+                frame="icrs",
+                unit=("deg", "deg"),
+            )
+            for pid in found_patches_large
+        ]
+        # Check that all of the found patches are within the search radius plus patch radius
+        # of the ephemeris point.
+        for found_patch_skycoord in found_patch_skycoords_large:
+            self.assertLessEqual(
+                found_patch_skycoord.separation(ephem_skycoord).deg,
+                2.0 + patch_radius + 0.5,  # search_radius=2.0 + patch_radius + margin
+            )
+
+        # Test 3: Ephemeris just outside patch but within search radius
+        offset = patch_radius * 2  # Just outside the patch
+        ephem_table_offset = Table(
+            {
+                "mjd_mid": [self.ic.data["mjd_mid"][0]],
+                "ra": [test_ra + offset],
+                "dec": [test_dec],
+                "Name": ["TestObject"],
+            }
+        )
+        region_search_test_ephems_offset = Ephems(
+            ephem_table_offset,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[0.0],
+            earth_loc=self.earth_loc,
+        )
+        found_patches_offset = region_search_test.search_patches_within_radius(
+            region_search_test_ephems_offset, search_radius=0.5
+        )
+        # Should still find the original patch since it's within 0.5 deg
+        self.assertIn(mid_idx, found_patches_offset)
+
+        # Test 4: Far away ephemeris - should find nothing
+        ephem_table_far = Table(
+            {
+                "mjd_mid": [self.ic.data["mjd_mid"][0]],
+                "ra": [test_ra + 10.0],
+                "dec": [test_dec],
+                "Name": ["TestObject"],
+            }
+        )
         region_search_test_ephems_far = Ephems(
-            ephem_table,
+            ephem_table_far,
             ra_col="ra",
             dec_col="dec",
             mjd_col="mjd_mid",
@@ -294,8 +374,32 @@ class TestRegionSearch(unittest.TestCase):
         found_patches_far = region_search_test.search_patches_within_radius(
             region_search_test_ephems_far, search_radius=0.5
         )
-        # Should be empty or at least not contain patch 0
-        self.assertNotIn(0, found_patches_far)
+        # Should be empty or at least not contain our patch
+        self.assertNotIn(mid_idx, found_patches_far)
+
+        # Test 5: Multiple ephemeris points should find patches near all of them
+        ephem_table_multi = Table(
+            {
+                "mjd_mid": [self.ic.data["mjd_mid"][0], self.ic.data["mjd_mid"][0]],
+                "ra": [test_ra, test_ra + 1.0],  # Two points 1 degree apart
+                "dec": [test_dec, test_dec],
+                "Name": ["TestObject", "TestObject"],
+            }
+        )
+        region_search_test_ephems_multi = Ephems(
+            ephem_table_multi,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[0.0],
+            earth_loc=self.earth_loc,
+        )
+        found_patches_multi = region_search_test.search_patches_within_radius(
+            region_search_test_ephems_multi, search_radius=0.5
+        )
+        # Should find patches near both ephemeris points
+        self.assertIn(mid_idx, found_patches_multi)
+        self.assertGreater(len(found_patches_multi), 1)
 
     def test_reflex_corrected_search_patches_by_ephems(self):
         """Test using a ephemeris to search patches and find an ImageCollection across multiple reflex-corrected distances."""
