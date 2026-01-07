@@ -236,6 +236,72 @@ class TestRegionSearch(unittest.TestCase):
             for pid in patch_ids:
                 self.assertIn(pid, found_patches)
 
+
+
+    def test_search_patches_within_radius(self):
+        """Test search_patches_within_radius filtering."""
+        region_search_test = RegionSearch(self.ic, guess_dists=[], earth_loc=self.earth_loc)
+
+        # Generate a basic patch grid
+        # Use a known dec range to have predictable patches
+        region_search_test.generate_patches(
+            arcminutes=self.patch_size,
+            overlap_percentage=0,
+            pixel_scale=0.2,
+            dec_range=(-10, 10),
+        )
+        print(f"DEBUG: Generated {len(region_search_test.patches)} patches.")
+        # Use a patch from the middle of the ID list to avoid RA=0/360 wrapping issues
+        mid_idx = len(region_search_test.patches) // 2
+        patch_0 = region_search_test.patches[mid_idx]
+        test_ra = patch_0.ra
+        test_dec = patch_0.dec
+        
+        print(f"DEBUG: Using Patch {mid_idx} RA: {test_ra}, Dec: {test_dec}")
+        print(f"DEBUG: Patch radius: {patch_0.patch_radius()}")
+
+        # Single point ephemeris
+        ephem_table = Table({
+            "mjd_mid": [self.ic.data["mjd_mid"][0]],
+            "ra": [test_ra],
+            "dec": [test_dec],
+            "Name": ["TestObject"]
+        })
+        
+        region_search_test_ephems = Ephems(
+            ephem_table,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[0.0],
+            earth_loc=self.earth_loc,
+        )
+
+        # Search with a small radius
+        found_patches = region_search_test.search_patches_within_radius(
+            region_search_test_ephems, search_radius=0.5
+        )
+        print(f"DEBUG: Found {len(found_patches)} patches: {found_patches}")
+        self.assertIn(mid_idx, found_patches)
+
+        
+        # Test that a far away search returns nothing
+        # Shift ephemeris way off
+        ephem_table["ra"] = [test_ra + 10.0]
+        region_search_test_ephems_far = Ephems(
+            ephem_table,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[0.0],
+            earth_loc=self.earth_loc,
+        )
+        found_patches_far = region_search_test.search_patches_within_radius(
+            region_search_test_ephems_far, search_radius=0.5
+        )
+        # Should be empty or at least not contain patch 0
+        self.assertNotIn(0, found_patches_far)
+
     def test_reflex_corrected_search_patches_by_ephems(self):
         """Test using a ephemeris to search patches and find an ImageCollection across multiple reflex-corrected distances."""
         test_dists = [5.0, 39.0]

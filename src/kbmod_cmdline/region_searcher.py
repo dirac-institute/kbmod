@@ -310,6 +310,7 @@ def region_searcher(
     max_wcs_err,
     out_dir,
     known_objects_ephem=None,
+    search_radius=None,
     overwrite=False,
     no_generate=False,
 ):
@@ -386,6 +387,42 @@ def region_searcher(
     found_patches = region_search.match_ic_to_patches(region_search.ic, guess_distance, earth_loc)
     print(f"{elapsed_t(startTime)} Found {len(found_patches)} patches. Running analysis...")
 
+    # Filter patches by search radius if provided
+    if search_radius is not None and known_objects_ephem is not None:
+        print(f"{elapsed_t(startTime)} Filtering patches within {search_radius} degrees of ephemeris...")
+        # Load and clean the ephemeris table
+        # Note: We are loading this again later if known_objects_ephem is provided, which is slightly inefficient
+        # but cleaner for code organization unless we refactor significantly.
+        # Given the "early loading" requirement, we could load it once here.
+        
+        # Optimize: reuse this loaded table later if possible, but for now just load it here to filter.
+        known_objects_filter = reflex_correct_ephem_table(
+            Table.read(known_objects_ephem), 
+            barycentric_dist=guess_distance, 
+            obs_site=site_name
+        )
+        # Rename Name column if necessary (logic copied from bottom loop)
+        ephem_obj_name_col = "Clean Name"
+        if ephem_obj_name_col in known_objects_filter.colnames:
+             known_objects_filter["Name"] = known_objects_filter[ephem_obj_name_col]
+
+        filter_ephems = kbmod.region_search.Ephems(
+            known_objects_filter,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[guess_distance],
+            earth_loc=earth_loc,
+        )
+        
+        filtered_patch_ids = region_search.search_patches_within_radius(
+            filter_ephems, search_radius, guess_dist=guess_distance
+        )
+        
+        original_count = len(found_patches)
+        found_patches = found_patches.intersection(filtered_patch_ids)
+        print(f"{elapsed_t(startTime)} Filtered down to {len(found_patches)} patches (from {original_count}).")
+
     ic_dir = os.path.join(out_dir, dist_patch_size_str(guess_distance, patch_size))
     if not os.path.exists(ic_dir):
         os.makedirs(ic_dir)
@@ -402,15 +439,7 @@ def region_searcher(
             overwrite=False,
         )
 
-        # Generate and save an analysis table providing summary statistics for each patch.
-        table_csvfile = os.path.join(ic_dir, f"overlap_{dist_patch_size_str(guess_distance, patch_size)}.csv")
-        if not overwrite and os.path.exists(table_csvfile):
-            print(f"Analysis table {table_csvfile} exists and overwrite is False, not writing.")
-        else:
-            print(f"{elapsed_t(startTime)} Generating analysis table...")
-            t = generate_analysis_table(patch_id_to_ic)
-            print(f"{elapsed_t(startTime)} Saving {table_csvfile} to disk.")
-            t.write(table_csvfile, overwrite=True)
+        # Generate and save         known_objects_filter = reflex_correct_ephem_table(       t.write(table_csvfile, overwrite=True)
         print(f"{elapsed_t(startTime)} Finished!")
 
     if known_objects_ephem is not None:
@@ -525,6 +554,13 @@ if __name__ == "__main__":
         default=None,
     )
     parser.add_argument(
+        "--search-radius",
+        dest="search_radius",
+        help="Search radius in degrees around the known object ephemeris.",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
         "--overwrite",
         dest="overwrite",
         help="whether to overwrite existing IC files",
@@ -553,6 +589,7 @@ if __name__ == "__main__":
                 max_wcs_err=args.max_wcs_err,
                 out_dir=args.out_dir,
                 known_objects_ephem=args.known_objects_ephem,
+                search_radius=args.search_radius,
                 overwrite=args.overwrite,
                 no_generate=args.no_generate,
             )

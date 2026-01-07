@@ -489,6 +489,60 @@ class RegionSearch:
             return res_patch_indices
         return res_patch_indices, obj_to_patches
 
+    def search_patches_within_radius(self, ephems, search_radius, guess_dist=None):
+        """
+        Returns all patch indices where the ephemeris entries are found within a search radius.
+        
+        Parameters
+        ----------
+        ephems : region_search.Ephems
+            The ephemeris data to search for.
+        search_radius : float
+            The search radius in degrees.
+        guess_dist : float, optional
+            The guess distance to use for reflex correction. If None or 0.0, the original coordinates are used.
+            
+        Returns
+        -------
+        set of int
+            The indices of the patches that are within the search radius of the ephemeris entries.
+        """
+        if guess_dist is not None and guess_dist != 0.0 and guess_dist not in self.guess_dists:
+            raise ValueError(f"Guess distance {guess_dist} not specified for RegionSearch")
+        if guess_dist is None:
+            guess_dist = 0.0
+
+        # Prepare skycoords for the reflex-corrected ephemeris trajectory
+        ephems_ras = ephems.get_ras(guess_dist)
+        ephems_decs = ephems.get_decs(guess_dist)
+        ephems_coords = SkyCoord(
+            ephems_ras,
+            ephems_decs,
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+        
+        # Get the center coordinates of all patches
+        patch_centers = SkyCoord(
+            [patch.ra for patch in self.patches],
+            [patch.dec for patch in self.patches],
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+
+        # We want any patch that *overlaps* the search cone.
+        # So effective search radius = search_radius + patch_radius
+        # Note: _get_patch_radius returns radius in degrees
+        search_limit = search_radius * u.deg + self._get_patch_radius()
+
+        # search_around_sky returns indices of matches
+        # idx1 is index into ephems_coords, idx2 is index into patch_centers
+        _, patch_idx, _, _ = search_around_sky(
+            ephems_coords, patch_centers, search_limit
+        )
+
+        return set(patch_idx)
+
     def export_image_collection(self, ic_to_export=None, guess_dist=None, patch=None, in_place=True):
         """
         Exports the ImageCollection to a new ImageCollection with the given guess distance and patch information.
