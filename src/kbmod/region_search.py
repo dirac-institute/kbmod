@@ -64,6 +64,9 @@ class Ephems:
 
         # Reflex-correct the target observation data
         for guess_dist in self.guess_dists:
+            # Skip correction for distance 0.0 - use original coordinates
+            if guess_dist == 0.0:
+                continue
             # Calculate the parallax correction for each RA, Dec in the target observations
             corrected_ra_dec, _ = correct_parallax_geometrically_vectorized(
                 self.ephems_data[self.ra_col],
