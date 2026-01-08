@@ -16,6 +16,7 @@ import argparse
 import glob
 import os
 import pandas as pd
+from tqdm import tqdm
 
 from astropy.table import Table
 
@@ -26,6 +27,53 @@ csv.field_size_limit(131072 * 2)  # Increase field size limit for reading large 
 from kbmod import ImageCollection
 from kbmod.filters.known_object_filters import KnownObjsMatcher
 from kbmod.results import Results
+
+from astropy.coordinates import Angle, EarthLocation
+from astropy.time import Time
+import astropy.units as u
+
+
+def clean_ephem_table(ephem):
+    """
+    Standardize ephemeris table columns and formats.
+    """
+
+    def clean_dec_string(dec_str):
+        # Replace delimiters to get '-17 23 27.0' which astropy can better parse
+        return dec_str.replace("'", " ").replace('"', "")
+
+    # Convert RA if needed
+    if "ra" not in ephem.colnames:
+        if "RA" in ephem.colnames:
+            ephem.rename_column("RA", "ra")
+        elif "Astrometric RA (hh:mm:ss)" in ephem.colnames:
+            ephem["ra"] = Angle(ephem["Astrometric RA (hh:mm:ss)"], unit="hourangle").deg
+        else:
+            raise ValueError("Ephemeris table must contain 'ra' column for reflex correction.")
+
+    if "dec" not in ephem.colnames:
+        if "Dec" in ephem.colnames:
+            ephem.rename_column("Dec", "dec")
+        elif "Astrometric Dec (dd mm'ss\")" in ephem.colnames:
+            cleaned_decs = [clean_dec_string(s) for s in ephem["Astrometric Dec (dd mm'ss\")"]]
+            ephem["dec"] = Angle(cleaned_decs, unit="deg").deg
+        else:
+            raise ValueError("Ephemeris table must contain 'dec' column for reflex correction.")
+
+    if "mjd_mid" not in ephem.colnames:
+        if "obs-time" in ephem.colnames:
+            ephem["mjd_mid"] = [Time(t, scale="utc").mjd for t in ephem["obs-time"]]
+        else:
+            raise ValueError("Ephemeris table must contain 'mjd_mid' column for reflex correction.")
+
+    if "Name" not in ephem.colnames:
+        if "Clean Name" in ephem.colnames:
+            ephem.rename_column("Clean Name", "Name")
+        elif "Object name" in ephem.colnames:  # Common alias
+            ephem.rename_column("Object name", "Name")
+        else:
+            raise ValueError("Ephemeris table must contain 'Name' column for matching.")
+    return ephem
 
 
 def reflex_correct_ephem_table(ephem_table, barycentric_dist, obs_site="Rubin"):
@@ -52,12 +100,11 @@ def reflex_correct_ephem_table(ephem_table, barycentric_dist, obs_site="Rubin"):
 
     if barycentric_dist != 0.0:
         from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
-        from astropy.coordinates import EarthLocation
 
         # Apply reflex correction to the RA and Dec columns.
         corrected_skycoord, _ = correct_parallax_geometrically_vectorized(
-            ephem_table["RA"],
-            ephem_table["Dec"],
+            ephem_table["ra"],
+            ephem_table["dec"],
             ephem_table["mjd_mid"],
             barycentric_distance=barycentric_dist,
             point_on_earth=EarthLocation.of_site(obs_site),
@@ -66,8 +113,8 @@ def reflex_correct_ephem_table(ephem_table, barycentric_dist, obs_site="Rubin"):
         ephem_table[f"dec_{barycentric_dist}"] = corrected_skycoord.dec.deg
     else:
         # If no correction is applied (distance of 0.0), just copy the original RA and Dec columns.
-        ephem_table[f"ra_{barycentric_dist}"] = ephem_table["RA"]
-        ephem_table[f"dec_{barycentric_dist}"] = ephem_table["Dec"]
+        ephem_table[f"ra_{barycentric_dist}"] = ephem_table["ra"]
+        ephem_table[f"dec_{barycentric_dist}"] = ephem_table["dec"]
     return ephem_table
 
 
@@ -218,19 +265,28 @@ def execute(args):
         raise FileNotFoundError(f"Ephemeris file not found: {args.ephem}")
 
     # Generate the list of results files to process.
-    if args.results is None == args.results_glob is None:
-        raise ValueError("You must provide either --results or --results_glob.")
+    if args.results is None == args.results_glob is None == args.results_file_list is None:
+        raise ValueError("You must provide either --results, --results_glob, or --results_file_list.")
     results_files = []
     if args.results is not None:
         if args.verbose:
             print(f"Using single results file: {args.results}")
         results_files.append(args.results)
+    elif args.results_file_list is not None:
+        if args.verbose:
+            print(f"Reading results files from: {args.results_file_list}")
+        with open(args.results_file_list, "r") as f:
+            results_files = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+        if not results_files:
+            raise ValueError(f"No files found in results file list: {args.results_file_list}")
+        if args.verbose:
+            print(f"Found {len(results_files)} results files in list.")
     elif args.results_glob is not None:
         results_files = glob.glob(args.results_glob)
         if not results_files:
             raise ValueError(f"No files found matching glob pattern: {args.results_glob}")
     else:
-        raise ValueError("You must provide either --results or --results_glob.")
+        raise ValueError("You must provide either --results, --results_glob, or --results_file_list.")
 
     # Ensure the output directory exists.
     if args.output and not os.path.exists(args.output):
@@ -257,6 +313,11 @@ def execute(args):
     else:
         raise ValueError(f"Unsupported ephemeris file format: {args.ephem}. Use .csv or .ecsv or .parquet")
 
+    # Clean the ephemeris table first
+    if args.verbose:
+        print("Cleaning ephemeris table...")
+    ephem_table = clean_ephem_table(ephem_table)
+
     # Reflex-correct ephems table if needed
     if (
         f"ra_{args.barycentric_dist}" in ephem_table.columns
@@ -266,11 +327,16 @@ def execute(args):
             f"Using existing columns 'ra_{args.barycentric_dist}' and 'dec_{args.barycentric_dist}' for matching."
         )
     else:
+        if args.verbose:
+            print(f"Applying reflex correction with dist={args.barycentric_dist}...")
         ephem_table = reflex_correct_ephem_table(ephem_table, args.barycentric_dist, args.obs_site)
         # Write out the ephems table to the output directory if it doesn't already exist
         ephem_file = os.path.join(args.output, f"ephem_{args.barycentric_dist}.parquet")
         if not os.path.exists(ephem_file) or args.overwrite:
-            ephem_table.write(ephem_file, format="parquet", overwrite=args.overwrite)
+            # We convert to pandas to write to parquet because astropy.table.write(format='parquet')
+            # can be finicky with mixed object types or specific column names.
+            ephem_df = ephem_table.to_pandas()
+            ephem_df.to_parquet(ephem_file)
             if args.verbose:
                 print(f"Saved reflex-corrected ephemeris table to: {ephem_file}")
         else:
@@ -292,9 +358,7 @@ def execute(args):
     # Process each result file, tracking any exceptions that occur during processing.
     exceptions = {"result_file": [], "error": []}
     first_write = True
-    for i, results_file in enumerate(results_files):
-        if args.verbose:
-            print(f"Processing results file {i+1}/{len(results_files)}: {results_file}")
+    for results_file in tqdm(results_files, desc="Processing results files", disable=not args.verbose):
         try:
             results_processed = process_results_file(
                 results_file,
@@ -335,8 +399,10 @@ def execute(args):
             exceptions["result_file"].append(results_file)
             exceptions["error"].append(str(e))
 
-    if len(exceptions) > 0:
-        print("Exceptions occurred during processing. Writing out exceptions.")
+    if len(exceptions["result_file"]) > 0:
+        print(
+            f"{len(exceptions['result_file'])} Exceptions occurred during processing. Writing out exceptions."
+        )
         pd.DataFrame(exceptions).to_csv(exceptions_file, index=False)
         if args.verbose:
             print(f"Some files could not be processed. See exceptions file: {exceptions_file}")
@@ -362,6 +428,12 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help="A glob pattern to match multiple results files. If provided, overrides --results.",
+    )
+    parser.add_argument(
+        "--results_file_list",
+        type=str,
+        default=None,
+        help="Path to a text file containing one results file path per line.",
     )
 
     parser.add_argument(
