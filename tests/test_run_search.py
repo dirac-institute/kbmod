@@ -1,23 +1,22 @@
 """Test some of the functions needed for running the search."""
 
-from astropy.coordinates import EarthLocation
-from astropy.table import Table
-from astropy.time import Time
-
 import logging
 import tempfile
 import unittest
 
 import numpy as np
+from astropy.coordinates import EarthLocation
+from astropy.table import Table
+from astropy.time import Time
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
+from kbmod.fake_data.fake_data_creator import FakeDataSet, create_fake_times
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.results import Results
 from kbmod.run_search import (
+    SearchRunner,
     append_positions_to_results,
     configure_kb_search_stack,
-    SearchRunner,
 )
 from kbmod.search import *
 from kbmod.trajectory_generator import VelocityGridSearch
@@ -225,7 +224,7 @@ class test_run_search(unittest.TestCase):
             Trajectory(x=400, y=300, vx=-5, vy=-2, flux=1000.0, lh=1000.0, obs_count=num_times),
             Trajectory(x=100, y=500, vx=10, vy=-10, flux=1000.0, lh=1000.0, obs_count=num_times),
         ]
-        
+
         for strategy in ["original", "parallel", "vectorized"]:
             with self.subTest(strategy=strategy):
                 results = Results.from_trajectories(trjs)
@@ -304,7 +303,7 @@ class test_run_search(unittest.TestCase):
             Trajectory(x=400, y=300, vx=-5, vy=-2, flux=1000.0, lh=1000.0, obs_count=num_times),
             Trajectory(x=100, y=500, vx=10, vy=-10, flux=1000.0, lh=1000.0, obs_count=num_times),
         ]
-        
+
         for strategy in ["original", "parallel", "vectorized"]:
             with self.subTest(strategy=strategy):
                 results = Results.from_trajectories(trjs)
