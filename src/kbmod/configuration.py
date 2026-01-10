@@ -1,12 +1,12 @@
 import copy
 import math
+from pathlib import Path
 
 from astropy.io import fits
 from astropy.table import Table
-from pathlib import Path
 from yaml import dump, safe_load
-from kbmod.search import Logging
 
+from kbmod.search import Logging
 
 logger = Logging.getLogger(__name__)
 
@@ -386,6 +386,20 @@ _SUPPORTED_PARAMS = [
         description="If not None, the number of y pixels beyond the image bounds to use for starting coordinates.",
         section="core",
         validate_func=lambda x: x is None or (isinstance(x, int) and x >= 0),
+    ),
+    _ParamInfo(
+        name="append_positions_type",
+        default_value="original",
+        description="Strategy for append_positions_to_results: 'original', 'parallel', 'vectorized'.",
+        section="other",
+        validate_func=lambda x: x in ["original", "parallel", "vectorized"],
+    ),
+    _ParamInfo(
+        name="append_positions_n_workers",
+        default_value=8,
+        description="Number of parallel workers to use when append_positions_type is 'parallel'.",
+        section="other",
+        validate_func=lambda x: isinstance(x, int) and x >= 1,
     ),
 ]
 
