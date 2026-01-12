@@ -450,7 +450,7 @@ def execute(args):
         if args.verbose:
             print(f"Found {len(results_files)} results files in list.")
     elif args.results_glob is not None:
-        results_files = glob.glob(args.results_glob)
+        results_files = glob.glob(args.results_glob, recursive=True)
         if not results_files:
             raise ValueError(f"No files found matching glob pattern: {args.results_glob}")
     else:
@@ -594,7 +594,9 @@ def execute(args):
                 ex_df = pd.DataFrame({"result_file": [results_file], "error": [str(e)]})
                 ex_df.to_csv(exceptions_file, mode="a", header=header, index=False)
             except Exception as write_err:
-                print(f"Failed to write exception to file: {write_err}")
+                print(
+                    f"Failed to write exception to file: {exceptions_file}. \n Error: {write_err}. \n Original exception: {e}"
+                )
 
             # Keep in memory for summary
             exceptions["result_file"].append(results_file)
