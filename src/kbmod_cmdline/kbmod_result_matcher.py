@@ -40,6 +40,7 @@ from kbmod.wcs_utils import deserialize_wcs
 def clean_ephem_table(ephem):
     """
     Standardize ephemeris table columns and formats.
+    Handles both JPL and Skybot ephemeris formats.
     """
 
     def clean_dec_string(dec_str):
@@ -51,24 +52,51 @@ def clean_ephem_table(ephem):
         if "RA" in ephem.colnames:
             ephem.rename_column("RA", "ra")
         elif "Astrometric RA (hh:mm:ss)" in ephem.colnames:
+            # JPL format
             ephem["ra"] = Angle(ephem["Astrometric RA (hh:mm:ss)"], unit="hourangle").deg
+        elif "RA (hms)" in ephem.colnames:
+            # Skybot format
+            ephem["ra"] = Angle(ephem["RA (hms)"], unit="hourangle").deg
         else:
-            raise ValueError("Ephemeris table must contain 'ra' column for reflex correction.")
+            raise ValueError(
+                f"Ephemeris table must contain 'ra' column for reflex correction. "
+                f"Available columns: {ephem.colnames}"
+            )
 
     if "dec" not in ephem.colnames:
         if "Dec" in ephem.colnames:
             ephem.rename_column("Dec", "dec")
         elif "Astrometric Dec (dd mm'ss\")" in ephem.colnames:
+            # JPL format
             cleaned_decs = [clean_dec_string(s) for s in ephem["Astrometric Dec (dd mm'ss\")"]]
             ephem["dec"] = Angle(cleaned_decs, unit="deg").deg
+        elif "DEC (dms)" in ephem.colnames:
+            # Skybot format - already in degrees:minutes:seconds
+            cleaned_decs = [clean_dec_string(s) for s in ephem["DEC (dms)"]]
+            ephem["dec"] = Angle(cleaned_decs, unit="deg").deg
         else:
-            raise ValueError("Ephemeris table must contain 'dec' column for reflex correction.")
+            raise ValueError(
+                f"Ephemeris table must contain 'dec' column for reflex correction. "
+                f"Available columns: {ephem.colnames}"
+            )
 
     if "mjd_mid" not in ephem.colnames:
         if "obs-time" in ephem.colnames:
+            # JPL format
             ephem["mjd_mid"] = [Time(t, scale="utc").mjd for t in ephem["obs-time"]]
+        elif "ref_epoch" in ephem.colnames:
+            # Skybot format - ref_epoch is already MJD or datetime string
+            try:
+                # Try as MJD float first
+                ephem["mjd_mid"] = [float(t) for t in ephem["ref_epoch"]]
+            except (ValueError, TypeError):
+                # Fall back to parsing as datetime
+                ephem["mjd_mid"] = [Time(t, scale="utc").mjd for t in ephem["ref_epoch"]]
         else:
-            raise ValueError("Ephemeris table must contain 'mjd_mid' column for reflex correction.")
+            raise ValueError(
+                f"Ephemeris table must contain 'mjd_mid' column for reflex correction. "
+                f"Available columns: {ephem.colnames}"
+            )
 
     if "Name" not in ephem.colnames:
         if "Clean Name" in ephem.colnames:
@@ -76,7 +104,10 @@ def clean_ephem_table(ephem):
         elif "Object name" in ephem.colnames:  # Common alias
             ephem.rename_column("Object name", "Name")
         else:
-            raise ValueError("Ephemeris table must contain 'Name' column for matching.")
+            raise ValueError(
+                f"Ephemeris table must contain 'Name' column for matching. "
+                f"Available columns: {ephem.colnames}"
+            )
     return ephem
 
 
