@@ -210,10 +210,11 @@ def _process_results_file_chunks(
         ic = ImageCollection.read(get_ic_from_results_file(results_file))
         from astropy.wcs import WCS
 
-        global_wcs = WCS(ic[0]["global_wcs"])
-    except Exception:
+        global_wcs = WCS(ic.data[0]["global_wcs"])
+    except Exception as e:
         if verbose:
-            print("  Failed to recover WCS from ImageCollection")
+            print(f"  Failed to recover WCS from ImageCollection: {e}")
+        raise e
 
     # Use the generator from Results class
     for res in Results.read_table_chunks(results_file, chunk_size):
@@ -252,10 +253,16 @@ def _process_results_file_chunks(
         if res.wcs is None:
             if not wcs_warned:
                 if verbose:
-                    print("  WCS missing in chunk, trying ImageCollection...")
-                res.wcs = global_wcs
-
+                    print("  WCS missing in chunk, using ImageCollection global_wcs...")
                 wcs_warned = True  # Don't spam warnings
+            res.wcs = global_wcs  # Always apply fallback WCS to each chunk
+
+        # Check if WCS is still None - we cannot proceed without it
+        if res.wcs is None:
+            raise ValueError(
+                f"No WCS available for results file. Cannot perform sky coordinate matching. "
+                f"Ensure the result file or its ImageCollection contains WCS information."
+            )
 
         # Run matching
         # Note: res.mjd_mid might be set from metadata, but we use the one we loaded for the matcher
