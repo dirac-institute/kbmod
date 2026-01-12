@@ -527,23 +527,26 @@ def execute(args):
     exceptions_file = os.path.join(args.output, "exceptions.csv")
     processed_files = set()
     manifest_file = os.path.join(args.output, "manifest.txt")
-    first_write = True
 
-    if not args.overwrite:
-        if os.path.exists(manifest_file):
-            if args.verbose:
-                print(f"Loading processed files from manifest: {manifest_file}")
-            with open(manifest_file, "r") as f:
-                processed_files = set(os.path.abspath(line.strip()) for line in f if line.strip())
+    if args.overwrite:
+        # Overwrite mode: clear everything
+        for f in [manifest_file, matched_results_file, exceptions_file]:
+            if os.path.exists(f):
+                if args.verbose:
+                    print(f"Removing existing file: {f}")
+                os.remove(f)
+    elif os.path.exists(manifest_file):
+        # Resume mode
+        if args.verbose:
+            print(f"Loading processed files from manifest: {manifest_file}")
+        with open(manifest_file, "r") as f:
+            processed_files = set(os.path.abspath(line.strip()) for line in f if line.strip())
+        if args.verbose:
+            print(f"Resuming: {len(processed_files)} files already processed, will be skipped.")
 
-            # If we are resuming, we need to check if we should append or start new
-            if os.path.exists(matched_results_file):
-                first_write = False
-
-        # Standard safety check if not resuming (or if output exists but manifest doesn't - handled below?)
-        # If manifest doesn't exist, we fall through.
-        # But we still need to check valid state if not resuming.
-        elif os.path.exists(matched_results_file):
+    else:
+        # Standard safety check if not resuming (and not overwriting)
+        if os.path.exists(matched_results_file):
             raise ValueError(
                 f"Matched results file already exists: {matched_results_file}. Use --overwrite to overwrite."
             )
@@ -551,10 +554,6 @@ def execute(args):
             raise ValueError(
                 f"Exceptions file already exists: {exceptions_file}. Use --overwrite to overwrite."
             )
-    else:
-        # Overwrite mode: clear manifest
-        if os.path.exists(manifest_file):
-            os.remove(manifest_file)
 
     # Process each result file, tracking any exceptions that occur during processing.
     exceptions = {"result_file": [], "error": []}
@@ -576,29 +575,11 @@ def execute(args):
                 max_results=args.max_results,
             )
 
-            if first_write:
-                if os.path.exists(matched_results_file):
-                    if not args.overwrite:
-                        raise ValueError(
-                            f"Manifest file already exists: {matched_results_file}. Use --overwrite to overwrite."
-                        )
-                    if args.verbose:
-                        print(f"Overwriting existing matching output file: {matched_results_file}")
-                    os.remove(matched_results_file)
-                if os.path.exists(exceptions_file):
-                    if not args.overwrite:
-                        raise ValueError(
-                            f"Exceptions file already exists: {exceptions_file}. Use --overwrite to overwrite."
-                        )
-                    if args.verbose:
-                        print(f"Overwriting existing exceptions output file: {exceptions_file}")
-                    os.remove(exceptions_file)
-                # The outputted file is a serialized CSV file of a pandas DataFrame.
-                results_processed.to_csv(matched_results_file, mode="a", header=True, index=False)
-                first_write = False
-            else:
-                # We output in append mode if it already exists.
-                results_processed.to_csv(matched_results_file, mode="a", header=False, index=False)
+            # Append results to output file
+            # If file doesn't exist, write header. If it exists, append without header.
+            # This handles both fresh runs and resume runs correctly.
+            header = not os.path.exists(matched_results_file)
+            results_processed.to_csv(matched_results_file, mode="a", header=header, index=False)
 
             # Update manifest using the original filename string (whether absolute or relative)
             with open(manifest_file, "a") as f:
@@ -606,14 +587,23 @@ def execute(args):
 
         except Exception as e:
             print(f"Exception occurred: {e}")
+
+            # Stream exception to file
+            try:
+                header = not os.path.exists(exceptions_file)
+                ex_df = pd.DataFrame({"result_file": [results_file], "error": [str(e)]})
+                ex_df.to_csv(exceptions_file, mode="a", header=header, index=False)
+            except Exception as write_err:
+                print(f"Failed to write exception to file: {write_err}")
+
+            # Keep in memory for summary
             exceptions["result_file"].append(results_file)
             exceptions["error"].append(str(e))
 
     if len(exceptions["result_file"]) > 0:
         print(
-            f"{len(exceptions['result_file'])} Exceptions occurred during processing. Writing out exceptions."
+            f"{len(exceptions['result_file'])} Exceptions occurred during processing. See {exceptions_file}"
         )
-        pd.DataFrame(exceptions).to_csv(exceptions_file, index=False)
         if args.verbose:
             print(f"Some files could not be processed. See exceptions file: {exceptions_file}")
 
