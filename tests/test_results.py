@@ -797,6 +797,81 @@ class test_results(unittest.TestCase):
                 ["all_stamps", "coadd_mean", "psi_curve"],
             )
 
+    def test_read_table_chunks(self):
+        """Test the chunked reading of a parquet file."""
+        max_save = 15
+        table = Results.from_trajectories(
+            self.trj_list[0:max_save] if max_save <= self.num_entries else self.trj_list * 2
+        )
+
+        # Make sure we have enough entries for meaningful chunking
+        while len(table) < max_save:
+            table.extend(Results.from_trajectories(self.trj_list))
+        table = Results.from_trajectories([self.trj_list[i % self.num_entries] for i in range(max_save)])
+
+        # Add fake times to test metadata extraction
+        table.mjd_mid = 59000.0 + np.arange(5)
+
+        # Create a fake WCS
+        fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
+        table.wcs = fake_wcs
+
+        # Test with parquet format only (chunked reading requires parquet)
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "results.parquet")
+            table.write_table(file_path)
+            self.assertTrue(Path(file_path).is_file())
+
+            # Test 1: Read in chunks and verify all data is recovered
+            chunk_size = 5
+            all_chunks = list(Results.read_table_chunks(file_path, chunk_size=chunk_size))
+
+            # Should have 3 chunks (15 rows / 5 per chunk)
+            self.assertEqual(len(all_chunks), 3)
+
+            # Each chunk should have the correct number of rows
+            self.assertEqual(len(all_chunks[0]), 5)
+            self.assertEqual(len(all_chunks[1]), 5)
+            self.assertEqual(len(all_chunks[2]), 5)
+
+            # Each chunk should have mjd_mid attached
+            for chunk in all_chunks:
+                self.assertIsNotNone(chunk.mjd_mid)
+                self.assertEqual(len(chunk.mjd_mid), 5)
+                self.assertTrue(np.array_equal(chunk.mjd_mid, table.mjd_mid))
+
+            # Verify that concatenating chunks gives us the original data
+            total_rows = sum(len(c) for c in all_chunks)
+            self.assertEqual(total_rows, max_save)
+
+            # Test 2: Chunk size larger than file should return single chunk
+            all_chunks = list(Results.read_table_chunks(file_path, chunk_size=1000))
+            self.assertEqual(len(all_chunks), 1)
+            self.assertEqual(len(all_chunks[0]), max_save)
+
+            # Test 3: Verify WCS is attached to chunks
+            all_chunks = list(Results.read_table_chunks(file_path, chunk_size=5))
+            for chunk in all_chunks:
+                self.assertIsNotNone(chunk.wcs)
+                self.assertTrue(wcs_fits_equal(chunk.wcs, fake_wcs))
+
+    def test_read_table_chunks_file_not_found(self):
+        """Test that read_table_chunks raises error for missing file."""
+        with self.assertRaises(FileNotFoundError):
+            list(Results.read_table_chunks("/nonexistent/file.parquet"))
+
+    def test_read_table_chunks_unsupported_format(self):
+        """Test that read_table_chunks raises error for non-parquet files."""
+        with tempfile.TemporaryDirectory() as dir_name:
+            # Create an ecsv file
+            table = Results.from_trajectories(self.trj_list)
+            file_path = os.path.join(dir_name, "results.ecsv")
+            table.write_table(file_path)
+
+            # Should raise error for non-parquet
+            with self.assertRaises(ValueError):
+                list(Results.read_table_chunks(file_path))
+
 
 if __name__ == "__main__":
     unittest.main()

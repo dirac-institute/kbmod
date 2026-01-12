@@ -31,6 +31,10 @@ from kbmod.results import Results
 from astropy.coordinates import Angle, EarthLocation
 from astropy.time import Time
 import astropy.units as u
+import numpy as np
+import pyarrow.parquet as pq
+
+from kbmod.wcs_utils import deserialize_wcs
 
 
 def clean_ephem_table(ephem):
@@ -147,6 +151,149 @@ def get_ic_from_results_file(res_filepath):
     return ic_path
 
 
+def _process_results_file_chunks(
+    results_file,
+    ephem_table,
+    barycentric_dist,
+    sep_thresh,
+    time_thresh_s,
+    min_obs,
+    chunk_size,
+    verbose=False,
+    max_results=None,
+):
+    """Internal helper to process a results file in chunks using Results.read_table_chunks."""
+
+    # We defer initializing the matcher until we have the first chunk,
+    # because we want to prioritize the mjd_mid from the Results file itself
+    # (which ensures consistency with the obs_valid array).
+    known_objs_matcher = None
+
+    all_matching_dfs = []
+    total_processed = 0
+    wcs_warned = False
+    mjd_warned = False
+
+    global_wcs = None
+    try:
+        ic = ImageCollection.read(get_ic_from_results_file(results_file))
+        from astropy.wcs import WCS
+
+        global_wcs = WCS(ic[0]["global_wcs"])
+    except Exception:
+        if verbose:
+            print("  Failed to recover WCS from ImageCollection")
+
+    # Use the generator from Results class
+    for res in Results.read_table_chunks(results_file, chunk_size):
+        # Initialize matcher on first chunk
+        if known_objs_matcher is None:
+            if verbose:
+                print(f"  Using mjd_mid from Results metadata: {len(res.mjd_mid)} observations")
+
+            # Create the matcher once (reused across all chunks)
+            known_objs_matcher = KnownObjsMatcher(
+                ephem_table,
+                res.mjd_mid,
+                matcher_name="known_matcher",
+                sep_thresh=sep_thresh,
+                time_thresh_s=time_thresh_s,
+                name_col="Name",
+                ra_col=f"ra_{barycentric_dist}",
+                dec_col=f"dec_{barycentric_dist}",
+                mjd_col="mjd_mid",
+            )
+
+        if verbose:
+            print(f"  Processing batch {mjd_warned + 1} (size {len(res)})...")
+        mjd_warned += 1  # Utilizing this unused variable as batch counter since I can't change init easily
+
+        if max_results is not None and total_processed >= max_results:
+            break
+
+        # Limit the chunk if we only need a few more results
+        if max_results is not None:
+            remaining = max_results - total_processed
+            if len(res) > remaining:
+                res.table = res.table[:remaining]
+
+        # Extract WCS from the chunk if available, or try IC again if missing
+        if res.wcs is None:
+            if not wcs_warned:
+                if verbose:
+                    print("  WCS missing in chunk, trying ImageCollection...")
+                res.wcs = global_wcs
+
+                wcs_warned = True  # Don't spam warnings
+
+        # Run matching
+        # Note: res.mjd_mid might be set from metadata, but we use the one we loaded for the matcher
+        # The matcher uses its own self.obstimes, but it needs 'obs_valid' from res to match dimensions.
+
+        try:
+            known_objs_matcher.match(res, res.wcs)
+            known_objs_matcher.match_on_min_obs(res, min_obs)
+        except Exception as e:
+            print(f"  Match error in chunk: {e}")
+            if verbose:
+                print(f"  Chunk size: {len(res)}")
+                if "obs_valid" in res.colnames:
+                    print(f"  obs_valid shape: {res['obs_valid'].shape}")
+            raise e
+
+        # Extract matches
+        uuids = []
+        matched_names = []
+        matched_obs = []
+        obs_ratios = []
+
+        for row in res:
+            if row["known_matcher"] is not None:
+                for match, obs_mask in row["known_matcher"].items():
+                    uuids.append(row["uuid"])
+                    matched_names.append(match)
+                    num_matched_obs = sum(obs_mask)
+                    matched_obs.append(num_matched_obs)
+                    obs_ratios.append(num_matched_obs / len(obs_mask))
+
+        if uuids:
+            chunk_df = pd.DataFrame(
+                {
+                    "results_file": [results_file] * len(uuids),
+                    "barycentric_dist": [barycentric_dist] * len(uuids),
+                    "sep_thresh": [sep_thresh] * len(uuids),
+                    "time_thresh_s": [time_thresh_s] * len(uuids),
+                    "min_obs": [min_obs] * len(uuids),
+                    "uuid": uuids,
+                    "name": matched_names,
+                    "matched_obs": matched_obs,
+                    "obs_ratio": obs_ratios,
+                }
+            )
+            all_matching_dfs.append(chunk_df)
+
+        total_processed += len(res)
+        if verbose and total_processed % (chunk_size * 10) == 0:
+            print(f"  Processed {total_processed} rows...")
+
+    if all_matching_dfs:
+        return pd.concat(all_matching_dfs, ignore_index=True)
+    else:
+        return pd.DataFrame(
+            {
+                "results_file": [],
+                "barycentric_dist": [],
+                "sep_thresh": [],
+                "time_thresh_s": [],
+                "min_obs": [],
+                "uuid": [],
+                "name": [],
+                "matched_obs": [],
+                "obs_ratio": [],
+            }
+        )
+
+
 def process_results_file(
     results_file,
     ephem_table,
@@ -154,6 +301,7 @@ def process_results_file(
     sep_thresh,
     time_thresh_s,
     min_obs,
+    chunk_size=None,
     verbose=False,
     max_results=None,
 ):
@@ -173,6 +321,8 @@ def process_results_file(
         The time threshold in seconds for matching results to known objects.
     min_obs : int
         Minimum number of observations required to consider a match valid.
+    chunk_size : int, optional
+        Process file in chunks of this size. If None, process whole file.
     verbose : bool, optional
         If True, print verbose output. Default is False.
     max_results : int, optional
@@ -183,6 +333,24 @@ def process_results_file(
     pandas.DataFrame
         A DataFrame containing the matched results with columns for results file, parameters used, uuid, and matched object name.
     """
+
+    if verbose:
+        print(f"Processing results from file: {results_file}")
+
+    # Use chunked processing if chunk_size is specified
+    if chunk_size is not None:
+        return _process_results_file_chunks(
+            results_file,
+            ephem_table,
+            barycentric_dist,
+            sep_thresh,
+            time_thresh_s,
+            min_obs,
+            chunk_size,
+            verbose,
+            max_results,
+        )
+
     try:
         res = Results.read_table(results_file)
     except Exception as e:
@@ -288,6 +456,9 @@ def execute(args):
     else:
         raise ValueError("You must provide either --results, --results_glob, or --results_file_list.")
 
+    # Convert all result files to absolute paths for consistency
+    results_files = [os.path.abspath(f) for f in results_files]
+
     # Ensure the output directory exists.
     if args.output and not os.path.exists(args.output):
         if args.verbose:
@@ -295,10 +466,19 @@ def execute(args):
         os.makedirs(args.output)
 
     # Limit the number of files to process if max_files is set.
-    if args.max_files is not None and args.max_files > len(results_files):
+    if args.max_files is not None and args.max_files < len(results_files):
         results_files = results_files[: args.max_files]
         if args.verbose:
             print(f"Limiting to processing only {len(results_files)} results files.")
+
+    # Filter out files that are too large.
+    if args.max_file_size_gb is not None:
+        max_bytes = args.max_file_size_gb * 1024 * 1024 * 1024
+        original_count = len(results_files)
+        results_files = [f for f in results_files if os.path.getsize(f) <= max_bytes]
+        skipped = original_count - len(results_files)
+        if skipped > 0 and args.verbose:
+            print(f"Skipped {skipped} files larger than {args.max_file_size_gb} GB.")
 
     # Open the ephemeris file as an astropoy Table
     if args.verbose:
@@ -345,20 +525,44 @@ def execute(args):
 
     matched_results_file = os.path.join(args.output, "matching_results.csv")
     exceptions_file = os.path.join(args.output, "exceptions.csv")
+    processed_files = set()
+    manifest_file = os.path.join(args.output, "manifest.txt")
+    first_write = True
+
     if not args.overwrite:
-        if os.path.exists(matched_results_file):
+        if os.path.exists(manifest_file):
+            if args.verbose:
+                print(f"Loading processed files from manifest: {manifest_file}")
+            with open(manifest_file, "r") as f:
+                processed_files = set(os.path.abspath(line.strip()) for line in f if line.strip())
+
+            # If we are resuming, we need to check if we should append or start new
+            if os.path.exists(matched_results_file):
+                first_write = False
+
+        # Standard safety check if not resuming (or if output exists but manifest doesn't - handled below?)
+        # If manifest doesn't exist, we fall through.
+        # But we still need to check valid state if not resuming.
+        elif os.path.exists(matched_results_file):
             raise ValueError(
                 f"Matched results file already exists: {matched_results_file}. Use --overwrite to overwrite."
             )
-        if os.path.exists(exceptions_file):
+        elif os.path.exists(exceptions_file):
             raise ValueError(
                 f"Exceptions file already exists: {exceptions_file}. Use --overwrite to overwrite."
             )
+    else:
+        # Overwrite mode: clear manifest
+        if os.path.exists(manifest_file):
+            os.remove(manifest_file)
 
     # Process each result file, tracking any exceptions that occur during processing.
     exceptions = {"result_file": [], "error": []}
-    first_write = True
     for results_file in tqdm(results_files, desc="Processing results files", disable=not args.verbose):
+        if results_file in processed_files:
+            print(f"Skipping already processed file: {results_file}")
+            continue
+
         try:
             results_processed = process_results_file(
                 results_file,
@@ -367,6 +571,8 @@ def execute(args):
                 args.sep_thresh,
                 args.time_thresh_s,
                 args.min_obs,
+                chunk_size=args.chunk_size,
+                verbose=args.verbose,
                 max_results=args.max_results,
             )
 
@@ -391,9 +597,13 @@ def execute(args):
                 results_processed.to_csv(matched_results_file, mode="a", header=True, index=False)
                 first_write = False
             else:
-                # The outputted file file is a serialized CSV file of a pandas DataFrame.
                 # We output in append mode if it already exists.
                 results_processed.to_csv(matched_results_file, mode="a", header=False, index=False)
+
+            # Update manifest using the original filename string (whether absolute or relative)
+            with open(manifest_file, "a") as f:
+                f.write(f"{results_file}\n")
+
         except Exception as e:
             print(f"Exception occurred: {e}")
             exceptions["result_file"].append(results_file)
@@ -508,10 +718,22 @@ if __name__ == "__main__":
         help="Maximum number of files to process. If None, all files will be processed.",
     )
     parser.add_argument(
+        "--max_file_size_gb",
+        type=float,
+        default=None,
+        help="Skip result files larger than this size (in GB). Useful to avoid OOM.",
+    )
+    parser.add_argument(
         "--max_results",
         type=int,
         default=None,
         help="Maximum number of results to process from each file. If None, all results will be processed.",
+    )
+    parser.add_argument(
+        "--chunk_size",
+        type=int,
+        default=None,
+        help="Process result files in chunks of this size (rows). Enables memory-efficient processing of large files.",
     )
 
     args = parser.parse_args()

@@ -385,47 +385,82 @@ def region_searcher(
 
     # See which of the generated patches have Images from our base collection.
     found_patches = region_search.match_ic_to_patches(region_search.ic, guess_distance, earth_loc)
-    print(f"{elapsed_t(startTime)} Found {len(found_patches)} patches. Running analysis...")
+    print(f"{elapsed_t(startTime)} Found {len(found_patches)} patches with IC data. Running analysis...")
 
-    # Filter patches by search radius if provided
-    if search_radius is not None and known_objects_ephem is not None:
-        print(f"{elapsed_t(startTime)} Filtering patches within {search_radius} degrees of ephemeris...")
+    ic_dir = os.path.join(out_dir, dist_patch_size_str(guess_distance, patch_size))
+    if not os.path.exists(ic_dir):
+        os.makedirs(ic_dir)
+
+    # Handle ephemeris matching - either by cone search radius OR direct patch containment
+    if known_objects_ephem is not None:
+        print(f"{elapsed_t(startTime)} Loading known object ephemerides from {known_objects_ephem}...")
         # Load and clean the ephemeris table
-        # Note: We are loading this again later if known_objects_ephem is provided, which is slightly inefficient
-        # but cleaner for code organization unless we refactor significantly.
-        # Given the "early loading" requirement, we could load it once here.
-        
-        # Optimize: reuse this loaded table later if possible, but for now just load it here to filter.
-        known_objects_filter = reflex_correct_ephem_table(
-            Table.read(known_objects_ephem), 
-            barycentric_dist=guess_distance, 
-            obs_site=site_name
+        known_objects = reflex_correct_ephem_table(
+            Table.read(known_objects_ephem), barycentric_dist=guess_distance, obs_site=site_name
         )
-        # Rename Name column if necessary (logic copied from bottom loop)
         ephem_obj_name_col = "Clean Name"
-        if ephem_obj_name_col in known_objects_filter.colnames:
-             known_objects_filter["Name"] = known_objects_filter[ephem_obj_name_col]
+        known_objects["Name"] = known_objects[ephem_obj_name_col]
 
-        filter_ephems = kbmod.region_search.Ephems(
-            known_objects_filter,
+        region_search_ephems = kbmod.region_search.Ephems(
+            known_objects,
             ra_col="ra",
             dec_col="dec",
             mjd_col="mjd_mid",
             guess_dists=[guess_distance],
             earth_loc=earth_loc,
         )
-        
-        filtered_patch_ids = region_search.search_patches_within_radius(
-            filter_ephems, search_radius, guess_dist=guess_distance
-        )
-        
-        original_count = len(found_patches)
-        found_patches = found_patches.intersection(filtered_patch_ids)
-        print(f"{elapsed_t(startTime)} Filtered down to {len(found_patches)} patches (from {original_count}).")
 
-    ic_dir = os.path.join(out_dir, dist_patch_size_str(guess_distance, patch_size))
-    if not os.path.exists(ic_dir):
-        os.makedirs(ic_dir)
+        if search_radius is not None:
+            # Use cone search: find all patches within search_radius of ephemeris points
+            print(f"{elapsed_t(startTime)} Using cone search (radius={search_radius} deg)...")
+            ephem_patch_ids = region_search.search_patches_within_radius(
+                region_search_ephems, search_radius, guess_dist=guess_distance
+            )
+            # Create mapping from object names to patches (simple: all patches for all objects in the ephemeris)
+            # For cone search, we don't have per-point containment, so map all unique objects to all patches
+            unique_objects = set(known_objects[ephem_obj_name_col])
+            obj_to_patches = {obj: ephem_patch_ids for obj in unique_objects}
+            print(
+                f"{elapsed_t(startTime)} Found {len(ephem_patch_ids)} patches within {search_radius}° of ephemeris."
+            )
+        else:
+            # Use direct containment: find patches where ephemeris points fall inside
+            print(f"{elapsed_t(startTime)} Using direct patch containment matching...")
+            ephem_patch_ids, obj_to_patches = region_search.search_patches_by_ephems(
+                region_search_ephems, guess_dist=guess_distance, map_obj_to_patches=True
+            )
+            print(f"{elapsed_t(startTime)} Found {len(ephem_patch_ids)} patches containing ephemeris points.")
+
+        # Count how many have images
+        patches_with_images = found_patches.intersection(ephem_patch_ids)
+        print(f"{elapsed_t(startTime)} Of these, {len(patches_with_images)} have images in the IC.")
+
+        # Create output table: ALL matched patches with has_images column
+        known_obj_patch_rows = []
+        for obj_name, patch_ids in obj_to_patches.items():
+            for patch_id in patch_ids:
+                has_images = patch_id in found_patches
+                known_obj_patch_rows.append((obj_name, patch_id, has_images))
+
+        known_obj_patch_table = Table(
+            rows=known_obj_patch_rows, names=(ephem_obj_name_col, "patch_id", "has_images")
+        )
+        known_obj_patch_csvfile = os.path.join(
+            ic_dir, f"known_objects_in_patches_{dist_patch_size_str(guess_distance, patch_size)}.csv"
+        )
+        print(
+            f"{elapsed_t(startTime)} Saving {len(known_obj_patch_rows)} rows to {known_obj_patch_csvfile}..."
+        )
+        known_obj_patch_table.write(known_obj_patch_csvfile, overwrite=True)
+        print(f"{elapsed_t(startTime)} Finished known object matching!")
+
+        # If using search radius, also filter found_patches for generation
+        if search_radius is not None:
+            original_count = len(found_patches)
+            found_patches = found_patches.intersection(ephem_patch_ids)
+            print(
+                f"{elapsed_t(startTime)} Filtered patches for generation: {len(found_patches)} (from {original_count})."
+            )
 
     if not no_generate:
         # For all of the patches that had matches to images in or base ImageCollection,
@@ -439,47 +474,7 @@ def region_searcher(
             overwrite=False,
         )
 
-        # Generate and save         known_objects_filter = reflex_correct_ephem_table(       t.write(table_csvfile, overwrite=True)
         print(f"{elapsed_t(startTime)} Finished!")
-
-    if known_objects_ephem is not None:
-        print(f"{elapsed_t(startTime)} Loading known object ephemerides from {known_objects_ephem}...")
-        # Load and clean the ephemeris table to ensure it has the required columns
-        known_objects = reflex_correct_ephem_table(
-            Table.read(known_objects_ephem), barycentric_dist=guess_distance, obs_site=site_name
-        )
-        ephem_obj_name_col = "Clean Name"
-        known_objects["Name"] = known_objects[ephem_obj_name_col]
-        print(f"{elapsed_t(startTime)} Matching known objects to found patches...")
-        obj_ephems = known_objects  # known_objects[known_objects[ephem_obj_name_col].isin(all_ephem_ids)]
-        region_search_ephems = kbmod.region_search.Ephems(
-            obj_ephems,
-            ra_col="ra",
-            dec_col="dec",
-            mjd_col="mjd_mid",
-            guess_dists=[guess_distance],
-            earth_loc=earth_loc,
-        )
-        known_object_patch_ids, obj_to_patches = region_search.search_patches_by_ephems(
-            region_search_ephems, guess_dist=guess_distance, map_obj_to_patches=True
-        )
-        found_known_object_patch_ids = found_patches.intersection(known_object_patch_ids)
-
-        print(f"{elapsed_t(startTime)} Found {len(found_known_object_patch_ids)} known objects in patches.")
-
-        # Create a table summarizing which known objects were found in which patches
-        known_obj_patch_rows = []
-        for obj_name, patch_ids in obj_to_patches.items():
-            for patch_id in patch_ids:
-                if patch_id in found_patches:
-                    known_obj_patch_rows.append((obj_name, patch_id))
-        known_obj_patch_table = Table(rows=known_obj_patch_rows, names=(ephem_obj_name_col, "patch_id"))
-        known_obj_patch_csvfile = os.path.join(
-            ic_dir, f"known_objects_in_patches_{dist_patch_size_str(guess_distance, patch_size)}.csv"
-        )
-        print(f"{elapsed_t(startTime)} Saving known objects in patches table to {known_obj_patch_csvfile}...")
-        known_obj_patch_table.write(known_obj_patch_csvfile, overwrite=True)
-        print(f"{elapsed_t(startTime)} Finished known object matching!")
 
 
 if __name__ == "__main__":

@@ -9,9 +9,11 @@ import numpy as np
 import uuid
 
 from astropy.io import fits
+from astropy.io.misc.yaml import load as astropy_yaml_load
 from astropy.table import Column, Table, vstack
 from astropy.time import Time
 from pathlib import Path
+import pyarrow.parquet as pq
 
 from kbmod.search import (
     extract_all_trajectory_flux,
@@ -267,6 +269,93 @@ class Results:
                 results.load_column(aux_file, colname=colname)
 
         return results
+
+    @classmethod
+    def read_table_chunks(cls, filename, chunk_size=1000):
+        """Read the Results from a table file in chunks.
+
+        This is a generator that yields `Results` objects for each chunk of data.
+        It is designed to handle very large result files that cannot fit into memory.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file to load. Must be a parquet file.
+        chunk_size : `int`
+            Number of rows to include in each chunk.
+
+        Yields
+        ------
+        results : `Results`
+            A Results object containing a chunk of the data.
+        """
+        logger.info(f"Reading results from {filename} in chunks of {chunk_size}")
+        filepath = Path(filename)
+
+        if not filepath.is_file():
+            raise FileNotFoundError(f"File {filename} not found.")
+        if ".parquet" not in filepath.suffix and ".parq" not in filepath.suffix:
+            raise ValueError("Chunked reading currently only supported for parquet files.")
+
+        # Open the parquet file
+        pf = pq.ParquetFile(filename)
+
+        # 1. Extract Metadata (WCS, mjd_mid) without reading the whole file
+        wcs = None
+        mjd_mid = None
+
+        # Astropy stores metadata in the 'table_meta_yaml' key of the parquet metadata
+        arrow_metadata = pf.schema_arrow.metadata
+        if arrow_metadata and b"table_meta_yaml" in arrow_metadata:
+            try:
+                yaml_bytes = arrow_metadata[b"table_meta_yaml"]
+                yaml_str = yaml_bytes.decode("utf-8")
+                meta_obj = astropy_yaml_load(yaml_str)
+
+                # Extract the 'meta' field from the YAML structure
+                # Astropy serializes table.meta as a list of tuples (OrderedDict format)
+                meta_dict = {}
+                if isinstance(meta_obj, dict) and "meta" in meta_obj:
+                    raw_meta = meta_obj["meta"]
+                    # Convert list of tuples to dict
+                    if isinstance(raw_meta, list):
+                        for item in raw_meta:
+                            if isinstance(item, (tuple, list)) and len(item) == 2:
+                                key, value = item
+                                meta_dict[key] = value
+                            elif isinstance(item, dict):
+                                meta_dict.update(item)
+                    elif isinstance(raw_meta, dict):
+                        meta_dict = raw_meta
+
+                if meta_dict:
+                    if "wcs" in meta_dict:
+                        wcs = deserialize_wcs(meta_dict["wcs"])
+                    if "mjd_mid" in meta_dict:
+                        mjd_mid = meta_dict["mjd_mid"]
+                    elif "mjd_utc_mid" in meta_dict:
+                        mjd_mid = meta_dict["mjd_utc_mid"]
+                    logger.debug(
+                        f"Extracted metadata: wcs={wcs is not None}, mjd_mid len={len(mjd_mid) if mjd_mid is not None else 0}"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to parse astropy metadata from parquet: {e}")
+
+        # 2. Iterate over batches
+        for batch in pf.iter_batches(batch_size=chunk_size):
+            # Convert pyarrow batch to Astropy Table
+            # Converting to pandas first is often more robust for astropy conversion
+            batch_table = Table.from_pandas(batch.to_pandas())
+
+            # Create a mini-Results object
+            # Note: We don't use track_filtered for chunks usually as it's for streaming analysis
+            results = Results(batch_table, track_filtered=False, wcs=wcs)
+
+            # Attach the global mjd_mid if found
+            if mjd_mid is not None:
+                results.set_mjd_utc_mid(mjd_mid)
+
+            yield results
 
     def remove_column(self, colname):
         """Remove a column from the results table.

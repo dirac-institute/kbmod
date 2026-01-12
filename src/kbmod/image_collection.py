@@ -544,6 +544,9 @@ class ImageCollection:
         """
         guess_dists = [guess_distance] if not isinstance(guess_distance, list) else guess_distance
         for guess_dist in guess_dists:
+            # Skip correction for distance 0.0 - use original coordinates
+            if guess_dist == 0.0:
+                continue
             # Calculate the parallax correction for each RA, Dec in the ImageCollection
             corrected_ra_dec, _ = correct_parallax_geometrically_vectorized(
                 self.data["ra"],
