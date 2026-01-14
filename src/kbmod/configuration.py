@@ -390,16 +390,9 @@ _SUPPORTED_PARAMS = [
     _ParamInfo(
         name="append_positions_type",
         default_value="original",
-        description="Strategy for append_positions_to_results: 'original', 'parallel', 'vectorized'.",
+        description="Strategy for append_positions_to_results: 'original' or 'vectorized'.",
         section="other",
-        validate_func=lambda x: x in ["original", "parallel", "vectorized"],
-    ),
-    _ParamInfo(
-        name="append_positions_n_workers",
-        default_value=8,
-        description="Number of parallel workers to use when append_positions_type is 'parallel'.",
-        section="other",
-        validate_func=lambda x: isinstance(x, int) and x >= 1,
+        validate_func=lambda x: x in ["original", "vectorized"],
     ),
 ]
 

@@ -225,17 +225,12 @@ class test_run_search(unittest.TestCase):
             Trajectory(x=100, y=500, vx=10, vy=-10, flux=1000.0, lh=1000.0, obs_count=num_times),
         ]
 
-        for strategy in ["original", "parallel", "vectorized"]:
+        for strategy in ["original", "vectorized"]:
             with self.subTest(strategy=strategy):
                 results = Results.from_trajectories(trjs)
                 self.assertEqual(len(results), 3)
 
-                # For parallel strategy, pass n_workers explicitly to avoid config dependency
-                kwargs = {"strategy": strategy}
-                if strategy == "parallel":
-                    kwargs["n_workers"] = 2  # Use small number for testing
-
-                append_positions_to_results(fake_wu, results, **kwargs)
+                append_positions_to_results(fake_wu, results, strategy=strategy)
 
                 # The global RA should exist and be close to 20.0 for all observations.
                 self.assertEqual(len(results["global_ra"]), 3)
@@ -304,16 +299,12 @@ class test_run_search(unittest.TestCase):
             Trajectory(x=100, y=500, vx=10, vy=-10, flux=1000.0, lh=1000.0, obs_count=num_times),
         ]
 
-        for strategy in ["original", "parallel", "vectorized"]:
+        for strategy in ["original", "vectorized"]:
             with self.subTest(strategy=strategy):
                 results = Results.from_trajectories(trjs)
                 self.assertEqual(len(results), 3)
 
-                kwargs = {"strategy": strategy}
-                if strategy == "parallel":
-                    kwargs["n_workers"] = 2  # Use small number for testing
-
-                append_positions_to_results(fake_wu, results, **kwargs)
+                append_positions_to_results(fake_wu, results, strategy=strategy)
 
                 # The global RA and global dec should not exist.
                 self.assertFalse("global_ra" in results.colnames)
