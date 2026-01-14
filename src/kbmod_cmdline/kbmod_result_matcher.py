@@ -17,6 +17,8 @@ import glob
 import os
 import pandas as pd
 from tqdm import tqdm
+from multiprocessing import Pool
+from functools import partial
 
 from astropy.table import Table
 
@@ -332,6 +334,38 @@ def _process_results_file_chunks(
         )
 
 
+def _process_file_worker(
+    results_file,
+    ephem_table,
+    barycentric_dist,
+    sep_thresh,
+    time_thresh_s,
+    min_obs,
+    chunk_size,
+    verbose,
+    max_results,
+):
+    """Worker function for multiprocessing.
+
+    Returns a tuple of (results_file, result_df, error) where error is None on success.
+    """
+    try:
+        result_df = process_results_file(
+            results_file,
+            ephem_table,
+            barycentric_dist,
+            sep_thresh,
+            time_thresh_s,
+            min_obs,
+            chunk_size=chunk_size,
+            verbose=verbose,
+            max_results=max_results,
+        )
+        return (results_file, result_df, None)
+    except Exception as e:
+        return (results_file, None, str(e))
+
+
 def process_results_file(
     results_file,
     ephem_table,
@@ -593,52 +627,96 @@ def execute(args):
                 f"Exceptions file already exists: {exceptions_file}. Use --overwrite to overwrite."
             )
 
+    # Filter out already processed files
+    files_to_process = [f for f in results_files if f not in processed_files]
+    skipped_count = len(results_files) - len(files_to_process)
+    if skipped_count > 0 and args.verbose:
+        print(f"Skipping {skipped_count} already processed files from manifest.")
+
     # Process each result file, tracking any exceptions that occur during processing.
     exceptions = {"result_file": [], "error": []}
-    for results_file in tqdm(results_files, desc="Processing results files", disable=not args.verbose):
-        if results_file in processed_files:
-            print(f"Skipping already processed file: {results_file}")
-            continue
 
-        try:
-            results_processed = process_results_file(
-                results_file,
-                ephem_table,
-                args.barycentric_dist,
-                args.sep_thresh,
-                args.time_thresh_s,
-                args.min_obs,
-                chunk_size=args.chunk_size,
-                verbose=args.verbose,
-                max_results=args.max_results,
-            )
+    if args.n_workers > 1 and len(files_to_process) > 1:
+        # Parallel processing with multiprocessing Pool
+        if args.verbose:
+            print(f"Using {args.n_workers} parallel workers for {len(files_to_process)} files.")
 
-            # Append results to output file
-            # If file doesn't exist, write header. If it exists, append without header.
-            # This handles both fresh runs and resume runs correctly.
-            header = not os.path.exists(matched_results_file)
-            results_processed.to_csv(matched_results_file, mode="a", header=header, index=False)
+        # Create worker function with fixed arguments using partial
+        worker_fn = partial(
+            _process_file_worker,
+            ephem_table=ephem_table,
+            barycentric_dist=args.barycentric_dist,
+            sep_thresh=args.sep_thresh,
+            time_thresh_s=args.time_thresh_s,
+            min_obs=args.min_obs,
+            chunk_size=args.chunk_size,
+            verbose=False,  # Disable verbose in workers to avoid garbled output
+            max_results=args.max_results,
+        )
 
-            # Update manifest using the original filename string (whether absolute or relative)
-            with open(manifest_file, "a") as f:
-                f.write(f"{results_file}\n")
-
-        except Exception as e:
-            print(f"Exception occurred: {e}")
-
-            # Stream exception to file
+        with Pool(processes=args.n_workers) as pool:
+            # Use imap_unordered for better progress tracking
+            results_iter = pool.imap_unordered(worker_fn, files_to_process)
+            for results_file, result_df, error in tqdm(
+                results_iter, total=len(files_to_process), desc="Processing files", disable=not args.verbose
+            ):
+                if error is not None:
+                    print(f"Exception in {results_file}: {error}")
+                    exceptions["result_file"].append(results_file)
+                    exceptions["error"].append(error)
+                    # Stream exception to file
+                    try:
+                        header = not os.path.exists(exceptions_file)
+                        ex_df = pd.DataFrame({"result_file": [results_file], "error": [error]})
+                        ex_df.to_csv(exceptions_file, mode="a", header=header, index=False)
+                    except Exception as write_err:
+                        print(f"Failed to write exception: {write_err}")
+                else:
+                    # Write results sequentially (no contention)
+                    header = not os.path.exists(matched_results_file)
+                    result_df.to_csv(matched_results_file, mode="a", header=header, index=False)
+                    with open(manifest_file, "a") as f:
+                        f.write(f"{results_file}\n")
+    else:
+        # Sequential processing (original behavior)
+        for results_file in tqdm(files_to_process, desc="Processing results files", disable=not args.verbose):
             try:
-                header = not os.path.exists(exceptions_file)
-                ex_df = pd.DataFrame({"result_file": [results_file], "error": [str(e)]})
-                ex_df.to_csv(exceptions_file, mode="a", header=header, index=False)
-            except Exception as write_err:
-                print(
-                    f"Failed to write exception to file: {exceptions_file}. \n Error: {write_err}. \n Original exception: {e}"
+                results_processed = process_results_file(
+                    results_file,
+                    ephem_table,
+                    args.barycentric_dist,
+                    args.sep_thresh,
+                    args.time_thresh_s,
+                    args.min_obs,
+                    chunk_size=args.chunk_size,
+                    verbose=args.verbose,
+                    max_results=args.max_results,
                 )
 
-            # Keep in memory for summary
-            exceptions["result_file"].append(results_file)
-            exceptions["error"].append(str(e))
+                # Append results to output file
+                header = not os.path.exists(matched_results_file)
+                results_processed.to_csv(matched_results_file, mode="a", header=header, index=False)
+
+                # Update manifest
+                with open(manifest_file, "a") as f:
+                    f.write(f"{results_file}\n")
+
+            except Exception as e:
+                print(f"Exception occurred: {e}")
+
+                # Stream exception to file
+                try:
+                    header = not os.path.exists(exceptions_file)
+                    ex_df = pd.DataFrame({"result_file": [results_file], "error": [str(e)]})
+                    ex_df.to_csv(exceptions_file, mode="a", header=header, index=False)
+                except Exception as write_err:
+                    print(
+                        f"Failed to write exception to file: {exceptions_file}. \n Error: {write_err}. \n Original exception: {e}"
+                    )
+
+                # Keep in memory for summary
+                exceptions["result_file"].append(results_file)
+                exceptions["error"].append(str(e))
 
     if len(exceptions["result_file"]) > 0:
         print(
@@ -764,6 +842,12 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help="Process result files in chunks of this size (rows). Enables memory-efficient processing of large files.",
+    )
+    parser.add_argument(
+        "--n_workers",
+        type=int,
+        default=1,
+        help="Number of parallel workers for processing files. Default is 1 (sequential processing).",
     )
 
     args = parser.parse_args()
