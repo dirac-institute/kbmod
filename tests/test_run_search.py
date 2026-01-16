@@ -307,8 +307,8 @@ class test_run_search(unittest.TestCase):
                 append_positions_to_results(fake_wu, results, strategy=strategy)
 
                 # The global RA and global dec should not exist.
-                self.assertFalse("global_ra" in results.colnames)
-                self.assertFalse("global_dec" in results.colnames)
+                self.assertNotIn("global_ra", results.colnames)
+                self.assertNotIn("global_dec", results.colnames)
 
                 # The per-image RA should exist, be close to 20.0 for all observations.
                 self.assertEqual(len(results["img_ra"]), 3)

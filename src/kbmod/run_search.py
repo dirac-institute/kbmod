@@ -691,8 +691,6 @@ def _append_positions_vectorized(workunit, results):
         # This allows us to batch all results for a given time step
         if workunit.reprojected and workunit.reprojection_frame == "ebd":
             # For EBD reprojection, use the vectorized invert function
-            from astropy.coordinates import EarthLocation
-
             point_on_earth = EarthLocation.of_site("ctio")
             obstimes = workunit.get_all_obstimes()
 
@@ -706,7 +704,7 @@ def _append_positions_vectorized(workunit, results):
                 # Invert parallax for all results at this time step
                 original_icrs = invert_correct_parallax_vectorized(
                     time_skypos,
-                    obstimes=[obstimes[time_idx]] * num_results,
+                    obstimes=obstimes[time_idx],
                     point_on_earth=point_on_earth,
                 )
                 all_ra[:, time_idx] = original_icrs.ra.degree
