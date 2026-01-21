@@ -44,7 +44,9 @@ from kbmod.region_search import RegionSearch
 
 from astropy.coordinates import EarthLocation
 from astropy.table import Table
-
+from astropy.time import Time
+from astropy import units as u
+from astropy.coordinates import Angle
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 
@@ -367,6 +369,7 @@ def region_searcher(
     if max_wcs_err is not None:
         print(f"Dropping rows with wcs_err > {max_wcs_err} arcsec.")
         curr_len = len(ic)
+        ic["wcs_err"] = [abs(x) for x in ic["wcs_err"]]
         ic.filter_by_wcs_error(max_wcs_err, in_arcsec=True)
         print(f"Dropped {curr_len - len(ic)} rows due to high WCS error.")
 
@@ -396,8 +399,15 @@ def region_searcher(
         # Given the "early loading" requirement, we could load it once here.
         
         # Optimize: reuse this loaded table later if possible, but for now just load it here to filter.
+
+        if known_objects_ephem.endswith(".parquet"):
+            import pandas as pd
+            known_objects_filter = Table.from_pandas(pd.read_parquet(known_objects_ephem))
+        else:
+            known_objects_filter = Table.read(known_objects_ephem)
+        # Reflex correct the ephemeris table
         known_objects_filter = reflex_correct_ephem_table(
-            Table.read(known_objects_ephem), 
+            known_objects_filter, 
             barycentric_dist=guess_distance, 
             obs_site=site_name
         )
@@ -445,8 +455,14 @@ def region_searcher(
     if known_objects_ephem is not None:
         print(f"{elapsed_t(startTime)} Loading known object ephemerides from {known_objects_ephem}...")
         # Load and clean the ephemeris table to ensure it has the required columns
+        if known_objects_ephem.endswith(".parquet"):
+            import pandas as pd
+            known_objects_filter = Table.from_pandas(pd.read_parquet(known_objects_ephem))
+        else:
+            known_objects_filter = Table.read(known_objects_ephem)
+        # Reflex correct the ephemeris table
         known_objects = reflex_correct_ephem_table(
-            Table.read(known_objects_ephem), barycentric_dist=guess_distance, obs_site=site_name
+            known_objects_filter, barycentric_dist=guess_distance, obs_site=site_name
         )
         ephem_obj_name_col = "Clean Name"
         known_objects["Name"] = known_objects[ephem_obj_name_col]
