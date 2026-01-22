@@ -29,7 +29,6 @@ from kbmod.wcs_utils import (
     serialize_wcs,
 )
 
-
 _DEFAULT_WORKUNIT_TQDM_BAR = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
 
 
@@ -946,10 +945,8 @@ class WorkUnit:
         """
         # input value validation
         if not self.reprojected:
-            raise ValueError(
-                "`WorkUnit` not reprojected. This method is purpose built \
-                for handling post reproject coordinate tranformations."
-            )
+            raise ValueError("`WorkUnit` not reprojected. This method is purpose built \
+                for handling post reproject coordinate tranformations.")
 
         original_wcses = [w for w in self.org_img_meta["per_image_wcs"]]
 

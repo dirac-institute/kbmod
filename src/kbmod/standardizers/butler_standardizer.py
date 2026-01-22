@@ -25,7 +25,6 @@ from kbmod.core.image_stack_py import LayeredImagePy
 # Set up logger for this module
 logger = logging.getLogger(__name__)
 
-
 __all__ = [
     "ButlerStandardizer",
     "ButlerStandardizerConfig",

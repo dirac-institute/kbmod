@@ -24,7 +24,6 @@ from .standardizers import Standardizer, ButlerStandardizer
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 
-
 __all__ = [
     "ImageCollection",
 ]

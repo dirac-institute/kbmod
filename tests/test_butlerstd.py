@@ -10,7 +10,6 @@ from kbmod import Standardizer, StandardizerConfig
 from kbmod.core.psf import PSF
 from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
 
-
 # Use a shared factory so that we can reference the same fits files in mocks
 # and tests without having to untar the archive multiple times.
 FitsFactory = DECamImdiffFactory()

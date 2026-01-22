@@ -7,7 +7,6 @@ from pathlib import Path
 from yaml import dump, safe_load
 from kbmod.search import Logging
 
-
 logger = Logging.getLogger(__name__)
 
 

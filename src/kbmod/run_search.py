@@ -17,7 +17,6 @@ from .results import Results, write_results_to_files_destructive
 from .trajectory_generator import create_trajectory_generator
 from .trajectory_utils import predict_pixel_locations
 
-
 logger = kb.Logging.getLogger(__name__)
 
 
