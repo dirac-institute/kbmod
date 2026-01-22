@@ -18,7 +18,6 @@ import logging
 import warnings
 import numpy as np
 
-
 __all__ = ["Standardizer", "StandardizerConfig", "ConfigurationError"]
 logger = logging.getLogger(__name__)
 

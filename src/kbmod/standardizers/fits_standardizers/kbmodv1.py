@@ -13,7 +13,6 @@ import numpy as np
 
 from .multi_extension_fits import MultiExtensionFits, FitsStandardizerConfig
 
-
 __all__ = [
     "KBMODV1",
     "KBMODV1Config",

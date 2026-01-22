@@ -543,11 +543,11 @@ def plot_result_row(row, times=None, coadd_col="stamp", figure=None):
         figure = plt.figure(layout="constrained")
 
     # Create subfigures on the top and bottom.
-    (fig_top, fig_bot) = figure.subfigures(2, 1)
+    fig_top, fig_bot = figure.subfigures(2, 1)
 
     # In the top subfigure plot the coadded stamp on the left and
     # the light curve on the right.
-    (ax_stamp, ax_lc) = fig_top.subplots(1, 2)
+    ax_stamp, ax_lc = fig_top.subplots(1, 2)
     if coadd_col in row.colnames and row[coadd_col] is not None:
         plot_image(row[coadd_col], ax=ax_stamp, figure=fig_top, norm=True, title="Coadded Stamp")
     else:
@@ -629,7 +629,7 @@ def plot_result_row_summary(row, times=None, figure=None):
         figure = plt.figure(layout="constrained")
 
     figure = plt.figure()
-    (fig_top, fig_bot) = figure.subfigures(2, 1)
+    fig_top, fig_bot = figure.subfigures(2, 1)
 
     # Plot the light curves on the top
     ax_curves = fig_top.subplots(1, 2)

@@ -12,7 +12,6 @@ from astropy.table import Table
 from kbmod.configuration import SearchConfiguration
 from kbmod.search import Trajectory
 
-
 logger = logging.getLogger(__name__)
 
 

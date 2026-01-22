@@ -21,7 +21,6 @@ from ..standardizer import Standardizer, StandardizerConfig, ConfigurationError
 from kbmod.core.psf import PSF
 from kbmod.core.image_stack_py import LayeredImagePy
 
-
 __all__ = [
     "FitsStandardizer",
     "FitsStandardizerConfig",
