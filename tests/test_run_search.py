@@ -478,7 +478,6 @@ class test_run_search(unittest.TestCase):
         # Use a small grid of search trajectories around the true velocity.
         trj_gen = VelocityGridSearch(5, 15.0, 27.0, 5, 10.0, 22.0)
         config = SearchConfiguration()
-        config.set("cpu_only", True)
         config.set("timeout_hours", 0.001 / 3600.0)  # 0.001 seconds
 
         # Run the core search algorithm and confirm we find the inserted fake.
