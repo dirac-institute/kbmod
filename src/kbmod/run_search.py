@@ -175,7 +175,7 @@ class SearchRunner:
             logger.debug(f"Setting search timeout to {config['timeout_hours']} hours.")
             self.timeout = time.time() + config["timeout_hours"] * 3600.0
             logger.debug(f"Search will timeout at {time.ctime(self.timeout)}.")
-  
+
     def _check_timeout(self):
         """Check if the search has exceeded the timeout.  This is a soft timeout
         that will only quit between phases, so that each phase can correctly
