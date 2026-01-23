@@ -163,6 +163,9 @@ class SearchRunner:
         config : `SearchConfiguration`
             The configuration parameters
         """
+        if config is None:
+            return  # Nothing to apply
+
         if not config.validate():
             raise ValueError("Invalid configuration")
         self.config = config
