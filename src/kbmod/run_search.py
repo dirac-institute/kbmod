@@ -1,5 +1,4 @@
 import logging
-from logging import config
 import numpy as np
 import psutil
 import os
@@ -129,17 +128,62 @@ class SearchRunner:
 
     Attributes
     ----------
+    config : `SearchConfiguration`
+        The configuration parameters.
+    debug : `bool`
+        If True, enable debug logging (and additional computation).
     phase_times : `dict`
         A dictionary mapping the search phase to the timing information,
         a list of [starting time, ending time] in seconds.
     phase_memory : `dict`
         A dictionary mapping the search phase the memory information,
         a list of [starting memory, ending memory] in bytes.
+    timeout : `float` or `None`
+        The time at which the search should timeout, in seconds since the epoch.
+        This is a soft timeout that will not interrupt during a processing stage.
+        None means no timeout is set.
     """
 
     def __init__(self, config=None):
         self.phase_times = {}
         self.phase_memory = {}
+        self.timeout = None
+        self.debug = False
+        self.apply_config(config)
+
+    def apply_config(self, config):
+        """Apply the configuration parameters to the search runner.
+
+        This function is designed to be called at multiple points
+        allow it to be used regardless of which level of the search
+        is being run.
+
+        Parameters
+        ----------
+        config : `SearchConfiguration`
+            The configuration parameters
+        """
+        if not config.validate():
+            raise ValueError("Invalid configuration")
+        self.config = config
+
+        if config["debug"]:
+            logging.basicConfig(level=logging.DEBUG)
+            self.debug = True
+
+        if self.timeout is None and config["timeout_hours"] is not None:
+            logger.debug(f"Setting search timeout to {config['timeout_hours']} hours.")
+            self.timeout = time.time() + config["timeout_hours"] * 3600.0
+            logger.debug(f"Search will timeout at {time.ctime(self.timeout)}.")
+  
+    def _check_timeout(self):
+        """Check if the search has exceeded the timeout.  This is a soft timeout
+        that will only quit between phases, so that each phase can correctly
+        free its resources (for C++ GPU functions).
+        """
+        if self.timeout is not None and time.time() > self.timeout:
+            self.display_phase_stats()  # Display which phases have been run so far.
+            raise TimeoutError("Search has exceeded the maximum allowed time.")
 
     def _start_phase(self, phase_name):
         """Start recording stats for the current phase.
@@ -149,6 +193,8 @@ class SearchRunner:
         phase_name : `str`
             The current phase.
         """
+        self._check_timeout()
+
         # Record the start time.
         self.phase_times[phase_name] = [time.time(), None]
 
@@ -164,6 +210,8 @@ class SearchRunner:
         phase_name : `str`
             The current phase.
         """
+        self._check_timeout()
+
         if phase_name not in self.phase_times:
             raise KeyError(f"Phase {phase_name} has not been started.")
 
@@ -248,6 +296,7 @@ class SearchRunner:
         # Transform the results into a Result table in batches while doing sigma-G filtering.
         batch_start = 0
         while batch_start < len(result_trjs):
+            self._check_timeout()
             batch_end = min(batch_start + batch_size, len(result_trjs))
             batch = result_trjs[batch_start:batch_end]
             batch_results = Results.from_trajectories(batch, track_filtered=config["track_filtered"])
@@ -365,10 +414,10 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
-        if config["debug"]:
-            logging.basicConfig(level=logging.DEBUG)
-
-            # Output basic binary information.
+        self.apply_config(config)
+        if self.debug:
+            # Output basic binary information. Since this requires extra computing, we
+            # only do this in debug mode.
             logger.debug(f"GPU Code Enabled: {kb.HAS_CUDA}")
             logger.debug(f"OpenMP Enabled: {kb.HAS_OMP}")
             logger.debug(kb.stat_gpu_memory_mb())
@@ -395,9 +444,6 @@ class SearchRunner:
             config.set("num_obs", int(img_count))
 
         self._start_phase("KBMOD")
-
-        if not config.validate():
-            raise ValueError("Invalid configuration")
 
         if not kb.HAS_CUDA:
             logger.warning("Code was compiled without GPU using CPU only.")
@@ -439,21 +485,27 @@ class SearchRunner:
 
         # Add all the "coadd_*" columns and a "stamp" column. This is only
         # short term until we stop using the "stamp" column.
+        self._start_phase("appending co-adds")
         append_coadds(keep, stack, coadds, stamp_radius, nightly=config["nightly_coadds"])
         if f"coadd_{stamp_type}" in keep.colnames:
             keep.table["stamp"] = keep.table[f"coadd_{stamp_type}"]
+        self._end_phase("appending co-adds")
 
         # peak_offset_filter is used only if max offset is declared
         if config["peak_offset_max"] is not None:
+            self._start_phase("peak_offset_filtering")
             peak_offset_filter(keep, peak_offset_max=config["peak_offset_max"])
+            self._end_phase("peak_offset_filtering")
 
         # if predictive_line_cluster is enabled, it expects 3 parameters.
         # default values are [4.0, 2, 60]
         if config["pred_line_cluster"]:
+            self._start_phase("predictive_line_clustering")
             if len(config["pred_line_params"]) != 3:
                 raise ValueError("Exactly three predictive line cluster parameters must be set")
             dist_lim, min_samp, proc_distance = config["pred_line_params"]
             predictive_line_cluster(keep, stack.times, dist_lim, min_samp, proc_distance)
+            self._end_phase("predictive_line_clustering")
 
         # if CNN is enabled, add the classification and probabilities to the results.
         if config["cnn_filter"]:
@@ -477,11 +529,11 @@ class SearchRunner:
         # Append additional information derived from the WorkUnit if one is provided,
         # including a global WCS and per-time (RA, dec) predictions for each image.
         if workunit is not None:
-            self._start_phase("append_positions_to_results")
             keep.table.wcs = workunit.wcs
             if config["compute_ra_dec"]:
+                self._start_phase("append_positions_to_results")
                 append_positions_to_results(workunit, keep)
-            self._end_phase("append_positions_to_results")
+                self._end_phase("append_positions_to_results")
 
         num_img = stack.num_times
 
