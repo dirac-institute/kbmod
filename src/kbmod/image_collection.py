@@ -1094,8 +1094,14 @@ class ImageCollection:
             ic.data.meta = None
             data.append(ic.data)
             if self._standardizers is not None:
+                # Convert to list if needed (may be numpy array)
+                if hasattr(self._standardizers, "tolist"):
+                    self._standardizers = list(self._standardizers)
                 if ic._standardizers is not None:
-                    self._standardizers.extend(ic._standardizers)
+                    ic_stds = (
+                        list(ic._standardizers) if hasattr(ic._standardizers, "tolist") else ic._standardizers
+                    )
+                    self._standardizers.extend(ic_stds)
                 else:
                     self._standardizers.extend([None] * n_stds)
             std_offset += n_stds
