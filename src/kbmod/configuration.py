@@ -387,13 +387,6 @@ _SUPPORTED_PARAMS = [
         section="core",
         validate_func=lambda x: x is None or (isinstance(x, int) and x >= 0),
     ),
-    _ParamInfo(
-        name="append_positions_type",
-        default_value="original",
-        description="Strategy for append_positions_to_results: 'original' or 'vectorized'.",
-        section="other",
-        validate_func=lambda x: x in ["original", "vectorized"],
-    ),
 ]
 
 

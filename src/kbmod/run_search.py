@@ -561,99 +561,8 @@ class SearchRunner:
         )
 
 
-def append_positions_to_results(workunit, results, strategy="original"):
-    """Dispatch to the appropriate append_positions implementation.
-
-    Parameters
-    ----------
-    workunit : `WorkUnit`
-        The WorkUnit with all the WCS information.
-    results : `Results`
-        The current table of results including the per-pixel trajectories.
-        This is modified in-place.
-    strategy : `str`
-        The strategy to use: 'original' or 'vectorized'.
-    """
-    if strategy == "vectorized":
-        _append_positions_vectorized(workunit, results)
-    else:
-        _append_positions_original(workunit, results)
-
-
-def _append_positions_original(workunit, results):
-    """Original implementation: loops over each result trajectory.
-
-    Parameters
-    ----------
-    workunit : `WorkUnit`
-        The WorkUnit with all the WCS information.
-    results : `Results`
-        The current table of results including the per-pixel trajectories.
-        This is modified in-place.
-    """
-    num_results = len(results)
-    if num_results == 0:
-        return  # Nothing to do
-
-    num_times = workunit.im_stack.num_times
-    times = workunit.im_stack.zeroed_times
-
-    # Predict where each candidate trajectory will be at each time step in the
-    # common WCS frame. These are the pixel locations used to assess the trajectory.
-    xp = predict_pixel_locations(times, results["x"], results["vx"], as_int=False, centered=False)
-    yp = predict_pixel_locations(times, results["y"], results["vy"], as_int=False, centered=False)
-    results.table["pred_x"] = xp
-    results.table["pred_y"] = yp
-
-    # Compute the predicted (RA, dec) positions for each trajectory the common WCS
-    # frame and original image WCS frames.
-    all_inds = np.arange(num_times)
-    all_ra = np.zeros((len(results), num_times))
-    all_dec = np.zeros((len(results), num_times))
-    if workunit.wcs is not None:
-        logger.info("Found common WCS. Adding global_ra and global_dec columns.")
-
-        # Compute the (RA, dec) for each result x time in the common WCS frame.
-        skypos = workunit.wcs.pixel_to_world(xp, yp)
-        results.table["global_ra"] = skypos.ra.degree
-        results.table["global_dec"] = skypos.dec.degree
-
-        # Loop over the trajectories to build the (RA, dec) positions in each image's WCS frame.
-        for idx in range(num_results):
-            # Build a list of this trajectory's RA, dec position at each time.
-            pos_list = [skypos[idx, j] for j in range(num_times)]
-            img_skypos = workunit.image_positions_to_original_icrs(
-                image_indices=all_inds,  # Compute for all times.
-                positions=pos_list,
-                input_format="radec",
-                output_format="radec",
-                filter_in_frame=False,
-            )
-
-            # We get back a list of SkyCoord, because we gave a list.
-            # So we flatten it and extract the coordinate values.
-            for time_idx in range(num_times):
-                all_ra[idx, time_idx] = img_skypos[time_idx].ra.degree
-                all_dec[idx, time_idx] = img_skypos[time_idx].dec.degree
-
-    else:
-        logger.info("No common WCS found. Skipping global_ra and global_dec columns.")
-
-        # If there are no global WCS, we just predict per image.
-        for time_idx in range(num_times):
-            wcs = workunit.get_wcs(time_idx)
-            if wcs is not None:
-                skypos = wcs.pixel_to_world(xp[:, time_idx], yp[:, time_idx])
-                all_ra[:, time_idx] = skypos.ra.degree
-                all_dec[:, time_idx] = skypos.dec.degree
-
-    # Add the per-image coordinates to the results table.
-    results.table["img_ra"] = all_ra
-    results.table["img_dec"] = all_dec
-
-
-def _append_positions_vectorized(workunit, results):
-    """Vectorized implementation: processes all results per time step.
+def append_positions_to_results(workunit, results):
+    """Appends predicted RA, Dec positions to the results table.
 
     Parameters
     ----------
@@ -689,7 +598,9 @@ def _append_positions_vectorized(workunit, results):
 
         # Now compute img_ra, img_dec by iterating over time (not per-result)
         # This allows us to batch all results for a given time step
-        if workunit.reprojected and workunit.reprojection_frame == "ebd":
+        if workunit.reprojected and workunit.reprojection_frame != "ebd":
+            logger.warning("No EBD reprojection found. Skipping img_ra and img_dec columns.")
+        else:
             # For EBD reprojection, use the vectorized invert function
             point_on_earth = EarthLocation.of_site("ctio")
             obstimes = workunit.get_all_obstimes()
@@ -709,21 +620,6 @@ def _append_positions_vectorized(workunit, results):
                 )
                 all_ra[:, time_idx] = original_icrs.ra.degree
                 all_dec[:, time_idx] = original_icrs.dec.degree
-        else:
-            # No EBD reprojection: per-image WCS lookup per time
-            for time_idx in range(num_times):
-                per_img_wcs = workunit.org_img_meta["per_image_wcs"][time_idx]
-                if per_img_wcs is not None:
-                    # Convert global sky positions to per-image pixel, then back to sky
-                    # This accounts for per-image WCS differences
-                    px, py = per_img_wcs.world_to_pixel(skypos[:, time_idx])
-                    per_img_sky = per_img_wcs.pixel_to_world(px, py)
-                    all_ra[:, time_idx] = per_img_sky.ra.degree
-                    all_dec[:, time_idx] = per_img_sky.dec.degree
-                else:
-                    # Fallback to global
-                    all_ra[:, time_idx] = skypos.ra.degree[:, time_idx]
-                    all_dec[:, time_idx] = skypos.dec.degree[:, time_idx]
     else:
         logger.info("No common WCS found. Skipping global_ra and global_dec columns (vectorized).")
         # No global WCS: iterate over time, batch over results

@@ -225,44 +225,42 @@ class test_run_search(unittest.TestCase):
             Trajectory(x=100, y=500, vx=10, vy=-10, flux=1000.0, lh=1000.0, obs_count=num_times),
         ]
 
-        for strategy in ["original", "vectorized"]:
-            with self.subTest(strategy=strategy):
-                results = Results.from_trajectories(trjs)
-                self.assertEqual(len(results), 3)
+        results = Results.from_trajectories(trjs)
+        self.assertEqual(len(results), 3)
 
-                append_positions_to_results(fake_wu, results, strategy=strategy)
+        append_positions_to_results(fake_wu, results)
 
-                # The global RA should exist and be close to 20.0 for all observations.
-                self.assertEqual(len(results["global_ra"]), 3)
-                for i in range(3):
-                    self.assertEqual(len(results["global_ra"][i]), num_times)
-                    self.assertTrue(np.all(results["global_ra"][i] > 19.0))
-                    self.assertTrue(np.all(results["global_ra"][i] < 21.0))
+        # The global RA should exist and be close to 20.0 for all observations.
+        self.assertEqual(len(results["global_ra"]), 3)
+        for i in range(3):
+            self.assertEqual(len(results["global_ra"][i]), num_times)
+            self.assertTrue(np.all(results["global_ra"][i] > 19.0))
+            self.assertTrue(np.all(results["global_ra"][i] < 21.0))
 
-                # The global Dec should exist and be close to 0.0 for all observations.
-                self.assertEqual(len(results["global_dec"]), 3)
-                for i in range(3):
-                    self.assertEqual(len(results["global_dec"][i]), num_times)
-                    self.assertTrue(np.all(results["global_dec"][i] > -1.0))
-                    self.assertTrue(np.all(results["global_dec"][i] < 1.0))
+        # The global Dec should exist and be close to 0.0 for all observations.
+        self.assertEqual(len(results["global_dec"]), 3)
+        for i in range(3):
+            self.assertEqual(len(results["global_dec"][i]), num_times)
+            self.assertTrue(np.all(results["global_dec"][i] > -1.0))
+            self.assertTrue(np.all(results["global_dec"][i] < 1.0))
 
-                # The per-image RA should exist, be close to (but not the same as)
-                # the global RA for all observations.
-                self.assertEqual(len(results["img_ra"]), 3)
-                for i in range(3):
-                    self.assertEqual(len(results["img_ra"][i]), num_times)
-                    ra_diffs = np.abs(results["img_ra"][i] - results["global_ra"][i])
-                    self.assertTrue(np.all(ra_diffs > 0.0))
-                    self.assertTrue(np.all(ra_diffs < 1.0))
+        # The per-image RA should exist, be close to (but not the same as)
+        # the global RA for all observations.
+        self.assertEqual(len(results["img_ra"]), 3)
+        for i in range(3):
+            self.assertEqual(len(results["img_ra"][i]), num_times)
+            ra_diffs = np.abs(results["img_ra"][i] - results["global_ra"][i])
+            self.assertTrue(np.all(ra_diffs > 0.0))
+            self.assertTrue(np.all(ra_diffs < 1.0))
 
-                # The per-image dec should exist, be close to (but not the same as)
-                # the global dec for all observations.
-                self.assertEqual(len(results["img_dec"]), 3)
-                for i in range(3):
-                    self.assertEqual(len(results["img_dec"][i]), num_times)
-                    dec_diffs = np.abs(results["img_dec"][i] - results["global_dec"][i])
-                    self.assertTrue(np.all(dec_diffs > 0.0))
-                    self.assertTrue(np.all(dec_diffs < 1.0))
+        # The per-image dec should exist, be close to (but not the same as)
+        # the global dec for all observations.
+        self.assertEqual(len(results["img_dec"]), 3)
+        for i in range(3):
+            self.assertEqual(len(results["img_dec"][i]), num_times)
+            dec_diffs = np.abs(results["img_dec"][i] - results["global_dec"][i])
+            self.assertTrue(np.all(dec_diffs > 0.0))
+            self.assertTrue(np.all(dec_diffs < 1.0))
 
     def test_append_positions_to_results_no_global(self):
         # Create a fake WorkUnit with 20 times, a completely random image stack,
@@ -299,30 +297,28 @@ class test_run_search(unittest.TestCase):
             Trajectory(x=100, y=500, vx=10, vy=-10, flux=1000.0, lh=1000.0, obs_count=num_times),
         ]
 
-        for strategy in ["original", "vectorized"]:
-            with self.subTest(strategy=strategy):
-                results = Results.from_trajectories(trjs)
-                self.assertEqual(len(results), 3)
+        results = Results.from_trajectories(trjs)
+        self.assertEqual(len(results), 3)
 
-                append_positions_to_results(fake_wu, results, strategy=strategy)
+        append_positions_to_results(fake_wu, results)
 
-                # The global RA and global dec should not exist.
-                self.assertNotIn("global_ra", results.colnames)
-                self.assertNotIn("global_dec", results.colnames)
+        # The global RA and global dec should not exist.
+        self.assertNotIn("global_ra", results.colnames)
+        self.assertNotIn("global_dec", results.colnames)
 
-                # The per-image RA should exist, be close to 20.0 for all observations.
-                self.assertEqual(len(results["img_ra"]), 3)
-                for i in range(3):
-                    self.assertEqual(len(results["img_ra"][i]), num_times)
-                    self.assertTrue(np.all(results["img_ra"][i] > 19.0))
-                    self.assertTrue(np.all(results["img_ra"][i] < 21.0))
+        # The per-image RA should exist, be close to 20.0 for all observations.
+        self.assertEqual(len(results["img_ra"]), 3)
+        for i in range(3):
+            self.assertEqual(len(results["img_ra"][i]), num_times)
+            self.assertTrue(np.all(results["img_ra"][i] > 19.0))
+            self.assertTrue(np.all(results["img_ra"][i] < 21.0))
 
-                # The global Dec should exist and be close to 0.0 for all observations.
-                self.assertEqual(len(results["img_dec"]), 3)
-                for i in range(3):
-                    self.assertEqual(len(results["img_dec"][i]), num_times)
-                    self.assertTrue(np.all(results["img_dec"][i] > -1.0))
-                    self.assertTrue(np.all(results["img_dec"][i] < 1.0))
+        # The global Dec should exist and be close to 0.0 for all observations.
+        self.assertEqual(len(results["img_dec"]), 3)
+        for i in range(3):
+            self.assertEqual(len(results["img_dec"][i]), num_times)
+            self.assertTrue(np.all(results["img_dec"][i] > -1.0))
+            self.assertTrue(np.all(results["img_dec"][i] < 1.0))
 
     def test_core_search_cpu(self):
         # Create a very small fake data set.
