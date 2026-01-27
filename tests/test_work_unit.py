@@ -96,7 +96,7 @@ class test_work_unit(unittest.TestCase):
             self.height,
             41.0,
             Time(59000, format="mjd"),
-            EarthLocation.of_site("Rubin"),
+            EarthLocation.of_site("ctio"),
         )
 
         self.constituent_images = [

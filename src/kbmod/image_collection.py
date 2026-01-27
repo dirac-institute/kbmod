@@ -1196,7 +1196,8 @@ class ImageCollection:
             logger.warning(
                 "No observatory location found in ImageCollection metadata, using Rubin Observatory."
             )
-            observatory = EarthLocation.of_site("Rubin")
+            # Rubin Observatory coordinates (site name not available in all astropy versions)
+            observatory = EarthLocation(lat=-30.2446 * u.deg, lon=-70.7494 * u.deg, height=2663 * u.m)
 
         work = WorkUnit(imgstack, search_config, org_image_meta=metadata, observatory=observatory)
 

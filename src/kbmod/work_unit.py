@@ -173,7 +173,10 @@ class WorkUnit:
         # Set the observatory location (defaults to Rubin Observatory).
         if observatory is None:
             logger.warning("No observatory location provided, defaulting to Rubin Observatory.")
-            self.observatory = EarthLocation.of_site("Rubin")
+            # Rubin Observatory coordinates (site name not available in all astropy versions)
+            self.observatory = EarthLocation(
+                lat=-30.24463333 * u.deg, lon=-70.74941667 * u.deg, height=2662.75 * u.m
+            )
         else:
             self.observatory = observatory
 
@@ -970,8 +973,10 @@ class WorkUnit:
         """
         # input value validation
         if not self.reprojected:
-            raise ValueError("`WorkUnit` not reprojected. This method is purpose built \
-                for handling post reproject coordinate tranformations.")
+            raise ValueError(
+                "`WorkUnit` not reprojected. This method is purpose built \
+                for handling post reproject coordinate tranformations."
+            )
 
         original_wcses = [w for w in self.org_img_meta["per_image_wcs"]]
 
