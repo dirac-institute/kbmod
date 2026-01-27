@@ -466,6 +466,25 @@ class test_run_search(unittest.TestCase):
             self.assertEqual(len(table.meta["data_loc"]), 7)
             self.assertEqual(table.meta["filter"], ["a", "c", "f", "g", "h", "i", "j"])
 
+    def test_run_search_timeout(self):
+        # Create a small fake data set.
+        num_times = 20
+        width = 50
+        height = 60
+        fake_times = [59000.0 + float(i) / num_times for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        # Use a small grid of search trajectories around the true velocity.
+        trj_gen = VelocityGridSearch(5, 15.0, 27.0, 5, 10.0, 22.0)
+        config = SearchConfiguration()
+        config.set("cpu_only", True)
+        config.set("timeout_hours", 0.001 / 3600.0)  # 0.001 seconds
+
+        # Run the core search algorithm and confirm we find the inserted fake.
+        runner = SearchRunner()
+        with self.assertRaises(TimeoutError):
+            _ = runner.run_search(config, fake_ds.stack_py, trj_gen)
+
 
 if __name__ == "__main__":
     unittest.main()

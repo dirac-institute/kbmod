@@ -22,7 +22,6 @@ from kbmod.search import DebugTimer, Logging
 from kbmod.trajectory_utils import predict_pixel_locations
 from kbmod.util_functions import mjd_to_day
 
-
 logger = Logging.getLogger(__name__)
 
 MODEL_TYPES = {

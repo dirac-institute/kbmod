@@ -11,7 +11,6 @@ from kbmod.filters.stamp_filters import append_all_stamps, append_coadds
 from kbmod.trajectory_generator import PencilSearch, VelocityGridSearch
 from kbmod.trajectory_utils import make_trajectory_from_ra_dec
 
-
 logger = Logging.getLogger(__name__)
 
 

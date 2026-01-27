@@ -13,7 +13,6 @@ from scipy.special import erfinv
 
 from kbmod.search import DebugTimer
 
-
 logger = logging.getLogger(__name__)
 
 

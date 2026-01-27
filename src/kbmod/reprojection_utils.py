@@ -14,7 +14,6 @@ from astropy.wcs.utils import fit_wcs_from_points, skycoord_to_pixel
 
 import warnings
 
-
 __all__ = [
     "correct_parallax",
     "invert_correct_parallax",

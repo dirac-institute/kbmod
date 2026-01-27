@@ -353,6 +353,16 @@ _SUPPORTED_PARAMS = [
         validate_func=lambda x: x in ["sum", "mean", "median", "weighted"],
     ),
     _ParamInfo(
+        name="timeout_hours",
+        default_value=None,
+        description=(
+            "The maximum number of hours to allow the search to run. This is a 'soft' "
+            "timeout that will not interrupt during a processing stage. If None, no timeout "
+            " is applied."
+        ),
+        section="other",
+    ),
+    _ParamInfo(
         name="track_filtered",
         default_value=False,
         description="If True, track the filtered objects in the results table.",
