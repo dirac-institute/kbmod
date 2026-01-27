@@ -973,10 +973,8 @@ class WorkUnit:
         """
         # input value validation
         if not self.reprojected:
-            raise ValueError(
-                "`WorkUnit` not reprojected. This method is purpose built \
-                for handling post reproject coordinate tranformations."
-            )
+            raise ValueError("`WorkUnit` not reprojected. This method is purpose built \
+                for handling post reproject coordinate tranformations.")
 
         original_wcses = [w for w in self.org_img_meta["per_image_wcs"]]
 
