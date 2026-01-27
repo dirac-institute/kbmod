@@ -127,6 +127,7 @@ class WorkUnit:
         file_paths=None,
         obstimes=None,
         org_image_meta=None,
+        observatory=None,
     ):
         # Assign the core components.
         self.im_stack = im_stack
@@ -168,6 +169,16 @@ class WorkUnit:
         self.reprojected = reprojected
         self.reprojection_frame = reprojection_frame
         self.barycentric_distance = barycentric_distance
+
+        # Set the observatory location (defaults to Rubin Observatory).
+        if observatory is None:
+            logger.warning("No observatory location provided, defaulting to Rubin Observatory.")
+            # Rubin Observatory coordinates (site name not available in all astropy versions)
+            self.observatory = EarthLocation(
+                lat=-30.24463333 * u.deg, lon=-70.74941667 * u.deg, height=2662.75 * u.m
+            )
+        else:
+            self.observatory = observatory
 
         # If we have mosaicked images, each image in the stack could link back
         # to more than one constituents image. Build a mapping of image stack index
@@ -550,6 +561,16 @@ class WorkUnit:
             else:
                 reprojection_frame = None
 
+            # Read observatory location if available
+            if "OBS_LAT" in hdul[0].header:
+                observatory = EarthLocation(
+                    lat=hdul[0].header["OBS_LAT"] * u.deg,
+                    lon=hdul[0].header["OBS_LON"] * u.deg,
+                    height=hdul[0].header["OBS_ELEV"] * u.m,
+                )
+            else:
+                observatory = None  # Will default to Rubin in __init__
+
             # Read in all the image files.
             per_image_indices = []
             for i in tqdm(
@@ -582,6 +603,7 @@ class WorkUnit:
             reprojection_frame=reprojection_frame,
             per_image_indices=per_image_indices,
             org_image_meta=org_image_meta,
+            observatory=observatory,
         )
         return result
 
@@ -892,6 +914,12 @@ class WorkUnit:
         pri.header["REPFRAME"] = self.reprojection_frame
         pri.header["BARY"] = self.barycentric_distance
 
+        # Serialize observatory location
+        if self.observatory is not None:
+            pri.header["OBS_LAT"] = self.observatory.lat.deg
+            pri.header["OBS_LON"] = self.observatory.lon.deg
+            pri.header["OBS_ELEV"] = self.observatory.height.to(u.m).value
+
         # If the global WCS exists, append the corresponding keys to the primary header.
         if self.wcs is not None:
             append_wcs_to_hdu_header(self.wcs, pri.header)
@@ -956,6 +984,7 @@ class WorkUnit:
             self.wcs,
             original_wcses,
             self.get_all_obstimes(),
+            self.observatory,
             input_format=input_format,
             output_format=output_format,
             filter_in_frame=filter_in_frame,

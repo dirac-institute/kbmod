@@ -1,17 +1,20 @@
 import logging
-import numpy as np
-import psutil
 import os
 import time
+
+import astropy.units as u
+import numpy as np
+import psutil
+from astropy.coordinates import EarthLocation, SkyCoord
 
 import kbmod.search as kb
 
 from .filters.clustering_filters import apply_clustering
 from .filters.clustering_grid import apply_trajectory_grid_filter
-from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
-from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
+from .filters.sigma_g_filter import SigmaGClipping, apply_clipped_sigma_g
 from .filters.sns_filters import peak_offset_filter, predictive_line_cluster
-
+from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
+from .reprojection_utils import image_positions_to_original_icrs, invert_correct_parallax_vectorized
 from .results import Results, write_results_to_files_destructive
 from .trajectory_generator import create_trajectory_generator
 from .trajectory_utils import predict_pixel_locations
@@ -610,8 +613,7 @@ class SearchRunner:
 
 
 def append_positions_to_results(workunit, results):
-    """Append predicted (x, y) and (RA, dec) positions in the original images. If
-    the images were reprojected, also appends the (RA, dec) in the common frame.
+    """Appends predicted RA, Dec positions to the results table.
 
     Parameters
     ----------
@@ -628,48 +630,49 @@ def append_positions_to_results(workunit, results):
     num_times = workunit.im_stack.num_times
     times = workunit.im_stack.zeroed_times
 
-    # Predict where each candidate trajectory will be at each time step in the
-    # common WCS frame. These are the pixel locations used to assess the trajectory.
+    # Predict pixel locations (same as original)
     xp = predict_pixel_locations(times, results["x"], results["vx"], as_int=False, centered=False)
     yp = predict_pixel_locations(times, results["y"], results["vy"], as_int=False, centered=False)
     results.table["pred_x"] = xp
     results.table["pred_y"] = yp
 
-    # Compute the predicted (RA, dec) positions for each trajectory the common WCS
-    # frame and original image WCS frames.
-    all_inds = np.arange(num_times)
-    all_ra = np.zeros((len(results), num_times))
-    all_dec = np.zeros((len(results), num_times))
-    if workunit.wcs is not None:
-        logger.info("Found common WCS. Adding global_ra and global_dec columns.")
+    all_ra = np.zeros((num_results, num_times))
+    all_dec = np.zeros((num_results, num_times))
 
-        # Compute the (RA, dec) for each result x time in the common WCS frame.
+    if workunit.wcs is not None:
+        logger.info("Found common WCS. Adding global_ra and global_dec columns (vectorized).")
+
+        # Compute the global (RA, dec) for all results and all times in one call
         skypos = workunit.wcs.pixel_to_world(xp, yp)
         results.table["global_ra"] = skypos.ra.degree
         results.table["global_dec"] = skypos.dec.degree
 
-        # Loop over the trajectories to build the (RA, dec) positions in each image's WCS frame.
-        for idx in range(num_results):
-            # Build a list of this trajectory's RA, dec position at each time.
-            pos_list = [skypos[idx, j] for j in range(num_times)]
-            img_skypos = workunit.image_positions_to_original_icrs(
-                image_indices=all_inds,  # Compute for all times.
-                positions=pos_list,
-                input_format="radec",
-                output_format="radec",
-                filter_in_frame=False,
-            )
+        # Now compute img_ra, img_dec by iterating over time (not per-result)
+        # This allows us to batch all results for a given time step
+        if workunit.reprojected and workunit.reprojection_frame != "ebd":
+            logger.warning("No EBD reprojection found. Skipping img_ra and img_dec columns.")
+        else:
+            # For EBD reprojection, use the vectorized invert function
+            obstimes = workunit.get_all_obstimes()
 
-            # We get back a list of SkyCoord, because we gave a list.
-            # So we flatten it and extract the coordinate values.
             for time_idx in range(num_times):
-                all_ra[idx, time_idx] = img_skypos[time_idx].ra.degree
-                all_dec[idx, time_idx] = img_skypos[time_idx].dec.degree
-
+                # Get all results' sky positions at this time
+                time_skypos = SkyCoord(
+                    ra=skypos.ra[:, time_idx],
+                    dec=skypos.dec[:, time_idx],
+                    distance=workunit.barycentric_distance * u.AU,
+                )
+                # Invert parallax for all results at this time step
+                original_icrs = invert_correct_parallax_vectorized(
+                    time_skypos,
+                    obstimes=obstimes[time_idx],
+                    point_on_earth=workunit.observatory,
+                )
+                all_ra[:, time_idx] = original_icrs.ra.degree
+                all_dec[:, time_idx] = original_icrs.dec.degree
     else:
-        logger.info("No common WCS found. Skipping global_ra and global_dec columns.")
-
-        # If there are no global WCS, we just predict per image.
+        logger.info("No common WCS found. Skipping global_ra and global_dec columns (vectorized).")
+        # No global WCS: iterate over time, batch over results
         for time_idx in range(num_times):
             wcs = workunit.get_wcs(time_idx)
             if wcs is not None:
@@ -677,6 +680,5 @@ def append_positions_to_results(workunit, results):
                 all_ra[:, time_idx] = skypos.ra.degree
                 all_dec[:, time_idx] = skypos.dec.degree
 
-    # Add the per-image coordinates to the results table.
     results.table["img_ra"] = all_ra
     results.table["img_dec"] = all_dec

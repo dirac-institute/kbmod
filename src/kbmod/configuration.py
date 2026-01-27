@@ -1,10 +1,11 @@
 import copy
 import math
+from pathlib import Path
 
 from astropy.io import fits
 from astropy.table import Table
-from pathlib import Path
 from yaml import dump, safe_load
+
 from kbmod.search import Logging
 
 logger = Logging.getLogger(__name__)

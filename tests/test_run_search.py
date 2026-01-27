@@ -1,23 +1,22 @@
 """Test some of the functions needed for running the search."""
 
-from astropy.coordinates import EarthLocation
-from astropy.table import Table
-from astropy.time import Time
-
 import logging
 import tempfile
 import unittest
 
 import numpy as np
+from astropy.coordinates import EarthLocation
+from astropy.table import Table
+from astropy.time import Time
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
+from kbmod.fake_data.fake_data_creator import FakeDataSet, create_fake_times
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.results import Results
 from kbmod.run_search import (
+    SearchRunner,
     append_positions_to_results,
     configure_kb_search_stack,
-    SearchRunner,
 )
 from kbmod.search import *
 from kbmod.trajectory_generator import VelocityGridSearch
@@ -225,6 +224,7 @@ class test_run_search(unittest.TestCase):
             Trajectory(x=400, y=300, vx=-5, vy=-2, flux=1000.0, lh=1000.0, obs_count=num_times),
             Trajectory(x=100, y=500, vx=10, vy=-10, flux=1000.0, lh=1000.0, obs_count=num_times),
         ]
+
         results = Results.from_trajectories(trjs)
         self.assertEqual(len(results), 3)
 
@@ -291,21 +291,20 @@ class test_run_search(unittest.TestCase):
             obstimes=fake_times,
         )
 
-        # Create three fake trajectories in the bounds of the images. We don't
-        # bother actually inserting them into the pixels.
         trjs = [
             Trajectory(x=5, y=10, vx=1, vy=1, flux=1000.0, lh=1000.0, obs_count=num_times),
             Trajectory(x=400, y=300, vx=-5, vy=-2, flux=1000.0, lh=1000.0, obs_count=num_times),
             Trajectory(x=100, y=500, vx=10, vy=-10, flux=1000.0, lh=1000.0, obs_count=num_times),
         ]
+
         results = Results.from_trajectories(trjs)
         self.assertEqual(len(results), 3)
 
         append_positions_to_results(fake_wu, results)
 
         # The global RA and global dec should not exist.
-        self.assertFalse("global_ra" in results.colnames)
-        self.assertFalse("global_dec" in results.colnames)
+        self.assertNotIn("global_ra", results.colnames)
+        self.assertNotIn("global_dec", results.colnames)
 
         # The per-image RA should exist, be close to 20.0 for all observations.
         self.assertEqual(len(results["img_ra"]), 3)

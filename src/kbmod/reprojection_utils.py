@@ -587,6 +587,7 @@ def image_positions_to_original_icrs(
     reprojected_wcs,
     original_wcses,
     all_times,
+    observatory,
     input_format="xy",
     output_format="xy",
     filter_in_frame=True,
@@ -611,6 +612,8 @@ def image_positions_to_original_icrs(
         The WCSes of the original images in ICRS space.
     all_times : `list` of mjds.
         The observation times of the original images in MJD.
+    observatory: `astropy.coordinates.EarthLocation`
+        The observatory location.
     input_format : `str`
         The input format for the positions. Either 'xy' or 'radec'.
         If 'xy' is given, positions must be in the format of a
@@ -695,15 +698,12 @@ def image_positions_to_original_icrs(
         geo_dists = [geocentric_distances[i] for i in image_indices]
         obstimes = [all_times[i] for i in image_indices]
 
-        # this should be part of the WorkUnit metadata
-        location = EarthLocation.of_site("ctio")
-
         inverted_coords = []
         for coord, obstime, geo_dist in zip(position_reprojected_coords, obstimes, geo_dists):
             inverted_coord = invert_correct_parallax(
                 coord=coord,
                 obstime=Time(obstime, format="mjd"),
-                point_on_earth=location,
+                point_on_earth=observatory,
                 barycentric_distance=bary_dist,
                 geocentric_distance=geo_dist,
             )
