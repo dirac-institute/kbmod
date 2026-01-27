@@ -486,7 +486,6 @@ class SearchRunner:
                 append_positions_to_results(
                     workunit,
                     keep,
-                    strategy=config["append_positions_type"],
                 )
             self._end_phase("append_positions_to_results")
 
@@ -602,7 +601,6 @@ def append_positions_to_results(workunit, results):
             logger.warning("No EBD reprojection found. Skipping img_ra and img_dec columns.")
         else:
             # For EBD reprojection, use the vectorized invert function
-            point_on_earth = EarthLocation.of_site("ctio")
             obstimes = workunit.get_all_obstimes()
 
             for time_idx in range(num_times):
@@ -616,7 +614,7 @@ def append_positions_to_results(workunit, results):
                 original_icrs = invert_correct_parallax_vectorized(
                     time_skypos,
                     obstimes=obstimes[time_idx],
-                    point_on_earth=point_on_earth,
+                    point_on_earth=workunit.observatory,
                 )
                 all_ra[:, time_idx] = original_icrs.ra.degree
                 all_dec[:, time_idx] = original_icrs.dec.degree

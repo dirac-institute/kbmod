@@ -96,7 +96,7 @@ class test_work_unit(unittest.TestCase):
             self.height,
             41.0,
             Time(59000, format="mjd"),
-            EarthLocation.of_site("ctio"),
+            EarthLocation.of_site("Rubin"),
         )
 
         self.constituent_images = [
@@ -951,6 +951,46 @@ class test_work_unit(unittest.TestCase):
         # Filter out mosaicked images 2 and 3.
         work.filter_images([True, True, False, False, True])
         self.assertEqual(len(work), 3)
+
+    def test_observatory_default(self):
+        """Test that WorkUnit defaults to Rubin Observatory."""
+        work = WorkUnit(self.im_stack_py, self.config)
+        self.assertIsNotNone(work.observatory)
+        # Rubin Observatory is at approximately -30.24 lat, -70.75 lon
+        self.assertAlmostEqual(work.observatory.lat.deg, -30.24, delta=0.1)
+        self.assertAlmostEqual(work.observatory.lon.deg, -70.75, delta=0.1)
+
+    def test_observatory_custom(self):
+        """Test that a custom observatory can be passed to WorkUnit."""
+        custom_obs = EarthLocation.of_site("ctio")
+        work = WorkUnit(self.im_stack_py, self.config, observatory=custom_obs)
+        self.assertIsNotNone(work.observatory)
+        # CTIO is close to but not exactly the same as Rubin
+        self.assertAlmostEqual(work.observatory.lat.deg, custom_obs.lat.deg, places=5)
+        self.assertAlmostEqual(work.observatory.lon.deg, custom_obs.lon.deg, places=5)
+        self.assertAlmostEqual(
+            work.observatory.height.to("m").value, custom_obs.height.to("m").value, places=1
+        )
+
+    def test_observatory_fits_roundtrip(self):
+        """Test that observatory is preserved when saving/loading WorkUnit to FITS."""
+        custom_obs = EarthLocation.of_site("ctio")
+        work = WorkUnit(self.im_stack_py, self.config, wcs=self.wcs, observatory=custom_obs)
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "test_obs.fits")
+            work.to_fits(file_path)
+
+            # Load it back
+            work2 = WorkUnit.from_fits(file_path)
+
+            # Check observatory is preserved
+            self.assertIsNotNone(work2.observatory)
+            self.assertAlmostEqual(work2.observatory.lat.deg, custom_obs.lat.deg, places=5)
+            self.assertAlmostEqual(work2.observatory.lon.deg, custom_obs.lon.deg, places=5)
+            self.assertAlmostEqual(
+                work2.observatory.height.to("m").value, custom_obs.height.to("m").value, places=1
+            )
 
 
 if __name__ == "__main__":

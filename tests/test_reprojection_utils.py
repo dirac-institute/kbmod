@@ -30,7 +30,7 @@ class test_reprojection_utils(unittest.TestCase):
         self.test_wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
 
         self.time = Time("2021-08-24T20:59:06", format="isot", scale="utc")
-        self.site = "ctio"
+        self.site = "Rubin"
         self.loc = EarthLocation.of_site(self.site)
         self.distance = 41.1592725489203
 
@@ -48,7 +48,7 @@ class test_reprojection_utils(unittest.TestCase):
         self.equinox_geo_dist = 50.00135417530472
 
         with solar_system_ephemeris.set("de432s"):
-            self.eq_loc = EarthLocation.of_site("ctio")
+            self.eq_loc = EarthLocation.of_site("Rubin")
 
     def test_parallax_equinox_geometric(self):
         corrected_coord1, _ = correct_parallax(

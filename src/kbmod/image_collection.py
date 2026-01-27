@@ -15,6 +15,8 @@ from astropy.table import Table, Column, vstack
 from astropy.io import fits as fitsio
 from astropy.wcs import WCS
 from astropy.utils import isiterable
+from astropy.coordinates import EarthLocation
+import astropy.units as u
 
 import numpy as np
 
@@ -514,6 +516,23 @@ class ImageCollection:
         if "is_packed" in self.data.meta:
             return self.data.meta["is_packed"]
         return False
+
+    def get_observatory(self):
+        """Get the observatory EarthLocation from the first row of the ImageCollection.
+
+        Returns
+        -------
+        observatory : `astropy.coordinates.EarthLocation` or `None`
+            The observatory location constructed from obs_lat, obs_lon, and obs_elev.
+            Returns None if the ImageCollection is empty.
+        """
+        if len(self.data) == 0:
+            logger.warning("Empty ImageCollection does not have an observatory location.")
+            return None
+        obs_lat = self.data["obs_lat"][0]
+        obs_lon = self.data["obs_lon"][0]
+        obs_elev = self.data["obs_elev"][0]
+        return EarthLocation(lat=obs_lat * u.deg, lon=obs_lon * u.deg, height=obs_elev * u.m)
 
     @property
     def wcs(self):
@@ -1171,6 +1190,15 @@ class ImageCollection:
         imgstack = ImageStackPy()
         for layimg in layered_images:
             imgstack.append_layered_image(layimg)
-        work = WorkUnit(imgstack, search_config, org_image_meta=metadata)
+
+        # Get the observatory location from the ImageCollection metadata.
+        observatory = self.get_observatory()
+        if observatory is None:
+            logger.warning(
+                "No observatory location found in ImageCollection metadata, using Rubin Observatory."
+            )
+            observatory = EarthLocation.of_site("Rubin")
+
+        work = WorkUnit(imgstack, search_config, org_image_meta=metadata, observatory=observatory)
 
         return work
