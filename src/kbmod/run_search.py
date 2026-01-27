@@ -680,50 +680,37 @@ def _append_positions_vectorized(workunit, results):
     all_dec = np.zeros((num_results, num_times))
 
     if workunit.wcs is not None:
-        logger.info("Found common WCS. Adding global_ra and global_dec columns (vectorized).")
+        logger.info("Found common WCS. Adding global_ra and global_dec columns.")
 
         # Compute the global (RA, dec) for all results and all times in one call
         skypos = workunit.wcs.pixel_to_world(xp, yp)
         results.table["global_ra"] = skypos.ra.degree
         results.table["global_dec"] = skypos.dec.degree
 
+        if workunit.reprojected and workunit.reprojection_frame != "ebd":
+            logger.warning("No EBD reprojection found. Skipping global_ra and global_dec columns.")
+
         # Now compute img_ra, img_dec by iterating over time (not per-result)
         # This allows us to batch all results for a given time step
-        if workunit.reprojected and workunit.reprojection_frame == "ebd":
-            # For EBD reprojection, use the vectorized invert function
-            point_on_earth = EarthLocation.of_site("ctio")
-            obstimes = workunit.get_all_obstimes()
+        # For EBD reprojection, use the vectorized invert function
+        point_on_earth = workunit.observatory
+        obstimes = workunit.get_all_obstimes()
 
-            for time_idx in range(num_times):
-                # Get all results' sky positions at this time
-                time_skypos = SkyCoord(
-                    ra=skypos.ra[:, time_idx],
-                    dec=skypos.dec[:, time_idx],
-                    distance=workunit.barycentric_distance * u.AU,
-                )
-                # Invert parallax for all results at this time step
-                original_icrs = invert_correct_parallax_vectorized(
-                    time_skypos,
-                    obstimes=obstimes[time_idx],
-                    point_on_earth=point_on_earth,
-                )
-                all_ra[:, time_idx] = original_icrs.ra.degree
-                all_dec[:, time_idx] = original_icrs.dec.degree
-        else:
-            # No EBD reprojection: per-image WCS lookup per time
-            for time_idx in range(num_times):
-                per_img_wcs = workunit.org_img_meta["per_image_wcs"][time_idx]
-                if per_img_wcs is not None:
-                    # Convert global sky positions to per-image pixel, then back to sky
-                    # This accounts for per-image WCS differences
-                    px, py = per_img_wcs.world_to_pixel(skypos[:, time_idx])
-                    per_img_sky = per_img_wcs.pixel_to_world(px, py)
-                    all_ra[:, time_idx] = per_img_sky.ra.degree
-                    all_dec[:, time_idx] = per_img_sky.dec.degree
-                else:
-                    # Fallback to global
-                    all_ra[:, time_idx] = skypos.ra.degree[:, time_idx]
-                    all_dec[:, time_idx] = skypos.dec.degree[:, time_idx]
+        for time_idx in range(num_times):
+            # Get all results' sky positions at this time
+            time_skypos = SkyCoord(
+                ra=skypos.ra[:, time_idx],
+                dec=skypos.dec[:, time_idx],
+                distance=workunit.barycentric_distance * u.AU,
+            )
+            # Invert parallax for all results at this time step
+            original_icrs = invert_correct_parallax_vectorized(
+                time_skypos,
+                obstimes=obstimes[time_idx],
+                point_on_earth=point_on_earth,
+            )
+            all_ra[:, time_idx] = original_icrs.ra.degree
+            all_dec[:, time_idx] = original_icrs.dec.degree
     else:
         logger.info("No common WCS found. Skipping global_ra and global_dec columns (vectorized).")
         # No global WCS: iterate over time, batch over results

@@ -1098,7 +1098,7 @@ class ImageCollection:
                     self._standardizers.extend(ic._standardizers)
                 else:
                     self._standardizers.extend([None] * n_stds)
-            std_offset += n_stds
+            std_offset += n_stds``
 
         self.data = vstack([self.data, *data], metadata_conflicts="silent")
         self.data.meta["n_stds"] = self.data["std_idx"].max()

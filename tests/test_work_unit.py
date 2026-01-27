@@ -77,17 +77,17 @@ class test_work_unit(unittest.TestCase):
             SkyCoord(201.61021621, -8.19884579, unit="deg"),
         ]
         self.expected_radec_positions = [
-            SkyCoord(200.62673991, -7.79623142, unit="deg"),
-            SkyCoord(200.59733711, -7.78473232, unit="deg"),
-            SkyCoord(200.56914856, -7.77372976, unit="deg"),
-            SkyCoord(200.54220037, -7.76323338, unit="deg"),
+            SkyCoord(200.63033962775347, -7.797574837948863, unit="deg"),
+            SkyCoord(200.6007973610831, -7.786019422371997, unit="deg"),
+            SkyCoord(200.5724661360023, -7.774959342825508, unit="deg"),
+            SkyCoord(200.5453720794042, -7.764404257366327, unit="deg"),
         ]
 
         self.expected_pixel_positions = [
-            (293.91409096900713, 321.4755237663834),
-            (186.0196821526124, 364.0641470322672),
-            (82.57542144600637, 404.8067348560266),
-            (-16.322177615492762, 443.6685337511032),
+            (249.62453575443467, 348.99075906193883),
+            (248.60447141504133, 349.002593907089),
+            (247.58530463620951, 349.0114563567871),
+            (246.56642784473976, 349.01735207103064),
         ]
 
         self.per_image_ebd_wcs, self.geo_dist = fit_barycentric_wcs(
@@ -482,6 +482,7 @@ class test_work_unit(unittest.TestCase):
             barycentric_distance=41.0,
             reprojected=True,
             org_image_meta=self.org_image_meta,
+            observatory=EarthLocation.of_site("ctio"),
         )
 
         # Incorrect format for 'xy'
@@ -520,6 +521,7 @@ class test_work_unit(unittest.TestCase):
             reprojected=True,
             reprojection_frame="ebd",
             org_image_meta=self.org_image_meta,
+            observatory=EarthLocation.of_site("ctio"),
         )
 
         res = work.image_positions_to_original_icrs(
@@ -567,6 +569,7 @@ class test_work_unit(unittest.TestCase):
             reprojected=True,
             reprojection_frame="ebd",
             org_image_meta=self.org_image_meta,
+            observatory=EarthLocation.of_site("ctio"),
         )
 
         res = work.image_positions_to_original_icrs(
@@ -593,6 +596,7 @@ class test_work_unit(unittest.TestCase):
             reprojected=True,
             reprojection_frame="ebd",
             org_image_meta=self.org_image_meta,
+            observatory=EarthLocation.of_site("ctio"),
         )
 
         new_wcs = make_fake_wcs(190.0, -7.7888, 500, 700)

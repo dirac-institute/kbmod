@@ -18,7 +18,7 @@ from tqdm import tqdm
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
-from kbmod.reprojection_utils import invert_correct_parallax, image_positions_to_original_icrs
+from kbmod.reprojection_utils import invert_correct_parallax_vectorized, image_positions_to_original_icrs
 from kbmod.search import Logging
 from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
@@ -112,6 +112,8 @@ class WorkUnit:
         The MJD obstimes of the midpoint of the images (in UTC).
     org_image_meta : `astropy.table.Table`, optional
         A table of per-image data for the constituent images.
+    observatory : `astropy.coordinates.EarthLocation`, optional
+        The observatory location. Defaults to Rubin Observatory.
     """
 
     def __init__(
@@ -128,6 +130,7 @@ class WorkUnit:
         file_paths=None,
         obstimes=None,
         org_image_meta=None,
+        observatory=None,
     ):
         # Assign the core components.
         self.im_stack = im_stack
@@ -135,6 +138,11 @@ class WorkUnit:
         self.lazy = lazy
         self.file_paths = file_paths
         self._obstimes = obstimes
+
+        if observatory is None:
+            self.observatory = EarthLocation.of_site("Rubin")
+        else:
+            self.observatory = observatory
 
         # Validate the image stack (in warning only mode).
         if not lazy:
@@ -967,6 +975,7 @@ class WorkUnit:
             geocentric_distances=self.org_img_meta["geocentric_distance"],
             per_image_indices=self._per_image_indices,
             image_locations=self.org_img_meta["data_loc"],
+            observatory=self.observatory,
         )
 
     def load_images(self):
