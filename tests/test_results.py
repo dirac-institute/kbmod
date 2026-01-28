@@ -549,6 +549,9 @@ class test_results(unittest.TestCase):
             self.assertIsNotNone(table3.wcs)
             self.assertTrue(wcs_fits_equal(table3.wcs, fake_wcs))
 
+            # Verify mjd_mid is consistently np.ndarray after read_table
+            self.assertIsInstance(table3.mjd_mid, np.ndarray)
+
     def test_to_from_table_file_empty(self):
         table = Results()
         self.assertEqual(len(table), 0)
@@ -834,9 +837,10 @@ class test_results(unittest.TestCase):
             self.assertEqual(len(all_chunks[1]), 5)
             self.assertEqual(len(all_chunks[2]), 5)
 
-            # Each chunk should have mjd_mid attached
+            # Each chunk should have mjd_mid attached and be np.ndarray type
             for chunk in all_chunks:
                 self.assertIsNotNone(chunk.mjd_mid)
+                self.assertIsInstance(chunk.mjd_mid, np.ndarray)
                 self.assertEqual(len(chunk.mjd_mid), 5)
                 self.assertTrue(np.array_equal(chunk.mjd_mid, table.mjd_mid))
 
@@ -952,8 +956,8 @@ class test_results(unittest.TestCase):
         # Without metadata, 1D array should NOT be image-like
         self.assertFalse(table.is_image_like("fake_coadd"))
 
-        # Set metadata marking it as an image column
-        table.table.meta["image_columns"] = ["fake_coadd"]
+        # Set metadata marking it as an image column via image_column_shapes
+        table.table.meta["image_column_shapes"] = {"fake_coadd": [10, 10]}
 
         # Now it should be considered image-like due to metadata
         self.assertTrue(table.is_image_like("fake_coadd"))
@@ -1028,11 +1032,12 @@ class test_results(unittest.TestCase):
         self.assertIsNone(mjd_mid)
         self.assertIsNone(shapes)
 
-        # Partial metadata - only mjd_utc_mid
+        # Partial metadata - only mjd_utc_mid - should return np.ndarray
         meta = {"mjd_utc_mid": [59000.0, 59001.0]}
         wcs, mjd_mid, shapes = Results._parse_table_metadata(meta)
         self.assertIsNone(wcs)
-        self.assertEqual(mjd_mid, [59000.0, 59001.0])
+        self.assertIsInstance(mjd_mid, np.ndarray)
+        self.assertTrue(np.array_equal(mjd_mid, np.array([59000.0, 59001.0])))
         self.assertIsNone(shapes)
 
         # Partial metadata - only image_column_shapes
@@ -1096,6 +1101,30 @@ class test_results(unittest.TestCase):
         shapes = table._detect_image_columns(["coadd_2d", "nonexistent"])
         self.assertIn("coadd_2d", shapes)
         self.assertNotIn("nonexistent", shapes)
+
+    def test_detect_image_columns_empty_first_rows(self):
+        """Test that _detect_image_columns scans past empty rows to find shapes."""
+        table = Results.from_trajectories(self.trj_list)
+
+        # Create image column where first 3 rows are empty arrays
+        coadd_data = []
+        for i in range(self.num_entries):
+            if i < 3:
+                # Empty array for first 3 rows
+                coadd_data.append(np.zeros((0,)))
+            else:
+                # Valid 2D image for remaining rows
+                coadd_data.append(np.zeros((21, 21)) + i)
+        table.table["coadd_mean"] = coadd_data
+
+        # Detection should find the shape from row 3+
+        shapes = table._detect_image_columns(None, max_rows=10)
+        self.assertIn("coadd_mean", shapes)
+        self.assertEqual(shapes["coadd_mean"], (21, 21))
+
+        # With max_rows=2, should NOT find it (only looks at empty rows)
+        shapes = table._detect_image_columns(None, max_rows=2)
+        self.assertNotIn("coadd_mean", shapes)
 
 
 if __name__ == "__main__":

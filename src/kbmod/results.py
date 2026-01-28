@@ -249,9 +249,9 @@ class Results:
         # Create the results object.
         results = Results(data, track_filtered=track_filtered, wcs=wcs)
 
-        # Attach the mjd_mid if found
+        # Attach the mjd_mid if found (already np.array from _parse_table_metadata)
         if mjd_mid is not None:
-            results.set_mjd_utc_mid(np.array(mjd_mid))
+            results.set_mjd_utc_mid(mjd_mid)
 
         if load_aux_files:
             # Check for any auxiliary files that share the same base name,
@@ -276,7 +276,7 @@ class Results:
         This is a generator that yields `Results` objects for each chunk of data.
         It is designed to handle very large result files that cannot fit into memory.
 
-        It also loads any auxiliary files that share the same base name as the main file.
+        It also does not load any auxiliary files for this result file.
 
         Parameters
         ----------
@@ -392,8 +392,9 @@ class Results:
         -------
         wcs : `astropy.wcs.WCS` or `None`
             The deserialized WCS object, or None if not present.
-        mjd_mid : `list` or `np.ndarray` or `None`
-            The observation midpoint times in MJD UTC, or None if not present.
+        mjd_mid : `np.ndarray` or `None`
+            The observation midpoint times in MJD UTC as a numpy array,
+            or None if not present.
         image_column_shapes : `dict` or `None`
             A dictionary mapping column names to their original shapes,
             or None if not present.
@@ -407,11 +408,12 @@ class Results:
             wcs = deserialize_wcs(meta_dict["wcs"])
 
         # Extract observation times (check mjd_utc_mid first for compatibility)
+        # Normalize to np.array for consistent type across read_table and read_table_chunks
         mjd_mid = None
         if "mjd_utc_mid" in meta_dict:
-            mjd_mid = meta_dict["mjd_utc_mid"]
+            mjd_mid = np.array(meta_dict["mjd_utc_mid"])
         elif "mjd_mid" in meta_dict:
-            mjd_mid = meta_dict["mjd_mid"]
+            mjd_mid = np.array(meta_dict["mjd_mid"])
 
         # Extract image column shapes
         image_column_shapes = meta_dict.get("image_column_shapes")
@@ -764,7 +766,7 @@ class Results:
         with at least 2 dimensions).
 
         This method first checks the table metadata for stored image column
-        information (which preserves shape info through parquet round-trips).
+        shape information (which preserves shape info through parquet round-trips).
         If not found in metadata, it inspects the actual data.
 
         Parameters
@@ -782,9 +784,9 @@ class Results:
         if colname not in self.table.colnames:
             raise KeyError(f"Querying unknown column {colname}")
 
-        # First check if we have metadata about image columns (from a previous save)
-        if "image_columns" in self.table.meta:
-            return colname in self.table.meta["image_columns"]
+        # First check if we have metadata about image column shapes (from a previous save)
+        if "image_column_shapes" in self.table.meta:
+            return colname in self.table.meta["image_column_shapes"]
 
         # Otherwise, check the actual data for 2D+ arrays
         max_rows = len(self.table) if max_rows is None else min(max_rows, len(self.table))
@@ -933,6 +935,10 @@ class Results:
     def _detect_image_columns(self, image_columns=None, max_rows=10):
         """Detect image-like columns and their shapes.
 
+        This method scans up to `max_rows` rows to find a representative
+        non-empty entry for each column, making detection robust when
+        early rows might be empty or atypical.
+
         Parameters
         ----------
         image_columns : `list` of `str`, optional
@@ -948,6 +954,9 @@ class Results:
         """
         image_col_shapes = {}
 
+        if len(self.table) == 0:
+            return image_col_shapes
+
         # Get list of columns to check
         if image_columns is not None:
             cols_to_check = [c for c in image_columns if c in self.table.colnames]
@@ -955,26 +964,35 @@ class Results:
             # Auto-detect: check all columns for 2D+ numpy arrays
             cols_to_check = self.table.colnames
 
-        max_rows = len(self.table) if max_rows is None else min(max_rows, len(self.table))
-        if max_rows == 0:
-            return image_col_shapes
+        max_rows = min(max_rows, len(self.table)) if max_rows is not None else len(self.table)
 
         for colname in cols_to_check:
             # Skip required trajectory columns
             if colname in self._required_col_names or colname == "uuid":
                 continue
 
-            entry = self.table[colname][0]
-            if isinstance(entry, np.ndarray) and entry.ndim >= 2:
-                # Store the shape for reshaping after parquet round-trip
-                image_col_shapes[colname] = entry.shape
-                logger.debug(f"Detected image column '{colname}' with shape {entry.shape}")
-            elif image_columns is not None and colname in image_columns:
-                # User explicitly specified this as image column but it's 1D
-                # This might be data already loaded from parquet, check metadata
-                if isinstance(entry, np.ndarray):
+            # Scan rows until we find a representative non-empty entry
+            for idx in range(max_rows):
+                entry = self.table[colname][idx]
+                if not isinstance(entry, np.ndarray):
+                    # Not a numpy array, skip this column
+                    break
+
+                # Check if this entry is "empty" (size 0) - if so, try next row
+                if entry.size == 0:
+                    continue
+
+                # Found a representative entry
+                if entry.ndim >= 2:
+                    # This is an image-like column
+                    image_col_shapes[colname] = entry.shape
+                    logger.debug(f"Detected image column '{colname}' with shape {entry.shape}")
+                elif image_columns is not None and colname in image_columns:
+                    # User explicitly specified this as image column
+                    # Store shape even if 1D (may be already flattened from parquet)
                     image_col_shapes[colname] = entry.shape
                     logger.debug(f"User-specified image column '{colname}' with shape {entry.shape}")
+                break  # Found representative entry, move to next column
 
         return image_col_shapes
 
@@ -1034,7 +1052,6 @@ class Results:
         # Detect and store image column metadata for parquet round-trip
         image_col_shapes = self._detect_image_columns(image_columns)
         if image_col_shapes:
-            self.table.meta["image_columns"] = list(image_col_shapes.keys())
             self.table.meta["image_column_shapes"] = {
                 col: list(shape) for col, shape in image_col_shapes.items()
             }
