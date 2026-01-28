@@ -872,6 +872,231 @@ class test_results(unittest.TestCase):
             with self.assertRaises(ValueError):
                 list(Results.read_table_chunks(file_path))
 
+    def test_parquet_image_column_roundtrip(self):
+        """Test that 2D image columns survive parquet serialization via metadata-based reshaping."""
+        table = Results.from_trajectories(self.trj_list)
+
+        # Add 2D image columns (coadds) - these will be flattened by parquet
+        coadd_shape = (31, 31)
+        table.table["coadd_mean"] = [np.full(coadd_shape, i / 10.0) for i in range(self.num_entries)]
+        table.table["coadd_median"] = [np.full(coadd_shape, i / 20.0) for i in range(self.num_entries)]
+
+        # Add a 1D curve column - should stay 1D
+        table.table["psi_curve"] = [np.arange(25) + i for i in range(self.num_entries)]
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "results.parquet")
+
+            # Write with explicit image_columns to ensure metadata is stored
+            table.write_table(file_path, image_columns=["coadd_mean", "coadd_median"])
+            self.assertTrue(Path(file_path).is_file())
+
+            # Read back and verify shapes are restored
+            table2 = Results.read_table(file_path)
+
+            # Check that image columns have correct 2D shape
+            self.assertEqual(table2["coadd_mean"][0].shape, coadd_shape)
+            self.assertEqual(table2["coadd_median"][0].shape, coadd_shape)
+
+            # Check that values are preserved
+            for i in range(self.num_entries):
+                self.assertTrue(np.allclose(table2["coadd_mean"][i], np.full(coadd_shape, i / 10.0)))
+                self.assertTrue(np.allclose(table2["coadd_median"][i], np.full(coadd_shape, i / 20.0)))
+
+            # Check that 1D curve column is still 1D
+            self.assertEqual(table2["psi_curve"][0].shape, (25,))
+
+    def test_parquet_image_column_roundtrip_chunks(self):
+        """Test that 2D image columns survive chunked parquet reading."""
+        table = Results.from_trajectories(self.trj_list)
+
+        # Add 2D image columns
+        coadd_shape = (21, 21)
+        table.table["coadd_mean"] = [np.full(coadd_shape, i / 10.0) for i in range(self.num_entries)]
+
+        # Add metadata (WCS, mjd_mid) to test full metadata extraction
+        table.mjd_mid = 59000.0 + np.arange(5)
+        fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
+        table.wcs = fake_wcs
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "results.parquet")
+            table.write_table(file_path, image_columns=["coadd_mean"])
+
+            # Read in chunks
+            chunks = list(Results.read_table_chunks(file_path, chunk_size=4))
+
+            # Should have 3 chunks (10 rows / 4 per chunk = 2 full + 1 partial)
+            self.assertEqual(len(chunks), 3)
+
+            # Each chunk should have correctly shaped coadds
+            row_idx = 0
+            for chunk in chunks:
+                for i in range(len(chunk)):
+                    self.assertEqual(chunk["coadd_mean"][i].shape, coadd_shape)
+                    expected_val = row_idx / 10.0
+                    self.assertTrue(np.allclose(chunk["coadd_mean"][i], np.full(coadd_shape, expected_val)))
+                    row_idx += 1
+
+                # Each chunk should have WCS and mjd_mid
+                self.assertIsNotNone(chunk.wcs)
+                self.assertIsNotNone(chunk.mjd_mid)
+
+    def test_is_image_like_with_metadata(self):
+        """Test that is_image_like uses metadata when available."""
+        table = Results.from_trajectories(self.trj_list)
+
+        # Add a 1D array column that we'll mark as an image via metadata
+        table.table["fake_coadd"] = [np.zeros(100) for _ in range(self.num_entries)]
+
+        # Without metadata, 1D array should NOT be image-like
+        self.assertFalse(table.is_image_like("fake_coadd"))
+
+        # Set metadata marking it as an image column
+        table.table.meta["image_columns"] = ["fake_coadd"]
+
+        # Now it should be considered image-like due to metadata
+        self.assertTrue(table.is_image_like("fake_coadd"))
+
+        # A column not in metadata and not 2D+ should not be image-like
+        table.table["some_1d_data"] = [np.zeros(50) for _ in range(self.num_entries)]
+        self.assertFalse(table.is_image_like("some_1d_data"))
+
+    def test_write_results_destructive_explicit_image_columns(self):
+        """Test write_results_to_files_destructive with explicit image_columns parameter."""
+        table = Results.from_trajectories(self.trj_list)
+
+        # Add columns - all are numpy arrays but only some are images
+        table.table["coadd_mean"] = [np.zeros((21, 21)) + i for i in range(self.num_entries)]
+        table.table["psi_curve"] = [np.zeros(25) + i for i in range(self.num_entries)]
+        table.table["phi_curve"] = [np.zeros(25) + i for i in range(self.num_entries)]
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            main_file_path = Path(dir_name) / "results.parquet"
+
+            # Use explicit image_columns - only coadd_mean is an image
+            write_results_to_files_destructive(
+                main_file_path,
+                table,
+                separate_col_files=["coadd_mean", "psi_curve"],
+                image_columns=["coadd_mean"],  # Explicitly mark only coadd_mean as image
+            )
+
+            # coadd_mean should be saved as FITS (it's an image)
+            self.assertTrue(Path(dir_name, "results_coadd_mean.fits").is_file())
+
+            # psi_curve should be saved as parquet (it's NOT an image)
+            self.assertTrue(Path(dir_name, "results_psi_curve.parquet").is_file())
+
+    def test_write_column_explicit_is_image(self):
+        """Test write_column with explicit is_image parameter."""
+        table = Results.from_trajectories(self.trj_list)
+
+        # Add a 2D array that would normally be detected as an image
+        table.table["data_2d"] = [np.zeros((10, 10)) + i for i in range(self.num_entries)]
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            # Force it to be written as non-image (BinTable) even though it's 2D
+            file_path = os.path.join(dir_name, "data_2d_as_table.fits")
+            table.write_column("data_2d", file_path, is_image=False)
+
+            # Load it back and verify
+            table2 = Results.from_trajectories(self.trj_list)
+            table2.load_column(file_path, "data_2d")
+            self.assertTrue("data_2d" in table2.colnames)
+
+            # Now write it as an image (the default for 2D data)
+            file_path2 = os.path.join(dir_name, "data_2d_as_image.fits")
+            table.write_column("data_2d", file_path2, is_image=True)
+
+            # Both should be loadable
+            table3 = Results.from_trajectories(self.trj_list)
+            table3.load_column(file_path2, "data_2d")
+            self.assertTrue("data_2d" in table3.colnames)
+
+    def test_parse_table_metadata_empty(self):
+        """Test _parse_table_metadata with empty and partial metadata."""
+        # Empty dict should return all None
+        wcs, mjd_mid, shapes = Results._parse_table_metadata({})
+        self.assertIsNone(wcs)
+        self.assertIsNone(mjd_mid)
+        self.assertIsNone(shapes)
+
+        # None should return all None
+        wcs, mjd_mid, shapes = Results._parse_table_metadata(None)
+        self.assertIsNone(wcs)
+        self.assertIsNone(mjd_mid)
+        self.assertIsNone(shapes)
+
+        # Partial metadata - only mjd_utc_mid
+        meta = {"mjd_utc_mid": [59000.0, 59001.0]}
+        wcs, mjd_mid, shapes = Results._parse_table_metadata(meta)
+        self.assertIsNone(wcs)
+        self.assertEqual(mjd_mid, [59000.0, 59001.0])
+        self.assertIsNone(shapes)
+
+        # Partial metadata - only image_column_shapes
+        meta = {"image_column_shapes": {"coadd": [21, 21]}}
+        wcs, mjd_mid, shapes = Results._parse_table_metadata(meta)
+        self.assertIsNone(wcs)
+        self.assertIsNone(mjd_mid)
+        self.assertEqual(shapes, {"coadd": [21, 21]})
+
+    def test_reshape_image_columns_edge_cases(self):
+        """Test _reshape_image_columns with edge cases."""
+        # Test with empty results - should not crash
+        empty_table = Results()
+        empty_table._reshape_image_columns({"coadd": (21, 21)})
+        self.assertEqual(len(empty_table), 0)
+
+        # Test with None shapes - should do nothing
+        table = Results.from_trajectories(self.trj_list)
+        table.table["data"] = [np.zeros(100) for _ in range(self.num_entries)]
+        original_shape = table["data"][0].shape
+        table._reshape_image_columns(None)
+        self.assertEqual(table["data"][0].shape, original_shape)
+
+        # Test with empty shapes dict - should do nothing
+        table._reshape_image_columns({})
+        self.assertEqual(table["data"][0].shape, original_shape)
+
+        # Test with column not in table - should not crash
+        table._reshape_image_columns({"nonexistent_column": (10, 10)})
+
+        # Test with incompatible shape - should warn but not crash
+        # 100 elements can't be reshaped to (7, 7) = 49 elements
+        table._reshape_image_columns({"data": (7, 7)})
+        # Shape should remain unchanged due to error
+        self.assertEqual(table["data"][0].shape, original_shape)
+
+    def test_detect_image_columns(self):
+        """Test the _detect_image_columns helper method."""
+        table = Results.from_trajectories(self.trj_list)
+
+        # Add various column types
+        table.table["coadd_2d"] = [np.zeros((21, 21)) for _ in range(self.num_entries)]
+        table.table["stamps_3d"] = [np.zeros((10, 21, 21)) for _ in range(self.num_entries)]
+        table.table["curve_1d"] = [np.zeros(25) for _ in range(self.num_entries)]
+
+        # Auto-detect (no explicit list)
+        shapes = table._detect_image_columns(None)
+        self.assertIn("coadd_2d", shapes)
+        self.assertIn("stamps_3d", shapes)
+        self.assertNotIn("curve_1d", shapes)  # 1D should not be detected
+        self.assertEqual(shapes["coadd_2d"], (21, 21))
+        self.assertEqual(shapes["stamps_3d"], (10, 21, 21))
+
+        # Explicit list
+        shapes = table._detect_image_columns(["coadd_2d"])
+        self.assertIn("coadd_2d", shapes)
+        self.assertNotIn("stamps_3d", shapes)
+        self.assertEqual(shapes["coadd_2d"], (21, 21))
+
+        # Explicit list with column that doesn't exist - should skip it
+        shapes = table._detect_image_columns(["coadd_2d", "nonexistent"])
+        self.assertIn("coadd_2d", shapes)
+        self.assertNotIn("nonexistent", shapes)
+
 
 if __name__ == "__main__":
     unittest.main()
