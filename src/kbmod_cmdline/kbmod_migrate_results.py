@@ -70,7 +70,7 @@ MigrationResult = namedtuple(
 )
 
 
-def find_parquet_files(input_path, glob_pattern="**/*.parquet"):
+def find_parquet_files(input_path, glob_pattern="**/*.search.parquet"):
     """Find all parquet files matching the criteria.
 
     Parameters
@@ -88,16 +88,18 @@ def find_parquet_files(input_path, glob_pattern="**/*.parquet"):
     input_path = Path(input_path)
 
     if input_path.is_file():
-        if input_path.suffix in (".parquet", ".parq"):
+        # Check for compound extensions using name (Path.suffix only returns last extension)
+        name_lower = input_path.name.lower()
+        if name_lower.endswith(".search.parquet") or name_lower.endswith(".search.parq"):
             return [input_path]
         else:
-            raise ValueError(f"Input file must be a parquet file: {input_path}")
+            raise ValueError(f"Input file must be a .search.parquet file: {input_path}")
 
     if input_path.is_dir():
         files = list(input_path.glob(glob_pattern))
         # Also check for .parq extension if pattern uses .parquet
-        if ".parquet" in glob_pattern:
-            parq_pattern = glob_pattern.replace(".parquet", ".parq")
+        if ".search.parquet" in glob_pattern:
+            parq_pattern = glob_pattern.replace(".search.parquet", ".search.parq")
             files.extend(input_path.glob(parq_pattern))
         return sorted(set(files))
 
@@ -205,7 +207,7 @@ def count_parquet_rows_and_columns(filepath):
     return num_rows, len(colnames), colnames
 
 
-def validate_migration(original_path, new_path, expected_aux_files):
+def validate_migration(original_path, new_path, expected_aux_files, expected_image_shapes=None):
     """Validate that migration was successful.
 
     Parameters
@@ -216,6 +218,9 @@ def validate_migration(original_path, new_path, expected_aux_files):
         Path to the new parquet file.
     expected_aux_files : `list[Path]`
         List of expected auxiliary file paths.
+    expected_image_shapes : `dict`, optional
+        Expected image_column_shapes metadata. If provided, validates that
+        the new parquet file contains this metadata correctly.
 
     Returns
     -------
@@ -234,6 +239,12 @@ def validate_migration(original_path, new_path, expected_aux_files):
             if not aux_path.exists():
                 return False, f"Auxiliary file does not exist: {aux_path}"
 
+        if len(expected_aux_files) != len(expected_image_shapes):
+            return (
+                False,
+                f"Mismatch in expected auxiliary files and expected image columns {len(expected_image_shapes)} vs {len(expected_aux_files)}",
+            )
+
         # Compare row counts
         orig_rows, orig_cols, _ = count_parquet_rows_and_columns(original_path)
         new_rows, new_cols, _ = count_parquet_rows_and_columns(new_path)
@@ -250,6 +261,29 @@ def validate_migration(original_path, new_path, expected_aux_files):
                 f"Column count mismatch: expected {expected_new_cols} "
                 f"(orig={orig_cols} - aux={len(expected_aux_files)}), got {new_cols}",
             )
+
+        # Validate image_column_shapes metadata if expected shapes provided
+        if expected_image_shapes:
+            pf = pq.ParquetFile(new_path)
+            meta_dict = Results._extract_parquet_metadata(pf)
+            stored_shapes = meta_dict.get("image_column_shapes", {})
+
+            # Check that all expected image columns are in metadata
+            for col, expected_shape in expected_image_shapes.items():
+                if col not in stored_shapes:
+                    return False, f"Missing image_column_shapes metadata for column '{col}'"
+
+                stored_shape = (
+                    tuple(stored_shapes[col]) if isinstance(stored_shapes[col], list) else stored_shapes[col]
+                )
+                expected_shape = tuple(expected_shape) if isinstance(expected_shape, list) else expected_shape
+
+                if stored_shape != expected_shape:
+                    return (
+                        False,
+                        f"Shape mismatch for column '{col}': "
+                        f"expected {expected_shape}, got {stored_shape}",
+                    )
 
         return True, ""
 
@@ -495,8 +529,12 @@ def process_single_file(args_tuple):
                 if aux_path.exists():
                     temp_aux_files.append(aux_path)
 
-        # Validate the migration
-        valid, error_msg = validate_migration(file_path, temp_base, temp_aux_files)
+        # Build expected image shapes for validation
+        # All matched columns should have shape (stamp_dim, stamp_dim)
+        expected_image_shapes = {col: (stamp_dim, stamp_dim) for col in matched_columns}
+
+        # Validate the migration (including metadata)
+        valid, error_msg = validate_migration(file_path, temp_base, temp_aux_files, expected_image_shapes)
 
         if not valid:
             # Clean up temp files on validation failure
@@ -795,7 +833,7 @@ def main():
         "--glob",
         dest="glob",
         type=str,
-        default="**/*.parquet",
+        default="**/*.search.parquet",
         help="Glob pattern for finding parquet files in a directory.",
     )
     parser.add_argument(
