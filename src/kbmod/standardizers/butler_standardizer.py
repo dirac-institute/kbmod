@@ -25,7 +25,6 @@ from kbmod.core.image_stack_py import LayeredImagePy
 # Set up logger for this module
 logger = logging.getLogger(__name__)
 
-
 __all__ = [
     "ButlerStandardizer",
     "ButlerStandardizerConfig",
@@ -456,7 +455,8 @@ class ButlerStandardizer(Standardizer):
             sip_degree = self.config["wcs_fallback_sips_degree"]
             self._wcs = self._fitWCSFallback(wcs, self._naxis1, self._naxis2, n_rand_pts, sip_degree)
 
-        self._metadata["pixel_scale"] = wcs.getPixelScale().asArcseconds()
+        center_pt = bbox.getCenter()
+        self._metadata["pixel_scale"] = wcs.getPixelScale(center_pt).asArcseconds()
 
         # calculate the WCS "error" (max difference between edge coordinates
         # from Rubin's more powerful SkyWCS and Atropy's Fits-WCS)

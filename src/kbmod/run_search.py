@@ -1,22 +1,23 @@
 import logging
-from logging import config
-import numpy as np
-import psutil
 import os
 import time
+
+import astropy.units as u
+import numpy as np
+import psutil
+from astropy.coordinates import EarthLocation, SkyCoord
 
 import kbmod.search as kb
 
 from .filters.clustering_filters import apply_clustering
 from .filters.clustering_grid import apply_trajectory_grid_filter
-from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
-from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
+from .filters.sigma_g_filter import SigmaGClipping, apply_clipped_sigma_g
 from .filters.sns_filters import peak_offset_filter, predictive_line_cluster
-
+from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
+from .reprojection_utils import image_positions_to_original_icrs, invert_correct_parallax_vectorized
 from .results import Results, write_results_to_files_destructive
 from .trajectory_generator import create_trajectory_generator
 from .trajectory_utils import predict_pixel_locations
-
 
 logger = kb.Logging.getLogger(__name__)
 
@@ -130,17 +131,65 @@ class SearchRunner:
 
     Attributes
     ----------
+    config : `SearchConfiguration`
+        The configuration parameters.
+    debug : `bool`
+        If True, enable debug logging (and additional computation).
     phase_times : `dict`
         A dictionary mapping the search phase to the timing information,
         a list of [starting time, ending time] in seconds.
     phase_memory : `dict`
         A dictionary mapping the search phase the memory information,
         a list of [starting memory, ending memory] in bytes.
+    timeout : `float` or `None`
+        The time at which the search should timeout, in seconds since the epoch.
+        This is a soft timeout that will not interrupt during a processing stage.
+        None means no timeout is set.
     """
 
     def __init__(self, config=None):
         self.phase_times = {}
         self.phase_memory = {}
+        self.timeout = None
+        self.debug = False
+        self.apply_config(config)
+
+    def apply_config(self, config):
+        """Apply the configuration parameters to the search runner.
+
+        This function is designed to be called at multiple points
+        allow it to be used regardless of which level of the search
+        is being run.
+
+        Parameters
+        ----------
+        config : `SearchConfiguration`
+            The configuration parameters
+        """
+        if config is None:
+            return  # Nothing to apply
+
+        if not config.validate():
+            raise ValueError("Invalid configuration")
+        self.config = config
+
+        if config["debug"]:
+            logging.basicConfig(level=logging.DEBUG)
+            self.debug = True
+
+        if self.timeout is None and config["timeout_hours"] is not None:
+            logger.debug(f"Setting search timeout to {config['timeout_hours']} hours.")
+            self.timeout = time.time() + config["timeout_hours"] * 3600.0
+            logger.debug(f"Search will timeout at {time.ctime(self.timeout)}.")
+
+    def _check_timeout(self):
+        """Check if the search has exceeded the timeout.  This is a soft timeout
+        that will only quit between phases, so that each phase can correctly
+        free its resources (for C++ GPU functions).
+        """
+        if self.timeout is not None and time.time() > self.timeout:
+            self.display_phase_stats()  # Display which phases have been run so far.
+            raise TimeoutError("Search has exceeded the maximum allowed time.")
 
     def _start_phase(self, phase_name):
         """Start recording stats for the current phase.
@@ -150,6 +199,8 @@ class SearchRunner:
         phase_name : `str`
             The current phase.
         """
+        self._check_timeout()
+
         # Record the start time.
         self.phase_times[phase_name] = [time.time(), None]
 
@@ -165,6 +216,8 @@ class SearchRunner:
         phase_name : `str`
             The current phase.
         """
+        self._check_timeout()
+
         if phase_name not in self.phase_times:
             raise KeyError(f"Phase {phase_name} has not been started.")
 
@@ -249,6 +302,7 @@ class SearchRunner:
         # Transform the results into a Result table in batches while doing sigma-G filtering.
         batch_start = 0
         while batch_start < len(result_trjs):
+            self._check_timeout()
             batch_end = min(batch_start + batch_size, len(result_trjs))
             batch = result_trjs[batch_start:batch_end]
             batch_results = Results.from_trajectories(batch, track_filtered=config["track_filtered"])
@@ -366,10 +420,10 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
-        if config["debug"]:
-            logging.basicConfig(level=logging.DEBUG)
-
-            # Output basic binary information.
+        self.apply_config(config)
+        if self.debug:
+            # Output basic binary information. Since this requires extra computing, we
+            # only do this in debug mode.
             logger.debug(f"GPU Code Enabled: {kb.HAS_CUDA}")
             logger.debug(f"OpenMP Enabled: {kb.HAS_OMP}")
             logger.debug(kb.stat_gpu_memory_mb())
@@ -396,9 +450,6 @@ class SearchRunner:
             config.set("num_obs", int(img_count))
 
         self._start_phase("KBMOD")
-
-        if not config.validate():
-            raise ValueError("Invalid configuration")
 
         if not kb.HAS_CUDA:
             logger.warning("Code was compiled without GPU using CPU only.")
@@ -440,21 +491,27 @@ class SearchRunner:
 
         # Add all the "coadd_*" columns and a "stamp" column. This is only
         # short term until we stop using the "stamp" column.
+        self._start_phase("appending co-adds")
         append_coadds(keep, stack, coadds, stamp_radius, nightly=config["nightly_coadds"])
         if f"coadd_{stamp_type}" in keep.colnames:
             keep.table["stamp"] = keep.table[f"coadd_{stamp_type}"]
+        self._end_phase("appending co-adds")
 
         # peak_offset_filter is used only if max offset is declared
         if config["peak_offset_max"] is not None:
+            self._start_phase("peak_offset_filtering")
             peak_offset_filter(keep, peak_offset_max=config["peak_offset_max"])
+            self._end_phase("peak_offset_filtering")
 
         # if predictive_line_cluster is enabled, it expects 3 parameters.
         # default values are [4.0, 2, 60]
         if config["pred_line_cluster"]:
+            self._start_phase("predictive_line_clustering")
             if len(config["pred_line_params"]) != 3:
                 raise ValueError("Exactly three predictive line cluster parameters must be set")
             dist_lim, min_samp, proc_distance = config["pred_line_params"]
             predictive_line_cluster(keep, stack.times, dist_lim, min_samp, proc_distance)
+            self._end_phase("predictive_line_clustering")
 
         # if CNN is enabled, add the classification and probabilities to the results.
         if config["cnn_filter"]:
@@ -478,11 +535,11 @@ class SearchRunner:
         # Append additional information derived from the WorkUnit if one is provided,
         # including a global WCS and per-time (RA, dec) predictions for each image.
         if workunit is not None:
-            self._start_phase("append_positions_to_results")
             keep.table.wcs = workunit.wcs
             if config["compute_ra_dec"]:
+                self._start_phase("append_positions_to_results")
                 append_positions_to_results(workunit, keep)
-            self._end_phase("append_positions_to_results")
+                self._end_phase("append_positions_to_results")
 
         num_img = stack.num_times
 
@@ -556,8 +613,7 @@ class SearchRunner:
 
 
 def append_positions_to_results(workunit, results):
-    """Append predicted (x, y) and (RA, dec) positions in the original images. If
-    the images were reprojected, also appends the (RA, dec) in the common frame.
+    """Appends predicted RA, Dec positions to the results table.
 
     Parameters
     ----------
@@ -574,48 +630,49 @@ def append_positions_to_results(workunit, results):
     num_times = workunit.im_stack.num_times
     times = workunit.im_stack.zeroed_times
 
-    # Predict where each candidate trajectory will be at each time step in the
-    # common WCS frame. These are the pixel locations used to assess the trajectory.
+    # Predict pixel locations (same as original)
     xp = predict_pixel_locations(times, results["x"], results["vx"], as_int=False, centered=False)
     yp = predict_pixel_locations(times, results["y"], results["vy"], as_int=False, centered=False)
     results.table["pred_x"] = xp
     results.table["pred_y"] = yp
 
-    # Compute the predicted (RA, dec) positions for each trajectory the common WCS
-    # frame and original image WCS frames.
-    all_inds = np.arange(num_times)
-    all_ra = np.zeros((len(results), num_times))
-    all_dec = np.zeros((len(results), num_times))
-    if workunit.wcs is not None:
-        logger.info("Found common WCS. Adding global_ra and global_dec columns.")
+    all_ra = np.zeros((num_results, num_times))
+    all_dec = np.zeros((num_results, num_times))
 
-        # Compute the (RA, dec) for each result x time in the common WCS frame.
+    if workunit.wcs is not None:
+        logger.info("Found common WCS. Adding global_ra and global_dec columns (vectorized).")
+
+        # Compute the global (RA, dec) for all results and all times in one call
         skypos = workunit.wcs.pixel_to_world(xp, yp)
         results.table["global_ra"] = skypos.ra.degree
         results.table["global_dec"] = skypos.dec.degree
 
-        # Loop over the trajectories to build the (RA, dec) positions in each image's WCS frame.
-        for idx in range(num_results):
-            # Build a list of this trajectory's RA, dec position at each time.
-            pos_list = [skypos[idx, j] for j in range(num_times)]
-            img_skypos = workunit.image_positions_to_original_icrs(
-                image_indices=all_inds,  # Compute for all times.
-                positions=pos_list,
-                input_format="radec",
-                output_format="radec",
-                filter_in_frame=False,
-            )
+        # Now compute img_ra, img_dec by iterating over time (not per-result)
+        # This allows us to batch all results for a given time step
+        if workunit.reprojected and workunit.reprojection_frame != "ebd":
+            logger.warning("No EBD reprojection found. Skipping img_ra and img_dec columns.")
+        else:
+            # For EBD reprojection, use the vectorized invert function
+            obstimes = workunit.get_all_obstimes()
 
-            # We get back a list of SkyCoord, because we gave a list.
-            # So we flatten it and extract the coordinate values.
             for time_idx in range(num_times):
-                all_ra[idx, time_idx] = img_skypos[time_idx].ra.degree
-                all_dec[idx, time_idx] = img_skypos[time_idx].dec.degree
-
+                # Get all results' sky positions at this time
+                time_skypos = SkyCoord(
+                    ra=skypos.ra[:, time_idx],
+                    dec=skypos.dec[:, time_idx],
+                    distance=workunit.barycentric_distance * u.AU,
+                )
+                # Invert parallax for all results at this time step
+                original_icrs = invert_correct_parallax_vectorized(
+                    time_skypos,
+                    obstimes=obstimes[time_idx],
+                    point_on_earth=workunit.observatory,
+                )
+                all_ra[:, time_idx] = original_icrs.ra.degree
+                all_dec[:, time_idx] = original_icrs.dec.degree
     else:
-        logger.info("No common WCS found. Skipping global_ra and global_dec columns.")
-
-        # If there are no global WCS, we just predict per image.
+        logger.info("No common WCS found. Skipping global_ra and global_dec columns (vectorized).")
+        # No global WCS: iterate over time, batch over results
         for time_idx in range(num_times):
             wcs = workunit.get_wcs(time_idx)
             if wcs is not None:
@@ -623,6 +680,5 @@ def append_positions_to_results(workunit, results):
                 all_ra[:, time_idx] = skypos.ra.degree
                 all_dec[:, time_idx] = skypos.dec.degree
 
-    # Add the per-image coordinates to the results table.
     results.table["img_ra"] = all_ra
     results.table["img_dec"] = all_dec

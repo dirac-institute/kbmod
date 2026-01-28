@@ -7,7 +7,6 @@ from kbmod.search import Logging
 from kbmod.trajectory_utils import fit_trajectory_from_pixels, evaluate_trajectory_mse
 from kbmod.util_functions import get_matched_obstimes
 
-
 logger = Logging.getLogger(__name__)
 
 

@@ -26,8 +26,8 @@ def peak_offset_filter(res, peak_offset_max=6):
         raise RuntimeError("coadd_mean column not present in results")
 
     stamps = res["coadd_mean"]
-    (N, a, b) = stamps.shape
-    (gx, gy) = np.meshgrid(np.arange(b), np.arange(a))
+    N, a, b = stamps.shape
+    gx, gy = np.meshgrid(np.arange(b), np.arange(a))
     gx = gx.reshape(a * b)
     gy = gy.reshape(a * b)
     rs_stamps = stamps.reshape(N, a * b)

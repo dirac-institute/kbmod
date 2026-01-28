@@ -1,12 +1,12 @@
 import copy
 import math
+from pathlib import Path
 
 from astropy.io import fits
 from astropy.table import Table
-from pathlib import Path
 from yaml import dump, safe_load
-from kbmod.search import Logging
 
+from kbmod.search import Logging
 
 logger = Logging.getLogger(__name__)
 
@@ -351,6 +351,16 @@ _SUPPORTED_PARAMS = [
         description="The type of stamp to extract.",
         section="stamps",
         validate_func=lambda x: x in ["sum", "mean", "median", "weighted"],
+    ),
+    _ParamInfo(
+        name="timeout_hours",
+        default_value=None,
+        description=(
+            "The maximum number of hours to allow the search to run. This is a 'soft' "
+            "timeout that will not interrupt during a processing stage. If None, no timeout "
+            " is applied."
+        ),
+        section="other",
     ),
     _ParamInfo(
         name="track_filtered",

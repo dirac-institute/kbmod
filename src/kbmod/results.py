@@ -25,7 +25,6 @@ from kbmod.search import (
 )
 from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
 
-
 logger = logging.getLogger(__name__)
 
 
