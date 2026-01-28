@@ -1312,6 +1312,10 @@ def write_results_to_files_destructive(
     if filepath.exists() and not overwrite:
         raise ValueError(f"File {filepath} already exists. Not overwriting.")
 
+    # Capture image column shapes BEFORE removing any columns.
+    # This ensures the metadata is preserved even after columns are written to aux files.
+    image_col_shapes = results._detect_image_columns(image_columns)
+
     # Write out the auxiliary columns to their own files and drop them from the main table.
     if separate_col_files is not None:
         for col in separate_col_files:
@@ -1319,12 +1323,8 @@ def write_results_to_files_destructive(
                 logger.info(f"Column {col} not found in results. Skipping.")
                 continue
 
-            # Determine if this column is image-like: use explicit list if provided,
-            # otherwise auto-detect.
-            if image_columns is not None:
-                is_image = col in image_columns
-            else:
-                is_image = results.is_image_like(col)
+            # Use the pre-captured image_col_shapes to determine if this column is image-like.
+            is_image = col in image_col_shapes
 
             # Create a separate file for this column.  If the column is an image-like data type,
             # save it as a FITS file. Otherwise, save it using the same extension as the main file.
@@ -1351,6 +1351,11 @@ def write_results_to_files_destructive(
         extra_meta = {}
     extra_meta["separate_col_files"] = separate_col_files
     extra_meta["dropped_columns"] = drop_columns
+
+    # Preserve the image_column_shapes captured before columns were removed.
+    # This allows the shapes to be stored in metadata even for columns now in aux files.
+    if image_col_shapes:
+        extra_meta["image_column_shapes"] = {col: list(shape) for col, shape in image_col_shapes.items()}
 
     # Write the remaining data from the results to the main file.
     logger.info(f"Saving results table to {filepath}")
