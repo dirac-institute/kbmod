@@ -1091,15 +1091,18 @@ class test_results(unittest.TestCase):
         self.assertEqual(shapes["coadd_2d"], (21, 21))
         self.assertEqual(shapes["stamps_3d"], (10, 21, 21))
 
-        # Explicit list
-        shapes = table._detect_image_columns(["coadd_2d"])
-        self.assertIn("coadd_2d", shapes)
-        self.assertNotIn("stamps_3d", shapes)
+        # Explicit list adds to auto-detection, not replaces it
+        shapes = table._detect_image_columns(["curve_1d"])
+        self.assertIn("coadd_2d", shapes)  # Still auto-detected
+        self.assertIn("stamps_3d", shapes)  # Still auto-detected
+        self.assertIn("curve_1d", shapes)  # Explicitly included
         self.assertEqual(shapes["coadd_2d"], (21, 21))
+        self.assertEqual(shapes["curve_1d"], (25,))
 
         # Explicit list with column that doesn't exist - should skip it
-        shapes = table._detect_image_columns(["coadd_2d", "nonexistent"])
-        self.assertIn("coadd_2d", shapes)
+        shapes = table._detect_image_columns(["curve_1d", "nonexistent"])
+        self.assertIn("coadd_2d", shapes)  # Still auto-detected
+        self.assertIn("curve_1d", shapes)  # Explicitly included
         self.assertNotIn("nonexistent", shapes)
 
     def test_detect_image_columns_empty_first_rows(self):

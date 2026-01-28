@@ -786,15 +786,21 @@ class Results:
 
         # First check if we have metadata about image column shapes (from a previous save)
         if "image_column_shapes" in self.table.meta:
-            return colname in self.table.meta["image_column_shapes"]
+            if colname in self.table.meta["image_column_shapes"]:
+                return True
 
         # Otherwise, check the actual data for 2D+ arrays
         max_rows = len(self.table) if max_rows is None else min(max_rows, len(self.table))
+
+        # If no rows to check, we can't determine it's image-like
+        if max_rows < 1:
+            return False
+
         for idx in range(max_rows):
             entry = self.table[colname][idx]
-            if not isinstance(entry, np.ndarray) or entry.ndim < 2:
-                return False
-        return True
+            if isinstance(entry, np.ndarray) and entry.ndim >= 2:
+                return True
+        return False
 
     def filter_rows(self, rows, label=""):
         """Filter the rows in the `Results` to only include those indices
@@ -935,15 +941,18 @@ class Results:
     def _detect_image_columns(self, image_columns=None, max_rows=10):
         """Detect image-like columns and their shapes.
 
-        This method scans up to `max_rows` rows to find a representative
-        non-empty entry for each column, making detection robust when
-        early rows might be empty or atypical.
+        This method always auto-detects columns with 2D+ numpy arrays by scanning
+        up to `max_rows` rows to find a representative non-empty entry for each
+        column. Additionally, any columns explicitly listed in `image_columns`
+        will be included even if they don't meet the 2D+ criteria (e.g., if they
+        are already flattened from a parquet round-trip).
 
         Parameters
         ----------
         image_columns : `list` of `str`, optional
-            Explicit list of column names that are image-like. If provided,
-            these are used instead of auto-detection.
+            Explicit list of column names that should be treated as image-like,
+            in addition to any auto-detected columns. Useful for columns that
+            may already be flattened from parquet serialization.
         max_rows : `int`
             Maximum number of rows to check for auto-detection.
 
@@ -957,19 +966,18 @@ class Results:
         if len(self.table) == 0:
             return image_col_shapes
 
-        # Get list of columns to check
-        if image_columns is not None:
-            cols_to_check = [c for c in image_columns if c in self.table.colnames]
-        else:
-            # Auto-detect: check all columns for 2D+ numpy arrays
-            cols_to_check = self.table.colnames
+        # Convert explicit image_columns to a set for fast lookup
+        explicit_image_cols = set(image_columns) if image_columns is not None else set()
 
         max_rows = min(max_rows, len(self.table)) if max_rows is not None else len(self.table)
 
-        for colname in cols_to_check:
+        # Always check all columns for auto-detection
+        for colname in self.table.colnames:
             # Skip required trajectory columns
             if colname in self._required_col_names or colname == "uuid":
                 continue
+
+            is_explicit = colname in explicit_image_cols
 
             # Scan rows until we find a representative non-empty entry
             for idx in range(max_rows):
@@ -984,10 +992,10 @@ class Results:
 
                 # Found a representative entry
                 if entry.ndim >= 2:
-                    # This is an image-like column
+                    # This is an image-like column (auto-detected)
                     image_col_shapes[colname] = entry.shape
                     logger.debug(f"Detected image column '{colname}' with shape {entry.shape}")
-                elif image_columns is not None and colname in image_columns:
+                elif is_explicit:
                     # User explicitly specified this as image column
                     # Store shape even if 1D (may be already flattened from parquet)
                     image_col_shapes[colname] = entry.shape
