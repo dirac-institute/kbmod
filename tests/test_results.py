@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 
+import pyarrow.parquet as pq
 from astropy.table import Table
 from pathlib import Path
 
@@ -991,6 +992,14 @@ class test_results(unittest.TestCase):
 
             # psi_curve should be saved as parquet (it's NOT an image)
             self.assertTrue(Path(dir_name, "results_psi_curve.parquet").is_file())
+
+            # Verify that image_column_shapes metadata is preserved in main parquet file
+            # even though the image columns have been moved to auxiliary files
+            pf = pq.ParquetFile(main_file_path)
+            meta = Results._extract_parquet_metadata(pf)
+            self.assertIn("image_column_shapes", meta)
+            self.assertIn("coadd_mean", meta["image_column_shapes"])
+            self.assertEqual(meta["image_column_shapes"]["coadd_mean"], [21, 21])
 
     def test_write_column_explicit_is_image(self):
         """Test write_column with explicit is_image parameter."""
