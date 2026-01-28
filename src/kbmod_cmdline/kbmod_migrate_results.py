@@ -27,6 +27,11 @@ Parallel processing with 8 workers:
 
 >>> kbmod-migrate-results --input=/path/to/results_dir \\
 ...     --image-columns '*coadd*' --stamp-dim 101 --workers 8
+
+Chunked reading for large files (note that this ignores existing auxiliary files):
+
+>>> kbmod-migrate-results --input=/path/to/large_results.parquet \\
+...     --image-columns '*coadd*' --stamp-dim 101 --chunk-size 10000
 """
 
 import argparse
@@ -324,10 +329,11 @@ def reshape_image_columns_inplace(results, matched_columns, stamp_dim):
         results.table[col] = reshaped_data
 
 
-def load_and_reshape_results(file_path, matched_columns, stamp_dim, chunk_size, use_chunking=True):
+def load_and_reshape_results(file_path, matched_columns, stamp_dim, chunk_size=None):
     """Load results file and reshape image columns.
 
-    For large files (or when use_chunking=True), reads in chunks to manage memory.
+    For large files (or when use_chunking=True), reads in chunks to manage memory if
+    `chunk_size` is specified. Note that chunked reading ignores existing auxiliary files.
 
     Parameters
     ----------
@@ -338,9 +344,7 @@ def load_and_reshape_results(file_path, matched_columns, stamp_dim, chunk_size, 
     stamp_dim : `int`
         The stamp dimension.
     chunk_size : `int`
-        Number of rows per chunk when using chunked reading.
-    use_chunking : `bool`
-        Whether to use chunked reading. Default True.
+        Number of rows per chunk when using chunked reading. If None, reads entire file at once.
 
     Returns
     -------
@@ -349,11 +353,13 @@ def load_and_reshape_results(file_path, matched_columns, stamp_dim, chunk_size, 
     num_rows : `int`
         Total number of rows loaded.
     """
-    if use_chunking:
+    if chunk_size is not None:
         # Use chunked reading for memory efficiency
         accumulated_results = None
         num_rows = 0
 
+        # Note that read_table_chunks ignores existing auxiliary files. However, if migrating
+        # from legacy format, auxiliary files for image columns should not exist yet.
         for chunk in Results.read_table_chunks(str(file_path), chunk_size=chunk_size):
             # Reshape image columns in this chunk
             reshape_image_columns_inplace(chunk, matched_columns, stamp_dim)
@@ -443,7 +449,10 @@ def process_single_file(args_tuple):
 
         # Load the results file using chunked reading for memory efficiency
         results, num_rows = load_and_reshape_results(
-            file_path, matched_columns, stamp_dim, chunk_size, use_chunking=True
+            file_path,
+            matched_columns,
+            stamp_dim,
+            chunk_size,
         )
 
         if dry_run:
@@ -817,8 +826,8 @@ def main():
         "--chunk-size",
         dest="chunk_size",
         type=int,
-        default=10000,
-        help="Chunk size for reading large files.",
+        default=None,
+        help="Chunk size for reading large files. Ignores existing auxiliary files when set.",
     )
 
     optional = parser.add_argument_group("Optional flags")
