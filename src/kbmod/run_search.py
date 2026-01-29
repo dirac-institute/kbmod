@@ -14,7 +14,7 @@ from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import SigmaGClipping, apply_clipped_sigma_g
 from .filters.sns_filters import peak_offset_filter, predictive_line_cluster
 from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
-from .reprojection_utils import image_positions_to_original_icrs, invert_correct_parallax_vectorized
+from .reprojection_utils import invert_correct_parallax_vectorized
 from .results import Results, write_results_to_files_destructive
 from .trajectory_generator import create_trajectory_generator
 from .trajectory_utils import predict_pixel_locations
