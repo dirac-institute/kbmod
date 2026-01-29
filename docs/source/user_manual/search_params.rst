@@ -148,10 +148,10 @@ Configuration Parameters
 | ``save_all_stamps``    | True                        | Save the individual stamps for each    |
 |                        |                             | result and timestep.                   |
 +------------------------+-----------------------------+----------------------------------------+
-| ``separate_col_files`` | ["all_stamps"]              | A list of column names to break out    |
-|                        |                             | into separate files. These files will  |
-|                        |                             | be saved in the same directory as the  |
-|                        |                             | main result file.                      |
+| ``separate_col_files`` | ["all_stamps"]              | A list of regex patterns for columns   |
+|                        |                             | to break out into separate files.      |
+|                        |                             | These files will be saved in the same  |
+|                        |                             | directory as the main result file.     |
 +------------------------+-----------------------------+----------------------------------------+
 | ``sigmaG_filter``      | True                        | Whether to use the sigmaG filter.      |
 +------------------------+-----------------------------+----------------------------------------+
