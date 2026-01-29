@@ -769,6 +769,7 @@ class test_results(unittest.TestCase):
         table = Results.from_trajectories(self.trj_list)
         table.table["all_stamps"] = [np.zeros((25, 21, 21)) + i / 50.0 for i in range(self.num_entries)]
         table.table["coadd_mean"] = [np.zeros((31, 31)) + i / 50.0 for i in range(self.num_entries)]
+        table.table["coadd_median"] = [np.zeros((31, 31)) + i / 50.0 for i in range(self.num_entries)]
         table.table["psi_curve"] = [np.zeros(10) + i for i in range(self.num_entries)]
         table.table["phi_curve"] = [np.zeros(10) + i for i in range(self.num_entries)]
 
@@ -779,12 +780,13 @@ class test_results(unittest.TestCase):
                 main_file_path,
                 table,
                 extra_meta={"test_meta": "value"},
-                separate_col_files=["all_stamps", "coadd_mean", "psi_curve"],
+                separate_col_files=["all_stamps", "coadd_.*", "psi_curve"],
                 drop_columns=["phi_curve"],
             )
             self.assertTrue(main_file_path.is_file())
             self.assertTrue(Path(dir_name, "results_all_stamps.fits").is_file())
             self.assertTrue(Path(dir_name, "results_coadd_mean.fits").is_file())
+            self.assertTrue(Path(dir_name, "results_coadd_median.fits").is_file())
             self.assertTrue(Path(dir_name, "results_psi_curve.parquet").is_file())
 
             # Read the table and confirm that we have the expected columns.
@@ -792,15 +794,17 @@ class test_results(unittest.TestCase):
             self.assertEqual(len(table2), self.num_entries)
             self.assertTrue("all_stamps" in table2.colnames)
             self.assertTrue("coadd_mean" in table2.colnames)
+            self.assertTrue("coadd_median" in table2.colnames)
             self.assertTrue("psi_curve" in table2.colnames)
             self.assertFalse("phi_curve" in table2.colnames)
 
-            # Check the metadata in the main file.
+            # Check the metadata in the main file. The separate columns list should
+            # be the list of actual saved columns (not the regex patterns).
             self.assertEqual(table2.table.meta["test_meta"], "value")
             self.assertEqual(table2.table.meta["dropped_columns"], ["phi_curve"])
             self.assertEqual(
                 table2.table.meta["separate_col_files"],
-                ["all_stamps", "coadd_mean", "psi_curve"],
+                ["all_stamps", "coadd_mean", "coadd_median", "psi_curve"],
             )
 
     def test_read_table_chunks(self):

@@ -320,7 +320,7 @@ _SUPPORTED_PARAMS = [
     _ParamInfo(
         name="separate_col_files",
         default_value=["all_stamps"],
-        description="List of columns to save in separate files.",
+        description="List of regex for the names of the columns to save in separate files.",
         section="output",
         validate_func=lambda x: isinstance(x, list) and all(isinstance(i, str) for i in x),
     ),

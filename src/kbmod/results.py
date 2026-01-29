@@ -6,6 +6,7 @@ import copy
 import csv
 import logging
 import numpy as np
+import re
 import uuid
 
 from astropy.io import fits
@@ -1294,7 +1295,7 @@ def write_results_to_files_destructive(
         Any additional meta data to save with the table. This is saved in the
         table's meta data and can be retrieved later.
     separate_col_files : `list` of `str`, optional
-        A list of column names to write to separate files. If None, no separate files
+        A list of column name regex patterns to write to separate files. If None, no separate files
         are written.
     drop_columns : `list` of `str`, optional
         A list of column names to skip when outputting results. If None, no columns are skipped.
@@ -1318,16 +1319,19 @@ def write_results_to_files_destructive(
 
     # Write out the auxiliary columns to their own files and drop them from the main table.
     if separate_col_files is not None:
+        # Treat the separate_col_files as a list of regex and find all matching columns.
+        all_separate_cols = []
+        for pattern in separate_col_files:
+            regex = re.compile(pattern)
+            matching_cols = [col for col in results.colnames if regex.fullmatch(col)]
+            all_separate_cols.extend(matching_cols)
+        separate_col_files = all_separate_cols
+
+        # For each column that matched, write it out to its own file and drop it from the main table.
         for col in separate_col_files:
-            if col not in results.colnames:
-                logger.info(f"Column {col} not found in results. Skipping.")
-                continue
-
-            # Use the pre-captured image_col_shapes to determine if this column is image-like.
+            # If the column is an image-like data type, save it as a FITS file. Otherwise, save
+            # it using the same extension as the main file.
             is_image = col in image_col_shapes
-
-            # Create a separate file for this column.  If the column is an image-like data type,
-            # save it as a FITS file. Otherwise, save it using the same extension as the main file.
             if is_image:
                 # If the column is an image, save it as a FITS file.
                 col_file = filepath.with_name(filepath.stem + f"_{col}.fits")
