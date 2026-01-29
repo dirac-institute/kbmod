@@ -309,8 +309,8 @@ def filter_stamps_by_cnn(
     prob_bogus = []
     classifications = []
     for p in predictions.detach().numpy():
-        prob_real.append(p[0])
-        prob_bogus.append(p[1])
+        prob_real.append(p[1])
+        prob_bogus.append(p[0])
         classifications.append(np.argmax(p))
 
     bool_arr = np.array(classifications) != 0
