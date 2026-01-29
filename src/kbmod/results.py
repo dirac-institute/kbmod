@@ -993,12 +993,14 @@ class Results:
                 # Found a representative entry
                 if entry.ndim >= 2:
                     # This is an image-like column (auto-detected)
-                    image_col_shapes[colname] = entry.shape
+                    # Convert numpy int types to Python ints for pyarrow serialization
+                    image_col_shapes[colname] = tuple(int(s) for s in entry.shape)
                     logger.debug(f"Detected image column '{colname}' with shape {entry.shape}")
                 elif is_explicit:
                     # User explicitly specified this as image column
                     # Store shape even if 1D (may be already flattened from parquet)
-                    image_col_shapes[colname] = entry.shape
+                    # Convert numpy int types to Python ints for pyarrow serialization
+                    image_col_shapes[colname] = tuple(int(s) for s in entry.shape)
                     logger.debug(f"User-specified image column '{colname}' with shape {entry.shape}")
                 break  # Found representative entry, move to next column
 
