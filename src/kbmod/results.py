@@ -1014,7 +1014,6 @@ class Results:
         filename,
         overwrite=True,
         extra_meta=None,
-        image_columns=None,
     ):
         """Write the unfiltered results to a single file.  The file format is automatically
         determined from the file name's suffix which must be one of ".ecsv", ".parquet",
@@ -1029,10 +1028,6 @@ class Results:
             Overwrite the file if it already exists. [default: True]
         extra_meta : `dict`, optional
             Any additional meta data to save with the table.
-        image_columns : `list` of `str`, optional
-            Explicit list of column names that contain image-like data. If provided,
-            these columns will be marked in metadata for proper reshaping when read.
-            If None, image columns are auto-detected based on ndim >= 2.
         """
         logger.info(f"Saving results to {filename}")
 
@@ -1063,7 +1058,7 @@ class Results:
             self.table.meta["mjd_tai_mid"] = self.mjd_tai_mid
 
         # Detect and store image column metadata for parquet round-trip
-        image_col_shapes = self._detect_image_columns(image_columns)
+        image_col_shapes = self._detect_image_columns()
         if image_col_shapes:
             self.table.meta["image_column_shapes"] = {
                 col: list(shape) for col, shape in image_col_shapes.items()
@@ -1364,4 +1359,4 @@ def write_results_to_files_destructive(
 
     # Write the remaining data from the results to the main file.
     logger.info(f"Saving results table to {filepath}")
-    results.write_table(filepath, overwrite=overwrite, extra_meta=extra_meta, image_columns=image_columns)
+    results.write_table(filepath, overwrite=overwrite, extra_meta=extra_meta)

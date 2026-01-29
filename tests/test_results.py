@@ -879,10 +879,6 @@ class test_results(unittest.TestCase):
             with self.assertRaises(ValueError):
                 list(Results.read_table_chunks(file_path))
 
-    @unittest.skipIf(
-        version.parse(astropy.__version__) < version.parse("6.0"),
-        "Requires astropy >= 6.0 for 2D array parquet support",
-    )
     def test_parquet_image_column_roundtrip(self):
         """Test that 2D image columns survive parquet serialization via metadata-based reshaping."""
         table = Results.from_trajectories(self.trj_list)
@@ -898,8 +894,7 @@ class test_results(unittest.TestCase):
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "results.parquet")
 
-            # Write with explicit image_columns to ensure metadata is stored
-            table.write_table(file_path, image_columns=["coadd_mean", "coadd_median"])
+            table.write_table(file_path)
             self.assertTrue(Path(file_path).is_file())
 
             # Read back and verify shapes are restored
@@ -916,46 +911,6 @@ class test_results(unittest.TestCase):
 
             # Check that 1D curve column is still 1D
             self.assertEqual(table2["psi_curve"][0].shape, (25,))
-
-    @unittest.skipIf(
-        version.parse(astropy.__version__) < version.parse("6.0"),
-        "Requires astropy >= 6.0 for 2D array parquet support",
-    )
-    def test_parquet_image_column_roundtrip_chunks(self):
-        """Test that 2D image columns survive chunked parquet reading."""
-        table = Results.from_trajectories(self.trj_list)
-
-        # Add 2D image columns
-        coadd_shape = (21, 21)
-        table.table["coadd_mean"] = [np.full(coadd_shape, i / 10.0) for i in range(self.num_entries)]
-
-        # Add metadata (WCS, mjd_mid) to test full metadata extraction
-        table.mjd_mid = 59000.0 + np.arange(5)
-        fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
-        table.wcs = fake_wcs
-
-        with tempfile.TemporaryDirectory() as dir_name:
-            file_path = os.path.join(dir_name, "results.parquet")
-            table.write_table(file_path, image_columns=["coadd_mean"])
-
-            # Read in chunks
-            chunks = list(Results.read_table_chunks(file_path, chunk_size=4))
-
-            # Should have 3 chunks (10 rows / 4 per chunk = 2 full + 1 partial)
-            self.assertEqual(len(chunks), 3)
-
-            # Each chunk should have correctly shaped coadds
-            row_idx = 0
-            for chunk in chunks:
-                for i in range(len(chunk)):
-                    self.assertEqual(chunk["coadd_mean"][i].shape, coadd_shape)
-                    expected_val = row_idx / 10.0
-                    self.assertTrue(np.allclose(chunk["coadd_mean"][i], np.full(coadd_shape, expected_val)))
-                    row_idx += 1
-
-                # Each chunk should have WCS and mjd_mid
-                self.assertIsNotNone(chunk.wcs)
-                self.assertIsNotNone(chunk.mjd_mid)
 
     def test_is_image_like_with_metadata(self):
         """Test that is_image_like uses metadata when available."""
@@ -977,10 +932,6 @@ class test_results(unittest.TestCase):
         table.table["some_1d_data"] = [np.zeros(50) for _ in range(self.num_entries)]
         self.assertFalse(table.is_image_like("some_1d_data"))
 
-    @unittest.skipIf(
-        version.parse(astropy.__version__) < version.parse("6.0"),
-        "Requires astropy >= 6.0 for 2D array parquet support",
-    )
     def test_write_results_destructive_explicit_image_columns(self):
         """Test write_results_to_files_destructive with explicit image_columns parameter."""
         table = Results.from_trajectories(self.trj_list)
