@@ -4,8 +4,10 @@ import os
 import tempfile
 import unittest
 
+import astropy
 import pyarrow.parquet as pq
 from astropy.table import Table
+from packaging import version
 from pathlib import Path
 
 from kbmod.results import Results, write_results_to_files_destructive
@@ -877,6 +879,10 @@ class test_results(unittest.TestCase):
             with self.assertRaises(ValueError):
                 list(Results.read_table_chunks(file_path))
 
+    @unittest.skipIf(
+        version.parse(astropy.__version__) < version.parse("6.0"),
+        "Requires astropy >= 6.0 for 2D array parquet support",
+    )
     def test_parquet_image_column_roundtrip(self):
         """Test that 2D image columns survive parquet serialization via metadata-based reshaping."""
         table = Results.from_trajectories(self.trj_list)
@@ -911,6 +917,10 @@ class test_results(unittest.TestCase):
             # Check that 1D curve column is still 1D
             self.assertEqual(table2["psi_curve"][0].shape, (25,))
 
+    @unittest.skipIf(
+        version.parse(astropy.__version__) < version.parse("6.0"),
+        "Requires astropy >= 6.0 for 2D array parquet support",
+    )
     def test_parquet_image_column_roundtrip_chunks(self):
         """Test that 2D image columns survive chunked parquet reading."""
         table = Results.from_trajectories(self.trj_list)
@@ -967,6 +977,10 @@ class test_results(unittest.TestCase):
         table.table["some_1d_data"] = [np.zeros(50) for _ in range(self.num_entries)]
         self.assertFalse(table.is_image_like("some_1d_data"))
 
+    @unittest.skipIf(
+        version.parse(astropy.__version__) < version.parse("6.0"),
+        "Requires astropy >= 6.0 for 2D array parquet support",
+    )
     def test_write_results_destructive_explicit_image_columns(self):
         """Test write_results_to_files_destructive with explicit image_columns parameter."""
         table = Results.from_trajectories(self.trj_list)

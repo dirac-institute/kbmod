@@ -1,4 +1,4 @@
-"""A program to migrate legacy KBMOD results parquet files to the new format
+"""A program to migrate legacy KBMOD Results parquet files to the new format
 with proper image column metadata and auxiliary files.
 
 This tool:

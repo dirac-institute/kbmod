@@ -278,6 +278,9 @@ class Results:
 
         It also does not load any auxiliary files for this result file.
 
+        Filenme must be one of  ".parquet", ".parq", since chunked reading is
+        currently only supported for parquet files.
+
         Parameters
         ----------
         filename : `str`
