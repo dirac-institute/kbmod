@@ -22,6 +22,9 @@ TrajectoryList::TrajectoryList(uint64_t max_list_size) {
     data_on_gpu = false;
     cpu_list.resize(max_size);
     gpu_array.resize(max_size);
+
+    // Clear the entries.
+    reset_all();
 }
 
 TrajectoryList::TrajectoryList(const std::vector<Trajectory>& prev_list) {
@@ -53,10 +56,17 @@ void TrajectoryList::resize(uint64_t new_size) {
     // Make sure the new entries have the default parameters.
     uint64_t new_entries = (new_size > max_size) ? new_size - max_size : 0;
     for (uint64_t i = 0; i < new_entries; ++i) {
-        cpu_list[max_size + i] = Trajectory();
+        cpu_list[max_size + i].clear();
     }
 
     max_size = new_size;
+}
+
+void TrajectoryList::reset_all() {
+    if (data_on_gpu) throw std::runtime_error("Data on GPU");
+    for (uint64_t i = 0; i < max_size; ++i) {
+        cpu_list[i].clear();
+    }
 }
 
 void TrajectoryList::set_trajectories(const std::vector<Trajectory>& new_values) {
@@ -247,6 +257,7 @@ static void trajectory_list_binding(py::module& m) {
             .def("estimate_memory", &trjl::estimate_memory, pydocs::DOC_TrajectoryList_estimate_memory)
             .def("get_trajectory", &trjl::get_trajectory, py::return_value_policy::reference_internal,
                  pydocs::DOC_TrajectoryList_get_trajectory)
+            .def("reset_all", &trjl::reset_all, pydocs::DOC_TrajectoryList_reset_all)
             .def("set_trajectory", &trjl::set_trajectory, pydocs::DOC_TrajectoryList_set_trajectory)
             .def("set_trajectories", &trjl::set_trajectories, pydocs::DOC_TrajectoryList_set_trajectories)
             .def("get_list", &trjl::get_list, pydocs::DOC_TrajectoryList_get_list)
