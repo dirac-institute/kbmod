@@ -232,6 +232,7 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
            << "Allocating space for " << max_results << " results.";
     rs_logger->info(logmsg.str());
     results.resize(max_results);
+    results.reset_all();
 
     DebugTimer search_timer = DebugTimer("Running search", rs_logger);
     if (on_gpu) {
@@ -258,6 +259,12 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
     search_timer.stop();
     uint64_t num_results = results.get_size();
     rs_logger->debug("Core search returned " + std::to_string(num_results) + " results.\n");
+
+    for(int i=0; i < num_results; i++) {
+        printf("%i: ", i);
+        printf(results.get_trajectory(i).to_string().c_str());
+        printf("\n");
+    }
 
     // Check that all trajectories returned from the search are valid.
     results.assert_valid();

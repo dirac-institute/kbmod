@@ -47,6 +47,8 @@ public:
     }
 
     // --- Setter functions ----------------
+    void reset_all();
+
     inline void set_trajectory(uint64_t index, const Trajectory& new_value) {
         if (index >= max_size) throw std::runtime_error("Index out of bounds.");
         if (data_on_gpu) throw std::runtime_error("Data on GPU");
