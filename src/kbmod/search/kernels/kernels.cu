@@ -36,15 +36,15 @@ __host__ __device__ int predict_index(float pos0, float vel0, double time) {
 
 __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *psi_phi_vect, uint64_t time,
                                                 int row, int col) {
-    // Bounds checking.
     if ((row < 0) || (col < 0) || (row >= params.height) || (col >= params.width) ||
-        (psi_phi_vect == nullptr)) {
+        (time >= params.num_times) || (psi_phi_vect == nullptr)) {
         return {NO_DATA, NO_DATA};
     }
+    uint64_t u_row = static_cast<uint64_t>(row);
+    uint64_t u_col = static_cast<uint64_t>(col);
 
     // Compute the in-list index from the row, column, and time.
-    uint64_t start_index =
-            2 * (params.pixels_per_image * time + static_cast<uint64_t>(row * params.width + col));
+    uint64_t start_index = 2 * (params.pixels_per_image * time + u_row * params.width + u_col);
     if (start_index >= params.num_entries - 1) {
         return {NO_DATA, NO_DATA};
     }
@@ -92,7 +92,14 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
 
     // Clip the percentiles to [0.01, 99.99] to avoid invalid array accesses.
     if (sgl0 < 0.0001) sgl0 = 0.0001;
+    if (sgl0 > 0.9999) sgl0 = 0.9999;
+    if (sgl1 < 0.0001) sgl1 = 0.0001;
     if (sgl1 > 0.9999) sgl1 = 0.9999;
+    if (sgl1 < sgl0) {
+        float temp = sgl0;
+        sgl0 = sgl1;
+        sgl1 = temp;
+    }
 
     // Initialize the index array.
     for (int j = 0; j < num_values; j++) {
@@ -113,9 +120,17 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
 
     // Compute the index of each of the percent values in values
     // from the given bounds sgl0, 0.5 (median), and sgl1.
-    const int pct_L = int(ceil(num_values * sgl0) + 0.001) - 1;
-    const int pct_H = int(ceil(num_values * sgl1) + 0.001) - 1;
-    const int median_ind = int(ceil(num_values * 0.5) + 0.001) - 1;
+    int pct_L = int(ceil(num_values * sgl0) + 0.001) - 1;
+    pct_L = (pct_L < 0) ? 0 : pct_L;
+    pct_L = (pct_L >= num_values) ? (num_values - 1) : pct_L;
+
+    int pct_H = int(ceil(num_values * sgl1) + 0.001) - 1;
+    pct_H = (pct_H < 0) ? 0 : pct_H;
+    pct_H = (pct_H >= num_values) ? (num_values - 1) : pct_H;
+
+    int median_ind = int(ceil(num_values * 0.5) + 0.001) - 1;
+    median_ind = (median_ind < 0) ? 0 : median_ind;
+    median_ind = (median_ind >= num_values) ? (num_values - 1) : median_ind;
 
     // Compute the values that are +/- (width * sigma_g) from the median.
     float sigma_g = sigmag_coeff * (values[idx_array[pct_H]] - values[idx_array[pct_L]]);
@@ -177,6 +192,9 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
             psi_array[num_seen] = pixel_vals.psi;
             phi_array[num_seen] = pixel_vals.phi;
             num_seen += 1;
+
+            // This should not be triggered due to prior checks, but just in case.
+            if (num_seen >= MAX_NUM_IMAGES) break;
         }
     }
     // Set stats (avoiding divide by zero of sqrt of negative).
@@ -235,16 +253,6 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     assert(psi_phi_vect != nullptr && image_times != nullptr && trajectories != nullptr &&
            results != nullptr);
 
-    // Copy the times to faster shared memory for the block. Make sure all threads
-    // copy their time before progressing. We need to do this before pruning on
-    // (x, y) in order to correctly handle blocks at the edge of the image.
-    __shared__ double shared_times[MAX_NUM_IMAGES];
-    int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
-    if ((time_idx < psi_phi_meta.num_times) && (time_idx < MAX_NUM_IMAGES)) {
-        shared_times[time_idx] = image_times[time_idx];
-    }
-    __syncthreads();  // Block until all are done loading.
-
     // Get the x and y coordinates within the search space.
     const int x_i = blockIdx.x * THREAD_DIM_X + threadIdx.x;
     const int y_i = blockIdx.y * THREAD_DIM_Y + threadIdx.y;
@@ -263,6 +271,11 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     // Create an initial set of best results with likelihood -1.0 and default
     // values for everything so that we do not propogate uninitialized values.
     const uint64_t base_index = (y_i * search_width + x_i) * params.results_per_pixel;
+    if (base_index + params.results_per_pixel > params.total_results) {
+        print("ERROR: base_index=%i out of bounds in searchFilterImages kernel.\n", base_index);
+        return;
+    }
+
     for (int r = 0; r < params.results_per_pixel; ++r) {
         results[base_index + r].x = x;
         results[base_index + r].y = y;
@@ -284,7 +297,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
         curr_trj.obs_count = 0;
 
         // Evaluate the trajectory.
-        evaluateTrajectory(psi_phi_meta, psi_phi_vect, shared_times, params, &curr_trj);
+        evaluateTrajectory(psi_phi_meta, psi_phi_vect, image_times, params, &curr_trj);
 
         // If we do not have enough observations or a good enough LH score,
         // do not bother inserting it into the sorted list of results.
@@ -293,10 +306,9 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
             continue;
 
         // Insert the new trajectory into the sorted list of final results.
-        Trajectory temp;
         for (unsigned int r = 0; r < params.results_per_pixel; ++r) {
             if (curr_trj.lh > results[base_index + r].lh) {
-                temp = results[base_index + r];
+                Trajectory temp = results[base_index + r];
                 results[base_index + r] = curr_trj;
                 curr_trj = temp;
             }
@@ -352,6 +364,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     // we have in the results vector and expected_results is the number we are going to
     // generate. So we need num_results >= expected_results to have enough storage space.
     uint64_t expected_results = params.results_per_pixel * search_width * search_height;
+    params.total_results = expected_results;
     if (num_results < expected_results) {
         throw std::runtime_error("Not enough space allocated for results. Requires: " +
                                  std::to_string(expected_results) + ". Received: " +

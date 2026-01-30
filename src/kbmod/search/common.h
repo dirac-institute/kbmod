@@ -138,7 +138,10 @@ struct SearchParameters {
     int y_start_max;
 
     // The number of results per pixel to return
-    int results_per_pixel = 8;
+    u_int64_t results_per_pixel = 8;
+
+    // Meta data during the search.
+    uint64_t total_results = 0;
 
     const std::string to_string() const {
         std::string output = ("Filtering Settings:\n  min_observations: " + std::to_string(min_observations) +
@@ -210,6 +213,7 @@ static void search_parameters_bindings(py::module &m) {
             .def_readwrite("y_start_min", &SearchParameters::y_start_min)
             .def_readwrite("y_start_max", &SearchParameters::y_start_max)
             .def_readwrite("results_per_pixel", &SearchParameters::results_per_pixel);
+            .def_readwrite("total_results", &SearchParameters::total_results);
 }
 
 #endif /* Py_PYTHON_H */
