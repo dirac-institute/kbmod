@@ -60,6 +60,11 @@ std::vector<Trajectory> evaluate_single_pixel(int y, int x, const PsiPhiArray& p
     uint64_t num_candidates = trj_to_search.get_size();
     TrajectoryList pixel_res(num_candidates);
 
+    // Check that we have enough candidates to return.
+    if (num_results > num_candidates) {
+        throw std::runtime_error("evaluate_single_pixel requesting more results than candidates.");
+    }
+
     // Evaluate all of the candidate trajectories for this pixel.
     for (uint64_t trj_idx = 0; trj_idx < num_candidates; ++trj_idx) {
         Trajectory& candidate = trj_to_search.get_trajectory(trj_idx);
@@ -90,8 +95,11 @@ void search_cpu_only(PsiPhiArray& psi_phi_array, SearchParameters params, Trajec
     // Allocate space for all of the results.
     uint64_t search_height = params.y_start_max - params.y_start_min;
     uint64_t search_width = params.x_start_max - params.x_start_min;
-    uint64_t total_results = params.results_per_pixel * search_height * search_width;
+    uint64_t num_candidates = trj_to_search.get_size();
+    uint64_t results_per_test = (num_candidates < params.results_per_pixel) ? num_candidates : params.results_per_pixel;
+    uint64_t total_results = results_per_test * search_height * search_width;
     results.resize(total_results);
+    results.reset_all();
 
 // Test each pixel using a giant nested loop.  Allow omp to dynamically
 // thread the computations.
@@ -100,14 +108,14 @@ void search_cpu_only(PsiPhiArray& psi_phi_array, SearchParameters params, Trajec
         for (int x_i = 0; x_i < search_width; ++x_i) {
             std::vector<Trajectory> pixel_res =
                     evaluate_single_pixel(y_i + params.y_start_min, x_i + params.x_start_min, psi_phi_array,
-                                          trj_to_search, params.results_per_pixel);
+                                          trj_to_search, results_per_test);
 
 // We restrict the writing of results to a single thread.  The batch of results
 // is inserted into a specific location within the full results list.
 #pragma omp critical
             {
-                uint64_t start_ind = (y_i * search_width + x_i) * params.results_per_pixel;
-                for (uint64_t i = 0; i < params.results_per_pixel; ++i) {
+                uint64_t start_ind = (y_i * search_width + x_i) * results_per_test;
+                for (uint64_t i = 0; i < results_per_test; ++i) {
                     results.set_trajectory(start_ind + i, pixel_res[i]);
                 }
             }

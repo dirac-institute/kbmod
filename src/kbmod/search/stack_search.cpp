@@ -239,6 +239,7 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
         if (!has_gpu()) throw std::runtime_error("GPU is not available for search.");
 
         // Moved the needed data to the GPU.
+        rs_logger->info("Moving all data to GPU.");
         if (!psi_phi_preloaded) psi_phi_array.move_to_gpu();
         candidate_list.move_to_gpu();
         results.move_to_gpu();
@@ -250,10 +251,12 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
 
         // Free up the GPU memory.  Keep the psi/phi array on the GPU if
         // it is preloaded.
+        rs_logger->info("Clearing all data from GPU.");
         results.move_to_cpu();
         candidate_list.move_to_cpu();
         if (!psi_phi_preloaded) psi_phi_array.clear_from_gpu();
     } else {
+        rs_logger->info("Running search on CPU.");
         search_cpu_only(psi_phi_array, params, candidate_list, results);
     }
     search_timer.stop();

@@ -200,6 +200,7 @@ class SearchRunner:
             The current phase.
         """
         self._check_timeout()
+        logger.debug(f"Starting {phase_name}.")
 
         # Record the start time.
         self.phase_times[phase_name] = [time.time(), None]
@@ -370,12 +371,14 @@ class SearchRunner:
 
         # Do the actual search.
         self._start_phase("grid search")
-        logger.debug(f"{trj_generator}")
+        logger.debug(f"Trajectory Generator: {trj_generator}")
         candidates = [trj for trj in trj_generator]
+        logger.debug(f"Using {len(candidates)} candidates per pixel.")
         try:
             search.search_all(candidates, use_gpu)
         except:
             # Delete the search object to force the memory cleanup.
+            logger.error("Error during grid search. Cleaning up memory.")
             del search
             raise
         self._end_phase("grid search")
@@ -434,11 +437,13 @@ class SearchRunner:
         # so that the metadata is correctly handled. Otherwise we just filter the image stack.
         if config["max_masked_pixels"] < 1.0:
             keep_mask = stack.get_masked_fractions() <= config["max_masked_pixels"]
+            logger.debug(f"Filtering images from the stack. Keeping: {keep_mask}")
             if workunit is not None:
                 workunit.filter_images(keep_mask)
                 stack = workunit.im_stack
             else:
                 stack.filter_images(keep_mask)
+        logger.debug(f"Number of images to use in search: {stack.num_times}")
 
         # Determine how many images have at least 10% valid pixels.  Make sure
         # num_obs is no larger than 80% of the valid images.
