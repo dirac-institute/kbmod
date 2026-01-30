@@ -260,13 +260,17 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     const int x = x_i + params.x_start_min;
     const int y = y_i + params.y_start_min;
 
-    // Create an initial set of best results with likelihood -1.0.
-    // We also set (x, y) because they are used in the later python functions.
+    // Create an initial set of best results with likelihood -1.0 and default
+    // values for everything so that we do not propogate uninitialized values.
     const uint64_t base_index = (y_i * search_width + x_i) * params.results_per_pixel;
     for (int r = 0; r < params.results_per_pixel; ++r) {
         results[base_index + r].x = x;
         results[base_index + r].y = y;
+        results[base_index + r].vx = 0.0f;
+        results[base_index + r].vy = 0.0f;
         results[base_index + r].lh = -FLT_MAX;
+        results[base_index + r].flux = 0.0f;
+        results[base_index + r].obs_count = 0;
     }
 
     // For each trajectory we'd like to search
