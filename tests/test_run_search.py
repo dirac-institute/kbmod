@@ -424,6 +424,8 @@ class test_run_search(unittest.TestCase):
         width = 15
         height = 10
 
+        logging.basicConfig(level=logging.DEBUG)
+
         # Mask out everything except one row at times 1, 3, and 4.
         fake_times = create_fake_times(num_times, t0=60676.0)
         fake_ds = FakeDataSet(width, height, fake_times)
