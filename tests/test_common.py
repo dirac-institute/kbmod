@@ -64,6 +64,19 @@ class test_common(unittest.TestCase):
         self.assertEqual(trj4.obs_count, 0)
         self.assertTrue(trj4.is_valid())
 
+    def test_trajectory_clear(self):
+        trj1 = Trajectory(x=1, y=2, vx=3.0, vy=-4.0, obs_count=7)
+        trj1.clear()
+
+        self.assertEqual(trj1.x, 0)
+        self.assertEqual(trj1.y, 0)
+        self.assertEqual(trj1.vx, 0.0)
+        self.assertEqual(trj1.vy, 0.0)
+        self.assertEqual(trj1.flux, 0.0)
+        self.assertEqual(trj1.lh, 0.0)
+        self.assertEqual(trj1.obs_count, 0)
+        self.assertTrue(trj1.is_valid())
+
     def test_trajectory_is_valid(self):
         self.assertTrue(Trajectory(x=1, y=2, vx=3.0, vy=-4.0, obs_count=7).is_valid())
         self.assertFalse(Trajectory(x=1, y=2, vx=3.0, vy=-4.0, obs_count=-1).is_valid())

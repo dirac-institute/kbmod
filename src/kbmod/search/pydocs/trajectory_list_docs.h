@@ -52,6 +52,14 @@ static const auto DOC_TrajectoryList_get_trajectory = R"doc(
   on the GPU.
   )doc";
 
+static const auto DOC_TrajectoryList_reset_all = R"doc(
+  Set all the parameters of all the trajectories to their default values.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` if the data currently resideson the GPU.
+  )doc";
+
 static const auto DOC_TrajectoryList_set_trajectory = R"doc(
   Set a trajectory in the list. The data must reside on the CPU.
 

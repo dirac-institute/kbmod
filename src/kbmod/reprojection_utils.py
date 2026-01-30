@@ -7,7 +7,6 @@ from astropy.coordinates import (
     ICRS,
     solar_system_ephemeris,
     get_body_barycentric,
-    EarthLocation,
 )
 from astropy.time import Time
 from astropy.wcs.utils import fit_wcs_from_points, skycoord_to_pixel
