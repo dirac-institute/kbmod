@@ -256,6 +256,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     assert(psi_phi_vect != nullptr && image_times != nullptr && trajectories != nullptr &&
            results != nullptr);
 
+    // Copy the times to faster shared memory for the block. Make sure all threads
     // copy their time before progressing. We need to do this before pruning on
     // (x, y) in order to correctly handle blocks at the edge of the image.
     __shared__ double shared_times[MAX_NUM_IMAGES];
