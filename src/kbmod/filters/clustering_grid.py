@@ -76,7 +76,7 @@ class TrajectoryClusterGrid:
             raise ValueError(
                 f"Invalid trajectory at index {idx}: x={trj.x}, y={trj.y}, vx={trj.vx}, vy={trj.vy}."
             )
- 
+
         # Compute the spatial bin.
         xs_bin = int(trj.x / self.bin_width)
         ys_bin = int(trj.y / self.bin_width)
