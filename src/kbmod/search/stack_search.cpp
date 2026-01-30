@@ -263,15 +263,6 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
     uint64_t num_results = results.get_size();
     rs_logger->debug("Core search returned " + std::to_string(num_results) + " results.\n");
 
-    for(int i=0; i < num_results; i++) {
-        printf("%i: ", i);
-        printf(results.get_trajectory(i).to_string().c_str());
-        printf("\n");
-    }
-
-    // Check that all trajectories returned from the search are valid.
-    results.assert_valid();
-
     // Perform initial LH and obs_count filtering.
     DebugTimer filter_timer = DebugTimer("Filtering results by LH and min_obs", rs_logger);
     results.filter_by_likelihood(params.min_lh);
