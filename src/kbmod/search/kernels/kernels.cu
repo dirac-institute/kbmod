@@ -208,6 +208,13 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
         (params.do_sigmag_filter && candidate->lh < params.min_lh))
         return;
 
+    // Safety check to avoid out of bounds memory access.
+    if (num_seen > MAX_NUM_IMAGES) {
+        // Unfortunately we cannot raise an error in a kernel, so we print to stdout and exit.
+        printf("ERROR: num_seen=%d exceeds MAX_NUM_IMAGES=%d in evaluateTrajectory.\n", num_seen, MAX_NUM_IMAGES);
+        return;
+    }
+
     // If we are doing on GPU filtering, run the sigma_g filter and recompute the likelihoods.
     if (params.do_sigmag_filter) {
         // Fill in a likelihood and index array for sorting.
@@ -222,6 +229,8 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
         int max_keep_idx = num_seen - 1;
         SigmaGFilteredIndicesCU(lc_array, num_seen, params.sgl_L, params.sgl_H, params.sigmag_coeff, 2.0,
                                 idx_array, &min_keep_idx, &max_keep_idx);
+        if (min_keep_idx < 0) min_keep_idx = 0;
+        if (max_keep_idx >= num_seen) max_keep_idx = num_seen - 1;
 
         // Compute the likelihood and flux of the track based on the filtered
         // observations (ones in [min_keep_idx, max_keep_idx]).
@@ -272,7 +281,8 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     // values for everything so that we do not propogate uninitialized values.
     const uint64_t base_index = (y_i * search_width + x_i) * params.results_per_pixel;
     if (base_index + params.results_per_pixel > params.total_results) {
-        print("ERROR: base_index=%i out of bounds in searchFilterImages kernel.\n", base_index);
+        // Unfortunately we cannot raise an error in a kernel, so we print to stdout and exit.
+        printf("ERROR: base_index=%llu out of bounds in searchFilterImages kernel.\n", base_index);
         return;
     }
 

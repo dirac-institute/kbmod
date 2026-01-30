@@ -212,7 +212,7 @@ static void search_parameters_bindings(py::module &m) {
             .def_readwrite("x_start_max", &SearchParameters::x_start_max)
             .def_readwrite("y_start_min", &SearchParameters::y_start_min)
             .def_readwrite("y_start_max", &SearchParameters::y_start_max)
-            .def_readwrite("results_per_pixel", &SearchParameters::results_per_pixel);
+            .def_readwrite("results_per_pixel", &SearchParameters::results_per_pixel)
             .def_readwrite("total_results", &SearchParameters::total_results);
 }
 
