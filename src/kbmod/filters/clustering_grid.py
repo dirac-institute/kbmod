@@ -69,19 +69,11 @@ class TrajectoryClusterGrid:
         if idx is None:
             idx = self.total_count
 
-        # Compute the end position and check for validity.
-        xe = trj.x + self.max_time * trj.vx
-        ye = trj.y + self.max_time * trj.vy
-        if not np.isfinite(xe) or not np.isfinite(ye):
-            raise ValueError(
-                f"Invalid trajectory at index {idx}: x={trj.x}, y={trj.y}, vx={trj.vx}, vy={trj.vy}."
-            )
-
         # Compute the spatial bin.
         xs_bin = int(trj.x / self.bin_width)
         ys_bin = int(trj.y / self.bin_width)
-        xe_bin = int(xe / self.bin_width)
-        ye_bin = int(ye / self.bin_width)
+        xe_bin = int((trj.x + self.max_time * trj.vx) / self.bin_width)
+        ye_bin = int((trj.y + self.max_time * trj.vy) / self.bin_width)
 
         bin_key = (xs_bin, ys_bin, xe_bin, ye_bin)
         if bin_key not in self.table:
@@ -113,16 +105,11 @@ class TrajectoryClusterGrid:
         vx = np.asanyarray(extract_all_trajectory_vx(trj_list))
         vy = np.asanyarray(extract_all_trajectory_vy(trj_list))
 
-        xe = x0 + self.max_time * vx
-        ye = y0 + self.max_time * vy
-        if not np.all(np.isfinite(xe)) or not np.all(np.isfinite(ye)):
-            raise ValueError("One or more trajectories have invalid end positions.")
-
         # Compute the spatial bin (vectorized) for all results.
         xs_bin = (x0 / self.bin_width).astype(int)
         ys_bin = (y0 / self.bin_width).astype(int)
-        xe_bin = (xe / self.bin_width).astype(int)
-        ye_bin = (ye / self.bin_width).astype(int)
+        xe_bin = ((x0 + self.max_time * vx) / self.bin_width).astype(int)
+        ye_bin = ((y0 + self.max_time * vy) / self.bin_width).astype(int)
 
         # We need to insert the trajectories serially because we are modifying the table.
         for idx, trj in enumerate(trj_list):

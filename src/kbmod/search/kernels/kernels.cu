@@ -92,14 +92,7 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
 
     // Clip the percentiles to [0.01, 99.99] to avoid invalid array accesses.
     if (sgl0 < 0.0001) sgl0 = 0.0001;
-    if (sgl0 > 0.9999) sgl0 = 0.9999;
-    if (sgl1 < 0.0001) sgl1 = 0.0001;
     if (sgl1 > 0.9999) sgl1 = 0.9999;
-    if (sgl1 < sgl0) {
-        float temp = sgl0;
-        sgl0 = sgl1;
-        sgl1 = temp;
-    }
 
     // Initialize the index array.
     for (int j = 0; j < num_values; j++) {
@@ -120,6 +113,7 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
 
     // Compute the index of each of the percent values in values
     // from the given bounds sgl0, 0.5 (median), and sgl1.
+    // Make sure all indices are valid (in [0, num_values-1]).
     int pct_L = int(ceil(num_values * sgl0) + 0.001) - 1;
     pct_L = (pct_L < 0) ? 0 : pct_L;
     pct_L = (pct_L >= num_values) ? (num_values - 1) : pct_L;
@@ -316,9 +310,10 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
             continue;
 
         // Insert the new trajectory into the sorted list of final results.
+        Trajectory temp;
         for (unsigned int r = 0; r < params.results_per_pixel; ++r) {
             if (curr_trj.lh > results[base_index + r].lh) {
-                Trajectory temp = results[base_index + r];
+                temp = results[base_index + r];
                 results[base_index + r] = curr_trj;
                 curr_trj = temp;
             }
