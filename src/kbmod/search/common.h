@@ -138,10 +138,10 @@ struct SearchParameters {
     int y_start_max;
 
     // The number of results per pixel to return
-    u_int64_t results_per_pixel = 8;
+    unsigned int results_per_pixel = 8;
 
     // Meta data during the search.
-    uint64_t total_results = 0;
+    unsigned long long total_results = 0;
 
     const std::string to_string() const {
         std::string output = ("Filtering Settings:\n  min_observations: " + std::to_string(min_observations) +
