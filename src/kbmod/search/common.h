@@ -64,7 +64,7 @@ struct Trajectory {
     int x = 0;
     int y = 0;
     // Number of images summed
-    int obs_count;
+    int obs_count = 0;
 
     // Get pixel positions from a zero-shifted time. Centered indicates whether
     // the prediction starts from the center of the pixel (which it does in the search)
@@ -78,13 +78,23 @@ struct Trajectory {
     inline int get_x_index(double time) const { return (int)floor(get_x_pos(time, true)); }
     inline int get_y_index(double time) const { return (int)floor(get_y_pos(time, true)); }
 
+    void clear() {
+        x = 0;
+        y = 0;
+        vx = 0.0;
+        vy = 0.0;
+        lh = 0.0;
+        flux = 0.0;
+        obs_count = 0;
+    }
+
     const std::string to_string() const {
         return "lh: " + std::to_string(lh) + " flux: " + std::to_string(flux) + " x: " + std::to_string(x) +
                " y: " + std::to_string(y) + " vx: " + std::to_string(vx) + " vy: " + std::to_string(vy) +
                " obs_count: " + std::to_string(obs_count);
     }
 
-    const bool is_valid() const {
+    bool is_valid() const {
         return (std::isfinite(vx) && std::isfinite(vy) && std::isfinite(lh) && std::isfinite(flux) && (obs_count >= 0));
     }
 
@@ -168,6 +178,7 @@ static void trajectory_bindings(py::module &m) {
             .def("get_x_index", &tj::get_x_index, pydocs::DOC_Trajectory_get_x_index)
             .def("get_y_index", &tj::get_y_index, pydocs::DOC_Trajectory_get_y_index)
             .def("is_valid", &tj::is_valid, pydocs::DOC_Trajectory_is_valid)
+            .def("clear", &tj::clear, pydocs::DOC_Trajectory_clear)
             .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
             .def("__str__", &tj::to_string)
             .def(py::pickle(

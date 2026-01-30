@@ -53,7 +53,7 @@ void TrajectoryList::resize(uint64_t new_size) {
     // Make sure the new entries have the default parameters.
     uint64_t new_entries = (new_size > max_size) ? new_size - max_size : 0;
     for (uint64_t i = 0; i < new_entries; ++i) {
-        cpu_list[max_size + i] = Trajectory();
+        cpu_list[max_size + i].clear();
     }
 
     max_size = new_size;
