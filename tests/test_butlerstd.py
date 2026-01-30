@@ -64,6 +64,7 @@ class TestButlerStandardizer(unittest.TestCase):
             "mjd_mid": Time(hdr["DATE-AVG"], format="isot", scale="tai").utc.mjd
             + (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0,
             "filter": hdr["FILTER"],
+            "instrument": "LSSTComCam",
         }
         expected["obs_day"] = ButlerStandardizer._mjd_to_obs_day(expected["mjd_mid"])
 

@@ -405,6 +405,7 @@ class ButlerStandardizer(Standardizer):
         self._metadata["detector"] = self.ref.dataId["detector"]
         self._metadata["band"] = self.ref.dataId["band"]
         self._metadata["filter"] = self.ref.dataId["physical_filter"]
+        self._metadata["instrument"] = self.ref.dataId["instrument"]
 
         visit_ref = self.ref.makeComponentRef("visitInfo")
         visit = self.butler.get(visit_ref)

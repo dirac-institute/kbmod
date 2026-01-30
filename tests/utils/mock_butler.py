@@ -88,6 +88,7 @@ class DatasetId:
         self.band = self.physical_filter.split(" ")[0]
         self.visit = prim["EXPID"]
         self.detector = prim["CCDNUM"]
+        self.instrument = "LSSTComCam"
 
     def __getitem__(self, key):
         test = getattr(self, key, None)
