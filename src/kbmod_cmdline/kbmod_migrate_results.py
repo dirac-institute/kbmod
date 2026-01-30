@@ -101,6 +101,11 @@ def find_parquet_files(input_path, glob_pattern="**/*.search.parquet"):
         if ".search.parquet" in glob_pattern:
             parq_pattern = glob_pattern.replace(".search.parquet", ".search.parq")
             files.extend(input_path.glob(parq_pattern))
+        elif ".search.parq" in glob_pattern:
+            # On the other hand, if pattern uses .parq, also check for .parquet
+            # Note since .parq is a substring of .parquet, we check this second.
+            parquet_pattern = glob_pattern.replace(".search.parq", ".search.parquet")
+            files.extend(input_path.glob(parquet_pattern))
         return sorted(set(files))
 
     raise FileNotFoundError(f"Input path not found: {input_path}")
@@ -207,7 +212,7 @@ def count_parquet_rows_and_columns(filepath):
     return num_rows, len(colnames), colnames
 
 
-def validate_migration(original_path, new_path, expected_aux_files, expected_image_shapes=None):
+def validate_migration(original_path, new_path, expected_aux_files, expected_image_shapes):
     """Validate that migration was successful.
 
     Parameters
@@ -218,8 +223,8 @@ def validate_migration(original_path, new_path, expected_aux_files, expected_ima
         Path to the new parquet file.
     expected_aux_files : `list[Path]`
         List of expected auxiliary file paths.
-    expected_image_shapes : `dict`, optional
-        Expected image_column_shapes metadata. If provided, validates that
+    expected_image_shapes : `dict`
+        Expected image_column_shapes metadata. If non-empty, validates that
         the new parquet file contains this metadata correctly.
 
     Returns
@@ -394,6 +399,9 @@ def load_and_reshape_results(file_path, matched_columns, stamp_dim, chunk_size=N
 
         # Note that read_table_chunks ignores existing auxiliary files. However, if migrating
         # from legacy format, auxiliary files for image columns should not exist yet.
+        # This chunked reading approach is mainly for large files that seem to trigger some
+        # sort of segfault in astropy. Reading in a chunked manner avoids that, but ideally
+        # we should use chunked reshaping and writing to avoid loading full data in memory.
         for chunk in Results.read_table_chunks(str(file_path), chunk_size=chunk_size):
             # Reshape image columns in this chunk
             reshape_image_columns_inplace(chunk, matched_columns, stamp_dim)

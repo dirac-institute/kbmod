@@ -450,7 +450,8 @@ class Results:
                 shape = tuple(shape) if isinstance(shape, list) else shape
                 logger.debug(f"Reshaping column '{colname}' to {shape}")
                 try:
-                    self.table[colname] = [np.reshape(row, shape) for row in self.table[colname]]
+                    new_shape = tuple([len(self)] + list(shape))
+                    self.table[colname] = np.reshape(self.table[colname], new_shape)
                 except ValueError as e:
                     logger.warning(
                         f"Could not reshape column '{colname}' to {shape}: {e}. "

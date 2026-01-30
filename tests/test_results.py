@@ -810,13 +810,6 @@ class test_results(unittest.TestCase):
     def test_read_table_chunks(self):
         """Test the chunked reading of a parquet file."""
         max_save = 15
-        table = Results.from_trajectories(
-            self.trj_list[0:max_save] if max_save <= self.num_entries else self.trj_list * 2
-        )
-
-        # Make sure we have enough entries for meaningful chunking
-        while len(table) < max_save:
-            table.extend(Results.from_trajectories(self.trj_list))
         table = Results.from_trajectories([self.trj_list[i % self.num_entries] for i in range(max_save)])
 
         # Add fake times to test metadata extraction
