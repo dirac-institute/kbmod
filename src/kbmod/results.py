@@ -10,9 +10,11 @@ import re
 import uuid
 
 from astropy.io import fits
+from astropy.io.misc.yaml import load as astropy_yaml_load
 from astropy.table import Column, Table, vstack
 from astropy.time import Time
 from pathlib import Path
+import pyarrow.parquet as pq
 
 from kbmod.search import (
     extract_all_trajectory_flux,
@@ -242,20 +244,15 @@ class Results:
             )
         data = Table.read(filename)
 
-        # Check if we have stored a global WCS.
-        if "wcs" in data.meta:
-            wcs = deserialize_wcs(data.meta["wcs"])
-        else:
-            wcs = None
+        # Parse metadata (WCS, times, image column shapes)
+        wcs, mjd_mid, image_column_shapes = cls._parse_table_metadata(data.meta)
 
         # Create the results object.
         results = Results(data, track_filtered=track_filtered, wcs=wcs)
 
-        # Check if we have a list of observed times.
-        if "mjd_utc_mid" in data.meta:
-            results.set_mjd_utc_mid(np.array(data.meta["mjd_utc_mid"]))
-        elif "mjd_mid" in data.meta:
-            results.set_mjd_utc_mid(np.array(data.meta["mjd_mid"]))
+        # Attach the mjd_mid if found (already np.array from _parse_table_metadata)
+        if mjd_mid is not None:
+            results.set_mjd_utc_mid(mjd_mid)
 
         if load_aux_files:
             # Check for any auxiliary files that share the same base name,
@@ -266,7 +263,200 @@ class Results:
                 logger.info(f"Loading column {colname} results from {aux_file}")
                 results.load_column(aux_file, colname=colname)
 
+        # Reshape image columns if we have stored shape metadata
+        # (parquet flattens multi-dimensional arrays to 1D)
+        # This must happen after loading aux files since they may contain image columns.
+        results._reshape_image_columns(data.meta.get("image_column_shapes"))
+
         return results
+
+    @classmethod
+    def read_table_chunks(cls, filename, chunk_size=10000):
+        """Read the Results from a table file in chunks.
+
+        This is a generator that yields `Results` objects for each chunk of data.
+        It is designed to handle very large result files that cannot fit into memory.
+
+        It also does not load any auxiliary files for this result file.
+
+        Filenme must be one of  ".parquet", ".parq", since chunked reading is
+        currently only supported for parquet files.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file to load. Must be a parquet file.
+        chunk_size : `int`
+            Number of rows to include in each chunk. Default is 10000.
+
+        Yields
+        ------
+        results : `Results`
+            A Results object containing a chunk of the data.
+        """
+        logger.info(f"Reading results from {filename} in chunks of {chunk_size}")
+        filepath = Path(filename)
+
+        if not filepath.is_file():
+            raise FileNotFoundError(f"File {filename} not found.")
+        if ".parquet" not in filepath.suffix and ".parq" not in filepath.suffix:
+            raise ValueError("Chunked reading currently only supported for parquet files.")
+
+        # Open the parquet file
+        pf = pq.ParquetFile(filename)
+
+        # Extract metadata from the parquet file without reading all data
+        meta_dict = cls._extract_parquet_metadata(pf)
+
+        # Parse metadata (WCS, times, image column shapes)
+        wcs, mjd_mid, image_column_shapes = cls._parse_table_metadata(meta_dict)
+
+        # Iterate over batches
+        for batch in pf.iter_batches(batch_size=chunk_size):
+            # Convert pyarrow batch to Astropy Table
+            # Converting to pandas first is often more robust for astropy conversion
+            batch_table = Table.from_pandas(batch.to_pandas())
+
+            # Create a mini-Results object
+            # Note: We don't use track_filtered for chunks usually as it's for streaming analysis
+            results = Results(batch_table, track_filtered=False, wcs=wcs)
+
+            # Attach the global mjd_mid if found
+            if mjd_mid is not None:
+                results.set_mjd_utc_mid(mjd_mid)
+
+            # Reshape image columns if we have stored shape metadata
+            # (parquet flattens multi-dimensional arrays to 1D)
+            results._reshape_image_columns(image_column_shapes)
+
+            yield results
+
+    @staticmethod
+    def _extract_parquet_metadata(pf):
+        """Extract Astropy table metadata from a parquet file without reading all data.
+
+        Astropy stores table metadata in a YAML-encoded format within the parquet
+        schema's key-value metadata under the key 'table_meta_yaml'.
+
+        Parameters
+        ----------
+        pf : `pyarrow.parquet.ParquetFile`
+            An open parquet file object.
+
+        Returns
+        -------
+        meta_dict : `dict`
+            A dictionary containing the extracted metadata. Returns an empty dict
+            if no metadata is found or parsing fails.
+        """
+        arrow_metadata = pf.schema_arrow.metadata
+        if not arrow_metadata or b"table_meta_yaml" not in arrow_metadata:
+            return {}
+
+        try:
+            yaml_bytes = arrow_metadata[b"table_meta_yaml"]
+            yaml_str = yaml_bytes.decode("utf-8")
+            meta_obj = astropy_yaml_load(yaml_str)
+
+            # Extract the 'meta' field from the YAML structure
+            # Astropy serializes table.meta as a list of tuples (OrderedDict format)
+            meta_dict = {}
+            if isinstance(meta_obj, dict) and "meta" in meta_obj:
+                raw_meta = meta_obj["meta"]
+                # Convert list of tuples to dict
+                if isinstance(raw_meta, list):
+                    for item in raw_meta:
+                        if isinstance(item, (tuple, list)) and len(item) == 2:
+                            key, value = item
+                            meta_dict[key] = value
+                        elif isinstance(item, dict):
+                            meta_dict.update(item)
+                elif isinstance(raw_meta, dict):
+                    meta_dict = raw_meta
+
+            return meta_dict
+        except Exception as e:
+            logger.warning(f"Failed to parse astropy metadata from parquet: {e}")
+            return {}
+
+    @staticmethod
+    def _parse_table_metadata(meta_dict):
+        """Parse common metadata fields from a table's metadata dictionary.
+
+        Extracts WCS, observation times, and image column shape information
+        from the metadata. This is used by both `read_table` and `read_table_chunks`.
+
+        Parameters
+        ----------
+        meta_dict : `dict`
+            A dictionary containing table metadata (e.g., from `table.meta` or
+            extracted from parquet metadata).
+
+        Returns
+        -------
+        wcs : `astropy.wcs.WCS` or `None`
+            The deserialized WCS object, or None if not present.
+        mjd_mid : `np.ndarray` or `None`
+            The observation midpoint times in MJD UTC as a numpy array,
+            or None if not present.
+        image_column_shapes : `dict` or `None`
+            A dictionary mapping column names to their original shapes,
+            or None if not present.
+        """
+        if not meta_dict:
+            return None, None, None
+
+        # Extract WCS
+        wcs = None
+        if "wcs" in meta_dict:
+            wcs = deserialize_wcs(meta_dict["wcs"])
+
+        # Extract observation times (check mjd_utc_mid first for compatibility)
+        # Normalize to np.array for consistent type across read_table and read_table_chunks
+        mjd_mid = None
+        if "mjd_utc_mid" in meta_dict:
+            mjd_mid = np.array(meta_dict["mjd_utc_mid"])
+        elif "mjd_mid" in meta_dict:
+            mjd_mid = np.array(meta_dict["mjd_mid"])
+
+        # Extract image column shapes
+        image_column_shapes = meta_dict.get("image_column_shapes")
+
+        logger.debug(
+            f"Parsed metadata: wcs={wcs is not None}, "
+            f"mjd_mid len={len(mjd_mid) if mjd_mid is not None else 0}, "
+            f"image_columns={list(image_column_shapes.keys()) if image_column_shapes else []}"
+        )
+
+        return wcs, mjd_mid, image_column_shapes
+
+    def _reshape_image_columns(self, image_column_shapes):
+        """Reshape image columns back to their original dimensions.
+
+        Parquet serialization (via Astropy) flattens multi-dimensional arrays to 1D.
+        This method uses stored shape metadata to restore the original dimensions.
+
+        Parameters
+        ----------
+        image_column_shapes : `dict` or `None`
+            A dictionary mapping column names to their original shapes.
+            If None or empty, no reshaping is performed.
+        """
+        if not image_column_shapes or len(self) == 0:
+            return
+
+        for colname, shape in image_column_shapes.items():
+            if colname in self.colnames:
+                shape = tuple(shape) if isinstance(shape, list) else shape
+                logger.debug(f"Reshaping column '{colname}' to {shape}")
+                try:
+                    new_shape = tuple([len(self)] + list(shape))
+                    self.table[colname] = np.reshape(self.table[colname], new_shape)
+                except ValueError as e:
+                    logger.warning(
+                        f"Could not reshape column '{colname}' to {shape}: {e}. "
+                        "Shape may have changed or data is incompatible."
+                    )
 
     def remove_column(self, colname):
         """Remove a column from the results table.
@@ -576,20 +766,46 @@ class Results:
                 result[idx] = True
         return result
 
-    def is_image_like(self, colname):
+    def is_image_like(self, colname, max_rows=10):
         """Check whether the column contains image-like data (numpy arrays
         with at least 2 dimensions).
+
+        This method first checks the table metadata for stored image column
+        shape information (which preserves shape info through parquet round-trips).
+        If not found in metadata, it inspects the actual data.
 
         Parameters
         ----------
         colname : `str`
             The name of the column to check.
+        max_row : `int`
+            The maximum number of rows to check before concluding
+            that the column is not image-like. Default: 10.
+        Returns
+        -------
+        result : `bool`
+            True if the column contains image-like data.
         """
-        for idx in range(len(self.table)):
+        if colname not in self.table.colnames:
+            raise KeyError(f"Querying unknown column {colname}")
+
+        # First check if we have metadata about image column shapes (from a previous save)
+        if "image_column_shapes" in self.table.meta:
+            if colname in self.table.meta["image_column_shapes"]:
+                return True
+
+        # Otherwise, check the actual data for 2D+ arrays
+        max_rows = len(self.table) if max_rows is None else min(max_rows, len(self.table))
+
+        # If no rows to check, we can't determine it's image-like
+        if max_rows < 1:
+            return False
+
+        for idx in range(max_rows):
             entry = self.table[colname][idx]
-            if not isinstance(entry, np.ndarray) or len(entry.shape) < 2:
-                return False
-        return True
+            if isinstance(entry, np.ndarray) and entry.ndim >= 2:
+                return True
+        return False
 
     def filter_rows(self, rows, label=""):
         """Filter the rows in the `Results` to only include those indices
@@ -727,6 +943,74 @@ class Results:
 
         return self
 
+    def _detect_image_columns(self, image_columns=None, max_rows=10):
+        """Detect image-like columns and their shapes.
+
+        This method always auto-detects columns with 2D+ numpy arrays by scanning
+        up to `max_rows` rows to find a representative non-empty entry for each
+        column. Additionally, any columns explicitly listed in `image_columns`
+        will be included even if they don't meet the 2D+ criteria (e.g., if they
+        are already flattened from a parquet round-trip).
+
+        Parameters
+        ----------
+        image_columns : `list` of `str`, optional
+            Explicit list of column names that should be treated as image-like,
+            in addition to any auto-detected columns. Useful for columns that
+            may already be flattened from parquet serialization.
+        max_rows : `int`
+            Maximum number of rows to check for auto-detection.
+
+        Returns
+        -------
+        image_col_shapes : `dict`
+            Dictionary mapping column name to tuple of (original_shape).
+        """
+        image_col_shapes = {}
+
+        if len(self.table) == 0:
+            return image_col_shapes
+
+        # Convert explicit image_columns to a set for fast lookup
+        explicit_image_cols = set(image_columns) if image_columns is not None else set()
+
+        max_rows = min(max_rows, len(self.table)) if max_rows is not None else len(self.table)
+
+        # Always check all columns for auto-detection
+        for colname in self.table.colnames:
+            # Skip required trajectory columns
+            if colname in self._required_col_names or colname == "uuid":
+                continue
+
+            is_explicit = colname in explicit_image_cols
+
+            # Scan rows until we find a representative non-empty entry
+            for idx in range(max_rows):
+                entry = self.table[colname][idx]
+                if not isinstance(entry, np.ndarray):
+                    # Not a numpy array, skip this column
+                    break
+
+                # Check if this entry is "empty" (size 0) - if so, try next row
+                if entry.size == 0:
+                    continue
+
+                # Found a representative entry
+                if entry.ndim >= 2:
+                    # This is an image-like column (auto-detected)
+                    # Convert numpy int types to Python ints for pyarrow serialization
+                    image_col_shapes[colname] = tuple(int(s) for s in entry.shape)
+                    logger.debug(f"Detected image column '{colname}' with shape {entry.shape}")
+                elif is_explicit:
+                    # User explicitly specified this as image column
+                    # Store shape even if 1D (may be already flattened from parquet)
+                    # Convert numpy int types to Python ints for pyarrow serialization
+                    image_col_shapes[colname] = tuple(int(s) for s in entry.shape)
+                    logger.debug(f"User-specified image column '{colname}' with shape {entry.shape}")
+                break  # Found representative entry, move to next column
+
+        return image_col_shapes
+
     def write_table(
         self,
         filename,
@@ -775,6 +1059,14 @@ class Results:
             self.table.meta["mjd_utc_mid"] = self.mjd_mid
             self.table.meta["mjd_tai_mid"] = self.mjd_tai_mid
 
+        # Detect and store image column metadata for parquet round-trip
+        image_col_shapes = self._detect_image_columns()
+        if image_col_shapes:
+            self.table.meta["image_column_shapes"] = {
+                col: list(shape) for col, shape in image_col_shapes.items()
+            }
+            logger.debug(f"Storing image column metadata: {list(image_col_shapes.keys())}")
+
         if extra_meta is not None:
             for key, val in extra_meta.items():
                 logger.debug(f"Saving {key} to Results table meta data.")
@@ -783,7 +1075,7 @@ class Results:
         # Write out the table.
         self.table.write(filename, overwrite=overwrite, **kwargs)
 
-    def write_column(self, colname, filename, overwrite=True):
+    def write_column(self, colname, filename, overwrite=True, is_image=None):
         """Save a single column's data as its own data file. The file
         type is inferred from the filename suffix. Supported formats include
         numpy (.npy), ecsv (.ecsv), parquet (.parq or .parquet), or
@@ -799,6 +1091,9 @@ class Results:
         overwrite : `bool`
             Overwrite the file if it already exists.
             Default: True
+        is_image : `bool`, optional
+            Explicitly specify whether this column contains image-like data.
+            If None, auto-detection via `is_image_like()` is used.
 
         Raises
         ------
@@ -831,7 +1126,11 @@ class Results:
                 single_table.write(filename, overwrite=overwrite)
         elif filename.suffix == ".fits":
             # Check if this the data is looks like images.
-            is_img = self.is_image_like(colname)
+            # Use explicit parameter if provided, otherwise auto-detect.
+            if is_image is not None:
+                is_img = is_image
+            else:
+                is_img = self.is_image_like(colname)
 
             # Create a HDU List and primary header with basic meta data.
             hdul = fits.HDUList()
@@ -976,6 +1275,7 @@ def write_results_to_files_destructive(
     separate_col_files=None,
     drop_columns=None,
     overwrite=True,
+    image_columns=None,
 ):
     """Write the results to one or more files.
 
@@ -1003,12 +1303,20 @@ def write_results_to_files_destructive(
     overwrite : `bool`, optional
         If True, overwrite existing files. If False, do not overwrite existing files.
         Defaults to True.
+    image_columns : `list` of `str`, optional
+        A list of column names that contain image-like data. These columns will be saved
+        as FITS files when written separately. If None, auto-detection via `is_image_like()`
+        is used.
     """
     if not filename:
         raise ValueError("No filename provided for outputting results.")
     filepath = Path(filename)
     if filepath.exists() and not overwrite:
         raise ValueError(f"File {filepath} already exists. Not overwriting.")
+
+    # Capture image column shapes BEFORE removing any columns.
+    # This ensures the metadata is preserved even after columns are written to aux files.
+    image_col_shapes = results._detect_image_columns(image_columns)
 
     # Write out the auxiliary columns to their own files and drop them from the main table.
     if separate_col_files is not None:
@@ -1024,14 +1332,15 @@ def write_results_to_files_destructive(
         for col in separate_col_files:
             # If the column is an image-like data type, save it as a FITS file. Otherwise, save
             # it using the same extension as the main file.
-            if results.is_image_like(col):
+            is_image = col in image_col_shapes
+            if is_image:
                 # If the column is an image, save it as a FITS file.
                 col_file = filepath.with_name(filepath.stem + f"_{col}.fits")
             else:
                 col_file = filepath.with_name(filepath.stem + f"_{col}" + filepath.suffix)
 
             logger.info(f"Saving column {col} to {col_file}")
-            results.write_column(col, col_file, overwrite=overwrite)
+            results.write_column(col, col_file, overwrite=overwrite, is_image=is_image)
             results.remove_column(col)
 
     # Drop any other columns specified.
@@ -1047,6 +1356,11 @@ def write_results_to_files_destructive(
         extra_meta = {}
     extra_meta["separate_col_files"] = separate_col_files
     extra_meta["dropped_columns"] = drop_columns
+
+    # Preserve the image_column_shapes captured before columns were removed.
+    # This allows the shapes to be stored in metadata even for columns now in aux files.
+    if image_col_shapes:
+        extra_meta["image_column_shapes"] = {col: list(shape) for col, shape in image_col_shapes.items()}
 
     # Write the remaining data from the results to the main file.
     logger.info(f"Saving results table to {filepath}")
