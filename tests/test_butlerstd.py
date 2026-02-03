@@ -5,7 +5,7 @@ from unittest import mock
 from astropy.time import Time
 import numpy as np
 
-from utils import DECamImdiffFactory, MockButler, DatasetRef, DatasetId, dafButler
+from utils import DECamImdiffFactory, MockButler, MockFailedButler, DatasetRef, DatasetId, dafButler
 from kbmod import Standardizer, StandardizerConfig
 from kbmod.core.psf import PSF
 from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
@@ -28,6 +28,7 @@ class TestButlerStandardizer(unittest.TestCase):
 
     def setUp(self):
         self.butler = MockButler("/far/far/away")
+        self.failed_butler = MockFailedButler("futher/still")
 
     def test_init(self):
         """Test ButlerStandardizer can be built from DatasetRef, DatasetId and
@@ -44,15 +45,11 @@ class TestButlerStandardizer(unittest.TestCase):
 
         _ = Standardizer.get(DatasetId(6), butler=self.butler, force=ButlerStandardizer)
 
-    def test_standardize(self):
-        """Test ButlerStandardizer instantiates and standardizes as expected."""
-        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=self.butler)
-        standardized = std.standardize()
-
-        fits = FitsFactory.get_fits(7, spoof_data=True)
+    def compare_to_expected(self, expected_idx, standardized):
+        fits = FitsFactory.get_fits(expected_idx, spoof_data=True)
         hdr = fits["PRIMARY"].header
         expected = {
-            "dataId": "7",
+            "dataId": f"{expected_idx}",
             "datasetType": "test_datasettype_name",
             "visit": int(f"{hdr['EXPNUM']}{hdr['CCDNUM']}"),
             "detector": hdr["CCDNUM"],
@@ -87,6 +84,17 @@ class TestButlerStandardizer(unittest.TestCase):
         np.testing.assert_equal([fits["VARIANCE"].data,], standardized["variance"])
         np.testing.assert_equal([fits["MASK"].data,], standardized["mask"])
         # fmt: on
+
+    def test_standardize(self):
+        """Test ButlerStandardizer instantiates and standardizes as expected."""
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=self.butler)
+        standardized = std.standardize()
+        self.compare_to_expected(7, standardized)
+
+        # Test chained resolution works.
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=[self.failed_butler, self.butler])
+        standardized = std.standardize()
+        self.compare_to_expected(7, standardized)
 
     def test_standardize_missing_wcs(self):
         """Test ButlerStandardizer instantiates and standardizes as expected een when fits appoximation of the WCS failed."""
@@ -167,7 +175,7 @@ class TestButlerStandardizer(unittest.TestCase):
         std = Standardizer.get(DatasetId(8), butler=self.butler)
         standardized = std.standardize()
 
-        std2 = ButlerStandardizer(**standardized["meta"], butler=self.butler)
+        std2 = ButlerStandardizer(standardized["meta"]["dataId"], butler=self.butler)
         self.assertIsInstance(std2, ButlerStandardizer)
 
         standardized2 = std2.standardize()
