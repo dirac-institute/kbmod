@@ -187,7 +187,7 @@ class ButlerStandardizer(Standardizer):
         """Given a target and a butler, which might not contain the target
         queries the butler to resolve it. Butler failures are silenced.
 
-        Has to be called after deffered_import.
+        Has to be called after deferred_import.
 
         Parameters
         ----------
@@ -235,12 +235,12 @@ class ButlerStandardizer(Standardizer):
             butlers = butler
 
         for b in butlers:
-            ref, butler = self.__query_butler(tgt, b)
-            if ref is not None:
-                continue
+            self.ref, self.butler = self.__query_butler(tgt, b)
+            if self.ref is not None:
+                break
 
-        if ref is None:
-            raise
+        if self.ref is None:
+            raise ValueError(f"Unable to resolve target {tgt} for any butler.")
 
         # Now that target was upgraded to a ref and the correct butler
         # is know we can get the info we need from them.
@@ -249,22 +249,19 @@ class ButlerStandardizer(Standardizer):
         # it was ever replaced with anything back-compatible. We simply
         # check for the which _datastore attribute is available for this
         # butler and then check wherther it has a root or roots attribute.
-        if hasattr(butler, "datastore"):
-            datastore_root = butler.datastore.root
+        if hasattr(self.butler, "datastore"):
+            datastore_root = self.butler.datastore.root
         elif hasattr(butler, "_datastore"):
-            if hasattr(butler._datastore, "root"):
-                datastore_root = butler._datastore.root
+            if hasattr(self.butler._datastore, "root"):
+                datastore_root = self.butler._datastore.root
             elif hasattr(butler._datastore, "roots"):
-                datastore_root = butler._datastore.roots
+                datastore_root = self.butler._datastore.roots
             else:
                 raise AttributeError("Butler does not have a valid datastore root attribute.")
         else:
             raise AttributeError("Butler does not have a valid datastore attribute.")
 
         super().__init__(str(datastore_root), config=config)
-        self.ref = ref
-        self.butler = butler
-
         self.exp = None
         self.processable = [self.exp]
 

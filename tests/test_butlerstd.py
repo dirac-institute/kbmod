@@ -96,6 +96,12 @@ class TestButlerStandardizer(unittest.TestCase):
         standardized = std.standardize()
         self.compare_to_expected(7, standardized)
 
+        # Test chained resolution fails expectedly
+        with self.assertRaises(ValueError):
+            std = Standardizer.get(
+                DatasetId(7, fill_metadata=True), butler=[self.failed_butler, self.failed_butler]
+            )
+
     def test_standardize_missing_wcs(self):
         """Test ButlerStandardizer instantiates and standardizes as expected een when fits appoximation of the WCS failed."""
         missing_wcs_butler = MockButler("/far/far/away", failed_fits_appoximation=True)
