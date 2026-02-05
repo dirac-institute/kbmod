@@ -13,6 +13,7 @@ from .mock_fits import DECamImdiffFactory
 
 __all__ = [
     "MockButler",
+    "MockFailedButler",
     "Registry",
     "Datastore",
     "DatasetRef",
@@ -491,6 +492,38 @@ class MockButler:
         mocked.mask.getMaskPlaneDict.return_value = bit_flag_map
 
         return mocked
+
+
+class MockFailedButler:
+    """Mocked Vera C. Rubin Data Butler that always fails to resolve
+    any reference.
+
+    Keep the same signature for init and the rest of methods, just
+    fail in a way that mimics the butler instead of resolving it.
+    """
+
+    def __init__(
+        self,
+        root,
+        ref=None,
+        mock_images_f=None,
+        registry=None,
+        missing_headers=[],
+        failed_fits_appoximation=False,
+    ):
+        pass
+
+    def getURI(self, ref, dataId=None, collections=None):
+        return None
+
+    def getDataset(self, datid):
+        return None
+
+    def get_dataset(self, datid, dimension_records=False, datastore_records=False):
+        return None
+
+    def get(self, ref, collections=None, dataId=None):
+        return None
 
 
 class dafButler:

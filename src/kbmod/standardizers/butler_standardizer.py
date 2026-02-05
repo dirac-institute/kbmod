@@ -135,8 +135,9 @@ class ButlerStandardizer(Standardizer):
     ----------
     tgt : `lsst.daf.butler.core.DatasetId`, `lsst.daf.butler.core.DatasetRef` or `int`
         Target to standardize.
-    butler : `lsst.daf.butler.Butler`
-        Vera C. Rubin Data Butler.
+    butler : `lsst.daf.butler.Butler` or `list[lsst.daf.butler.Butler]`
+        Vera C. Rubin Data Butler or a list of butlers. The butlers are queried
+        to resolve the given target in the given order.
     config : `StandardizerConfig`, `dict` or `None`, optional
         Configuration key-values used when standardizing the file.
 
@@ -181,48 +182,86 @@ class ButlerStandardizer(Standardizer):
 
         return False
 
-    def __init__(self, dataId, butler, config=None, **kwargs):
+    @classmethod
+    def __query_butler(self, tgt, butler):
+        """Given a target and a butler, which might not contain the target
+        queries the butler to resolve it. Butler failures are silenced.
+
+        Has to be called after deferred_import.
+
+        Parameters
+        ----------
+        tgt : `lsst.daf.butler.core.DatasetId`, `lsst.daf.butler.core.DatasetRef` or `int`
+            Target to standardize.
+        butler : `lsst.daf.butler.Butler` or `list[lsst.daf.butler.Butler]`
+            Vera C. Rubin Data Butler or a list of butlers. The butlers are queried
+            to resolve the given target in the given order.
+
+        Raises
+        ------
+        TypeError : When given target is not a DatasetRef, DatasetId, or unique integer ID"
+        """
+        # including records expands the dataId to include
+        # key pieces of information such as filter and band
+        # loading datastore_records could be a shortcut to
+        # relative path inside the repository
+        if isinstance(tgt, dafButler.DatasetRef):
+            ref = tgt
+        elif isinstance(tgt, dafButler.DatasetId):
+            ref = butler.get_dataset(tgt, dimension_records=True)
+        elif isinstance(tgt, (uuid.UUID, str)):
+            did = dafButler.DatasetId(tgt)
+            ref = butler.get_dataset(did, dimension_records=True)
+        else:
+            raise TypeError("Expected DatasetRef, DatasetId or an unique integer ID, " f"got {tgt} instead.")
+
+        return ref, butler
+
+    def __init__(self, tgt, butler, config=None, **kwargs):
         deferred_import("lsst.daf.butler", "dafButler")
 
+        # Sometimes we find ourselves having to process data that is
+        # in the process of migration between multiple repositories.
+        # We want to prioritize one of these repos as the preffered
+        # source of data, but it does not yet contain all data.
+        # So we check all the given butlers to resolve a target in
+        # order and then skip once we get a hit. To cover the more
+        # the plain single-butler use case just promote it to a list.
+        if isinstance(butler, dafButler.Butler):
+            butlers = [
+                butler,
+            ]
+        else:
+            butlers = butler
+
+        for b in butlers:
+            self.ref, self.butler = self.__query_butler(tgt, b)
+            if self.ref is not None:
+                break
+
+        if self.ref is None:
+            raise ValueError(f"Unable to resolve target {tgt} for any butler.")
+
+        # Now that target was upgraded to a ref and the correct butler
+        # is know we can get the info we need from them.
         # Somewhere around w_2024_ builds the datastore.root
         # was removed as an attribute of the datastore, not sure
         # it was ever replaced with anything back-compatible. We simply
         # check for the which _datastore attribute is available for this
         # butler and then check wherther it has a root or roots attribute.
-
-        if hasattr(butler, "datastore"):
-            datastore_root = butler.datastore.root
+        if hasattr(self.butler, "datastore"):
+            datastore_root = self.butler.datastore.root
         elif hasattr(butler, "_datastore"):
-            if hasattr(butler._datastore, "root"):
-                datastore_root = butler._datastore.root
+            if hasattr(self.butler._datastore, "root"):
+                datastore_root = self.butler._datastore.root
             elif hasattr(butler._datastore, "roots"):
-                datastore_root = butler._datastore.roots
+                datastore_root = self.butler._datastore.roots
             else:
                 raise AttributeError("Butler does not have a valid datastore root attribute.")
         else:
             raise AttributeError("Butler does not have a valid datastore attribute.")
 
         super().__init__(str(datastore_root), config=config)
-
-        self.butler = butler
-
-        # including records expands the dataId to include
-        # key pieces of information such as filter and band
-        # loading datastore_records could be a shortcut to
-        # relative path inside the repository
-        if isinstance(dataId, dafButler.DatasetRef):
-            ref = dataId
-        elif isinstance(dataId, dafButler.DatasetId):
-            ref = butler.get_dataset(dataId, dimension_records=True)
-        elif isinstance(dataId, (uuid.UUID, str)):
-            did = dafButler.DatasetId(dataId)
-            ref = butler.get_dataset(did, dimension_records=True)
-        else:
-            raise TypeError(
-                "Expected DatasetRef, DatasetId or an unique integer ID, " f"got {dataId} instead."
-            )
-
-        self.ref = ref
         self.exp = None
         self.processable = [self.exp]
 
