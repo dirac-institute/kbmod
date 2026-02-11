@@ -18,7 +18,7 @@ from tqdm import tqdm
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
-from kbmod.reprojection_utils import invert_correct_parallax, image_positions_to_original_icrs
+from kbmod.reprojection_utils import image_positions_to_original_icrs
 from kbmod.search import Logging
 from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
