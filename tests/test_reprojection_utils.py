@@ -171,7 +171,9 @@ class test_reprojection_utils(unittest.TestCase):
         )
 
         fresh_sc1 = SkyCoord(
-            ra=corrected_coord1_geo.ra.degree * u.degree, dec=corrected_coord1_geo.dec.degree * u.degree, distance = 50.0 * u.au
+            ra=corrected_coord1_geo.ra.degree * u.degree,
+            dec=corrected_coord1_geo.dec.degree * u.degree,
+            distance=50.0 * u.au,
         )
 
         uncorrected_coord1 = invert_correct_parallax_vectorized(
@@ -183,7 +185,9 @@ class test_reprojection_utils(unittest.TestCase):
         assert self.sc1.separation(uncorrected_coord1).arcsecond < 0.001
 
         fresh_sc1 = SkyCoord(
-            ra=corrected_coord1_min.ra.degree * u.degree, dec=corrected_coord1_min.dec.degree * u.degree, distance = 50.0 * u.au
+            ra=corrected_coord1_min.ra.degree * u.degree,
+            dec=corrected_coord1_min.dec.degree * u.degree,
+            distance=50.0 * u.au,
         )
 
         uncorrected_coord1 = invert_correct_parallax_vectorized(
@@ -210,7 +214,9 @@ class test_reprojection_utils(unittest.TestCase):
         )
 
         fresh_sc2 = SkyCoord(
-            ra=corrected_coord2_geo.ra.degree * u.degree, dec=corrected_coord2_geo.dec.degree * u.degree, distance = 50.0 * u.au
+            ra=corrected_coord2_geo.ra.degree * u.degree,
+            dec=corrected_coord2_geo.dec.degree * u.degree,
+            distance=50.0 * u.au,
         )
 
         uncorrected_coord2 = invert_correct_parallax_vectorized(
@@ -222,7 +228,9 @@ class test_reprojection_utils(unittest.TestCase):
         assert self.sc2.separation(uncorrected_coord2).arcsecond < 0.001
 
         fresh_sc3 = SkyCoord(
-            ra=corrected_coord2_min.ra.degree * u.degree, dec=corrected_coord2_min.dec.degree * u.degree, distance = 50.0 * u.au
+            ra=corrected_coord2_min.ra.degree * u.degree,
+            dec=corrected_coord2_min.dec.degree * u.degree,
+            distance=50.0 * u.au,
         )
 
         uncorrected_coord2 = invert_correct_parallax_vectorized(

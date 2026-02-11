@@ -662,9 +662,7 @@ def image_positions_to_original_icrs(
         combined_coord = SkyCoord(position_reprojected_coords, distance=bary_dist * u.AU)
 
         inverted_coords = invert_correct_parallax_vectorized(
-            coords=combined_coord,
-            obstimes=obstimes,
-            point_on_earth=observatory
+            coords=combined_coord, obstimes=obstimes, point_on_earth=observatory
         )
         original_coords = [sc for sc in inverted_coords]
 
