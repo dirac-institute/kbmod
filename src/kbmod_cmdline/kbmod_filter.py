@@ -29,7 +29,6 @@ from kbmod.results import Results
 from kbmod.search import StackSearch
 from kbmod.work_unit import WorkUnit
 
-
 logger = logging.getLogger(__name__)
 
 

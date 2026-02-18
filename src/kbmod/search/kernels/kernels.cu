@@ -36,15 +36,15 @@ __host__ __device__ int predict_index(float pos0, float vel0, double time) {
 
 __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *psi_phi_vect, uint64_t time,
                                                 int row, int col) {
-    // Bounds checking.
     if ((row < 0) || (col < 0) || (row >= params.height) || (col >= params.width) ||
-        (psi_phi_vect == nullptr)) {
+        (time >= params.num_times) || (psi_phi_vect == nullptr)) {
         return {NO_DATA, NO_DATA};
     }
+    uint64_t u_row = static_cast<uint64_t>(row);
+    uint64_t u_col = static_cast<uint64_t>(col);
 
     // Compute the in-list index from the row, column, and time.
-    uint64_t start_index =
-            2 * (params.pixels_per_image * time + static_cast<uint64_t>(row * params.width + col));
+    uint64_t start_index = 2 * (params.pixels_per_image * time + u_row * params.width + u_col);
     if (start_index >= params.num_entries - 1) {
         return {NO_DATA, NO_DATA};
     }
@@ -113,9 +113,18 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
 
     // Compute the index of each of the percent values in values
     // from the given bounds sgl0, 0.5 (median), and sgl1.
-    const int pct_L = int(ceil(num_values * sgl0) + 0.001) - 1;
-    const int pct_H = int(ceil(num_values * sgl1) + 0.001) - 1;
-    const int median_ind = int(ceil(num_values * 0.5) + 0.001) - 1;
+    // Make sure all indices are valid (in [0, num_values-1]).
+    int pct_L = int(ceil(num_values * sgl0) + 0.001) - 1;
+    pct_L = (pct_L < 0) ? 0 : pct_L;
+    pct_L = (pct_L >= num_values) ? (num_values - 1) : pct_L;
+
+    int pct_H = int(ceil(num_values * sgl1) + 0.001) - 1;
+    pct_H = (pct_H < 0) ? 0 : pct_H;
+    pct_H = (pct_H >= num_values) ? (num_values - 1) : pct_H;
+
+    int median_ind = int(ceil(num_values * 0.5) + 0.001) - 1;
+    median_ind = (median_ind < 0) ? 0 : median_ind;
+    median_ind = (median_ind >= num_values) ? (num_values - 1) : median_ind;
 
     // Compute the values that are +/- (width * sigma_g) from the median.
     float sigma_g = sigmag_coeff * (values[idx_array[pct_H]] - values[idx_array[pct_L]]);
@@ -177,6 +186,9 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
             psi_array[num_seen] = pixel_vals.psi;
             phi_array[num_seen] = pixel_vals.phi;
             num_seen += 1;
+
+            // This should not be triggered due to prior checks, but just in case.
+            if (num_seen >= MAX_NUM_IMAGES) break;
         }
     }
     // Set stats (avoiding divide by zero of sqrt of negative).
@@ -189,6 +201,13 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
     if ((candidate->obs_count < params.min_observations) || (candidate->obs_count == 0) ||
         (params.do_sigmag_filter && candidate->lh < params.min_lh))
         return;
+
+    // Safety check to avoid out of bounds memory access.
+    if (num_seen > MAX_NUM_IMAGES) {
+        // Unfortunately we cannot raise an error in a kernel, so we print to stdout and exit.
+        printf("ERROR: num_seen=%d exceeds MAX_NUM_IMAGES=%d in evaluateTrajectory.\n", num_seen, MAX_NUM_IMAGES);
+        return;
+    }
 
     // If we are doing on GPU filtering, run the sigma_g filter and recompute the likelihoods.
     if (params.do_sigmag_filter) {
@@ -204,6 +223,8 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
         int max_keep_idx = num_seen - 1;
         SigmaGFilteredIndicesCU(lc_array, num_seen, params.sgl_L, params.sgl_H, params.sigmag_coeff, 2.0,
                                 idx_array, &min_keep_idx, &max_keep_idx);
+        if (min_keep_idx < 0) min_keep_idx = 0;
+        if (max_keep_idx >= num_seen) max_keep_idx = num_seen - 1;
 
         // Compute the likelihood and flux of the track based on the filtered
         // observations (ones in [min_keep_idx, max_keep_idx]).
@@ -260,13 +281,23 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     const int x = x_i + params.x_start_min;
     const int y = y_i + params.y_start_min;
 
-    // Create an initial set of best results with likelihood -1.0.
-    // We also set (x, y) because they are used in the later python functions.
+    // Create an initial set of best results with likelihood -1.0 and default
+    // values for everything so that we do not propogate uninitialized values.
     const uint64_t base_index = (y_i * search_width + x_i) * params.results_per_pixel;
+    if (base_index + params.results_per_pixel > params.total_results) {
+        // Unfortunately we cannot raise an error in a kernel, so we print to stdout and exit.
+        printf("ERROR: base_index=%llu out of bounds in searchFilterImages kernel.\n", base_index);
+        return;
+    }
+
     for (int r = 0; r < params.results_per_pixel; ++r) {
         results[base_index + r].x = x;
         results[base_index + r].y = y;
+        results[base_index + r].vx = 0.0f;
+        results[base_index + r].vy = 0.0f;
         results[base_index + r].lh = -FLT_MAX;
+        results[base_index + r].flux = 0.0f;
+        results[base_index + r].obs_count = 0;
     }
 
     // For each trajectory we'd like to search
@@ -348,6 +379,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     // we have in the results vector and expected_results is the number we are going to
     // generate. So we need num_results >= expected_results to have enough storage space.
     uint64_t expected_results = params.results_per_pixel * search_width * search_height;
+    params.total_results = expected_results;
     if (num_results < expected_results) {
         throw std::runtime_error("Not enough space allocated for results. Requires: " +
                                  std::to_string(expected_results) + ". Received: " +

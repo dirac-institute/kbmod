@@ -232,12 +232,14 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
            << "Allocating space for " << max_results << " results.";
     rs_logger->info(logmsg.str());
     results.resize(max_results);
+    results.reset_all();
 
     DebugTimer search_timer = DebugTimer("Running search", rs_logger);
     if (on_gpu) {
         if (!has_gpu()) throw std::runtime_error("GPU is not available for search.");
 
         // Moved the needed data to the GPU.
+        rs_logger->info("Moving all data to GPU.");
         if (!psi_phi_preloaded) psi_phi_array.move_to_gpu();
         candidate_list.move_to_gpu();
         results.move_to_gpu();
@@ -249,18 +251,19 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
 
         // Free up the GPU memory.  Keep the psi/phi array on the GPU if
         // it is preloaded.
+        rs_logger->info("Clearing all data from GPU.");
         results.move_to_cpu();
         candidate_list.move_to_cpu();
         if (!psi_phi_preloaded) psi_phi_array.clear_from_gpu();
     } else {
+        rs_logger->info("Running search on CPU.");
         search_cpu_only(psi_phi_array, params, candidate_list, results);
     }
     search_timer.stop();
     uint64_t num_results = results.get_size();
     rs_logger->debug("Core search returned " + std::to_string(num_results) + " results.\n");
 
-    // Perform initial LH and obscount filtering.
-
+    // Perform initial LH and obs_count filtering.
     DebugTimer filter_timer = DebugTimer("Filtering results by LH and min_obs", rs_logger);
     results.filter_by_likelihood(params.min_lh);
     results.filter_by_obs_count(params.min_observations);
@@ -269,10 +272,13 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
                      std::to_string(num_results - new_num_results) + " removed).\n");
     filter_timer.stop();
 
-    // Sort the results by decreasing likleihood.
+    // Sort the results by decreasing likelihood.
     DebugTimer sort_timer = DebugTimer("Sorting results", rs_logger);
     results.sort_by_likelihood();
     sort_timer.stop();
+
+    // Check that all trajectories left are valid.
+    results.assert_valid();
 
     core_timer.stop();
 }

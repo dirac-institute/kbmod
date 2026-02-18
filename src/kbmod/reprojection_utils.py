@@ -7,17 +7,14 @@ from astropy.coordinates import (
     ICRS,
     solar_system_ephemeris,
     get_body_barycentric,
-    EarthLocation,
 )
 from astropy.time import Time
 from astropy.wcs.utils import fit_wcs_from_points, skycoord_to_pixel
 
 import warnings
 
-
 __all__ = [
     "correct_parallax",
-    "invert_correct_parallax",
     "fit_barycentric_wcs",
     "transform_wcses_to_ebd",
     "correct_parallax_geometrically_vectorized",
@@ -387,7 +384,7 @@ def correct_parallax_geometrically_vectorized(
 
 
 def invert_correct_parallax_vectorized(coords, obstimes, point_on_earth=None):
-    """Converts a given ICRS coordinate with distance into an ICRS coordinate,
+    """Converts a given ICRS coordinate with barycentric distance into an ICRS coordinate,
     without accounting for the reflex correction.
 
     ICRS coordinates corrected for reflex motion of the Earth are ICRS coordinates
@@ -432,45 +429,6 @@ def invert_correct_parallax_vectorized(coords, obstimes, point_on_earth=None):
         copy=False,
     )
     return los_earth_obj.icrs
-
-
-def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance, barycentric_distance):
-    """Calculate the original ICRS coordinates of a point in EBD space, i.e. a result from `correct_parallax`.
-
-    Parameters
-    ----------
-    coord : `astropy.coordinate.SkyCoord`
-        The EBD coordinate that we want to find the original position of in non parallax corrected space of.
-    obstime : `astropy.time.Time` or `string`
-        The observation time.
-    point_on_earth : `astropy.coordinate.EarthLocation`
-        The location on Earth of the observation.
-    geocentric_distance : `float`
-        The distance from Earth to the object in AU (generally a result from `correct_parallax`).
-    barycentric_distance : `float`
-        The distance from the solar system barycenter to the object in AU
-        (generally an input for `correct_parallax`).
-
-    Returns
-    ----------
-    An `astropy.coordinate.SkyCoord` containing the ra and dec of the point in ICRS. corresponding to the
-    position in the original observation (before `correct_parallax`).
-
-    References
-    ----------
-    .. [1] `Jupyter Notebook <https://github.com/maxwest-uw/notebooks/blob/main/uncorrecting_parallax.ipynb>`_
-    """
-    loc = (point_on_earth.to_geocentric()) * u.m
-
-    icrs_with_dist = ICRS(ra=coord.ra, dec=coord.dec, distance=barycentric_distance * u.au)
-
-    gcrs_no_dist = icrs_with_dist.transform_to(GCRS(obsgeoloc=loc, obstime=obstime))
-    gcrs_with_dist = GCRS(
-        ra=gcrs_no_dist.ra, dec=gcrs_no_dist.dec, distance=geocentric_distance, obsgeoloc=loc, obstime=obstime
-    )
-
-    original_icrs = gcrs_with_dist.transform_to(ICRS())
-    return SkyCoord(ra=original_icrs.ra, dec=original_icrs.dec, unit="deg")
 
 
 def fit_barycentric_wcs(
@@ -588,6 +546,7 @@ def image_positions_to_original_icrs(
     reprojected_wcs,
     original_wcses,
     all_times,
+    observatory,
     input_format="xy",
     output_format="xy",
     filter_in_frame=True,
@@ -612,6 +571,8 @@ def image_positions_to_original_icrs(
         The WCSes of the original images in ICRS space.
     all_times : `list` of mjds.
         The observation times of the original images in MJD.
+    observatory: `astropy.coordinates.EarthLocation`
+        The observatory location.
     input_format : `str`
         The input format for the positions. Either 'xy' or 'radec'.
         If 'xy' is given, positions must be in the format of a
@@ -696,20 +657,13 @@ def image_positions_to_original_icrs(
         geo_dists = [geocentric_distances[i] for i in image_indices]
         obstimes = [all_times[i] for i in image_indices]
 
-        # this should be part of the WorkUnit metadata
-        location = EarthLocation.of_site("ctio")
+        # transfer into a combined SkyCoord
+        combined_coord = SkyCoord(position_reprojected_coords, distance=bary_dist * u.AU)
 
-        inverted_coords = []
-        for coord, obstime, geo_dist in zip(position_reprojected_coords, obstimes, geo_dists):
-            inverted_coord = invert_correct_parallax(
-                coord=coord,
-                obstime=Time(obstime, format="mjd"),
-                point_on_earth=location,
-                barycentric_distance=bary_dist,
-                geocentric_distance=geo_dist,
-            )
-            inverted_coords.append(inverted_coord)
-        original_coords = inverted_coords
+        inverted_coords = invert_correct_parallax_vectorized(
+            coords=combined_coord, obstimes=obstimes, point_on_earth=observatory
+        )
+        original_coords = [sc for sc in inverted_coords]
 
     if output_format == "radec" and not filter_in_frame:
         return original_coords

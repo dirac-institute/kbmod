@@ -102,6 +102,12 @@ static const auto DOC_Trajectory_is_valid = R"doc(
      True if all parameters are valid, False otherwise.
   )doc";
 
+
+static const auto DOC_Trajectory_clear = R"doc(
+  Reset all attributes to the default values.
+  )doc";
+
+
 }  // namespace pydocs
 
 #endif /* COMMON_DOCS */
