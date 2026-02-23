@@ -435,7 +435,8 @@ def process_single_file(args_tuple):
     ----------
     args_tuple : `tuple`
         Tuple of (file_path, image_patterns, stamp_dim, output_dir,
-                  dry_run, skip_with_aux, keep_originals, chunk_size)
+                  dry_run, skip_with_aux, keep_originals, chunk_size,
+                  io_workers)
 
     Returns
     -------
@@ -451,6 +452,7 @@ def process_single_file(args_tuple):
         skip_with_aux,
         keep_originals,
         chunk_size,
+        io_workers,
     ) = args_tuple
 
     file_path = Path(file_path)
@@ -522,6 +524,7 @@ def process_single_file(args_tuple):
             separate_col_files=matched_columns,
             image_columns=matched_columns,
             overwrite=True,
+            num_workers=io_workers,
         )
 
         # Find the auxiliary files that were created
@@ -683,6 +686,7 @@ def execute(args):
             not args.no_skip_with_aux,  # skip_with_aux
             args.keep_originals,
             args.chunk_size,
+            args.io_workers,
         )
         for f in input_files
     ]
@@ -903,7 +907,14 @@ def main():
         dest="workers",
         type=int,
         default=1,
-        help="Number of parallel workers for processing.",
+        help="Number of parallel workers for processing multiple files.",
+    )
+    optional.add_argument(
+        "--io-workers",
+        dest="io_workers",
+        type=int,
+        default=1,
+        help="Number of worker processes for parallel FITS image HDU creation within each file.",
     )
     optional.add_argument(
         "-v",
