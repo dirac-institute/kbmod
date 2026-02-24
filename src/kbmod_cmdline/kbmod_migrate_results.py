@@ -926,6 +926,10 @@ def main():
     )
 
     args = parser.parse_args()
+
+    if args.workers > 1 and args.io_workers > 1:
+        parser.error("Cannot use both --workers > 1 and --io-workers > 1 simultaneously. ")
+
     execute(args)
 
 
