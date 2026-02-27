@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 from astropy.io import fits
 from astropy.time import Time
+from astropy.coordinates import Angle
 from itertools import product
 import pandas as pd
 
@@ -328,3 +329,116 @@ def make_manual_tracklets(df):
     trk2detfile["detnum"] = inds
 
     return trackletfile, trk2detfile
+
+
+def standardize_ephemeris_time(ephem_table, column=None):
+    """
+    Standardize the time column of an ephemeris table into a new `mjd_mid` column.
+
+    Parameters
+    ----------
+    ephem_table : astropy.table.Table or pandas.DataFrame
+        The ephemeris table.
+    column : str, optional
+        The specific column name to use. If None, checks common names ('obs-time', 'ref_epoch').
+
+    Returns
+    -------
+    ephem_table : astropy.table.Table or pandas.DataFrame
+        The ephemeris table with `mjd_mid`.
+    """
+    if "mjd_mid" in ephem_table.colnames:
+        return ephem_table
+
+    if column is not None:
+        try:
+            ephem_table["mjd_mid"] = np.asarray(ephem_table[column], dtype=float)
+        except (ValueError, TypeError):
+            ephem_table["mjd_mid"] = Time(ephem_table[column], scale="utc").mjd
+        return ephem_table
+
+    if "obs-time" in ephem_table.colnames:
+        ephem_table["mjd_mid"] = Time(ephem_table["obs-time"], scale="utc").mjd
+    elif "ref_epoch" in ephem_table.colnames:
+        try:
+            ephem_table["mjd_mid"] = np.asarray(ephem_table["ref_epoch"], dtype=float)
+        except (ValueError, TypeError):
+            ephem_table["mjd_mid"] = Time(ephem_table["ref_epoch"], scale="utc").mjd
+    else:
+        raise ValueError(
+            f"Ephemeris table must contain 'mjd_mid' column for reflex correction. Available columns: {ephem_table.colnames}"
+        )
+
+    return ephem_table
+
+
+def standardize_ephemeris_coordinates(ephem_table, ra_column=None, dec_column=None):
+    """
+    Standardize the RA and Dec columns of an ephemeris table into `ra` and `dec` degrees columns.
+
+    Parameters
+    ----------
+    ephem_table : astropy.table.Table or pandas.DataFrame
+        The ephemeris table.
+    ra_column : str, optional
+        Specific column to use for right ascension.
+    dec_column : str, optional
+        Specific column to use for declination.
+
+    Returns
+    -------
+    ephem_table : astropy.table.Table or pandas.DataFrame
+        The ephemeris table with `ra` and `dec` in degrees.
+    """
+
+    # Coordinate parsing inner helpers
+    def _parse_ra(col_name):
+        if col_name == "RA":
+            ephem_table.rename_column("RA", "ra")
+        elif "RA" in col_name and "(" in col_name:
+            if "deg" in col_name.lower():
+                ephem_table["ra"] = np.asarray(ephem_table[col_name], dtype=float)
+            else:
+                ephem_table["ra"] = Angle(ephem_table[col_name], unit="hourangle").deg
+        else:
+            ephem_table["ra"] = Angle(ephem_table[col_name], unit="hourangle").deg
+
+    def _parse_dec(col_name):
+        if col_name == "Dec":
+            ephem_table.rename_column("Dec", "dec")
+        elif "Astrometric Dec " in col_name or "DEC (dms)" in col_name:
+            dec_strs = np.array(ephem_table[col_name], dtype=str)
+            cleaned_decs = np.char.replace(np.char.replace(dec_strs, "'", " "), '"', "")
+            ephem_table["dec"] = Angle(cleaned_decs, unit="deg").deg
+        elif "Dec" in col_name and "deg" in col_name.lower():
+            ephem_table["dec"] = np.asarray(ephem_table[col_name], dtype=float)
+        else:
+            ephem_table["dec"] = Angle(ephem_table[col_name], unit="deg").deg
+
+    # Apply RA
+    if "ra" not in ephem_table.colnames:
+        if ra_column is not None:
+            _parse_ra(ra_column)
+        elif "RA" in ephem_table.colnames:
+            _parse_ra("RA")
+        elif "Astrometric RA (hh:mm:ss)" in ephem_table.colnames:
+            _parse_ra("Astrometric RA (hh:mm:ss)")
+        elif "RA (hms)" in ephem_table.colnames:
+            _parse_ra("RA (hms)")
+        else:
+            raise ValueError(f"Ephemeris table must contain 'ra' column.")
+
+    # Apply Dec
+    if "dec" not in ephem_table.colnames:
+        if dec_column is not None:
+            _parse_dec(dec_column)
+        elif "Dec" in ephem_table.colnames:
+            _parse_dec("Dec")
+        elif "Astrometric Dec (dd mm'ss\")" in ephem_table.colnames:
+            _parse_dec("Astrometric Dec (dd mm'ss\")")
+        elif "DEC (dms)" in ephem_table.colnames:
+            _parse_dec("DEC (dms)")
+        else:
+            raise ValueError(f"Ephemeris table must contain 'dec' columnn.")
+
+    return ephem_table

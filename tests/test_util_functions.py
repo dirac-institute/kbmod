@@ -14,6 +14,8 @@ from kbmod.util_functions import (
     load_deccam_layered_image,
     make_manual_tracklets,
     mjd_to_day,
+    standardize_ephemeris_coordinates,
+    standardize_ephemeris_time,
     unravel_results,
 )
 
@@ -126,6 +128,99 @@ class test_util_functions(unittest.TestCase):
         test_res.table.remove_column("uuid")
         df = unravel_results(test_res, self.ic)
         self.assertRaises(ValueError, make_manual_tracklets, df)
+
+    # --- standardize_ephemeris_time tests ---
+
+    def test_time_passthrough_if_mjd_mid_exists(self):
+        t = Table({"mjd_mid": [60000.0, 60001.0], "other": [1, 2]})
+        result = standardize_ephemeris_time(t)
+        np.testing.assert_array_equal(result["mjd_mid"], [60000.0, 60001.0])
+
+    def test_time_obs_time_jpl(self):
+        t = Table({"obs-time": ["2023-02-25T00:00:00", "2023-02-26T12:00:00"]})
+        result = standardize_ephemeris_time(t)
+        self.assertIn("mjd_mid", result.colnames)
+        self.assertAlmostEqual(result["mjd_mid"][0], 60000.0, places=3)
+
+    def test_time_ref_epoch_float(self):
+        t = Table({"ref_epoch": ["60000.0", "60001.5"]})
+        result = standardize_ephemeris_time(t)
+        np.testing.assert_array_almost_equal(result["mjd_mid"], [60000.0, 60001.5])
+
+    def test_time_ref_epoch_datetime_fallback(self):
+        t = Table({"ref_epoch": ["2023-02-25T00:00:00", "2023-02-26T12:00:00"]})
+        result = standardize_ephemeris_time(t)
+        self.assertAlmostEqual(result["mjd_mid"][0], 60000.0, places=3)
+
+    def test_time_explicit_column(self):
+        t = Table({"my_time": ["60100.0", "60200.0"], "obs-time": ["2020-01-01", "2020-01-02"]})
+        result = standardize_ephemeris_time(t, column="my_time")
+        np.testing.assert_array_almost_equal(result["mjd_mid"], [60100.0, 60200.0])
+
+    def test_time_raises_on_missing_columns(self):
+        t = Table({"foo": [1, 2]})
+        with self.assertRaises(ValueError):
+            standardize_ephemeris_time(t)
+
+    # --- standardize_ephemeris_coordinates tests ---
+
+    def test_coords_passthrough_if_ra_dec_exist(self):
+        t = Table({"ra": [10.0, 20.0], "dec": [-5.0, 5.0]})
+        result = standardize_ephemeris_coordinates(t)
+        np.testing.assert_array_equal(result["ra"], [10.0, 20.0])
+        np.testing.assert_array_equal(result["dec"], [-5.0, 5.0])
+
+    def test_coords_rename_RA_Dec(self):
+        t = Table({"RA": [10.0, 20.0], "Dec": [-5.0, 5.0]})
+        result = standardize_ephemeris_coordinates(t)
+        self.assertIn("ra", result.colnames)
+        self.assertIn("dec", result.colnames)
+        np.testing.assert_array_equal(result["ra"], [10.0, 20.0])
+        np.testing.assert_array_equal(result["dec"], [-5.0, 5.0])
+
+    def test_coords_jpl_format(self):
+        t = Table(
+            {
+                "Astrometric RA (hh:mm:ss)": ["12 30 00.0", "06 15 00.0"],
+                "Astrometric Dec (dd mm'ss\")": ["+45 00 00.0", "-17 23' 27.0\""],
+            }
+        )
+        result = standardize_ephemeris_coordinates(t)
+        self.assertAlmostEqual(result["ra"][0], 187.5, places=3)
+        self.assertAlmostEqual(result["dec"][0], 45.0, places=3)
+
+    def test_coords_skybot_format(self):
+        t = Table(
+            {
+                "RA (hms)": ["12 30 00.0", "06 15 00.0"],
+                "DEC (dms)": ["+45 00 00.0", "-30 00 00.0"],
+            }
+        )
+        result = standardize_ephemeris_coordinates(t)
+        self.assertAlmostEqual(result["ra"][0], 187.5, places=3)
+        self.assertAlmostEqual(result["dec"][0], 45.0, places=3)
+        self.assertAlmostEqual(result["dec"][1], -30.0, places=3)
+
+    def test_coords_explicit_columns(self):
+        t = Table({"my_ra": ["12 00 00.0"], "my_dec": ["+45 00 00.0"], "RA": [999.0]})
+        result = standardize_ephemeris_coordinates(t, ra_column="my_ra", dec_column="my_dec")
+        self.assertAlmostEqual(result["ra"][0], 180.0, places=3)
+        self.assertAlmostEqual(result["dec"][0], 45.0, places=3)
+
+    def test_coords_raises_on_missing_ra(self):
+        t = Table({"dec": [1.0], "foo": [2]})
+        with self.assertRaises(ValueError):
+            standardize_ephemeris_coordinates(t)
+
+    def test_coords_raises_on_missing_dec(self):
+        t = Table({"ra": [1.0], "foo": [2]})
+        with self.assertRaises(ValueError):
+            standardize_ephemeris_coordinates(t)
+
+    def test_coords_negative_dec(self):
+        t = Table({"RA": [10.0], "Astrometric Dec (dd mm'ss\")": ["-17 23' 27.0\""]})
+        result = standardize_ephemeris_coordinates(t)
+        self.assertAlmostEqual(result["dec"][0], -17.3908, places=3)
 
 
 if __name__ == "__main__":
