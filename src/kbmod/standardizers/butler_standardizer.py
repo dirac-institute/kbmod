@@ -623,9 +623,17 @@ class ButlerStandardizer(Standardizer):
             # flip_bits makes ignore_flags into mask_these_flags
             bit_flag_map = self.exp.mask.getMaskPlaneDict()
             bit_flag_map = {key: int(2**val) for key, val in bit_flag_map.items()}
+
+            # Filter out any configured mask flags not present in this
+            # exposure's mask plane to avoid KeyError at lookup time.
+            available_flags = [f for f in self.config["mask_flags"] if f in bit_flag_map]
+            missing_flags = set(self.config["mask_flags"]) - set(available_flags)
+            if missing_flags:
+                logger.debug(f"Mask flags {missing_flags} not found in exposure mask plane, skipping.")
+
             mask = bitmask.bitfield_to_boolean_mask(
                 bitfield=mask,
-                ignore_flags=self.config["mask_flags"],
+                ignore_flags=available_flags,
                 flag_name_map=bit_flag_map,
                 flip_bits=True,
             )

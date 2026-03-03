@@ -270,6 +270,29 @@ class TestButlerStandardizer(unittest.TestCase):
                     else:
                         self.assertEqual(mask.ravel()[i], False)
 
+    def test_bitmasking_missing_flags(self):
+        """Test masking succeeds when mask_flags config contains flags
+        not present in the exposure's mask plane (e.g. 'SPIKE')."""
+        butler = MockButler("/far/far/away", mock_images_f=self.mock_kbmodv1like_bitmasking)
+
+        # Add flags that don't exist in the mock exposure's mask plane
+        extra_flags = ButlerStandardizerConfig.mask_flags + ["SPIKE", "GHOST", "NONEXISTENT"]
+        conf = StandardizerConfig(grow_mask=False, mask_flags=extra_flags)
+        std = Standardizer.get(DatasetId(9), butler=butler, config=conf)
+
+        # Should not raise KeyError
+        standardizedMask = std.standardizeMaskImage()
+
+        # Masking behavior should be identical to the default config
+        # since the extra flags don't exist in the data
+        for mask in standardizedMask:
+            for i, flag in enumerate(KBMODV1Config.bit_flag_map):
+                with self.subTest("Failed to mask expected", flag=flag):
+                    if flag in ButlerStandardizerConfig.mask_flags:
+                        self.assertEqual(mask.ravel()[i], True)
+                    else:
+                        self.assertEqual(mask.ravel()[i], False)
+
     def mock_kbmodv1like_thresholding(self, mockedexp):
         """Set image pixel [1, 1] to 1 and [2, 2] to 3."""
         mockedexp.image.array[1, 1] = 1
