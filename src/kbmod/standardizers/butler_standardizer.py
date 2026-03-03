@@ -133,7 +133,7 @@ class ButlerStandardizer(Standardizer):
 
     Parameters
     ----------
-    tgt : `lsst.daf.butler.core.DatasetId`, `lsst.daf.butler.core.DatasetRef` or `int`
+    dataId : `lsst.daf.butler.core.DatasetId`, `lsst.daf.butler.core.DatasetRef` or `int`
         Target to standardize.
     butler : `lsst.daf.butler.Butler` or `list[lsst.daf.butler.Butler]`
         Vera C. Rubin Data Butler or a list of butlers. The butlers are queried
@@ -217,7 +217,7 @@ class ButlerStandardizer(Standardizer):
 
         return ref, butler
 
-    def __init__(self, tgt, butler, config=None, **kwargs):
+    def __init__(self, dataId, butler, config=None, **kwargs):
         deferred_import("lsst.daf.butler", "dafButler")
 
         # Sometimes we find ourselves having to process data that is
@@ -235,12 +235,12 @@ class ButlerStandardizer(Standardizer):
             butlers = butler
 
         for b in butlers:
-            self.ref, self.butler = self.__query_butler(tgt, b)
+            self.ref, self.butler = self.__query_butler(dataId, b)
             if self.ref is not None:
                 break
 
         if self.ref is None:
-            raise ValueError(f"Unable to resolve target {tgt} for any butler.")
+            raise ValueError(f"Unable to resolve target {dataId} for any butler.")
 
         # Now that target was upgraded to a ref and the correct butler
         # is know we can get the info we need from them.
