@@ -133,7 +133,7 @@ class ButlerStandardizer(Standardizer):
 
     Parameters
     ----------
-    tgt : `lsst.daf.butler.core.DatasetId`, `lsst.daf.butler.core.DatasetRef` or `int`
+    dataId : `lsst.daf.butler.core.DatasetId`, `lsst.daf.butler.core.DatasetRef` or `int`
         Target to standardize.
     butler : `lsst.daf.butler.Butler` or `list[lsst.daf.butler.Butler]`
         Vera C. Rubin Data Butler or a list of butlers. The butlers are queried
@@ -217,7 +217,7 @@ class ButlerStandardizer(Standardizer):
 
         return ref, butler
 
-    def __init__(self, tgt, butler, config=None, **kwargs):
+    def __init__(self, dataId, butler, config=None, **kwargs):
         deferred_import("lsst.daf.butler", "dafButler")
 
         # Sometimes we find ourselves having to process data that is
@@ -235,12 +235,12 @@ class ButlerStandardizer(Standardizer):
             butlers = butler
 
         for b in butlers:
-            self.ref, self.butler = self.__query_butler(tgt, b)
+            self.ref, self.butler = self.__query_butler(dataId, b)
             if self.ref is not None:
                 break
 
         if self.ref is None:
-            raise ValueError(f"Unable to resolve target {tgt} for any butler.")
+            raise ValueError(f"Unable to resolve target {dataId} for any butler.")
 
         # Now that target was upgraded to a ref and the correct butler
         # is know we can get the info we need from them.
@@ -623,9 +623,17 @@ class ButlerStandardizer(Standardizer):
             # flip_bits makes ignore_flags into mask_these_flags
             bit_flag_map = self.exp.mask.getMaskPlaneDict()
             bit_flag_map = {key: int(2**val) for key, val in bit_flag_map.items()}
+
+            # Filter out any configured mask flags not present in this
+            # exposure's mask plane to avoid KeyError at lookup time.
+            available_flags = [f for f in self.config["mask_flags"] if f in bit_flag_map]
+            missing_flags = set(self.config["mask_flags"]) - set(available_flags)
+            if missing_flags:
+                logger.debug(f"Mask flags {missing_flags} not found in exposure mask plane, skipping.")
+
             mask = bitmask.bitfield_to_boolean_mask(
                 bitfield=mask,
-                ignore_flags=self.config["mask_flags"],
+                ignore_flags=available_flags,
                 flag_name_map=bit_flag_map,
                 flip_bits=True,
             )
