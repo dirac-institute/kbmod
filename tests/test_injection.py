@@ -107,10 +107,12 @@ class TestInjectSources(unittest.TestCase):
         self.ic.data["dataId"] = ["0", "1", "2"]
         self.butler = MockButler("/mock/root")
 
-    @mock.patch("kbmod.injection.HAS_LSST", True)
-    @mock.patch("kbmod.injection.VisitInjectConfig", MockVisitInjectConfig)
-    @mock.patch("kbmod.injection.VisitInjectTask", MockVisitInjectTask)
-    @mock.patch("kbmod.injection.DatasetId")
+    # Note that we use `create=True` to ensure that the mocks are created
+    # even if LSST is not installed such as in the GitHub Actions environment.
+    @mock.patch("kbmod.injection.HAS_LSST", True, create=True)
+    @mock.patch("kbmod.injection.VisitInjectConfig", MockVisitInjectConfig, create=True)
+    @mock.patch("kbmod.injection.VisitInjectTask", MockVisitInjectTask, create=True)
+    @mock.patch("kbmod.injection.DatasetId", create=True)
     def test_inject_sources_stamps_pixels(self, mock_dataset_id):
         """Verify that inject_sources modifies image arrays and returns
         a new ImageCollection + vstacked catalog."""
