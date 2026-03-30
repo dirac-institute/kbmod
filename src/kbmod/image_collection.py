@@ -1202,3 +1202,114 @@ class ImageCollection:
         work = WorkUnit(imgstack, search_config, org_image_meta=metadata, observatory=observatory)
 
         return work
+
+    def get_global_wcs(self, auto_fit=False):
+        """Get the global WCS for the ImageCollection.
+
+        First attempts to read 'global_wcs' from the internal metadata if placed there
+        by external standardization workflows. If missing and auto_fit is True, computes
+        it from the optimal celestial footprint of the individual exposures.
+
+        Parameters
+        ----------
+        auto_fit : bool, optional
+            If True, calculates the optimal WCS from existing exposure WCS footprints if
+            not present directly in metadata.
+
+        Returns
+        -------
+        global_wcs : `astropy.wcs.WCS` or None
+        """
+        if "global_wcs" in self.data.columns:
+            import json
+            from astropy.wcs import WCS
+
+            wcs_data = self.data["global_wcs"][0]
+            try:
+                wcs_data = json.loads(wcs_data)
+            except Exception:
+                pass
+            global_wcs = WCS(wcs_data, relax=True)
+            if "global_wcs_pixel_shape_0" in self.data.columns:
+                global_wcs.pixel_shape = (
+                    self.data["global_wcs_pixel_shape_0"][0],
+                    self.data["global_wcs_pixel_shape_1"][0],
+                )
+            return global_wcs
+
+        if auto_fit:
+            from reproject.mosaicking import find_optimal_celestial_wcs
+
+            global_wcs, shape = find_optimal_celestial_wcs(list(self.wcs))
+            global_wcs.array_shape = shape
+            return global_wcs
+
+        return None
+
+    def generate_injection_catalog(
+        self,
+        search_config,
+        global_wcs,
+        n_objs_per_ic=50,
+        guess_distance=None,
+        mag_range=(19.0, 26.0),
+        source_type="Star",
+    ):
+        """Generate a parallax-inverted injection catalog for an ImageCollection.
+
+        Parameters
+        ----------
+        search_config : `kbmod.configuration.SearchConfiguration`
+           Search config object.
+        global_wcs : `astropy.wcs.WCS`
+           Shared astropy WCS object.
+        n_objs_per_ic : `int`, default: 50
+           Number of objects to simulate.
+        guess_distance : `float` or None, default: None
+           Guess distance (AU) used for inverse parallax correction.
+        mag_range : `tuple`, default: (19.0, 26.0)
+           Magnitude sampling bounds (min, max).
+        source_type : `str`, default: "Star"
+           Source type designation in the injection catalog.
+
+        Returns
+        -------
+        catalog : astropy.table.Table
+            Coordinates and magnitudes of simulated objects.
+        """
+        from .injection import generate_injection_catalog
+
+        return generate_injection_catalog(
+            self, search_config, global_wcs, n_objs_per_ic, guess_distance, mag_range, source_type
+        )
+
+    def inject_sources(self, catalog, butler, inject_config=None, pre_render_fn=None):
+        """Inject simulated moving objects directly into an ImageCollection utilizing LSST pipelines.
+
+        Uses ``lsst.source.injection.VisitInjectTask`` to render sources from the
+        provided catalog into each exposure retrieved via the Butler. Returns a new
+        ImageCollection with modified image arrays and a vstacked output catalog.
+
+        Parameters
+        ----------
+        catalog : `astropy.table.Table`
+            Injection catalog with at minimum ``ra``, ``dec``, ``mag``, ``source_type``,
+            and ``obstime`` columns. Rows are matched to exposures via exact ``obstime``
+            equality with the ImageCollection's ``mjd_mid``.
+        butler : Butler
+            LSST Butler instance used to retrieve the base exposures by ``dataId``.
+        inject_config : ``VisitInjectConfig``, optional
+            Configuration for the LSST ``VisitInjectTask``. If None, uses defaults.
+        pre_render_fn : callable, optional
+            Function applied to each exposure before injection (e.g. for zeroing arrays).
+
+        Returns
+        -------
+        ic : `kbmod.ImageCollection`
+            Re-built collection with injected sources in the image data.
+        injected_cats : `astropy.table.Table`
+            Vstacked catalog of rendered sources across all exposures.
+        """
+        from .injection import inject_sources_into_ic
+
+        return inject_sources_into_ic(self, catalog, butler, inject_config, pre_render_fn)
