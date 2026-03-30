@@ -15,7 +15,6 @@ import numpy as np
 from astropy.table import Table
 from astropy.wcs import WCS
 
-
 __all__ = [
     "MockVisitInjectConfig",
     "MockVisitInjectTask",
