@@ -98,8 +98,13 @@ def generate_injection_catalog(
     ys = ys[:, None] + dts * vy_arr[:, None]
     sky_coords = global_wcs.pixel_to_world(xs, ys)
 
+    # ra_orig/dec_orig are straight-line coords in the global WCS frame
     ra_orig = sky_coords.ra.deg.ravel()
     dec_orig = sky_coords.dec.deg.ravel()
+
+    # Default: ra/dec = global WCS coords (no inversion needed)
+    ra_for_injection = ra_orig
+    dec_for_injection = dec_orig
 
     if guess_distance is not None:
         sky_coords_with_distance = SkyCoord(
@@ -107,14 +112,14 @@ def generate_injection_catalog(
         )
         loc = ic.get_observatory()
         if loc is None:
-            # TODO: log this default being used
-            loc = EarthLocation.of_site("Rubin")
+            raise ValueError("Observatory location not found in ImageCollection.")
 
         invert_corrected_skycoords = kbmod.reprojection_utils.invert_correct_parallax_vectorized(
             sky_coords_with_distance, obstimes, loc
         )
-        ra_inv = invert_corrected_skycoords.ra.deg.ravel()
-        dec_inv = invert_corrected_skycoords.dec.deg.ravel()
+        # Inverse-corrected coords go into ra/dec (for VisitInjectTask on Butler exposures)
+        ra_for_injection = invert_corrected_skycoords.ra.deg.ravel()
+        dec_for_injection = invert_corrected_skycoords.dec.deg.ravel()
 
     obj_ids, mags, ts = [], [], []
     for i, x in enumerate(xs):
@@ -124,20 +129,21 @@ def generate_injection_catalog(
 
     catalog_dict = {
         "injection_id": np.arange(len(obj_ids)),
-        "ra": ra_orig,
-        "dec": dec_orig,
+        "ra": ra_for_injection,
+        "dec": dec_for_injection,
         "mag": mags,
         "guess_distance": [guess_distance] * len(obj_ids),
         "source_type": [source_type] * len(obj_ids),
         "obj_ids": obj_ids,
         "obstime": ts,
-        "x": xs.ravel(),
-        "y": ys.ravel(),
+        "plot_x": xs.ravel(),
+        "plot_y": ys.ravel(),
     }
 
     if guess_distance is not None:
-        catalog_dict[f"ra_{float(guess_distance)}"] = ra_inv
-        catalog_dict[f"dec_{float(guess_distance)}"] = dec_inv
+        # Straight-line coords in the reflex-corrected global WCS (for plotting on resampled images)
+        catalog_dict[f"ra_{float(guess_distance)}"] = ra_orig
+        catalog_dict[f"dec_{float(guess_distance)}"] = dec_orig
 
     return Table(catalog_dict)
 
