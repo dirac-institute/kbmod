@@ -452,6 +452,13 @@ def region_searcher(
         # Generate and save         known_objects_filter = reflex_correct_ephem_table(       t.write(table_csvfile, overwrite=True)
         print(f"{elapsed_t(startTime)} Finished!")
 
+        # Generate analysis table
+        analysis_table = generate_analysis_table(patch_id_to_ic)
+        analysis_table_path = os.path.join(ic_dir, "analysis_table.csv")
+        analysis_table.write(analysis_table_path, overwrite=True)
+        print(f"{elapsed_t(startTime)} Saved analysis table to {analysis_table_path}")
+        
+
     if known_objects_ephem is not None:
         print(f"{elapsed_t(startTime)} Loading known object ephemerides from {known_objects_ephem}...")
         # Load and clean the ephemeris table to ensure it has the required columns
@@ -545,7 +552,7 @@ if __name__ == "__main__":
         dest="bands_to_drop",
         help="list of bands to drop from ImageCollection, e.g., --bands-to-drop u y",
         type=str,
-        default=[],
+        default=["u", "y"],
         nargs="+",
     )
     parser.add_argument(
