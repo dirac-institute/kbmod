@@ -123,10 +123,12 @@ def get_ic_from_results_file(res_filepath):
     """
     # An ImageCollection will be in the same directory as the results file but will not have the extra extensions
     # from subsquent KBMOD workflow steps.
-    collection_idx = res_filepath.find(".collection")
+    ic_dir = os.path.dirname(res_filepath)
+    res_filename = os.path.basename(res_filepath)
+    collection_idx = res_filename.find(".collection")
     if collection_idx == -1:
         raise ValueError(f"Could not find .collection in {res_filepath} path")
-    ic_path = res_filepath[:collection_idx] + ".collection"
+    ic_path = os.path.join(ic_dir, res_filename[:collection_idx] + ".collection")
     if not os.path.exists(ic_path):
         raise ValueError(f"ImageCollection file not found: {ic_path} for results file {res_filepath}")
     return ic_path
@@ -161,9 +163,12 @@ def _process_results_file_chunks(
         from astropy.wcs import WCS
 
         global_wcs = WCS(ic.data[0]["global_wcs"])
+        global_wcs.pixel_shape = (
+            ic.data["global_wcs_pixel_shape_0"][0],
+            ic.data["global_wcs_pixel_shape_1"][0],
+        )
     except Exception as e:
-        if verbose:
-            print(f"  Failed to recover WCS from ImageCollection: {e}")
+        raise ValueError(f"  Failed to recover WCS from ImageCollection: {e}")
 
     # Use the generator from Results class
     for res in Results.read_table_chunks(results_file, chunk_size):
