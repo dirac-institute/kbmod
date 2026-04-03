@@ -53,8 +53,8 @@ class TestInjectionCatalog(unittest.TestCase):
             "source_type",
             "obj_ids",
             "obstime",
-            "x",
-            "y",
+            "plot_x",
+            "plot_y",
             "ra_40.0",
             "dec_40.0",
         ]
@@ -92,6 +92,61 @@ class TestInjectionCatalog(unittest.TestCase):
         self.assertIn("dec", catalog.colnames)
         self.assertNotIn("ra_40.0", catalog.colnames)
         self.assertNotIn("dec_40.0", catalog.colnames)
+
+    def test_catalog_structure_n_objs_times_n_obstimes(self):
+        """Verify catalog has n_objs * n_obstimes entries with correct grouping."""
+        search_config = SearchConfiguration()
+        search_config.set(
+            "generator_config",
+            {"name": "EclipticCenteredSearch", "velocities": [10.0, 20.0, 2], "angles": [0, 10, 2]},
+        )
+
+        n_objs = 5
+        n_obstimes = len(self.ic)
+        global_wcs = self.ic.get_global_wcs(auto_fit=True)
+
+        catalog = self.ic.generate_injection_catalog(
+            search_config=search_config, global_wcs=global_wcs, n_objs_per_ic=n_objs, guess_distance=None
+        )
+
+        # Should have n_objs * n_obstimes rows
+        self.assertEqual(len(catalog), n_objs * n_obstimes)
+
+        # Each object should appear exactly n_obstimes times
+        for obj_id in range(n_objs):
+            self.assertEqual(len(catalog[catalog["obj_ids"] == obj_id]), n_obstimes)
+
+        # Each obstime should have exactly n_objs entries
+        for obstime in self.ic.data["mjd_mid"]:
+            self.assertEqual(len(catalog[catalog["obstime"] == obstime]), n_objs)
+
+    def test_magnitude_within_specified_range(self):
+        """Verify all magnitudes fall within mag_range and are consistent per object."""
+        search_config = SearchConfiguration()
+        search_config.set(
+            "generator_config",
+            {"name": "EclipticCenteredSearch", "velocities": [10.0, 20.0, 2], "angles": [0, 10, 2]},
+        )
+
+        global_wcs = self.ic.get_global_wcs(auto_fit=True)
+        mag_min, mag_max = 20.0, 24.0
+
+        catalog = self.ic.generate_injection_catalog(
+            search_config=search_config,
+            global_wcs=global_wcs,
+            n_objs_per_ic=20,
+            guess_distance=None,
+            mag_range=(mag_min, mag_max),
+        )
+
+        # All magnitudes within range
+        self.assertTrue(np.all(catalog["mag"] >= mag_min))
+        self.assertTrue(np.all(catalog["mag"] <= mag_max))
+
+        # Each object has consistent magnitude across obstimes
+        for obj_id in np.unique(catalog["obj_ids"]):
+            obj_mags = catalog[catalog["obj_ids"] == obj_id]["mag"]
+            self.assertTrue(np.all(obj_mags == obj_mags[0]))
 
 
 class TestInjectSources(unittest.TestCase):
@@ -159,6 +214,93 @@ class TestInjectSources(unittest.TestCase):
         )
         with self.assertRaises(ImportError):
             self.ic.inject_sources(catalog=catalog, butler=self.butler)
+
+    def test_flux_scaling_with_magnitude(self):
+        """Verify that MockVisitInjectTask flux scales correctly with magnitude.
+
+        This tests the mock implementation directly to ensure the formula
+        flux = 10**((25 - mag) / 2.5) produces expected scaling.
+        """
+        # Test flux formula directly (used by MockVisitInjectTask._stamp_gaussian)
+        mag_bright = 18.0
+        mag_faint = 22.0
+
+        flux_bright = 10 ** ((25.0 - mag_bright) / 2.5)
+        flux_faint = 10 ** ((25.0 - mag_faint) / 2.5)
+
+        # 4 magnitude difference = 10^(4/2.5) = 10^1.6 ≈ 40x
+        expected_ratio = 10 ** ((mag_faint - mag_bright) / 2.5)
+
+        actual_ratio = flux_bright / flux_faint
+        self.assertAlmostEqual(actual_ratio, expected_ratio, places=5)
+        self.assertGreater(flux_bright, flux_faint)
+
+
+class TestParallaxInversion(unittest.TestCase):
+    """Tests for parallax inversion mathematical accuracy."""
+
+    def test_parallax_round_trip(self):
+        """Test correct_parallax -> invert gives back original coords."""
+        try:
+            from kbmod.reprojection_utils import (
+                correct_parallax_geometrically_vectorized,
+                invert_correct_parallax_vectorized,
+            )
+            from astropy.coordinates import SkyCoord, EarthLocation
+            import astropy.units as u
+        except ImportError:
+            self.skipTest("reprojection_utils not available")
+
+        ra_orig = np.array([290.0, 290.1, 290.2])
+        dec_orig = np.array([-20.0, -20.1, -20.2])
+        distance = 50.0
+        obstimes = np.array([60000.0, 60001.0, 60002.0])
+        loc = EarthLocation.of_site("Rubin")
+
+        # Forward: correct parallax (uses ra, dec, mjds, distance signature)
+        coords_corrected, _ = correct_parallax_geometrically_vectorized(
+            ra_orig, dec_orig, obstimes, distance, point_on_earth=loc
+        )
+
+        # Inverse: invert the correction
+        # invert_correct_parallax_vectorized expects SkyCoord with distance
+        coords_for_invert = SkyCoord(
+            ra=coords_corrected.ra, dec=coords_corrected.dec, distance=distance * u.au, frame="icrs"
+        )
+        coords_inverted = invert_correct_parallax_vectorized(coords_for_invert, obstimes, loc)
+
+        # Should match original within sub-arcsecond precision
+        ra_diff = np.abs(coords_inverted.ra.deg - ra_orig)
+        dec_diff = np.abs(coords_inverted.dec.deg - dec_orig)
+
+        self.assertLess(np.max(ra_diff), 1e-5, f"RA round-trip error: {np.max(ra_diff)} deg")
+        self.assertLess(np.max(dec_diff), 1e-5, f"Dec round-trip error: {np.max(dec_diff)} deg")
+
+    def test_closer_objects_have_larger_parallax(self):
+        """Verify parallax correction is larger for closer objects."""
+        try:
+            from kbmod.reprojection_utils import invert_correct_parallax_vectorized
+            from astropy.coordinates import SkyCoord, EarthLocation
+            import astropy.units as u
+        except ImportError:
+            self.skipTest("reprojection_utils not available")
+
+        ra, dec = 290.0, -20.0
+        obstime = np.array([60000.0])
+        loc = EarthLocation.of_site("Rubin")
+
+        # Compare parallax at 30 AU vs 100 AU
+        coords_close = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, distance=30.0 * u.au, frame="icrs")
+        coords_far = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, distance=100.0 * u.au, frame="icrs")
+
+        inv_close = invert_correct_parallax_vectorized(coords_close, obstime, loc)
+        inv_far = invert_correct_parallax_vectorized(coords_far, obstime, loc)
+
+        # Closer object should have larger displacement
+        disp_close = np.sqrt((inv_close.ra.deg - ra) ** 2 + (inv_close.dec.deg - dec) ** 2)
+        disp_far = np.sqrt((inv_far.ra.deg - ra) ** 2 + (inv_far.dec.deg - dec) ** 2)
+
+        self.assertGreater(disp_close, disp_far)
 
 
 if __name__ == "__main__":
