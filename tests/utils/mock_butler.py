@@ -537,23 +537,3 @@ class dafButler:
     DatasetRef = DatasetRef
     DatasetId = DatasetId
     Butler = MockButler
-
-
-"""
-Plan for MockButler Source Injection Testing:
----------------------------------------------
-To support unit testing of `kbmod.injection.inject_sources_into_ic` without requiring
-the full LSST Science Pipelines stack `VisitInjectTask`, the `MockButler` and related 
-mock objects must be augmented to correctly return exposures mimicking what a post-injected
-array would look like given an input catalog table and a WCS constraint.
-
-1. Implement `lsst.source.injection.VisitInjectTask` proxy:
-   - Create a mock `VisitInjectTask` duck-type inside `tests.utils` that mimics `.run()`.
-   - `.run()` should take `injection_catalogs`, `input_exposure`, etc., and physically 
-     inject tiny 2D gaussians or pixel delta increments into the provided `input_exposure.image.array`.
-   - It should yield a mock output object with `.output_exposure` and `.output_catalog`.
-
-2. Link into test configuration:
-   - Provide a mechanism during test teardown and setup to alias `lsst.source.injection` imports
-     to the mock objects defined here, analogous to how `dafButler` intercepts are handled.
-"""

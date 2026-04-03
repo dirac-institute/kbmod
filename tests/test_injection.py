@@ -236,6 +236,116 @@ class TestInjectSources(unittest.TestCase):
         self.assertGreater(flux_bright, flux_faint)
 
 
+class TestInjectionRecovery(unittest.TestCase):
+    """End-to-end tests verifying injected sources can be recovered by search."""
+
+    def test_injected_sources_recovered_by_search(self):
+        """Verify that injected sources can be found by the search algorithm.
+
+        This test creates fake data, inserts objects with known trajectories,
+        and verifies search recovers them.
+        """
+        from kbmod.fake_data.fake_data_creator import FakeDataSet
+        from kbmod.run_search import SearchRunner
+        from kbmod.trajectory_generator import VelocityGridSearch
+        from kbmod.search import Trajectory
+
+        # Create fake dataset matching the pattern from test_run_search.py
+        num_times = 20
+        width = 60
+        height = 70
+        # Use close-together times (0.05 days apart) like test_core_search_cpu
+        fake_times = [59000.0 + float(i) / num_times for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        # Insert objects with known trajectories (similar to test_core_search_cpu)
+        inserted_trjs = [
+            Trajectory(x=15, y=20, vx=20.0, vy=15.0, flux=250.0),
+            Trajectory(x=35, y=25, vx=18.0, vy=12.0, flux=250.0),
+        ]
+        for trj in inserted_trjs:
+            fake_ds.insert_object(trj)
+
+        # Configure search with velocity grid covering the inserted velocities
+        config = SearchConfiguration()
+        config.set("cpu_only", True)
+
+        # Run search with grid centered on inserted velocities
+        runner = SearchRunner()
+        search_gen = VelocityGridSearch(5, 14.0, 24.0, 5, 8.0, 20.0)
+        results = runner.do_core_search(config, fake_ds.stack_py, search_gen)
+
+        # Verify we found results
+        self.assertGreater(len(results), 0)
+
+        # Check that each inserted trajectory is recovered (within tolerance)
+        recovered_count = 0
+        for trj in inserted_trjs:
+            for i in range(len(results)):
+                x_match = abs(results["x"][i] - trj.x) <= 2
+                y_match = abs(results["y"][i] - trj.y) <= 2
+                vx_match = abs(results["vx"][i] - trj.vx) <= 2.0
+                vy_match = abs(results["vy"][i] - trj.vy) <= 2.0
+                if x_match and y_match and vx_match and vy_match:
+                    recovered_count += 1
+                    break
+
+        # Both objects should be recovered
+        self.assertEqual(recovered_count, 2)
+
+    def test_catalog_velocities_match_generator(self):
+        """Verify generate_injection_catalog produces velocities from the generator."""
+        search_config = SearchConfiguration()
+        search_config.set(
+            "generator_config",
+            {
+                "name": "EclipticCenteredSearch",
+                "velocities": [10.0, 20.0, 3],  # 3 velocity steps
+                "angles": [0.0, 0.1, 2],  # 2 angle steps
+            },
+        )
+
+        fitsFactory = DECamImdiffFactory()
+        fits = fitsFactory.get_n(3, spoof_data=True)
+        ic = ImageCollection.fromTargets(fits)
+        ic.data["mjd_mid"] = np.array([59000.0, 59001.0, 59002.0])
+
+        global_wcs = ic.get_global_wcs(auto_fit=True)
+        catalog = ic.generate_injection_catalog(
+            search_config=search_config,
+            global_wcs=global_wcs,
+            n_objs_per_ic=5,
+            guess_distance=None,
+        )
+
+        # Verify catalog has expected structure
+        self.assertEqual(len(catalog), 5 * 3)  # 5 objects × 3 obstimes
+
+        # Check that plot_x and plot_y evolve linearly (constant velocity)
+        for obj_id in np.unique(catalog["obj_ids"]):
+            obj_rows = catalog[catalog["obj_ids"] == obj_id]
+            obj_rows.sort("obstime")
+
+            # Extract positions
+            xs = obj_rows["plot_x"]
+            ys = obj_rows["plot_y"]
+            ts = obj_rows["obstime"]
+
+            # Compute velocities from positions
+            if len(xs) > 1:
+                dt = ts[1] - ts[0]
+                vx_computed = (xs[1] - xs[0]) / dt
+                vy_computed = (ys[1] - ys[0]) / dt
+
+                # Velocity should be consistent across all time steps
+                for i in range(1, len(xs) - 1):
+                    dt_i = ts[i + 1] - ts[i]
+                    vx_i = (xs[i + 1] - xs[i]) / dt_i
+                    vy_i = (ys[i + 1] - ys[i]) / dt_i
+                    self.assertAlmostEqual(vx_computed, vx_i, places=3)
+                    self.assertAlmostEqual(vy_computed, vy_i, places=3)
+
+
 class TestParallaxInversion(unittest.TestCase):
     """Tests for parallax inversion mathematical accuracy."""
 

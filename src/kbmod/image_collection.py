@@ -25,6 +25,8 @@ from .standardizers import Standardizer, ButlerStandardizer
 
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
+from .injection import generate_injection_catalog, inject_sources_into_ic
+from reproject.mosaicking import find_optimal_celestial_wcs
 
 __all__ = [
     "ImageCollection",
@@ -1221,9 +1223,6 @@ class ImageCollection:
         global_wcs : `astropy.wcs.WCS` or None
         """
         if "global_wcs" in self.data.columns:
-            import json
-            from astropy.wcs import WCS
-
             wcs_data = self.data["global_wcs"][0]
             try:
                 wcs_data = json.loads(wcs_data)
@@ -1238,8 +1237,6 @@ class ImageCollection:
             return global_wcs
 
         if auto_fit:
-            from reproject.mosaicking import find_optimal_celestial_wcs
-
             global_wcs, shape = find_optimal_celestial_wcs(list(self.wcs))
             global_wcs.array_shape = shape
             return global_wcs
@@ -1277,8 +1274,6 @@ class ImageCollection:
         catalog : astropy.table.Table
             Coordinates and magnitudes of simulated objects.
         """
-        from .injection import generate_injection_catalog
-
         return generate_injection_catalog(
             self, search_config, global_wcs, n_objs_per_ic, guess_distance, mag_range, source_type
         )
@@ -1310,6 +1305,4 @@ class ImageCollection:
         injected_cats : `astropy.table.Table`
             Vstacked catalog of rendered sources across all exposures.
         """
-        from .injection import inject_sources_into_ic
-
         return inject_sources_into_ic(self, catalog, butler, inject_config, pre_render_fn)
