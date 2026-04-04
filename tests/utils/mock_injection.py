@@ -38,33 +38,41 @@ class MockVisitInjectResult:
     output_catalog: Table = field(default_factory=Table)
 
 
-def _stamp_gaussian(image_array, cx, cy, flux, sigma=1.5):
-    """Stamp a tiny normalised 2D Gaussian into *image_array* at (cx, cy).
+def _stamp_gaussian(image_array, x_center, y_center, flux, sigma=1.5):
+    """Stamp a tiny normalised 2D Gaussian into *image_array* at (x_center, y_center).
+
+    Modifies the image_array in place.
 
     Parameters
     ----------
     image_array : ndarray
         2-D array to modify **in place**.
-    cx, cy : float
+    x_center, y_center : float
         Centre of the Gaussian in pixel coordinates.
     flux : float
         Total integrated flux of the Gaussian.
     sigma : float
         Standard deviation in pixels.
+
+    Returns
+    -------
+    None
     """
+    # Use the boundaries of the image array to determine the bounds of the stamp
     hw = int(4 * sigma)  # half-width of stamp
-    iy, ix = int(round(cy)), int(round(cx))
-    ylo, yhi = max(0, iy - hw), min(image_array.shape[0], iy + hw + 1)
-    xlo, xhi = max(0, ix - hw), min(image_array.shape[1], ix + hw + 1)
-    if ylo >= yhi or xlo >= xhi:
+    y_center_int, x_center_int = int(round(y_center)), int(round(x_center))
+    y_low, y_high = max(0, y_center_int - hw), min(image_array.shape[0], y_center_int + hw + 1)
+    x_low, x_high = max(0, x_center_int - hw), min(image_array.shape[1], x_center_int + hw + 1)
+    if y_low >= y_high or x_low >= x_high:
         return  # completely off-image
 
-    yy, xx = np.mgrid[ylo:yhi, xlo:xhi]
-    stamp = np.exp(-0.5 * ((xx - cx) ** 2 + (yy - cy) ** 2) / sigma**2)
+    yy, xx = np.mgrid[y_low:y_high, x_low:x_high]
+    # Here we create a 2D Gaussian PSF and stamp it into the image array
+    stamp = np.exp(-0.5 * ((xx - x_center) ** 2 + (yy - y_center) ** 2) / sigma**2)
     norm = stamp.sum()
     if norm > 0:
         stamp *= flux / norm
-    image_array[ylo:yhi, xlo:xhi] += stamp.astype(image_array.dtype)
+    image_array[y_low:y_high, x_low:x_high] += stamp.astype(image_array.dtype)
 
 
 class MockVisitInjectTask:

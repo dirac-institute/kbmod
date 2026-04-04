@@ -5,6 +5,7 @@ from astropy.table import Table
 
 from kbmod import ImageCollection
 from kbmod.configuration import SearchConfiguration
+from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 
 from utils import DECamImdiffFactory, MockButler, MockVisitInjectConfig, MockVisitInjectTask
 
@@ -20,6 +21,7 @@ class TestInjectionCatalog(unittest.TestCase):
 
     def test_generate_injection_catalog_distance(self):
         """With guess_distance, catalog should have ra_{dist}/dec_{dist} columns."""
+        # Set up a search configuration for the search space to simulate.
         search_config = SearchConfiguration()
         search_config.set(
             "generator_config",
@@ -30,8 +32,10 @@ class TestInjectionCatalog(unittest.TestCase):
             },
         )
 
+        # The number of objects to inject per image collection.
         n_objs = 10
         global_wcs = self.ic.get_global_wcs(auto_fit=True)
+        # Perform our insertion.
         catalog = self.ic.generate_injection_catalog(
             search_config=search_config,
             global_wcs=global_wcs,
@@ -63,9 +67,48 @@ class TestInjectionCatalog(unittest.TestCase):
 
         self.assertEqual(catalog["guess_distance"][0], 40.0)
         self.assertEqual(catalog["source_type"][0], "Galaxy")
-        self.assertTrue(20.0 <= catalog["mag"][0] <= 22.0)
-        self.assertEqual(len(np.unique(catalog["obj_ids"])), n_objs)
-        self.assertEqual(len(np.unique(catalog["obstime"])), 5)
+
+        n_obstimes = len(self.ic)
+        # Verify catalog has n_objs * n_obstimes entries
+        self.assertEqual(len(catalog), n_objs * n_obstimes)
+
+        # Each object should appear exactly n_obstimes times
+        for obj_id in range(n_objs):
+            self.assertEqual(len(catalog[catalog["obj_ids"] == obj_id]), n_obstimes)
+
+        # Each obstime should have exactly n_objs entries
+        for obstime in self.ic.data["mjd_mid"]:
+            self.assertEqual(len(catalog[catalog["obstime"] == obstime]), n_objs)
+
+        # All magnitudes within specified mag_range
+        self.assertTrue(np.all(catalog["mag"] >= 20.0))
+        self.assertTrue(np.all(catalog["mag"] <= 22.0))
+
+        # Each object has consistent magnitude across obstimes
+        for obj_id in np.unique(catalog["obj_ids"]):
+            obj_mags = catalog[catalog["obj_ids"] == obj_id]["mag"]
+            self.assertTrue(np.all(obj_mags == obj_mags[0]))
+
+        # Verify that the (ra, dec) coordinates are indeed the inverse-parallax corrected
+        # versions of the (ra_40.0, dec_40.0) straight-line trajectories.
+        # We do this by applying the forward correction to (ra, dec) and asserting it yields (ra_40.0, dec_40.0)
+        max_ra_diff_naive = np.max(np.abs(catalog["ra"] - catalog["ra_40.0"]))
+        max_dec_diff_naive = np.max(np.abs(catalog["dec"] - catalog["dec_40.0"]))
+        # Parallax should have moved the coordinates by a measurable amount (> 1e-7 deg)
+        self.assertGreater(max_ra_diff_naive, 1e-7)
+        self.assertGreater(max_dec_diff_naive, 1e-7)
+
+        loc = self.ic.get_observatory()
+        coords_forward, _ = correct_parallax_geometrically_vectorized(
+            catalog["ra"], catalog["dec"], catalog["obstime"], 40.0, point_on_earth=loc
+        )
+
+        # The forward-corrected coordinates should exactly match the straight-line coords
+        ra_diff = np.abs(coords_forward.ra.deg - catalog["ra_40.0"])
+        dec_diff = np.abs(coords_forward.dec.deg - catalog["dec_40.0"])
+
+        self.assertLess(np.max(ra_diff), 1e-6)
+        self.assertLess(np.max(dec_diff), 1e-6)
 
     def test_generate_injection_catalog_no_distance(self):
         """Without guess_distance, no reflex columns should appear."""
@@ -88,65 +131,14 @@ class TestInjectionCatalog(unittest.TestCase):
         self.assertIsInstance(catalog, Table)
         self.assertEqual(len(catalog), 50)
         self.assertIsNone(catalog["guess_distance"][0])
-        self.assertIn("ra", catalog.colnames)
-        self.assertIn("dec", catalog.colnames)
-        self.assertNotIn("ra_40.0", catalog.colnames)
-        self.assertNotIn("dec_40.0", catalog.colnames)
 
-    def test_catalog_structure_n_objs_times_n_obstimes(self):
-        """Verify catalog has n_objs * n_obstimes entries with correct grouping."""
-        search_config = SearchConfiguration()
-        search_config.set(
-            "generator_config",
-            {"name": "EclipticCenteredSearch", "velocities": [10.0, 20.0, 2], "angles": [0, 10, 2]},
-        )
+        # Assert that only one column has the substring "ra" since no guess_distance was provided.
+        ra_cols = [col for col in catalog.colnames if "ra" in col]
+        self.assertEqual(len(ra_cols), 1)
 
-        n_objs = 5
-        n_obstimes = len(self.ic)
-        global_wcs = self.ic.get_global_wcs(auto_fit=True)
-
-        catalog = self.ic.generate_injection_catalog(
-            search_config=search_config, global_wcs=global_wcs, n_objs_per_ic=n_objs, guess_distance=None
-        )
-
-        # Should have n_objs * n_obstimes rows
-        self.assertEqual(len(catalog), n_objs * n_obstimes)
-
-        # Each object should appear exactly n_obstimes times
-        for obj_id in range(n_objs):
-            self.assertEqual(len(catalog[catalog["obj_ids"] == obj_id]), n_obstimes)
-
-        # Each obstime should have exactly n_objs entries
-        for obstime in self.ic.data["mjd_mid"]:
-            self.assertEqual(len(catalog[catalog["obstime"] == obstime]), n_objs)
-
-    def test_magnitude_within_specified_range(self):
-        """Verify all magnitudes fall within mag_range and are consistent per object."""
-        search_config = SearchConfiguration()
-        search_config.set(
-            "generator_config",
-            {"name": "EclipticCenteredSearch", "velocities": [10.0, 20.0, 2], "angles": [0, 10, 2]},
-        )
-
-        global_wcs = self.ic.get_global_wcs(auto_fit=True)
-        mag_min, mag_max = 20.0, 24.0
-
-        catalog = self.ic.generate_injection_catalog(
-            search_config=search_config,
-            global_wcs=global_wcs,
-            n_objs_per_ic=20,
-            guess_distance=None,
-            mag_range=(mag_min, mag_max),
-        )
-
-        # All magnitudes within range
-        self.assertTrue(np.all(catalog["mag"] >= mag_min))
-        self.assertTrue(np.all(catalog["mag"] <= mag_max))
-
-        # Each object has consistent magnitude across obstimes
-        for obj_id in np.unique(catalog["obj_ids"]):
-            obj_mags = catalog[catalog["obj_ids"] == obj_id]["mag"]
-            self.assertTrue(np.all(obj_mags == obj_mags[0]))
+        # Assert that only one column has the substring "dec" since no guess_distance was provided.
+        dec_cols = [col for col in catalog.colnames if "dec" in col]
+        self.assertEqual(len(dec_cols), 1)
 
 
 class TestInjectSources(unittest.TestCase):
