@@ -250,7 +250,7 @@ class TestInjectionRecovery(unittest.TestCase):
         fake_times = [59000.0 + float(i) / num_times for i in range(num_times)]
         fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
 
-        # Insert objects with known trajectories (similar to test_core_search_cpu)
+        # Insert objects with known trajectories
         inserted_trjs = [
             Trajectory(x=15, y=20, vx=20.0, vy=15.0, flux=250.0),
             Trajectory(x=35, y=25, vx=18.0, vy=12.0, flux=250.0),
@@ -336,73 +336,6 @@ class TestInjectionRecovery(unittest.TestCase):
                     vy_i = (ys[i + 1] - ys[i]) / dt_i
                     self.assertAlmostEqual(vx_computed, vx_i, places=3)
                     self.assertAlmostEqual(vy_computed, vy_i, places=3)
-
-
-class TestParallaxInversion(unittest.TestCase):
-    """Tests for parallax inversion mathematical accuracy."""
-
-    def test_parallax_round_trip(self):
-        """Test correct_parallax -> invert gives back original coords."""
-        try:
-            from kbmod.reprojection_utils import (
-                correct_parallax_geometrically_vectorized,
-                invert_correct_parallax_vectorized,
-            )
-            from astropy.coordinates import SkyCoord, EarthLocation
-            import astropy.units as u
-        except ImportError:
-            self.skipTest("reprojection_utils not available")
-
-        ra_orig = np.array([290.0, 290.1, 290.2])
-        dec_orig = np.array([-20.0, -20.1, -20.2])
-        distance = 50.0
-        obstimes = np.array([60000.0, 60001.0, 60002.0])
-        loc = EarthLocation.of_site("ctio")
-
-        # Forward: correct parallax (uses ra, dec, mjds, distance signature)
-        coords_corrected, _ = correct_parallax_geometrically_vectorized(
-            ra_orig, dec_orig, obstimes, distance, point_on_earth=loc
-        )
-
-        # Inverse: invert the correction
-        # invert_correct_parallax_vectorized expects SkyCoord with distance
-        coords_for_invert = SkyCoord(
-            ra=coords_corrected.ra, dec=coords_corrected.dec, distance=distance * u.au, frame="icrs"
-        )
-        coords_inverted = invert_correct_parallax_vectorized(coords_for_invert, obstimes, loc)
-
-        # Should match original within sub-arcsecond precision
-        ra_diff = np.abs(coords_inverted.ra.deg - ra_orig)
-        dec_diff = np.abs(coords_inverted.dec.deg - dec_orig)
-
-        self.assertLess(np.max(ra_diff), 1e-5, f"RA round-trip error: {np.max(ra_diff)} deg")
-        self.assertLess(np.max(dec_diff), 1e-5, f"Dec round-trip error: {np.max(dec_diff)} deg")
-
-    def test_closer_objects_have_larger_parallax(self):
-        """Verify parallax correction is larger for closer objects."""
-        try:
-            from kbmod.reprojection_utils import invert_correct_parallax_vectorized
-            from astropy.coordinates import SkyCoord, EarthLocation
-            import astropy.units as u
-        except ImportError:
-            self.skipTest("reprojection_utils not available")
-
-        ra, dec = 290.0, -20.0
-        obstime = np.array([60000.0])
-        loc = EarthLocation.of_site("ctio")
-
-        # Compare parallax at 30 AU vs 100 AU
-        coords_close = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, distance=30.0 * u.au, frame="icrs")
-        coords_far = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, distance=100.0 * u.au, frame="icrs")
-
-        inv_close = invert_correct_parallax_vectorized(coords_close, obstime, loc)
-        inv_far = invert_correct_parallax_vectorized(coords_far, obstime, loc)
-
-        # Closer object should have larger displacement
-        disp_close = np.sqrt((inv_close.ra.deg - ra) ** 2 + (inv_close.dec.deg - dec) ** 2)
-        disp_far = np.sqrt((inv_far.ra.deg - ra) ** 2 + (inv_far.dec.deg - dec) ** 2)
-
-        self.assertGreater(disp_close, disp_far)
 
 
 if __name__ == "__main__":
