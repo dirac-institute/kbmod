@@ -1272,7 +1272,19 @@ class ImageCollection:
         Returns
         -------
         catalog : astropy.table.Table
-            Coordinates and magnitudes of simulated objects.
+            Coordinates and magnitudes of simulated objects.  Its columns are defined as:
+        - injection_id: unique identifier for each injection
+        - ra: right ascension of the object in degrees for injection
+        - dec: declination of the object in degrees for injection
+        - mag: magnitude of the object
+        - guess_distance: guess distance (AU) used for inverse parallax correction if provided
+        - source_type: source type designation in the injection catalog, e.g. "Star"
+        - obj_ids: unique identifier for each injected object
+        - obstime: observation time in MJD, aligning with ic["mjd_mid"]
+        - plot_x: x-coordinate of the object in the global WCS frame for plotting convenience
+        - plot_y: y-coordinate of the object in the global WCS frame for plotting convenience
+        - ra_{guess_distance}: right ascension of the object in the global WCS frame at the guess distance
+        - dec_{guess_distance}: declination of the object in the global WCS frame at the guess distance
         """
         return generate_injection_catalog(
             self, search_config, global_wcs, n_objs_per_ic, guess_distance, mag_range, source_type

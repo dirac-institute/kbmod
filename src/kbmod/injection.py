@@ -224,16 +224,20 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
     # Provide robust alignment handling
     references, exposures, injected_cats = [], [], []
 
-    for idd, obs_t in zip(ic.data["dataId"], ic.data["mjd_mid"]):
-        # Exact matching for MJD
-        src_mask = catalog["obstime"] == obs_t
+    # Iterate through each exposure in the image collection for injection
+    for i in range(len(ic)):
+        dataId, mjd_mid = ic.data["dataId"][i], ic.data["mjd_mid"][i]
+        # Filter for all sources at our current timestep
+        src_mask = catalog["obstime"] == mjd_mid
         srccat = catalog[src_mask]
 
-        did = DatasetId(idd)
+        # Get the
+        did = DatasetId(dataId)
         ref = butler.get_dataset(did, dimension_records=True)
         imdiff = butler.get(ref)
 
         if len(srccat) == 0:
+            # If no sources are found for this timestep, append the original exposure and an empty catalog
             exposures.append(imdiff)
             injected_cats.append(
                 Table(names=catalog.colnames, dtype=[catalog[c].dtype for c in catalog.colnames])
@@ -242,6 +246,7 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
             continue
 
         try:
+            # Run the injection task on the current exposure
             result = inject_task.run(
                 injection_catalogs=srccat,
                 input_exposure=imdiff,
@@ -252,20 +257,19 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
             exposures.append(result.output_exposure)
             injected_cats.append(result.output_catalog)
         except RuntimeError:
-            warnings.warn(f"Exposure {idd} had no objects rendering within bounds.")
+            # If no objects are rendered within bounds, append the original exposure and an empty catalog
+            warnings.warn(f"Exposure {dataId} had no objects successfully rendered within bounds.")
             exposures.append(imdiff)
             injected_cats.append(
                 Table(names=catalog.colnames, dtype=[catalog[c].dtype for c in catalog.colnames])
             )
-
         references.append(ref)
 
+    # Stack all the injected catalogs
     injected_cats = vstack(injected_cats)
 
+    # Rebuild the standardizers with the new exposures
     standardizers = ic.get_standardizers(butler=butler)
-    if len(standardizers) != len(ic):
-        raise RuntimeError("Recovered standardizers do not match IC length.")
-
     for std, ref, exp in zip(standardizers, references, exposures):
         std["std"].exp = exp
         std["std"].ref = ref
@@ -273,5 +277,6 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
     # Deferred import to avoid circular dependency: image_collection imports injection
     from kbmod.image_collection import ImageCollection
 
+    # Rebuild the ImageCollection from the new standardizers
     new_ic = ImageCollection.fromStandardizers([std["std"] for std in standardizers])
     return new_ic, injected_cats
