@@ -365,7 +365,7 @@ class TestParallaxInversion(unittest.TestCase):
         dec_orig = np.array([-20.0, -20.1, -20.2])
         distance = 50.0
         obstimes = np.array([60000.0, 60001.0, 60002.0])
-        loc = EarthLocation.of_site("Rubin")
+        loc = EarthLocation.of_site("ctio")
 
         # Forward: correct parallax (uses ra, dec, mjds, distance signature)
         coords_corrected, _ = correct_parallax_geometrically_vectorized(
@@ -397,7 +397,7 @@ class TestParallaxInversion(unittest.TestCase):
 
         ra, dec = 290.0, -20.0
         obstime = np.array([60000.0])
-        loc = EarthLocation.of_site("Rubin")
+        loc = EarthLocation.of_site("ctio")
 
         # Compare parallax at 30 AU vs 100 AU
         coords_close = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, distance=30.0 * u.au, frame="icrs")

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from unittest import mock
 
 import numpy as np
+from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astropy.wcs import WCS
 
@@ -117,8 +118,6 @@ class MockVisitInjectTask:
             flux = 10 ** ((25.0 - mag) / 2.5)
 
             if astropy_wcs is not None:
-                from astropy.coordinates import SkyCoord
-
                 coord = SkyCoord(ra, dec, unit="deg")
                 px, py = astropy_wcs.world_to_pixel(coord)
             else:
