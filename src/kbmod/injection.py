@@ -181,7 +181,7 @@ def generate_injection_catalog(
     return Table(catalog_dict)
 
 
-def inject_sources_into_ic(ic, catalog, butler, inject_config=None, pre_render_fn=None):
+def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
     """
     Inject simulated moving objects directly into the exposures specified by an ImageCollection
     utilizing LSST pipelines. NOte that this currently only works for `ButlerStandardizer` backed
@@ -204,8 +204,6 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None, pre_render_f
         Butler to use for retrieving exposures.
     inject_config : `VisitInjectConfig`, optional
         Configuration for VisitInjectTask.
-    pre_render_fn : callable, optional
-        Function to apply to exposures before injection.
 
     Returns
     -------
@@ -234,9 +232,6 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None, pre_render_f
         did = DatasetId(idd)
         ref = butler.get_dataset(did, dimension_records=True)
         imdiff = butler.get(ref)
-
-        if pre_render_fn is not None:
-            imdiff = pre_render_fn(imdiff)
 
         if len(srccat) == 0:
             exposures.append(imdiff)

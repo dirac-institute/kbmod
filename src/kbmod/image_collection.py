@@ -1278,7 +1278,7 @@ class ImageCollection:
             self, search_config, global_wcs, n_objs_per_ic, guess_distance, mag_range, source_type
         )
 
-    def inject_sources(self, catalog, butler, inject_config=None, pre_render_fn=None):
+    def inject_sources(self, catalog, butler, inject_config=None):
         """Inject simulated moving objects directly into an ImageCollection utilizing LSST pipelines.
 
         Uses ``lsst.source.injection.VisitInjectTask`` to render sources from the
@@ -1295,8 +1295,6 @@ class ImageCollection:
             LSST Butler instance used to retrieve the base exposures by ``dataId``.
         inject_config : ``VisitInjectConfig``, optional
             Configuration for the LSST ``VisitInjectTask``. If None, uses defaults.
-        pre_render_fn : callable, optional
-            Function applied to each exposure before injection (e.g. for zeroing arrays).
 
         Returns
         -------
@@ -1305,4 +1303,4 @@ class ImageCollection:
         injected_cats : `astropy.table.Table`
             Vstacked catalog of rendered sources across all exposures.
         """
-        return inject_sources_into_ic(self, catalog, butler, inject_config, pre_render_fn)
+        return inject_sources_into_ic(self, catalog, butler, inject_config)
