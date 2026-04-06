@@ -280,3 +280,146 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
     # Rebuild the ImageCollection from the new standardizers
     new_ic = ImageCollection.fromStandardizers([std["std"] for std in standardizers])
     return new_ic, injected_cats
+
+
+def match_injection_results(
+    catalog,
+    results,
+    guess_distance=None,
+    sep_thresh=5.0,
+    time_thresh_s=60.0,
+    min_obs=3,
+    matcher_name="injected_sources",
+):
+    """Match KBMOD search results against an injection catalog.
+
+    This is a convenience wrapper around ``KnownObjsMatcher`` that adapts
+    the injection catalog columns to the matcher's expected format and
+    runs the match + recovery analysis in one call.
+
+    The ``wcs`` and ``obstimes`` are pulled directly from the ``Results``
+    object (``results.wcs`` and ``results.mjd_mid``).
+
+    Parameters
+    ----------
+    catalog : `astropy.table.Table`, `str`, or `pathlib.Path`
+        Injection catalog (astropy Table) or a path to a serialized file
+        (``.parquet`` or ``.ecsv``).  Must contain ``obstime``, ``obj_ids``,
+        and either ``ra_{guess_distance}``/``dec_{guess_distance}`` or
+        ``ra``/``dec`` columns.
+    results : `kbmod.Results` or `str`
+        KBMOD search results (``Results`` object) or a path to a serialized
+        results file.  Must have ``wcs`` and ``mjd_mid`` set (standard
+        when created by ``run_search``).
+    guess_distance : `float` or `None`, optional
+        The guess distance in AU used during injection.  When provided the
+        matcher uses the ``ra_{dist}``/``dec_{dist}`` columns which are the
+        straight-line positions in the reflex-corrected global WCS — matching
+        the coordinate frame of KBMOD results.  When ``None`` the
+        ``guess_distance`` value is read from the catalog's
+        ``guess_distance`` column.
+    sep_thresh : `float`, optional
+        Maximum spatial separation in arcseconds for a match. Default 5.0.
+    time_thresh_s : `float`, optional
+        Maximum time separation in seconds for a match. Default 60.0.
+    min_obs : `int`, optional
+        Minimum number of matching observations for a result to be
+        considered a recovery. Default 3.
+    matcher_name : `str`, optional
+        Name used for the filter/matching column added to the results table.
+        Default ``"injected_sources"``.
+
+    Returns
+    -------
+    results : `kbmod.Results`
+        The ``Results`` object with added columns:
+        - ``{matcher_name}`` — per-result dict of matched object observations
+        - ``recovered_{matcher_name}_min_obs_{min_obs}`` — list of recovered
+          object names per result
+    recovered : `set`
+        Set of injected object names that were recovered.
+    missed : `set`
+        Set of injected object names that were not recovered.
+    """
+    from kbmod.filters.known_object_filters import KnownObjsMatcher
+    from kbmod.results import Results
+
+    # ---------- load catalog ----------
+    if isinstance(catalog, (str,)):
+        import pathlib
+
+        catalog_path = pathlib.Path(catalog)
+        if catalog_path.suffix == ".parquet":
+            import pandas as pd
+
+            catalog = Table.from_pandas(pd.read_parquet(catalog_path))
+        elif catalog_path.suffix == ".ecsv":
+            catalog = Table.read(catalog_path, format="ascii.ecsv")
+        else:
+            catalog = Table.read(catalog_path)
+
+    # ---------- load results ----------
+    if isinstance(results, (str,)):
+        results = Results.read_table(results)
+
+    # ---------- pull wcs and obstimes from results ----------
+    wcs = results.wcs
+    obstimes = results.mjd_mid
+    if wcs is None:
+        raise ValueError(
+            "Results object has no WCS. Ensure results were created by run_search or loaded with metadata."
+        )
+    if obstimes is None or len(obstimes) == 0:
+        raise ValueError(
+            "Results object has no mjd_mid. Ensure results were created by run_search or loaded with metadata."
+        )
+
+    # ---------- determine guess_distance ----------
+    if guess_distance is None and "guess_distance" in catalog.colnames:
+        gd_vals = catalog["guess_distance"]
+        non_none = [v for v in gd_vals if v is not None]
+        if len(non_none) > 0:
+            guess_distance = float(non_none[0])
+
+    # ---------- determine ra/dec columns ----------
+    # Use ra_{dist}/dec_{dist} (straight-line in reflex-corrected global WCS)
+    # since KBMOD results are in the same reflex-corrected frame.
+    if guess_distance is not None:
+        ra_col = f"ra_{float(guess_distance)}"
+        dec_col = f"dec_{float(guess_distance)}"
+        if ra_col not in catalog.colnames or dec_col not in catalog.colnames:
+            warnings.warn(f"Columns {ra_col}/{dec_col} not found; falling back to ra/dec.")
+            ra_col, dec_col = "ra", "dec"
+    else:
+        ra_col, dec_col = "ra", "dec"
+
+    # Ensure obj_ids are strings (KnownObjsMatcher uses them as name keys)
+    if "obj_ids" in catalog.colnames:
+        catalog["obj_ids"] = [str(oid) for oid in catalog["obj_ids"]]
+
+    # ---------- run matcher ----------
+    matcher = KnownObjsMatcher(
+        table=catalog,
+        obstimes=obstimes,
+        matcher_name=matcher_name,
+        sep_thresh=sep_thresh,
+        time_thresh_s=time_thresh_s,
+        mjd_col="obstime",
+        ra_col=ra_col,
+        dec_col=dec_col,
+        name_col="obj_ids",
+    )
+
+    results = matcher.match(results, wcs)
+    results = matcher.match_on_min_obs(results, min_obs=min_obs)
+
+    match_col = matcher.match_min_obs_col(min_obs)
+    recovered, missed = matcher.get_recovered_objects(results, match_col)
+
+    n_total = len(set(catalog["obj_ids"]))
+    print(
+        f"Injection recovery: {len(recovered)}/{n_total} objects recovered "
+        f'({len(missed)} missed) with min_obs={min_obs}, sep_thresh={sep_thresh}"'
+    )
+
+    return results, recovered, missed
