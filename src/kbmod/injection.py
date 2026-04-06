@@ -225,6 +225,7 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
     references, exposures, injected_cats = [], [], []
 
     # Iterate through each exposure in the image collection for injection
+    injected_exposure_cnt = 0
     for i in range(len(ic)):
         dataId, mjd_mid = ic.data["dataId"][i], ic.data["mjd_mid"][i]
         # Filter for all sources at our current timestep
@@ -256,14 +257,22 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
             )
             exposures.append(result.output_exposure)
             injected_cats.append(result.output_catalog)
+            injected_exposure_cnt += 1
         except RuntimeError:
             # If no objects are rendered within bounds, append the original exposure and an empty catalog
-            warnings.warn(f"Exposure {dataId} had no objects successfully rendered within bounds.")
+            warnings.warn(
+                f"Exposure {i}/{len(ic)} ({dataId}) had no objects successfully rendered within bounds."
+            )
             exposures.append(imdiff)
             injected_cats.append(
                 Table(names=catalog.colnames, dtype=[catalog[c].dtype for c in catalog.colnames])
             )
         references.append(ref)
+
+    if injected_exposure_cnt == 0:
+        warnings.warn("No objects were successfully rendered within bounds.")
+    else:
+        print(f"Successfully injected sources into {injected_exposure_cnt}/{len(ic)} exposures.")
 
     # Stack all the injected catalogs
     injected_cats = vstack(injected_cats)
