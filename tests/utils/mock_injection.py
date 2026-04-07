@@ -56,7 +56,8 @@ def _stamp_gaussian(image_array, x_center, y_center, flux, sigma=1.5):
 
     Returns
     -------
-    None
+    bool
+        True if the stamp was applied (at least partially in-bounds), False otherwise.
     """
     # Use the boundaries of the image array to determine the bounds of the stamp
     hw = int(4 * sigma)  # half-width of stamp
@@ -64,7 +65,7 @@ def _stamp_gaussian(image_array, x_center, y_center, flux, sigma=1.5):
     y_low, y_high = max(0, y_center_int - hw), min(image_array.shape[0], y_center_int + hw + 1)
     x_low, x_high = max(0, x_center_int - hw), min(image_array.shape[1], x_center_int + hw + 1)
     if y_low >= y_high or x_low >= x_high:
-        return  # completely off-image
+        return False  # completely off-image
 
     yy, xx = np.mgrid[y_low:y_high, x_low:x_high]
     # Here we create a 2D Gaussian PSF and stamp it into the image array
@@ -73,6 +74,7 @@ def _stamp_gaussian(image_array, x_center, y_center, flux, sigma=1.5):
     if norm > 0:
         stamp *= flux / norm
     image_array[y_low:y_high, x_low:x_high] += stamp.astype(image_array.dtype)
+    return True
 
 
 class MockVisitInjectTask:
@@ -132,8 +134,8 @@ class MockVisitInjectTask:
                 # Fallback: treat ra/dec as pixel coords (for very simple mocks)
                 px, py = ra, dec
 
-            _stamp_gaussian(out_exposure.image.array, float(px), float(py), flux)
-            injected_count += 1
+            if _stamp_gaussian(out_exposure.image.array, float(px), float(py), flux):
+                injected_count += 1
 
         if injected_count == 0:
             raise RuntimeError("No sources were injected within bounds.")
