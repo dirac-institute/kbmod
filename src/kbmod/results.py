@@ -1166,6 +1166,50 @@ class Results:
         else:
             raise ValueError(f"Unsupported suffix {filename.suffix}")
 
+    def load_image_row_by_uuid(self, aux_filepath, target_uuid):
+        """Lazy load a single image row by UUID from an auxiliary FITS image column file.
+
+        This is a convenience method that wraps the module-level function
+        `load_image_row_by_uuid()`. It loads only the requested image without
+        reading the entire image column into memory.
+
+        Parameters
+        ----------
+        aux_filepath : `str` or `Path`
+            The path to the auxiliary FITS file containing the image column.
+            Must be a FITS file (.fits) written by `write_column()` with
+            image-like data.
+        target_uuid : `str`
+            The UUID of the row to load.
+
+        Returns
+        -------
+        image : `numpy.ndarray`
+            The image data for the row with the matching UUID.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the file does not exist.
+        ValueError
+            If the file is not an image column FITS file (ISIMG=False).
+        KeyError
+            If no row with the given UUID is found in the file.
+
+        See Also
+        --------
+        load_image_row_by_uuid : Module-level function with same functionality.
+
+        Examples
+        --------
+        >>> results = Results.read_table("results.parquet")
+        >>> # Load a single stamp image by UUID without loading the entire column
+        >>> image = results.load_image_row_by_uuid("results_stamps.fits", results["uuid"][0])
+        >>> print(image.shape)
+        (21, 21)
+        """
+        return load_image_row_by_uuid(aux_filepath, target_uuid)
+
     def load_column(self, filename, colname=None):
         """Read in a file containing a single column as its own data file.
         The file type is inferred from the filename suffix. Supported formats
@@ -1268,6 +1312,77 @@ class Results:
         return cls.from_trajectories(trj_list, track_filtered)
 
 
+def load_image_row_by_uuid(filename, target_uuid):
+    """Lazy load a single image row by UUID from an auxiliary FITS image column file.
+
+    This function loads only the requested image without reading the entire
+    image column into memory. It is designed for on-demand access to individual
+    images stored in auxiliary FITS files created by `Results.write_column()`.
+
+    Parameters
+    ----------
+    filename : `str` or `Path`
+        The path to the auxiliary FITS file containing the image column.
+        Must be a FITS file (.fits) written by `Results.write_column()` with
+        image-like data.
+    target_uuid : `str`
+        The UUID of the row to load.
+
+    Returns
+    -------
+    image : `numpy.ndarray`
+        The image data for the row with the matching UUID.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the file does not exist.
+    ValueError
+        If the file is not an image column FITS file (ISIMG=False).
+    KeyError
+        If no row with the given UUID is found in the file.
+
+    Examples
+    --------
+    >>> # Load a single image by UUID without loading the entire column
+    >>> image = load_image_row_by_uuid("results_stamps.fits", "abc123def456")
+    >>> print(image.shape)
+    (21, 21)
+    """
+    filename = Path(filename)
+    if not filename.is_file():
+        raise FileNotFoundError(f"{filename} not found.")
+
+    if filename.suffix != ".fits":
+        raise ValueError(f"Expected a FITS file, got {filename.suffix}")
+
+    with fits.open(filename, memmap=True) as hdul:
+        # Verify this is an image column file
+        if not hdul[0].header.get("ISIMG", False):
+            raise ValueError(
+                f"{filename} is not an image column FITS file (ISIMG=False). "
+                "Use load_column() for non-image data."
+            )
+
+        num_rows = hdul[0].header["NUMRES"]
+
+        # Search through image HDUs for the matching UUID
+        for idx in range(num_rows):
+            hdu_name = f"IMG_{idx}"
+            if hdu_name not in hdul:
+                continue
+
+            img_hdu = hdul[hdu_name]
+            hdu_uuid = img_hdu.header.get("uuid")
+
+            if hdu_uuid == target_uuid:
+                # Found the matching row - load and return the image data
+                return img_hdu.data.astype(np.single)
+
+        # UUID not found
+        raise KeyError(f"UUID '{target_uuid}' not found in {filename}")
+
+
 def write_results_to_files_destructive(
     filename,
     results,
@@ -1365,3 +1480,299 @@ def write_results_to_files_destructive(
     # Write the remaining data from the results to the main file.
     logger.info(f"Saving results table to {filepath}")
     results.write_table(filepath, overwrite=overwrite, extra_meta=extra_meta)
+
+
+def compute_trajectory_rates(
+    results, wcs=None, default_pixel_scale=5.5555555555556e-05, requested_columns=None
+):
+    """Compute RA and Dec rates (arcsec/day) for trajectories.
+
+    Parameters
+    ----------
+    results : `Results` or `astropy.table.Table`
+        The results data containing at least `x`, `y`, `vx`, `vy`.
+    wcs : `astropy.wcs.WCS`, optional
+        The WCS to use for pixel-to-world conversion. If not provided,
+        it will attempt to extract it from `results.wcs`. If neither is
+        available, it falls back to a simple pixel scale approximation.
+    default_pixel_scale : `float`
+        The default pixel scale in deg/pixel to use if WCS is absent.
+        Default is ~0.2"/pixel.
+    requested_columns : `list`, optional
+        A list of column names to include in the output table. If None,
+        only `uuid` and the computed rate columns will be returned.
+
+    Returns
+    -------
+    rates_table : `astropy.table.Table`
+        A table containing the requested columns along with
+        `vx_ra_rate_arcsec_per_day` and `vy_dec_rate_arcsec_per_day`.
+    """
+    if hasattr(results, "table"):
+        table = results.table
+        wcs = wcs if wcs is not None else results.wcs
+    else:
+        table = results
+
+    # ensure requested_columns exist
+    if requested_columns is None:
+        if "uuid" in table.colnames:
+            requested_columns = ["uuid"]
+        else:
+            requested_columns = []
+
+    out_dict = {}
+    for col in requested_columns:
+        if col in table.colnames:
+            out_dict[col] = table[col]
+
+    if len(table) == 0:
+        # Return empty table with correct columns
+        out_dict["vx_ra_rate_arcsec_per_day"] = np.array([], dtype=float)
+        out_dict["vy_dec_rate_arcsec_per_day"] = np.array([], dtype=float)
+        return Table(out_dict)
+
+    x = table["x"]
+    y = table["y"]
+    vx = table["vx"]
+    vy = table["vy"]
+
+    # time step for velocity projection
+    dt = 1.0  # days
+
+    if wcs is not None:
+        # Use proper WCS forward projection
+        ra1, dec1 = wcs.pixel_to_world_values(x, y)
+        ra2, dec2 = wcs.pixel_to_world_values(x + vx * dt, y + vy * dt)
+
+        # d_ra needs to be multiplied by cos(mean_dec)
+        mean_dec_rad = np.radians(0.5 * (dec1 + dec2))
+        d_ra = (ra2 - ra1) * np.cos(mean_dec_rad)  # degrees on sky
+        d_dec = dec2 - dec1  # degrees
+
+        ra_rate = d_ra * 3600.0 / dt
+        dec_rate = d_dec * 3600.0 / dt
+    else:
+        # Fallback to simple scaling (assumes Global coordinate system +X -> -RA)
+        pixel_scale_arcsec = default_pixel_scale * 3600.0
+        # If no global_dec is available, cos_dec=1.0. This is an approximation.
+        ra_rate = -vx * pixel_scale_arcsec
+        dec_rate = vy * pixel_scale_arcsec
+
+    out_dict["vx_ra_rate_arcsec_per_day"] = ra_rate
+    out_dict["vy_dec_rate_arcsec_per_day"] = dec_rate
+
+    # Method 1 & 2: Endpoint rates for global/img RA/Dec curves
+    mjd_mid = None
+    if hasattr(results, "mjd_mid") and results.mjd_mid is not None:
+        mjd_mid = np.array(results.mjd_mid)
+    elif "mjd_utc_mid" in table.meta:
+        mjd_mid = np.array(table.meta["mjd_utc_mid"])
+    elif "mjd_mid" in table.meta:
+        mjd_mid = np.array(table.meta["mjd_mid"])
+
+    # If times are available, process array columns
+    if mjd_mid is not None:
+        # Determine valid observations mask
+        if "obs_valid" in table.colnames:
+            valid_mask = table["obs_valid"]
+        else:
+            # Assume all valid
+            valid_mask = np.ones((len(table), len(mjd_mid)), dtype=bool)
+
+        def _compute_array_endpoint_rate(ra_col, dec_col):
+            # Evaluate endpoint rates for (ra_col, dec_col) across valid indices
+            rate_ra = np.full(len(table), np.nan)
+            rate_dec = np.full(len(table), np.nan)
+
+            ra_arr = table[ra_col]
+            dec_arr = table[dec_col]
+
+            for i in range(len(table)):
+                valid_idx = np.where(valid_mask[i])[0]
+                if len(valid_idx) < 2:
+                    continue
+
+                idx_first = valid_idx[0]
+                idx_last = valid_idx[-1]
+
+                dt_days = mjd_mid[idx_last] - mjd_mid[idx_first]
+                if dt_days <= 0:
+                    continue
+
+                r1, r2 = ra_arr[i, idx_first], ra_arr[i, idx_last]
+                d1, d2 = dec_arr[i, idx_first], dec_arr[i, idx_last]
+
+                mean_dec_rad = np.radians(0.5 * (d1 + d2))
+                d_ra = (r2 - r1) * np.cos(mean_dec_rad)
+                d_dec = d2 - d1
+
+                rate_ra[i] = (d_ra / dt_days) * 3600.0
+                rate_dec[i] = (d_dec / dt_days) * 3600.0
+
+            return rate_ra, rate_dec
+
+        if "global_ra" in table.colnames and "global_dec" in table.colnames:
+            out_dict["global_ra_rate_arcsec_per_day"], out_dict["global_dec_rate_arcsec_per_day"] = (
+                _compute_array_endpoint_rate("global_ra", "global_dec")
+            )
+
+        if "img_ra" in table.colnames and "img_dec" in table.colnames:
+            out_dict["img_ra_rate_arcsec_per_day"], out_dict["img_dec_rate_arcsec_per_day"] = (
+                _compute_array_endpoint_rate("img_ra", "img_dec")
+            )
+
+    return Table(out_dict)
+
+
+def batch_compute_trajectory_rates(
+    input_filename,
+    output_filename,
+    chunk_size=100000,
+    wcs=None,
+    default_pixel_scale=5.5555555555556e-05,
+    requested_columns=None,
+):
+    """Batch process a KBMOD result file and output a rates table.
+
+    Reads the input file in chunks, computes RA/Dec rates for each trajectory,
+    and writes the resulting rates table to an output parquet file.
+
+    Parameters
+    ----------
+    input_filename : `str`
+        Path to the input file (e.g., `.search.parquet`).
+        Must be a parquet file to support chunking.
+    output_filename : `str`
+        Path to the output parquet file where the rates table will be written.
+    chunk_size : `int`
+        Number of rows to process at a time.
+    wcs : `astropy.wcs.WCS`, optional
+        Global WCS for pixel conversion.
+    default_pixel_scale : `float`
+        Default pixel scale if WCS is absent.
+    requested_columns : `list`, optional
+        List of additional columns to pass through to the output table.
+    """
+    import pyarrow as pa
+
+    logger.info(f"Computing trajectory rates from {input_filename} in chunks of {chunk_size}")
+
+    first_chunk = True
+    writer = None
+
+    for results_chunk in Results.read_table_chunks(input_filename, chunk_size=chunk_size):
+        chunk_wcs = wcs if wcs is not None else results_chunk.wcs
+        rates_table = compute_trajectory_rates(
+            results_chunk,
+            wcs=chunk_wcs,
+            default_pixel_scale=default_pixel_scale,
+            requested_columns=requested_columns,
+        )
+
+        # Convert to pyarrow
+        batch_pa = pa.Table.from_pandas(rates_table.to_pandas())
+
+        # add our filename to the table
+        batch_pa = batch_pa.append_column("search_filename", [input_filename] * len(batch_pa))
+
+        if first_chunk:
+            writer = pq.ParquetWriter(output_filename, batch_pa.schema)
+            first_chunk = False
+
+        writer.write_table(batch_pa)
+
+    if writer is not None:
+        writer.close()
+    else:
+        logger.warning(f"No data found in {input_filename} to compute rates.")
+
+
+def aggregate_rates_from_directories(
+    directories,
+    output_filename,
+    chunk_size=100000,
+    default_pixel_scale=5.5555555555556e-05,
+    requested_columns=None,
+):
+    """Aggregate rates from multiple directories into a single output parquet file.
+
+    Finds all `search.parquet` files in the given directories, attempts to lazy-load
+    their corresponding sharded WorkUnit to extract the WCS, and computes the trajectory
+    rates. All results, including a `search_filename` column, are combined into a single
+    output table.
+
+    Parameters
+    ----------
+    directories : `list` of `str`
+        List of directory paths to scan.
+    output_filename : `str`
+        Path to the shared parquet file to output the combined rates table.
+    chunk_size : `int`
+        Number of rows to process at a time.
+    default_pixel_scale : `float`
+        Default pixel scale if WCS is absent.
+    requested_columns : `list`, optional
+        List of additional columns to pass through to the output table.
+    """
+    import pyarrow as pa
+    from kbmod.work_unit import WorkUnit
+
+    logger.info(f"Aggregating trajectory rates from {len(directories)} directories into {output_filename}")
+
+    first_chunk = True
+    writer = None
+
+    for directory in directories:
+        directory_path = Path(directory)
+
+        # Scan for search.parquet files (using standard glob matching)
+        for result_path in directory_path.rglob("*.search.parquet"):
+            logger.info(f"Processing matched result file: {result_path}")
+
+            # Assume workunit has the same stem and is a fits file in the same directory
+            # For instance: obj.search.parquet -> obj.fits
+            wu_filename = result_path.name.replace(".search.parquet", "")
+            wu_path = result_path.parent / wu_filename
+
+            wcs = None
+            if wu_path.exists():
+                try:
+                    wu = WorkUnit.from_sharded_fits(wu_path.name, str(wu_path.parent), lazy=True)
+                    wcs = wu.wcs
+                    logger.debug(f"Successfully loaded WCS from sharded WorkUnit {wu_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to load WCS from {wu_path}: {e}")
+            else:
+                logger.warning(f"Could not find expected WorkUnit {wu_path} for {result_path}")
+
+            # Compute rates chunk by chunk
+            try:
+                for results_chunk in Results.read_table_chunks(str(result_path), chunk_size=chunk_size):
+                    chunk_wcs = wcs if wcs is not None else results_chunk.wcs
+                    rates_table = compute_trajectory_rates(
+                        results_chunk,
+                        wcs=chunk_wcs,
+                        default_pixel_scale=default_pixel_scale,
+                        requested_columns=requested_columns,
+                    )
+
+                    # Convert to pyarrow
+                    batch_pa = pa.Table.from_pandas(rates_table.to_pandas())
+
+                    # Add search_filename column for tracking
+                    batch_pa = batch_pa.append_column("search_filename", [str(result_path)] * len(batch_pa))
+
+                    if first_chunk:
+                        writer = pq.ParquetWriter(output_filename, batch_pa.schema)
+                        first_chunk = False
+
+                    writer.write_table(batch_pa)
+            except Exception as e:
+                logger.error(f"Error processing chunks for {result_path}: {e}")
+
+    if writer is not None:
+        writer.close()
+        logger.info(f"Finished aggregating rates to {output_filename}")
+    else:
+        logger.warning("No search.parquet files found or no data to write.")
