@@ -27,7 +27,7 @@ def generate_injection_catalog(
     mag_range=(19.0, 26.0),
     source_type="Star",
 ):
-    """Generate an injection catalog for an ImageCollection intended which can be consumed by `inject_sources_into_ic`.
+    """Generate an injection catalog for an ImageCollection to be consumed by `inject_sources_into_ic`.
 
     Incorporates sub-pixel and sub-search-velocity-resolution jitter, and handles coordinate propagation
     keeping objects moving in straight lines inside global WCS pixel coordinates.
@@ -35,9 +35,9 @@ def generate_injection_catalog(
     If no heliocentric guess distance is provided, the catalog will provide the coordinates in the original
     reference frame defined by `global_wcs`, which is presumed to not be reflex-corrected.
 
-    If a guess distance is provided, the catalog will provide the coordinates in EBD which will presumed to be
+    If a guess distance is provided, the catalog will provide the coordinates in EBD which is presumed to be
     defined by `global_wcs` reflex-corrected at the specified guess distance. The injection coordinates will be
-    the inverse parallax-corrected and and should no longer necessarily appear as straight "lines" until after
+    inverse parallax-corrected and should no longer necessarily appear as straight "lines" until after
     the injection and resampling process back to EBD at the same guess distance.
 
     Parameters
@@ -93,8 +93,9 @@ def generate_injection_catalog(
         # fallback footprint
         pixel_boundaries = ([0, global_wcs.array_shape[1]], [0, global_wcs.array_shape[0]])
 
-    max_x = max(pixel_boundaries[0])
-    max_y = max(pixel_boundaries[1])
+    # Convert to int for np.random.randint (world_to_pixel returns floats)
+    max_x = max(1, int(np.floor(max(pixel_boundaries[0]))))
+    max_y = max(1, int(np.floor(max(pixel_boundaries[1]))))
 
     # Generate random starting positions for each object within the global WCS frame
     xs = np.random.randint(0, max_x, n_objs_per_ic) + np.random.uniform(0, 1, n_objs_per_ic)
@@ -106,8 +107,10 @@ def generate_injection_catalog(
 
     # Add some jitter to the velocity vectors to simulate the fact that the
     # trajectories are not perfectly aligned with the ecliptic.
-    dvx_arr = np.diff(np.unique([t.vx for t in candidates])).mean() if len(candidates) > 1 else 0.0
-    dvy_arr = np.diff(np.unique([t.vy for t in candidates])).mean() if len(candidates) > 1 else 0.0
+    unique_vx = np.unique([t.vx for t in candidates])
+    unique_vy = np.unique([t.vy for t in candidates])
+    dvx_arr = np.diff(unique_vx).mean() if len(unique_vx) > 1 else 0.0
+    dvy_arr = np.diff(unique_vy).mean() if len(unique_vy) > 1 else 0.0
     if dvx_arr > 0:
         vx_arr += np.random.uniform(0, dvx_arr, n_objs_per_ic)
     if dvy_arr > 0:
@@ -184,13 +187,13 @@ def generate_injection_catalog(
 def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
     """
     Inject simulated moving objects directly into the exposures specified by an ImageCollection
-    utilizing LSST pipelines. NOte that this currently only works for `ButlerStandardizer` backed
+    utilizing LSST pipelines. Note that this currently only works for `ButlerStandardizer` backed
     ImageCollections.
 
     This produces a new ImageCollection with the same structure as the input, but with injected
     sources in the image data with exposures modified by LSST's VisitInjectTask.
 
-    Note that serializaing the returned ImageCollection will not serialize the injected sources
+    Note that serializing the returned ImageCollection will not serialize the injected sources
     in the image data, instead it should be materialized as a `WorkUnit` via `ic.toWorkUnit()`
     in order to persist the injected sources.
 
@@ -214,6 +217,15 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
     """
     if not HAS_LSST:
         raise ImportError("LSST Science Pipelines must be installed to inject sources.")
+
+    # Validate that the ImageCollection has the required columns for Butler-backed injection
+    required_cols = ["dataId", "mjd_mid"]
+    missing_cols = [col for col in required_cols if col not in ic.data.colnames]
+    if missing_cols:
+        raise ValueError(
+            f"inject_sources_into_ic requires a Butler-backed ImageCollection with columns: "
+            f"{required_cols}. Missing: {missing_cols}"
+        )
 
     if inject_config is None:
         inject_config = VisitInjectConfig()

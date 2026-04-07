@@ -1208,15 +1208,19 @@ class ImageCollection:
     def get_global_wcs(self, auto_fit=False):
         """Get the global WCS for the ImageCollection.
 
-        First attempts to read 'global_wcs' from the internal metadata if placed there
-        by external standardization workflows. If missing and auto_fit is True, computes
-        it from the optimal celestial footprint of the individual exposures.
+        First attempts to read a serialized global WCS from the ``self.data`` table,
+        specifically the ``"global_wcs"`` column as populated by external
+        standardization workflows. If present, optional pixel shape information is
+        restored from the ``"global_wcs_pixel_shape_0"`` and
+        ``"global_wcs_pixel_shape_1"`` columns. If these columns are missing and
+        ``auto_fit`` is True, the method computes a global WCS from the optimal
+        celestial footprint of the individual exposures.
 
         Parameters
         ----------
         auto_fit : bool, optional
-            If True, calculates the optimal WCS from existing exposure WCS footprints if
-            not present directly in metadata.
+            If True, calculates the optimal WCS from existing exposure WCS footprints
+            when a stored global WCS is not present in the ``self.data`` table columns.
 
         Returns
         -------
