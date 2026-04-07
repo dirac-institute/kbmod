@@ -1576,9 +1576,33 @@ def compute_trajectory_rates(
         # Determine valid observations mask
         if "obs_valid" in table.colnames:
             valid_mask = table["obs_valid"]
+            if valid_mask.ndim == 1 and len(valid_mask) > 0 and isinstance(valid_mask[0], (list, np.ndarray)):
+                valid_mask = np.array(list(valid_mask))
         else:
             # Assume all valid
             valid_mask = np.ones((len(table), len(mjd_mid)), dtype=bool)
+
+        mjd_first_arr = np.full(len(table), np.nan)
+        mjd_last_arr = np.full(len(table), np.nan)
+        for i in range(len(table)):
+            valid_idx = np.where(valid_mask[i])[0]
+            if len(valid_idx) > 0:
+                mjd_first_arr[i] = mjd_mid[valid_idx[0]]
+                mjd_last_arr[i] = mjd_mid[valid_idx[-1]]
+
+        out_dict["mjd_mid_first"] = mjd_first_arr
+        out_dict["mjd_mid_last"] = mjd_last_arr
+
+        obs_cnt_arr = np.sum(valid_mask, axis=1)
+        # Check that obs_cnt matches the one in the table
+        if "obs_count" in table.colnames:
+            if not np.array_equal(obs_cnt_arr, table["obs_count"]):
+                logger.warning("obs_count in table does not match computed obs_count")
+        out_dict["obs_count"] = obs_cnt_arr
+        if len(mjd_mid) > 0:
+            out_dict["obs_valid_ratio"] = obs_cnt_arr / len(mjd_mid)
+        else:
+            out_dict["obs_valid_ratio"] = np.zeros(len(table))
 
         def _compute_array_endpoint_rate(ra_col, dec_col):
             # Evaluate endpoint rates for (ra_col, dec_col) across valid indices
