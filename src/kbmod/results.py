@@ -1600,8 +1600,10 @@ def compute_trajectory_rates(
                 if dt_days <= 0:
                     continue
 
-                r1, r2 = ra_arr[i, idx_first], ra_arr[i, idx_last]
-                d1, d2 = dec_arr[i, idx_first], dec_arr[i, idx_last]
+                r1 = ra_arr[i][idx_first] if ra_arr.ndim == 1 else ra_arr[i, idx_first]
+                r2 = ra_arr[i][idx_last] if ra_arr.ndim == 1 else ra_arr[i, idx_last]
+                d1 = dec_arr[i][idx_first] if dec_arr.ndim == 1 else dec_arr[i, idx_first]
+                d2 = dec_arr[i][idx_last] if dec_arr.ndim == 1 else dec_arr[i, idx_last]
 
                 mean_dec_rad = np.radians(0.5 * (d1 + d2))
                 d_ra = (r2 - r1) * np.cos(mean_dec_rad)
@@ -1674,7 +1676,7 @@ def batch_compute_trajectory_rates(
         batch_pa = pa.Table.from_pandas(rates_table.to_pandas())
 
         # add our filename to the table
-        batch_pa = batch_pa.append_column("search_filename", [input_filename] * len(batch_pa))
+        batch_pa = batch_pa.append_column("search_filename", pa.array([str(input_filename)] * len(batch_pa)))
 
         if first_chunk:
             writer = pq.ParquetWriter(output_filename, batch_pa.schema)
@@ -1717,17 +1719,23 @@ def aggregate_rates_from_directories(
     """
     import pyarrow as pa
     from kbmod.work_unit import WorkUnit
+    import tqdm
 
-    logger.info(f"Aggregating trajectory rates from {len(directories)} directories into {output_filename}")
+    logger.info(f"Aggregating trajectory rates from {directories} into {output_filename}")
 
     first_chunk = True
     writer = None
+
+    if isinstance(directories, (str, Path)):
+        directories = [directories]
 
     for directory in directories:
         directory_path = Path(directory)
 
         # Scan for search.parquet files (using standard glob matching)
-        for result_path in directory_path.rglob("*.search.parquet"):
+        for result_path in tqdm.tqdm(
+            directory_path.rglob("*.search.parquet"), desc="Processing result files"
+        ):
             logger.info(f"Processing matched result file: {result_path}")
 
             # Assume workunit has the same stem and is a fits file in the same directory
@@ -1742,9 +1750,28 @@ def aggregate_rates_from_directories(
                     wcs = wu.wcs
                     logger.debug(f"Successfully loaded WCS from sharded WorkUnit {wu_path}")
                 except Exception as e:
-                    logger.warning(f"Failed to load WCS from {wu_path}: {e}")
-            else:
-                logger.warning(f"Could not find expected WorkUnit {wu_path} for {result_path}")
+                    logger.debug(f"Failed to load WCS from WorkUnit {wu_path}: {e}. Trying fallback.")
+
+            if wcs is None:
+                if ".collection." in result_path.name:
+                    col_filename = result_path.name[: result_path.name.find(".collection.")] + ".collection"
+                else:
+                    col_filename = result_path.name.replace(".search.parquet", ".collection")
+                col_path = result_path.parent / col_filename
+
+                if col_path.exists():
+                    try:
+                        from kbmod.image_collection import ImageCollection
+
+                        ic = ImageCollection.read(str(col_path))
+                        wcs = ic.get_global_wcs(auto_fit=True)
+                        logger.info(f"Loaded WCS fallback from via ImageCollection {col_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to load WCS from ImageCollection {col_path}: {e}")
+                else:
+                    logger.warning(
+                        f"Could not find expected WorkUnit {wu_path} or ImageCollection {col_path} for {result_path}"
+                    )
 
             # Compute rates chunk by chunk
             try:
@@ -1761,7 +1788,9 @@ def aggregate_rates_from_directories(
                     batch_pa = pa.Table.from_pandas(rates_table.to_pandas())
 
                     # Add search_filename column for tracking
-                    batch_pa = batch_pa.append_column("search_filename", [str(result_path)] * len(batch_pa))
+                    batch_pa = batch_pa.append_column(
+                        "search_filename", pa.array([str(result_path)] * len(batch_pa))
+                    )
 
                     if first_chunk:
                         writer = pq.ParquetWriter(output_filename, batch_pa.schema)
