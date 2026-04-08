@@ -193,59 +193,6 @@ class TestInjectionCatalog(unittest.TestCase):
                     self.assertAlmostEqual(vy_computed, vy_i, places=3)
 
 
-def test_catalog_velocities_match_generator(self):
-    """Verify generate_injection_catalog produces velocities from the generator."""
-    search_config = SearchConfiguration()
-    search_config.set(
-        "generator_config",
-        {
-            "name": "EclipticCenteredSearch",
-            "velocities": [10.0, 20.0, 3],  # 3 velocity steps
-            "angles": [0.0, 0.1, 2],  # 2 angle steps
-        },
-    )
-
-    fitsFactory = DECamImdiffFactory()
-    fits = fitsFactory.get_n(3, spoof_data=True)
-    ic = ImageCollection.fromTargets(fits)
-    ic.data["mjd_mid"] = np.array([59000.0, 59001.0, 59002.0])
-
-    global_wcs = ic.get_global_wcs(auto_fit=True)
-    catalog = ic.generate_injection_catalog(
-        search_config=search_config,
-        global_wcs=global_wcs,
-        n_objs_per_ic=5,
-        guess_distance=None,
-    )
-
-    # Verify catalog has expected structure
-    self.assertEqual(len(catalog), 5 * 3)  # 5 objects × 3 obstimes
-
-    # Check that plot_x and plot_y evolve linearly (constant velocity)
-    for obj_id in np.unique(catalog["obj_ids"]):
-        obj_rows = catalog[catalog["obj_ids"] == obj_id]
-        obj_rows.sort("obstime")
-
-        # Extract positions
-        xs = obj_rows["plot_x"]
-        ys = obj_rows["plot_y"]
-        ts = obj_rows["obstime"]
-
-        # Compute velocities from positions
-        if len(xs) > 1:
-            dt = ts[1] - ts[0]
-            vx_computed = (xs[1] - xs[0]) / dt
-            vy_computed = (ys[1] - ys[0]) / dt
-
-            # Velocity should be consistent across all time steps
-            for i in range(1, len(xs) - 1):
-                dt_i = ts[i + 1] - ts[i]
-                vx_i = (xs[i + 1] - xs[i]) / dt_i
-                vy_i = (ys[i + 1] - ys[i]) / dt_i
-                self.assertAlmostEqual(vx_computed, vx_i, places=3)
-                self.assertAlmostEqual(vy_computed, vy_i, places=3)
-
-
 class TestInjectSources(unittest.TestCase):
     """Tests for inject_sources_into_ic using MockVisitInjectTask."""
 
