@@ -259,7 +259,7 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
         src_mask = catalog["obstime"] == mjd_mid
         srccat = catalog[src_mask]
 
-        # Get the
+        # Resolve the dataset reference from dataId and load the corresponding exposure.
         did = DatasetId(dataId)
         ref = butler.get_dataset(did, dimension_records=True)
         imdiff = butler.get(ref)
