@@ -9,6 +9,10 @@ import kbmod.trajectory_generator
 import kbmod.wcs_utils
 import kbmod.reprojection_utils
 
+from kbmod.filters.known_object_filters import KnownObjsMatcher
+from kbmod.results import Results
+
+
 try:
     from lsst.daf.butler import DatasetId
     from lsst.source.injection import VisitInjectConfig, VisitInjectTask
@@ -362,10 +366,7 @@ def match_injection_results(
     missed : `set`
         Set of injected object names that were not recovered.
     """
-    from kbmod.filters.known_object_filters import KnownObjsMatcher
-    from kbmod.results import Results
-
-    # ---------- load catalog ----------
+    # Load a serialized catalog if needed
     if isinstance(catalog, (str,)):
         import pathlib
 
@@ -379,11 +380,11 @@ def match_injection_results(
         else:
             catalog = Table.read(catalog_path)
 
-    # ---------- load results ----------
+    # Load a serialized KBMOD Results table if needed
     if isinstance(results, (str,)):
         results = Results.read_table(results)
 
-    # ---------- pull wcs and obstimes from results ----------
+    # Pull WCS and obstimes from results
     wcs = results.wcs
     obstimes = results.mjd_mid
     if wcs is None:
@@ -395,17 +396,17 @@ def match_injection_results(
             "Results object has no mjd_mid. Ensure results were created by run_search or loaded with metadata."
         )
 
-    # ---------- determine guess_distance ----------
+    # Determine guess_distance
     if guess_distance is None and "guess_distance" in catalog.colnames:
         gd_vals = catalog["guess_distance"]
         non_none = [v for v in gd_vals if v is not None]
         if len(non_none) > 0:
             guess_distance = float(non_none[0])
 
-    # ---------- determine ra/dec columns ----------
-    # Use ra_{dist}/dec_{dist} (straight-line in reflex-corrected global WCS)
-    # since KBMOD results are in the same reflex-corrected frame.
+    # Determine ra/dec columns
     if guess_distance is not None:
+        # Use ra_{dist}/dec_{dist} (straight-line in reflex-corrected global WCS)
+        # since KBMOD results are in the same reflex-corrected frame.
         ra_col = f"ra_{float(guess_distance)}"
         dec_col = f"dec_{float(guess_distance)}"
         if ra_col not in catalog.colnames or dec_col not in catalog.colnames:
@@ -418,7 +419,7 @@ def match_injection_results(
     if "obj_ids" in catalog.colnames:
         catalog["obj_ids"] = [str(oid) for oid in catalog["obj_ids"]]
 
-    # ---------- run matcher ----------
+    # Create the matcher
     matcher = KnownObjsMatcher(
         table=catalog,
         obstimes=obstimes,
