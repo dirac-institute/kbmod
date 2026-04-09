@@ -210,7 +210,9 @@ class TestInjectSources(unittest.TestCase):
         # Spoof dataId column — inject_sources_into_ic needs it to look up
         # exposures via butler.get_dataset(DatasetId(idd))
         self.ic.data["dataId"] = ["0", "1", "2"]
-        self.butler = MockButler("/mock/root")
+        # Use use_header_dimensions=True so the mock exposure WCS is consistent
+        # with the image bounds (RA/Dec -> pixel conversions land within image)
+        self.butler = MockButler("/mock/root", use_header_dimensions=True)
 
     # Note that we use `create=True` to ensure that the mocks are created
     # even if LSST is not installed such as in the GitHub Actions environment.
