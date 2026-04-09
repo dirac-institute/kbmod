@@ -1233,7 +1233,10 @@ class ImageCollection:
             except Exception:
                 pass
             global_wcs = WCS(wcs_data, relax=True)
-            if "global_wcs_pixel_shape_0" in self.data.columns:
+            if (
+                "global_wcs_pixel_shape_0" in self.data.columns
+                and "global_wcs_pixel_shape_1" in self.data.columns
+            ):
                 global_wcs.pixel_shape = (
                     self.data["global_wcs_pixel_shape_0"][0],
                     self.data["global_wcs_pixel_shape_1"][0],

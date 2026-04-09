@@ -1,5 +1,8 @@
 import warnings
 import numpy as np
+import logging
+import copy
+import os
 
 from astropy.table import Table, vstack
 from astropy.coordinates import SkyCoord, EarthLocation
@@ -19,6 +22,8 @@ try:
     HAS_LSST = True
 except ImportError:
     HAS_LSST = False
+
+logger = logging.getLogger(__name__)
 
 
 def generate_injection_catalog(
@@ -94,7 +99,14 @@ def generate_injection_catalog(
         )
     except Exception:
         # fallback footprint
-        pixel_boundaries = ([0, global_wcs.array_shape[1]], [0, global_wcs.array_shape[0]])
+        if hasattr(global_wcs, "pixel_shape") and global_wcs.pixel_shape is not None:
+            pixel_boundaries = ([0, global_wcs.pixel_shape[0]], [0, global_wcs.pixel_shape[1]])
+        elif hasattr(global_wcs, "array_shape") and global_wcs.array_shape is not None:
+            pixel_boundaries = ([0, global_wcs.array_shape[1]], [0, global_wcs.array_shape[0]])
+        else:
+            raise ValueError(
+                "WCS does not have sufficient information to compute pixel boundaries (missing array_shape or pixel_shape)."
+            )
 
     # Convert to int for np.random.randint (world_to_pixel returns floats)
     max_x = max(1, int(np.floor(max(pixel_boundaries[0]))))
@@ -287,22 +299,25 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
     if injected_exposure_cnt == 0:
         warnings.warn("No objects were successfully rendered within bounds.")
     else:
-        print(f"Successfully injected sources into {injected_exposure_cnt}/{len(ic)} exposures.")
+        logger.info(f"Successfully injected sources into {injected_exposure_cnt}/{len(ic)} exposures.")
 
     # Stack all the injected catalogs
     injected_cats = vstack(injected_cats)
 
     # Rebuild the standardizers with the new exposures
     standardizers = ic.get_standardizers(butler=butler)
+    new_standardizers = []
     for std, ref, exp in zip(standardizers, references, exposures):
-        std["std"].exp = exp
-        std["std"].ref = ref
+        new_std = copy.deepcopy(std["std"])
+        new_std.exp = exp
+        new_std.ref = ref
+        new_standardizers.append(new_std)
 
     # Deferred import to avoid circular dependency: image_collection imports injection
     from kbmod.image_collection import ImageCollection
 
     # Rebuild the ImageCollection from the new standardizers
-    new_ic = ImageCollection.fromStandardizers([std["std"] for std in standardizers])
+    new_ic = ImageCollection.fromStandardizers(new_standardizers)
     return new_ic, injected_cats
 
 
@@ -366,7 +381,7 @@ def match_injection_results(
         Set of injected object names that were not recovered.
     """
     # Load a serialized catalog if needed
-    if isinstance(catalog, (str,)):
+    if isinstance(catalog, (str, os.PathLike)):
         import pathlib
 
         catalog_path = pathlib.Path(catalog)
@@ -380,7 +395,7 @@ def match_injection_results(
             catalog = Table.read(catalog_path)
 
     # Load a serialized KBMOD Results table if needed
-    if isinstance(results, (str,)):
+    if isinstance(results, (str, os.PathLike)):
         results = Results.read_table(results)
 
     # Pull WCS and obstimes from results
@@ -438,9 +453,9 @@ def match_injection_results(
     recovered, missed = matcher.get_recovered_objects(results, match_col)
 
     n_total = len(set(catalog["obj_ids"]))
-    print(
+    logger.info(
         f"Injection recovery: {len(recovered)}/{n_total} objects recovered "
-        f'({len(missed)} missed) with min_obs={min_obs}, sep_thresh={sep_thresh}"'
+        f"({len(missed)} missed) with min_obs={min_obs}, sep_thresh={sep_thresh}"
     )
 
     return results, recovered, missed
