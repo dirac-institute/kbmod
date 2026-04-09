@@ -62,7 +62,7 @@ def generate_injection_catalog(
     guess_distance : `float` or None, default: None
        Guess distance (AU) used for inverse parallax correction.
     mag_range : `tuple`, default: (19.0, 26.0)
-       Magnitude sampling bounds (min, max) in
+       Magnitude sampling bounds (min, max) in magnitudes.
     source_type : `str`, default: "Star"
        Source type designation in the injection catalog.
 
