@@ -6,6 +6,12 @@ from astropy.table import Table
 from kbmod import ImageCollection
 from kbmod.configuration import SearchConfiguration
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
+from kbmod.search import Trajectory
+from kbmod.injection import match_injection_results
+from kbmod.results import Results
+from astropy.wcs import WCS
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 
 from utils import DECamImdiffFactory, MockButler, MockVisitInjectConfig, MockVisitInjectTask
 
@@ -245,6 +251,19 @@ class TestInjectSources(unittest.TestCase):
         self.assertIsInstance(injected_cats, Table)
         self.assertEqual(len(injected_cats), 3)
 
+        # Explicitly verify the array was modified in place and retained by the new standardizer.
+        # The underlying array should have a visible peak from the Gaussian stamp.
+        orig_stds = self.ic.get_standardizers(butler=self.butler)
+        injected_stds = injected_ic.get_standardizers()
+
+        for i in range(len(self.ic)):
+            orig_array = list(orig_stds[i]["std"].standardizeScienceImage())[0]
+            injected_array = injected_stds[i]["std"].exp.image.array
+
+            # The injected array must have a strictly higher sum of pixel values
+            # due to the positive Gaussian flux injection.
+            self.assertGreater(np.sum(injected_array), np.sum(orig_array))
+
     @mock.patch("kbmod.injection.HAS_LSST", False)
     def test_inject_sources_raises_without_lsst(self):
         """Without LSST, inject_sources should raise ImportError."""
@@ -279,6 +298,75 @@ class TestInjectSources(unittest.TestCase):
         actual_ratio = flux_bright / flux_faint
         self.assertAlmostEqual(actual_ratio, expected_ratio, places=5)
         self.assertGreater(flux_bright, flux_faint)
+
+
+class TestMatchInjectionResults(unittest.TestCase):
+    def test_match_injection_results(self):
+        """Test that match_injection_results correctly matches injected sources to trajectories."""
+
+        # Create a simple WCS to convert between pixels and sky
+        wcs_dict = {
+            "CTYPE1": "RA---TAN",
+            "CTYPE2": "DEC--TAN",
+            "CRVAL1": 0.0,
+            "CRVAL2": 0.0,
+            "CRPIX1": 1000.0,
+            "CRPIX2": 1000.0,
+            "CD1_1": -0.00001,
+            "CD1_2": 0.0,
+            "CD2_1": 0.0,
+            "CD2_2": 0.00001,
+        }
+        wcs = WCS(wcs_dict)
+
+        # Create a simulated KBMOD trajectory
+        trj = Trajectory(x=50, y=50, vx=10, vy=0, flux=100.0)
+
+        # Create a corresponding result object form this trajectory
+        results = Results.from_trajectories([trj])
+        results.wcs = wcs
+        results.mjd_mid = np.array([59000.0, 59001.0, 59002.0])
+        # match_injection_results -> KnownObjsMatcher requires the obs_valid array
+        results.table["obs_valid"] = [np.array([True, True, True])]
+
+        # Get skycoords from the trajectory at each obstime
+        obstimes = [59000.0, 59001.0, 59002.0]
+        base_t = obstimes[0]
+        xs = [trj.x + trj.vx * (t - base_t) for t in obstimes]
+        ys = [trj.y + trj.vy * (t - base_t) for t in obstimes]
+        injected_coords = [wcs.pixel_to_world(x, y) for x, y in zip(xs, ys)]
+
+        # shift our injected source by 0.1 arcseconds in RA and Dec
+        injected_coords = [
+            SkyCoord(ra=c.ra + 0.1 * u.arcsec, dec=c.dec + 0.1 * u.arcsec) for c in injected_coords
+        ]
+
+        # Create a catalog from the injected coordinates, with object name 101
+        injected_obj_id = 101
+        catalog = Table(
+            {
+                "obj_ids": [injected_obj_id, injected_obj_id, injected_obj_id],
+                "obstime": obstimes,
+                "ra": [c.ra.deg for c in injected_coords],
+                "dec": [c.dec.deg for c in injected_coords],
+                "guess_distance": [None, None, None],
+            }
+        )
+
+        # Match within 1 arcsecond
+        matched_results, recovered_ids, missed_ids = match_injection_results(
+            catalog, results, guess_distance=None, sep_thresh=1.0, min_obs=3
+        )
+
+        # Check that injected object ID "101" was extracted
+        self.assertIn(str(injected_obj_id), recovered_ids)
+        self.assertNotIn(str(injected_obj_id), missed_ids)
+
+        # Verify the Results table columns were appended correctly
+        self.assertIn("recovered_injected_sources_min_obs_3", matched_results.table.colnames)
+        self.assertEqual(
+            list(matched_results.table["recovered_injected_sources_min_obs_3"][0]), [str(injected_obj_id)]
+        )
 
 
 if __name__ == "__main__":
