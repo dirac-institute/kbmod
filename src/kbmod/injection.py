@@ -12,7 +12,6 @@ import kbmod.reprojection_utils
 from kbmod.filters.known_object_filters import KnownObjsMatcher
 from kbmod.results import Results
 
-
 try:
     from lsst.daf.butler import DatasetId
     from lsst.source.injection import VisitInjectConfig, VisitInjectTask
