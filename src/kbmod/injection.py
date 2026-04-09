@@ -153,7 +153,7 @@ def generate_injection_catalog(
         ra_for_injection = ra_orig
         dec_for_injection = dec_orig
     else:
-        # Now we want to invert the parallax correction to inject at the correct positions in the orignal
+        # Invert the parallax correction so we inject at the correct positions in the original
         # exposures before they were resampled.
         loc = ic.get_observatory()
         if loc is None:
