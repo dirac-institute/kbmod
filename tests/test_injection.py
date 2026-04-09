@@ -204,7 +204,9 @@ class TestInjectSources(unittest.TestCase):
         # Spoof dataId column — inject_sources_into_ic needs it to look up
         # exposures via butler.get_dataset(DatasetId(idd))
         self.ic.data["dataId"] = ["0", "1", "2"]
-        self.butler = MockButler("/mock/root")
+        # Use use_header_dimensions=True so the mock exposure WCS is consistent
+        # with the image bounds (RA/Dec -> pixel conversions land within image)
+        self.butler = MockButler("/mock/root", use_header_dimensions=True)
 
     # Note that we use `create=True` to ensure that the mocks are created
     # even if LSST is not installed such as in the GitHub Actions environment.
@@ -306,7 +308,9 @@ class TestInjectionRecovery(unittest.TestCase):
         ic = ImageCollection.fromTargets(fits)
         ic.data["mjd_mid"] = np.array([59000.0, 59001.0, 59002.0])
         ic.data["dataId"] = ["0", "1", "2"]
-        butler = MockButler("/mock/root")
+        # Use use_header_dimensions=True so the mock exposure WCS is consistent
+        # with the image bounds (RA/Dec -> pixel conversions land within image)
+        butler = MockButler("/mock/root", use_header_dimensions=True)
 
         # Create a controlled catalog with sources at each exposure's center.
         # This ensures all sources are within bounds of each exposure.
@@ -402,6 +406,135 @@ class TestInjectionRecovery(unittest.TestCase):
         self.assertEqual(best_y, y0, msg=f"y mismatch: {best_y} vs {y0}")
         self.assertAlmostEqual(best_vx, vx, places=1, msg=f"vx mismatch: {best_vx} vs {vx}")
         self.assertAlmostEqual(best_vy, vy, places=1, msg=f"vy mismatch: {best_vy} vs {vy}")
+
+    @mock.patch("kbmod.injection.HAS_LSST", True, create=True)
+    @mock.patch("kbmod.injection.VisitInjectConfig", MockVisitInjectConfig, create=True)
+    @mock.patch("kbmod.injection.VisitInjectTask", MockVisitInjectTask, create=True)
+    @mock.patch("kbmod.injection.DatasetId", create=True)
+    def test_injection_pipeline_end_to_end_v2(self, mock_dataset_id):
+        """Full end-to-end test: injection → WorkUnit → CPU search → match_injection_results.
+
+        This test exercises the complete injection and recovery pipeline:
+        1. Create ImageCollection with mock Butler data (real-sized images)
+        2. Create injection catalog with known trajectory
+        3. Inject sources using inject_sources_into_ic (via mock)
+        4. Build WorkUnit from injected IC
+        5. Run CPU-only search
+        6. Use match_injection_results to verify recovery
+
+        This provides test coverage for the match_injection_results function.
+        """
+        import logging
+        from astropy.wcs import WCS
+        from kbmod.injection import match_injection_results
+        from kbmod.run_search import SearchRunner
+        from kbmod.trajectory_generator import VelocityGridSearch
+        from utils import DatasetId as MockDatasetId
+
+        mock_dataset_id.side_effect = MockDatasetId
+
+        # Set up IC with real-sized mock image data for consistent WCS
+        fitsFactory = DECamImdiffFactory()
+        fits = fitsFactory.get_n(5, spoof_data=True, use_header_dimensions=True)
+        ic = ImageCollection.fromTargets(fits)
+        # Use closely-spaced times within one day for reliable detection
+        ic.data["mjd_mid"] = np.array([59000.0 + i * 0.1 for i in range(5)])
+        ic.data["dataId"] = [str(i) for i in range(5)]
+        butler = MockButler("/mock/root", use_header_dimensions=True)
+
+        # Get WCS from the mock exposure to build consistent catalog
+        exp = butler.mock_exposure(0)
+        wcs = WCS(exp.wcs.getFitsMetadata())
+        img_shape = exp.image.array.shape  # (height, width) = (4096, 2048)
+
+        # Define the search configuration for catalog generation AND the final search
+        search_config = SearchConfiguration()
+        search_config.set("cpu_only", True)
+        search_config.set(
+            "generator_config",
+            {
+                "name": "EclipticCenteredSearch",
+                "velocities": [50.0, 51.0, 2],
+                "angles": [0.5, 0.6, 2],
+            },
+        )
+        # Create velocity grid for search using exactly these values
+        # vx = v * cos(theta), vy = v * sin(theta)
+        import math
+        v, theta = 50.0, 0.5
+        vx, vy = v * math.cos(theta), v * math.sin(theta)
+        
+        # We need a small VelocityGridSearch around our true velocity for CPU search to run quickly
+        from kbmod.trajectory_generator import VelocityGridSearch
+        trj_gen = VelocityGridSearch(3, vx - 5.0, vx + 5.0, 3, vy - 5.0, vy + 5.0)
+
+        global_wcs = ic.get_global_wcs(auto_fit=True)
+        catalog = ic.generate_injection_catalog(
+            search_config=search_config,
+            global_wcs=global_wcs,
+            n_objs_per_ic=1000,  # Generate many so some hit the mock footprints
+            guess_distance=None,
+            mag_range=(10.0, 10.0), # bright enough for reliable injection
+        )
+
+        # Inject sources using the mock injection pipeline
+        logging.disable(logging.WARNING)
+        injected_ic, injected_cats = ic.inject_sources(catalog=catalog, butler=butler)
+        logging.disable(logging.NOTSET)
+
+        # Verify injection succeeded
+        self.assertGreaterEqual(len(injected_cats), 5, "Not enough sources were injected")
+        
+        # Get list of objects that were successfully injected into all 5 images
+        obj_counts = dict(zip(*np.unique(injected_cats["obj_ids"], return_counts=True)))
+        fully_injected_objs = [oid for oid, count in obj_counts.items() if count == 5]
+        self.assertGreater(len(fully_injected_objs), 0, "No object was fully injected across all 5 images")
+
+        # Build WorkUnit from injected IC
+        search_config = SearchConfiguration()
+        search_config.set("cpu_only", True)
+        search_config.set("num_obs", 3)
+        search_config.set("lh_level", 0.0)
+        search_config.set("sigmaG_filter", False)
+        search_config.set("gpu_filter", False)
+        search_config.set("do_clustering", False)
+        search_config.set("result_filename", None)
+        logging.disable(logging.CRITICAL)
+        wu = injected_ic.toWorkUnit(search_config=search_config, butler=butler)
+        logging.disable(logging.NOTSET)
+
+        # Configure velocity grid that includes our true velocity
+        # vx=50, vy=30 pixels/day
+        trj_gen = VelocityGridSearch(3, 40.0, 60.0, 3, 20.0, 40.0)
+
+        # Run CPU-only search
+        runner = SearchRunner()
+        results = runner.do_core_search(search_config, wu.im_stack, trj_gen)
+
+        # Verify we got results
+        self.assertGreater(len(results), 0, "No results found from search")
+
+        # Attach WCS and mjd_mid to results (required by match_injection_results)
+        results.wcs = wcs
+        results.mjd_mid = list(ic.data["mjd_mid"])
+
+        # Run match_injection_results to verify recovery
+        matched_results, recovered, missed = match_injection_results(
+            catalog=injected_cats,
+            results=results,
+            guess_distance=None,
+            sep_thresh=5.0,  # arcsec
+            time_thresh_s=30.0,  # 30 second tolerance
+            min_obs=3,
+        )
+
+        # Verify an object that was successfully injected everywhere was recovered
+        target_obj = fully_injected_objs[0]
+        self.assertIn(str(target_obj), recovered, f"Injected object {target_obj} not recovered. Missed: {missed}")
+
+        # Verify match_injection_results added the expected columns
+        self.assertIn("injected_sources", matched_results.table.colnames)
+        self.assertIn("recovered_injected_sources_min_obs_3", matched_results.table.colnames)
 
 
 if __name__ == "__main__":
