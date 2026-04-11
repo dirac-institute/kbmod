@@ -8,11 +8,13 @@ from astropy.table import Table, vstack
 from astropy.coordinates import SkyCoord, EarthLocation
 import astropy.units as u
 
+
 import kbmod.trajectory_generator
 import kbmod.wcs_utils
 import kbmod.reprojection_utils
 
 from kbmod.filters.known_object_filters import KnownObjsMatcher
+from kbmod.image_collection import ImageCollection
 from kbmod.results import Results
 
 try:
@@ -312,9 +314,6 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
         new_std.exp = exp
         new_std.ref = ref
         new_standardizers.append(new_std)
-
-    # Deferred import to avoid circular dependency: image_collection imports injection
-    from kbmod.image_collection import ImageCollection
 
     # Rebuild the ImageCollection from the new standardizers
     new_ic = ImageCollection.fromStandardizers(new_standardizers)

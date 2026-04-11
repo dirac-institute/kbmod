@@ -7,7 +7,7 @@ from kbmod import ImageCollection
 from kbmod.configuration import SearchConfiguration
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 from kbmod.search import Trajectory
-from kbmod.injection import match_injection_results
+from kbmod.injection import generate_injection_catalog, inject_sources_into_ic, match_injection_results
 from kbmod.results import Results
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
@@ -42,7 +42,8 @@ class TestInjectionCatalog(unittest.TestCase):
         n_objs = 10
         global_wcs = self.ic.get_global_wcs(auto_fit=True)
         # Perform our insertion.
-        catalog = self.ic.generate_injection_catalog(
+        catalog = generate_injection_catalog(
+            ic=self.ic,
             search_config=search_config,
             global_wcs=global_wcs,
             n_objs_per_ic=n_objs,
@@ -130,8 +131,12 @@ class TestInjectionCatalog(unittest.TestCase):
 
         n_objs = 10
         global_wcs = self.ic.get_global_wcs(auto_fit=True)
-        catalog = self.ic.generate_injection_catalog(
-            search_config=search_config, global_wcs=global_wcs, n_objs_per_ic=n_objs, guess_distance=None
+        catalog = generate_injection_catalog(
+            ic=self.ic,
+            search_config=search_config,
+            global_wcs=global_wcs,
+            n_objs_per_ic=n_objs,
+            guess_distance=None,
         )
 
         self.assertIsInstance(catalog, Table)
@@ -164,7 +169,8 @@ class TestInjectionCatalog(unittest.TestCase):
         ic.data["mjd_mid"] = np.array([59000.0, 59001.0, 59002.0])
 
         global_wcs = ic.get_global_wcs(auto_fit=True)
-        catalog = ic.generate_injection_catalog(
+        catalog = generate_injection_catalog(
+            ic=ic,
             search_config=search_config,
             global_wcs=global_wcs,
             n_objs_per_ic=5,
@@ -244,7 +250,7 @@ class TestInjectSources(unittest.TestCase):
             }
         )
 
-        injected_ic, injected_cats = self.ic.inject_sources(catalog=catalog, butler=self.butler)
+        injected_ic, injected_cats = inject_sources_into_ic(self.ic, catalog=catalog, butler=self.butler)
 
         # The returned IC should have the same length
         self.assertEqual(len(injected_ic), len(self.ic))
@@ -279,7 +285,7 @@ class TestInjectSources(unittest.TestCase):
             }
         )
         with self.assertRaises(ImportError):
-            self.ic.inject_sources(catalog=catalog, butler=self.butler)
+            inject_sources_into_ic(self.ic, catalog=catalog, butler=self.butler)
 
     def test_flux_scaling_with_magnitude(self):
         """Verify that MockVisitInjectTask flux scales correctly with magnitude.
