@@ -25,7 +25,6 @@ from .standardizers import Standardizer, ButlerStandardizer
 
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
-from .injection import generate_injection_catalog, inject_sources_into_ic
 from reproject.mosaicking import find_optimal_celestial_wcs
 
 __all__ = [
