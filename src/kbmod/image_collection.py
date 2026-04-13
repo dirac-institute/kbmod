@@ -25,6 +25,7 @@ from .standardizers import Standardizer, ButlerStandardizer
 
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
+from reproject.mosaicking import find_optimal_celestial_wcs
 
 __all__ = [
     "ImageCollection",
@@ -1202,3 +1203,48 @@ class ImageCollection:
         work = WorkUnit(imgstack, search_config, org_image_meta=metadata, observatory=observatory)
 
         return work
+
+    def get_global_wcs(self, auto_fit=False):
+        """Get the global WCS for the ImageCollection.
+
+        First attempts to read a serialized global WCS from the ``self.data`` table,
+        specifically the ``"global_wcs"`` column as populated by external
+        standardization workflows. If present, optional pixel shape information is
+        restored from the ``"global_wcs_pixel_shape_0"`` and
+        ``"global_wcs_pixel_shape_1"`` columns. If these columns are missing and
+        ``auto_fit`` is True, the method computes a global WCS from the optimal
+        celestial footprint of the individual exposures.
+
+        Parameters
+        ----------
+        auto_fit : bool, optional
+            If True, calculates the optimal WCS from existing exposure WCS footprints
+            when a stored global WCS is not present in the ``self.data`` table columns.
+
+        Returns
+        -------
+        global_wcs : `astropy.wcs.WCS` or None
+        """
+        if "global_wcs" in self.data.columns:
+            wcs_data = self.data["global_wcs"][0]
+            try:
+                wcs_data = json.loads(wcs_data)
+            except Exception:
+                pass
+            global_wcs = WCS(wcs_data, relax=True)
+            if (
+                "global_wcs_pixel_shape_0" in self.data.columns
+                and "global_wcs_pixel_shape_1" in self.data.columns
+            ):
+                global_wcs.pixel_shape = (
+                    self.data["global_wcs_pixel_shape_0"][0],
+                    self.data["global_wcs_pixel_shape_1"][0],
+                )
+            return global_wcs
+
+        if auto_fit:
+            global_wcs, shape = find_optimal_celestial_wcs(list(self.wcs))
+            global_wcs.array_shape = shape
+            return global_wcs
+
+        return None
