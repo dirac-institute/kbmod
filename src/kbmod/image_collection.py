@@ -25,6 +25,7 @@ from .standardizers import Standardizer, ButlerStandardizer
 
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
+from reproject.mosaicking import find_optimal_celestial_wcs
 
 __all__ = [
     "ImageCollection",
@@ -1231,7 +1232,10 @@ class ImageCollection:
             except Exception:
                 pass
             global_wcs = WCS(wcs_data, relax=True)
-            if "global_wcs_pixel_shape_0" in self.data.columns:
+            if (
+                "global_wcs_pixel_shape_0" in self.data.columns
+                and "global_wcs_pixel_shape_1" in self.data.columns
+            ):
                 global_wcs.pixel_shape = (
                     self.data["global_wcs_pixel_shape_0"][0],
                     self.data["global_wcs_pixel_shape_1"][0],
