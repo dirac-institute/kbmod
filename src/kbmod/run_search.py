@@ -9,6 +9,7 @@ from astropy.coordinates import EarthLocation, SkyCoord
 
 import kbmod.search as kb
 
+from .filters.brightness_filters import apply_brightness_search_filter
 from .filters.clustering_filters import apply_clustering
 from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import SigmaGClipping, apply_clipped_sigma_g
@@ -475,6 +476,15 @@ class SearchRunner:
             }
             apply_clustering(keep, cluster_params)
             self._end_phase("clustering")
+
+        if config["brightness_filter"] and len(keep) > 0:
+            self._start_phase("brightness filtering")
+            apply_brightness_search_filter(
+                keep,
+                stack,
+                offsets=config["brightness_filter_offsets"],
+            )
+            self._end_phase("brightness filtering")
 
         # Filter by max_results, keeping only the results with the highest likelihoods.
         # This should be the last step of the filtering phase, but before we add auxiliary
