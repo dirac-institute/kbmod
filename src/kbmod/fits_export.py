@@ -625,44 +625,18 @@ def export_results(
         unique_mjds = np.sort(np.unique(all_mjds)) if len(all_mjds) > 0 else np.array([])
         mjd_to_expnum = {mjd: i + 1 for i, mjd in enumerate(unique_mjds)}
 
-        # Build unique UUIDs list from KBMOD results
+        # Build unique UUIDs list and uuid->source_file mapping from KBMOD results
         unique_uuids = []
         seen_uuids = set()
+        uuid_to_source_file = {}
         for t in track_info:
             if t["uuid"] not in seen_uuids:
                 unique_uuids.append(t["uuid"])
                 seen_uuids.add(t["uuid"])
+                uuid_to_source_file[t["uuid"]] = t["source_file"]
         n_kbmod = len(unique_uuids)
 
-        # TRACK_ID assignment:
-        # 1..N_existing: existing objects alone
-        # N_existing+1..N_existing+N_kbmod*N_existing: KBMOD results prepended with existing objects
-        detection_rows = []
-        trackid_map_rows = []
-        current_track_id = 1
-
-        # First, add existing objects as standalone tracks (TRACK_ID 1, 2, 3, ...)
-        for i, obj in enumerate(existing_objects):
-            track_id = current_track_id
-            current_track_id += 1
-
-            trackid_map_rows.append({
-                "TRACK_ID": track_id,
-                "UUID": obj["designation"],
-                "SOURCE_FILE": obj["source_file"],
-            })
-
-            for obs in obj["observations"]:
-                detection_rows.append({
-                    "TRACK_ID": track_id,
-                    "EXPNUM": mjd_to_expnum[obs["mjd"]],
-                    "RA": obs["ra_deg"],
-                    "DEC": obs["dec_deg"],
-                    "SIGMA": sigma_default,
-                })
-
-        # Now, for each KBMOD result, create N_existing copies prepended with each existing object
-        # Group KBMOD observations by UUID
+        # Group KBMOD observations by UUID (do this once upfront)
         uuid_to_observations = {}
         for obs in raw_observations:
             uuid = obs["uuid"]
@@ -670,43 +644,110 @@ def export_results(
                 uuid_to_observations[uuid] = []
             uuid_to_observations[uuid].append(obs)
 
-        for uuid in unique_uuids:
-            kbmod_obs = uuid_to_observations.get(uuid, [])
-            source_file = next((t["source_file"] for t in track_info if t["uuid"] == uuid), "")
+        # Pre-compute existing object observations as arrays for efficiency
+        existing_obs_data = []
+        for obj in existing_objects:
+            obj_expnums = np.array([mjd_to_expnum[obs["mjd"]] for obs in obj["observations"]], dtype=np.int32)
+            obj_ras = np.array([obs["ra_deg"] for obs in obj["observations"]], dtype=np.float64)
+            obj_decs = np.array([obs["dec_deg"] for obs in obj["observations"]], dtype=np.float64)
+            existing_obs_data.append({
+                "designation": obj["designation"],
+                "source_file": obj["source_file"],
+                "expnums": obj_expnums,
+                "ras": obj_ras,
+                "decs": obj_decs,
+                "n_obs": len(obj["observations"]),
+            })
 
-            for i, obj in enumerate(existing_objects):
+        # Calculate total sizes for pre-allocation
+        total_existing_standalone = sum(e["n_obs"] for e in existing_obs_data)
+        total_prepended_tracks = n_kbmod * n_existing
+        total_kbmod_obs = len(raw_observations)
+        # Each prepended track has: existing obs + KBMOD obs for that UUID
+        # Estimate: avg obs per KBMOD track * n_existing + existing obs * n_kbmod
+        avg_obs_per_kbmod = total_kbmod_obs / n_kbmod if n_kbmod > 0 else 0
+        est_prepended_detections = int(total_prepended_tracks * (avg_obs_per_kbmod + sum(e["n_obs"] for e in existing_obs_data) / n_existing))
+
+        logger.info(f"Estimated detections: {total_existing_standalone} (existing) + ~{est_prepended_detections} (prepended)")
+
+        # TRACK_ID assignment:
+        # 1..N_existing: existing objects alone
+        # N_existing+1..N_existing+N_kbmod*N_existing: KBMOD results prepended with existing objects
+
+        # Build arrays using numpy for efficiency
+        trackid_map_track_ids = []
+        trackid_map_uuids = []
+        trackid_map_sources = []
+
+        det_track_ids = []
+        det_expnums = []
+        det_ras = []
+        det_decs = []
+
+        current_track_id = 1
+
+        # First, add existing objects as standalone tracks (TRACK_ID 1, 2, 3, ...)
+        logger.info("Adding existing objects as standalone tracks...")
+        for i, eod in enumerate(existing_obs_data):
+            track_id = current_track_id
+            current_track_id += 1
+
+            trackid_map_track_ids.append(track_id)
+            trackid_map_uuids.append(eod["designation"])
+            trackid_map_sources.append(eod["source_file"])
+
+            n = eod["n_obs"]
+            det_track_ids.extend([track_id] * n)
+            det_expnums.extend(eod["expnums"].tolist())
+            det_ras.extend(eod["ras"].tolist())
+            det_decs.extend(eod["decs"].tolist())
+
+        # Now, for each KBMOD result, create N_existing copies prepended with each existing object
+        logger.info(f"Creating {total_prepended_tracks} prepended track combinations...")
+        for idx, uuid in enumerate(tqdm.tqdm(unique_uuids, desc="Prepending tracks")):
+            kbmod_obs_list = uuid_to_observations.get(uuid, [])
+            source_file = uuid_to_source_file.get(uuid, "")
+
+            # Pre-extract KBMOD obs data for this UUID
+            if kbmod_obs_list:
+                kbmod_expnums = [mjd_to_expnum[obs["mjd"]] for obs in kbmod_obs_list]
+                kbmod_ras = [obs["ra"] for obs in kbmod_obs_list]
+                kbmod_decs = [obs["dec"] for obs in kbmod_obs_list]
+                n_kbmod_obs = len(kbmod_obs_list)
+            else:
+                kbmod_expnums = []
+                kbmod_ras = []
+                kbmod_decs = []
+                n_kbmod_obs = 0
+
+            for eod in existing_obs_data:
                 track_id = current_track_id
                 current_track_id += 1
 
-                # TRACK_ID_MAP entry: combine existing object designation with KBMOD UUID
-                trackid_map_rows.append({
-                    "TRACK_ID": track_id,
-                    "UUID": f"{obj['designation']}+{uuid}",
-                    "SOURCE_FILE": f"{obj['source_file']}+{source_file}",
-                })
+                # TRACK_ID_MAP entry
+                trackid_map_track_ids.append(track_id)
+                trackid_map_uuids.append(f"{eod['designation']}+{uuid}")
+                trackid_map_sources.append(f"{eod['source_file']}+{source_file}")
 
-                # First, add existing object's observations
-                for obs in obj["observations"]:
-                    detection_rows.append({
-                        "TRACK_ID": track_id,
-                        "EXPNUM": mjd_to_expnum[obs["mjd"]],
-                        "RA": obs["ra_deg"],
-                        "DEC": obs["dec_deg"],
-                        "SIGMA": sigma_default,
-                    })
+                # Existing object observations first
+                n_existing_obs = eod["n_obs"]
+                det_track_ids.extend([track_id] * n_existing_obs)
+                det_expnums.extend(eod["expnums"].tolist())
+                det_ras.extend(eod["ras"].tolist())
+                det_decs.extend(eod["decs"].tolist())
 
-                # Then, add KBMOD result's observations
-                for obs in kbmod_obs:
-                    detection_rows.append({
-                        "TRACK_ID": track_id,
-                        "EXPNUM": mjd_to_expnum[obs["mjd"]],
-                        "RA": obs["ra"],
-                        "DEC": obs["dec"],
-                        "SIGMA": sigma_default,
-                    })
+                # Then KBMOD observations
+                det_track_ids.extend([track_id] * n_kbmod_obs)
+                det_expnums.extend(kbmod_expnums)
+                det_ras.extend(kbmod_ras)
+                det_decs.extend(kbmod_decs)
 
         logger.info(f"Created {current_track_id - 1} total tracks "
                    f"({n_existing} existing + {n_kbmod * n_existing} prepended)")
+
+        # Convert to dict format for table creation
+        detection_rows = None  # Signal to use arrays directly
+        trackid_map_rows = None
 
     else:
         # Normal mode (no existing objects)
@@ -744,26 +785,60 @@ def export_results(
                 "SIGMA": sigma_default,
             })
 
-    # Create tables from rows
-    if trackid_map_rows:
-        trackid_map_table = Table(rows=trackid_map_rows)
-    else:
-        trackid_map_table = Table({
-            "TRACK_ID": np.array([], dtype=np.int32),
-            "UUID": np.array([], dtype=str),
-            "SOURCE_FILE": np.array([], dtype=str),
-        })
+    # Create tables from rows or arrays
+    if existing_objects:
+        # Use array-based approach (faster for large datasets)
+        logger.info("Building tables from arrays...")
+        if trackid_map_track_ids:
+            trackid_map_table = Table({
+                "TRACK_ID": np.array(trackid_map_track_ids, dtype=np.int32),
+                "UUID": np.array(trackid_map_uuids, dtype=str),
+                "SOURCE_FILE": np.array(trackid_map_sources, dtype=str),
+            })
+        else:
+            trackid_map_table = Table({
+                "TRACK_ID": np.array([], dtype=np.int32),
+                "UUID": np.array([], dtype=str),
+                "SOURCE_FILE": np.array([], dtype=str),
+            })
 
-    if detection_rows:
-        detections_table = Table(rows=detection_rows)
+        if det_track_ids:
+            detections_table = Table({
+                "TRACK_ID": np.array(det_track_ids, dtype=np.int32),
+                "EXPNUM": np.array(det_expnums, dtype=np.int32),
+                "RA": np.array(det_ras, dtype=np.float64),
+                "DEC": np.array(det_decs, dtype=np.float64),
+                "SIGMA": np.full(len(det_track_ids), sigma_default, dtype=np.float64),
+            })
+        else:
+            detections_table = Table({
+                "TRACK_ID": np.array([], dtype=np.int32),
+                "EXPNUM": np.array([], dtype=np.int32),
+                "RA": np.array([], dtype=np.float64),
+                "DEC": np.array([], dtype=np.float64),
+                "SIGMA": np.array([], dtype=np.float64),
+            })
     else:
-        detections_table = Table({
-            "TRACK_ID": np.array([], dtype=np.int32),
-            "EXPNUM": np.array([], dtype=np.int32),
-            "RA": np.array([], dtype=np.float64),
-            "DEC": np.array([], dtype=np.float64),
-            "SIGMA": np.array([], dtype=np.float64),
-        })
+        # Use dict-based approach (original method for non-prepend mode)
+        if trackid_map_rows:
+            trackid_map_table = Table(rows=trackid_map_rows)
+        else:
+            trackid_map_table = Table({
+                "TRACK_ID": np.array([], dtype=np.int32),
+                "UUID": np.array([], dtype=str),
+                "SOURCE_FILE": np.array([], dtype=str),
+            })
+
+        if detection_rows:
+            detections_table = Table(rows=detection_rows)
+        else:
+            detections_table = Table({
+                "TRACK_ID": np.array([], dtype=np.int32),
+                "EXPNUM": np.array([], dtype=np.int32),
+                "RA": np.array([], dtype=np.float64),
+                "DEC": np.array([], dtype=np.float64),
+                "SIGMA": np.array([], dtype=np.float64),
+            })
 
     # Build EXPOSURES table from all observations (both existing and KBMOD)
     all_observations_for_exposures = list(raw_observations)
