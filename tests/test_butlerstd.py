@@ -203,6 +203,41 @@ class TestButlerStandardizer(unittest.TestCase):
             with self.subTest("Failed to rounndtrip", key=k):
                 self.assertEqual(standardized["meta"][k], standardized2["meta"][k])
 
+    def test_imagecollection_roundtrip(self):
+        """Test ButlerStandardizer can be reconstructed via ImageCollection's
+        load_std path, which unpacks table columns as keyword arguments.
+
+        The load_std() function in ImageCollection.get_standardizer() reconstructs
+        standardizers via:
+            std_cls(**kwargs, **row[no_conf_cols], config=config)
+        so the __init__ parameter names must match the column names or else
+        be interpreted as unknown kwargs and raise a TypeError.
+        """
+        from kbmod import ImageCollection
+
+        # Create a ButlerStandardizer and build an ImageCollection from it
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=self.butler)
+        ic = ImageCollection.fromStandardizers([std])
+
+        # Clear the cached standardizers to force reconstruction from the
+        # serialized table row data via load_std(). Without this, the cached
+        # standardizer would be returned directly, bypassing the kwargs path.
+        n_stds = ic.meta["n_stds"]
+        ic._standardizers = np.full((n_stds,), None)
+
+        # get_standardizer will call load_std(), which unpacks the row columns as
+        # **kwargs. If the __init__ param name (e.g. 'dataId') doesn't match the
+        # metadata column name, this will raise a TypeError.
+        recovered = ic.get_standardizer(0, butler=self.butler)
+        self.assertIsInstance(recovered["std"], ButlerStandardizer)
+
+        # Now rename the 'dataId' column so it no longer matches
+        # the __init__ parameter, verifying we get a TypeError.
+        ic.data.rename_column("dataId", "tgt")
+        ic._standardizers = np.full((n_stds,), None)
+        with self.assertRaises(TypeError):
+            ic.get_standardizer(0, butler=self.butler)
+
     def mock_kbmodv1like_bitmasking(self, mockedexp):
         """Assign each flag that exists to a pixel, standardize, then expect
         the mask to only contain those pixels that are also in mask_flags.
@@ -227,6 +262,29 @@ class TestButlerStandardizer(unittest.TestCase):
         std = Standardizer.get(DatasetId(9), butler=butler, config=conf)
         standardizedMask = std.standardizeMaskImage()
 
+        for mask in standardizedMask:
+            for i, flag in enumerate(KBMODV1Config.bit_flag_map):
+                with self.subTest("Failed to mask expected", flag=flag):
+                    if flag in ButlerStandardizerConfig.mask_flags:
+                        self.assertEqual(mask.ravel()[i], True)
+                    else:
+                        self.assertEqual(mask.ravel()[i], False)
+
+    def test_bitmasking_missing_flags(self):
+        """Test masking succeeds when mask_flags config contains flags
+        not present in the exposure's mask plane (e.g. 'SPIKE')."""
+        butler = MockButler("/far/far/away", mock_images_f=self.mock_kbmodv1like_bitmasking)
+
+        # Add flags that don't exist in the mock exposure's mask plane
+        extra_flags = ButlerStandardizerConfig.mask_flags + ["SPIKE", "GHOST", "NONEXISTENT"]
+        conf = StandardizerConfig(grow_mask=False, mask_flags=extra_flags)
+        std = Standardizer.get(DatasetId(9), butler=butler, config=conf)
+
+        # Should not raise KeyError
+        standardizedMask = std.standardizeMaskImage()
+
+        # Masking behavior should be identical to the default config
+        # since the extra flags don't exist in the data
         for mask in standardizedMask:
             for i, flag in enumerate(KBMODV1Config.bit_flag_map):
                 with self.subTest("Failed to mask expected", flag=flag):

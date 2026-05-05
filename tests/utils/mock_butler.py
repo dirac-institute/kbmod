@@ -265,6 +265,7 @@ class MockButler:
         registry=None,
         missing_headers=[],
         failed_fits_appoximation=False,
+        use_header_dimensions=False,
     ):
         self.datastore = Datastore(root)
         self._datastore = Datastore(root)
@@ -272,6 +273,7 @@ class MockButler:
         self.mockImages = mock_images_f
         self.missing_headers = missing_headers
         self.failed_fits_appoximation = failed_fits_appoximation
+        self.use_header_dimensions = use_header_dimensions
 
     def getURI(self, ref, dataId=None, collections=None):
         mocked = mock.Mock(name="ButlerURI")
@@ -435,7 +437,9 @@ class MockButler:
         return mocked
 
     def mock_exposure(self, ref):
-        hdul = FitsFactory.get_fits(ref % FitsFactory.n_files, spoof_data=True)
+        hdul = FitsFactory.get_fits(
+            ref % FitsFactory.n_files, spoof_data=True, use_header_dimensions=self.use_header_dimensions
+        )
         prim = hdul["PRIMARY"].header
 
         mocked = mock.Mock(
@@ -451,6 +455,8 @@ class MockButler:
                 "variance",
                 "mask",
                 "wcs",
+                "psf",
+                "photoCalib",
             ],
         )
 
