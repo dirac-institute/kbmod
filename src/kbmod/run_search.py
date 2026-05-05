@@ -483,6 +483,7 @@ class SearchRunner:
                 keep,
                 stack,
                 offsets=config["brightness_filter_offsets"],
+                save_curves=False,
             )
             self._end_phase("brightness filtering")
 
