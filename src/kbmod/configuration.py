@@ -72,6 +72,22 @@ class _ParamInfo:
 # List of all the supported configuration parameters (in alphabetical order).
 _SUPPORTED_PARAMS = [
     _ParamInfo(
+        name="brightness_filter",
+        default_value=False,
+        description="If True, apply the brightness search filter to remove trajectories whose best-fit brightness lies at the extremes of the offset grid.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, bool),
+    ),
+    _ParamInfo(
+        name="brightness_filter_offsets",
+        default_value=[0.2, 0.9, 1.0, 1.1, 5.0],
+        description="Multiplicative offsets used by the brightness filter's local search around the estimated flux.",
+        section="filtering",
+        validate_func=lambda x: isinstance(x, list)
+        and len(x) >= 2
+        and all(isinstance(i, (int, float)) for i in x),
+    ),
+    _ParamInfo(
         name="clip_negative",
         default_value=False,
         description="If True remove all negative values prior to sigmaG computing the percentiles.",
