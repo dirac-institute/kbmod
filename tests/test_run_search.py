@@ -418,6 +418,69 @@ class test_run_search(unittest.TestCase):
         keep3 = runner.run_search(config, fake_ds.stack_py, trj_generator=trj_gen)
         self.assertGreater(len(keep3), 100)
 
+    def test_run_search_brightness_filter(self):
+        """Test that brightness_filter is applied and runs before max_results."""
+        num_times = 10
+        width = 20
+        height = 15
+        fake_times = [59000.0 + float(i) / num_times for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        trj = Trajectory(x=17, y=12, vx=21.0, vy=16.0, flux=250.0)
+        fake_ds.insert_object(trj)
+
+        trj_gen = VelocityGridSearch(3, 15.0, 27.0, 3, 10.0, 22.0)
+
+        # Shared config settings
+        base_settings = {
+            "cpu_only": True,
+            "do_clustering": False,
+            "lh_level": 0.0,
+            "num_obs": 1,
+            "sigmaG_filter": False,
+            "near_dup_thresh": 1,
+        }
+
+        # Run WITHOUT brightness filter to get the unfiltered count.
+        config_no_bf = SearchConfiguration()
+        config_no_bf.set_multiple(base_settings)
+        config_no_bf.set("brightness_filter", False)
+
+        runner = SearchRunner()
+        keep_no_bf = runner.run_search(config_no_bf, fake_ds.stack_py, trj_generator=trj_gen)
+        n_no_bf = len(keep_no_bf)
+        self.assertGreater(n_no_bf, 0)
+
+        # Run WITH brightness filter (no max_results cap).
+        config_bf = SearchConfiguration()
+        config_bf.set_multiple(base_settings)
+        config_bf.set("brightness_filter", True)
+
+        keep_bf = runner.run_search(config_bf, fake_ds.stack_py, trj_generator=trj_gen)
+        n_bf = len(keep_bf)
+
+        # Brightness filter should remove some results.
+        self.assertLess(n_bf, n_no_bf)
+
+        # Verify sci/var curves are NOT saved (save_curves=False).
+        self.assertNotIn("sci_curve", keep_bf.colnames)
+        self.assertNotIn("var_curve", keep_bf.colnames)
+
+        # Verify ordering: brightness_filter runs BEFORE max_results.
+        # Set max_results between n_bf and n_no_bf. If brightness_filter
+        # runs first, we get exactly max_results (bf reduces the pool,
+        # then max_results caps). If max_results ran first, bf would
+        # further reduce below max_results.
+        if n_bf >= 2:
+            cap = n_bf - 1
+            config_bf_cap = SearchConfiguration()
+            config_bf_cap.set_multiple(base_settings)
+            config_bf_cap.set("brightness_filter", True)
+            config_bf_cap.set("max_results", cap)
+
+            keep_capped = runner.run_search(config_bf_cap, fake_ds.stack_py, trj_generator=trj_gen)
+            self.assertEqual(len(keep_capped), cap)
+
     def test_search_runner_filtering_masked(self):
         """Test that the SearchRunner correctly filters images based on max_masked_pixels."""
         num_times = 10
