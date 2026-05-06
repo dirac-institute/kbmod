@@ -47,10 +47,9 @@ RUBIN_MASK_FLAGS = [
     "CLIPPED",
     "CR",
     "CROSSTALK",
+    "DETECTED_NEGATIVE",
     "EDGE",
     "INEXACT_PSF",
-    "INJECTED",
-    "INJECTED_TEMPLATE",
     "INTRP",
     "ITL_DIP",
     "NOT_DEBLENDED",
@@ -59,6 +58,7 @@ RUBIN_MASK_FLAGS = [
     "SAT",
     "SAT_TEMPLATE",
     "SENSOR_EDGE",
+    "SPIKE",
     "STREAK",
     "SUSPECT",
     "UNMASKEDNAN",
@@ -66,22 +66,19 @@ RUBIN_MASK_FLAGS = [
 ]
 
 
-def _process_refs_chunk(repo, collection_name, dataset_type, ref_data_ids, config_dict, fail_on_error):
+def _process_refs_chunk_threaded(refs_chunk, repo, config, fail_on_error):
     """
-    Worker function for parallel processing. Creates its own Butler instance.
+    Worker function for threaded parallel processing.
+    Creates its own Butler instance to avoid contention.
 
     Parameters
     ----------
+    refs_chunk : list
+        List of Butler DatasetRefs to process.
     repo : str
-        Path to Butler repository.
-    collection_name : str
-        Butler collection name (needed for resolving refs).
-    dataset_type : str
-        Dataset type.
-    ref_data_ids : list of dict
-        List of dataId dicts for the refs to process.
-    config_dict : dict
-        ButlerStandardizerConfig as a dictionary.
+        Path to the Butler repository. Each worker creates its own Butler instance.
+    config : ButlerStandardizerConfig
+        Configuration for the ButlerStandardizer.
     fail_on_error : bool
         Whether to fail on standardization errors.
 
@@ -90,45 +87,23 @@ def _process_refs_chunk(repo, collection_name, dataset_type, ref_data_ids, confi
     ImageCollection or None
     """
     try:
-        import lsst.daf.butler as dafButler
-        import kbmod
-        from kbmod.standardizers import ButlerStandardizerConfig
-
-        butler = dafButler.Butler(repo)
-
-        # Resolve refs from dataIds
-        refs = []
-        for data_id in ref_data_ids:
-            try:
-                ref = butler.find_dataset(dataset_type, data_id, collections=[collection_name])
-                if ref is not None:
-                    refs.append(ref)
-            except Exception:
-                pass  # Skip refs that can't be resolved
-
-        if not refs:
-            return None
-
-        config = ButlerStandardizerConfig()
-        config.update(config_dict)
-
+        worker_butler = dafButler.Butler(repo)
         ic = kbmod.ImageCollection.fromTargets(
-            refs,
-            butler=butler,
+            refs_chunk,
+            butler=worker_butler,
             force="ButlerStandardizer",
             config=config,
             fail_on_error=fail_on_error,
         )
         return ic
     except Exception as e:
-        import logging
-
-        logging.getLogger(__name__).error(f"Worker error: {e}")
+        logger.error(f"Worker error: {e}")
         return None
 
 
 def ingest_collection(
     butler,
+    repo,
     collection_name,
     datasetType,
     butler_standardizer_config,
@@ -139,8 +114,8 @@ def ingest_collection(
     fail_on_error=False,
     exclude_bands=None,
     num_workers=1,
-    repo=None,
     refs_pbar=None,
+    cone_region=None,
 ):
     """
     Ingest a single collection from the LSST Butler repository into a KBMOD ImageCollection, which is then saved as a .collection file.
@@ -169,8 +144,6 @@ def ingest_collection(
         List of band letters to exclude (e.g., ['u', 'y']). Filters by physical_filter first character.
     num_workers : int, optional
         Number of parallel workers (default: 1 = serial processing).
-    repo : str, optional
-        Repository path (needed for parallel processing).
     refs_pbar : tqdm, optional
         Optional outer progress bar to update with ref counts.
     """
@@ -184,16 +157,28 @@ def ingest_collection(
         logger.info(f"Preparing to use output path {output_path} for {collection_name}")
 
     # Get all butler references for the specified dataset type in this collection
+    # Build a where clause and bind dict for the Butler query
+    where_clauses = []
+    bind = {}
+    if target is not None:
+        where_clauses.append(f"instrument='LSSTCam' and exposure.target_name='{target}'")
+    if cone_region is not None:
+        where_clauses.append("visit_detector_region.region OVERLAPS cone_region")
+        bind["cone_region"] = cone_region
+
+    where_str = " AND ".join(where_clauses) if where_clauses else None
 
     try:
-        if target is None:
-            refs = butler.registry.queryDatasets(datasetType, collections=[collection_name])
-        else:
+        if where_str is not None:
             refs = butler.query_datasets(
                 datasetType,
-                where=f"instrument='LSSTCam' and exposure.target_name='{target}'",
+                where=where_str,
+                bind=bind if bind else None,
                 collections=[collection_name],
+                limit=None,
             )
+        else:
+            refs = butler.registry.queryDatasets(datasetType, collections=[collection_name])
     except Exception as e:
         logger.error(f"Error querying collection {collection_name}: {e}")
         return
@@ -230,27 +215,20 @@ def ingest_collection(
     if refs_pbar is not None:
         refs_pbar.set_postfix_str(f"{total_refs} refs")
 
-    if num_workers > 1 and repo is not None and len(refs) > num_workers:
-        # Parallel processing
-        logger.info(f"Processing {len(refs)} refs with {num_workers} workers")
-
-        # Convert refs to dataIds for pickling - must use .mapping or iterate properly
-        # DataCoordinate doesn't support dict() directly
-        ref_data_ids = [{k: r.dataId[k] for k in r.dataId.dimensions.required.names} for r in refs]
+    if num_workers > 1 and len(refs) > num_workers:
+        # Threaded parallel processing - each worker creates its own Butler
+        logger.info(f"Processing {len(refs)} refs with {num_workers} threads (each with own Butler)")
 
         # Chunk the refs
-        chunk_size = (len(ref_data_ids) + num_workers - 1) // num_workers
-        chunks = [ref_data_ids[i : i + chunk_size] for i in range(0, len(ref_data_ids), chunk_size)]
+        chunk_size = max(1, (len(refs) + num_workers - 1) // num_workers)
+        chunks = [refs[i : i + chunk_size] for i in range(0, len(refs), chunk_size)]
 
-        # Convert config to dict for pickling
-        config_dict = dict(butler_standardizer_config)
-
-        # Process chunks in parallel
+        # Process chunks in parallel threads
         ics = []
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             futures = [
                 executor.submit(
-                    _process_refs_chunk, repo, collection_name, datasetType, chunk, config_dict, fail_on_error
+                    _process_refs_chunk_threaded, chunk, repo, butler_standardizer_config, fail_on_error
                 )
                 for chunk in chunks
             ]
@@ -258,6 +236,7 @@ def ingest_collection(
                 result = future.result()
                 if result is not None:
                     ics.append(result)
+        logger.info(f"Finished building {len(ics)} ImageCollection chunks")
 
         if not ics:
             logger.warning(f"No ImageCollections created for {collection_name}")
@@ -284,8 +263,6 @@ def ingest_collection(
 
     if output_dir is not None:
         if not overwrite and os.path.exists(output_path):
-            # Check again if we should overwrite the output path due to potential parallel processing
-            logger.debug(f"Output path {output_path} already exists, skipping write.")
             return
         ic.write(output_path, overwrite=overwrite)
 
@@ -313,25 +290,53 @@ def execute(args):
         # If a dry run, print collection sizes
         print(f"\nDry run: Counting refs per collection...")
 
+        # Build cone search region if specified
+        cone_region = None
+        if args.cone_ra is not None and args.cone_dec is not None:
+            from lsst.sphgeom import Circle, UnitVector3d, LonLat, Angle
+
+            center = UnitVector3d(LonLat.fromDegrees(args.cone_ra, args.cone_dec))
+            cone_region = Circle(center, Angle.fromDegrees(args.cone_radius))
+            print(
+                f"Cone search filter active: {args.cone_radius}° radius circle at RA={args.cone_ra}, Dec={args.cone_dec}"
+            )
+
         collection_sizes = []
+        all_unique_refs = set()
         for col in tqdm(collections, desc="Counting", unit="col"):
             try:
-                if args.target is None:
-                    refs = list(butler.registry.queryDatasets(args.datasetType, collections=[col]))
-                else:
+                # Build where clause and bind dict
+                where_clauses = []
+                bind = {}
+                if args.target is not None:
+                    where_clauses.append(f"instrument='LSSTCam' and exposure.target_name='{args.target}'")
+                if cone_region is not None:
+                    where_clauses.append("visit_detector_region.region OVERLAPS cone_region")
+                    bind["cone_region"] = cone_region
+
+                where_str = " AND ".join(where_clauses) if where_clauses else None
+
+                if where_str is not None:
                     refs = list(
                         butler.query_datasets(
                             args.datasetType,
-                            where=f"instrument='LSSTCam' and exposure.target_name='{args.target}'",
+                            where=where_str,
+                            bind=bind if bind else None,
                             collections=[col],
                         )
                     )
+                else:
+                    refs = list(butler.registry.queryDatasets(args.datasetType, collections=[col]))
                 # Apply band filtering for accurate count
                 if args.exclude_bands:
                     refs = [
                         r for r in refs if r.dataId.get("physical_filter", "x")[0] not in args.exclude_bands
                     ]
                 collection_sizes.append((col, len(refs)))
+                # Track unique refs by (visit, detector, instrument) tuple
+                for r in refs:
+                    key = tuple(sorted(r.dataId.mapping.items()))
+                    all_unique_refs.add(key)
             except Exception as e:
                 logger.warning(f"Error counting {col}: {e}")
                 collection_sizes.append((col, 0))
@@ -341,7 +346,8 @@ def execute(args):
 
         total = sum(size for _, size in collection_sizes)
         print(f"\nFound {len(collections)} collections")
-        print(f"Total refs (after band filtering): {total}")
+        print(f"Total refs (after band filtering): {total:,}")
+        print(f"Unique refs across all collections: {len(all_unique_refs):,}")
         print(f"\nTop 10 largest collections:")
         for i, (col, size) in enumerate(collection_sizes[:10], 1):
             print(f"  {i:2}. {col}: {size:,} refs")
@@ -359,12 +365,24 @@ def execute(args):
     if args.wcs_fallback_sips_degree is not None:
         std_config["wcs_fallback_sips_degree"] = args.wcs_fallback_sips_degree
 
+    # Build cone search region if specified (for non-dry-run path)
+    cone_region = None
+    if args.cone_ra is not None and args.cone_dec is not None:
+        from lsst.sphgeom import Circle, UnitVector3d, LonLat, Angle
+
+        center = UnitVector3d(LonLat.fromDegrees(args.cone_ra, args.cone_dec))
+        cone_region = Circle(center, Angle.fromDegrees(args.cone_radius))
+        print(
+            f"Cone search filter: {args.cone_radius}° radius circle at RA={args.cone_ra}, Dec={args.cone_dec}"
+        )
+
     # Ingest each collection
     pbar = tqdm(collections, desc="Collections", unit="col")
     for collection_name in pbar:
         pbar.set_description(f"Col: {collection_name[:30]}...")
         ingest_collection(
             butler,
+            args.repo,
             collection_name,
             args.datasetType,
             std_config,
@@ -375,8 +393,8 @@ def execute(args):
             args.fail_on_error,
             args.exclude_bands,
             args.num_workers,
-            args.repo,
             refs_pbar=pbar,
+            cone_region=cone_region,
         )
 
 
@@ -434,7 +452,7 @@ def main():
     parser.add_argument(
         "--exclude_bands",
         nargs="+",
-        default=["u", "y"],
+        default=[],
         help="Bands to exclude by first letter of physical_filter (default: u y). Pass --exclude_bands with no args to include all.",
     )
     parser.add_argument(
@@ -479,6 +497,24 @@ def main():
         help="Fail the entire ingestion of a collection if any images for the collection failed to standardize",
     )
     parser.add_argument(
+        "--cone_ra",
+        type=float,
+        default=None,
+        help="RA in degrees for cone search center. Used with --cone_dec and --cone_radius.",
+    )
+    parser.add_argument(
+        "--cone_dec",
+        type=float,
+        default=None,
+        help="Dec in degrees for cone search center. Used with --cone_ra and --cone_radius.",
+    )
+    parser.add_argument(
+        "--cone_radius",
+        type=float,
+        default=2.0,
+        help="Radius in degrees for cone search filter (default: 2.0). Only used when --cone_ra and --cone_dec are specified.",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose logging",
@@ -493,6 +529,8 @@ def main():
         parser.error("Must specify either --collections or --collection_regex for ingesting.")
     if args.collections is not None and args.collection_regex is not None:
         parser.error("Cannot specify both --collections and --collection_regex. Use one or the other.")
+    if (args.cone_ra is None) != (args.cone_dec is None):
+        parser.error("Must specify both --cone_ra and --cone_dec together, or neither.")
 
     execute(args)
 
