@@ -146,7 +146,7 @@ def ingest_collection(
     output_dir : str, optional
         Directory to write the ImageCollection file. If None, no file is written.
     overwrite : bool, optional
-        If True, overwrite existing ImageCollection files. Default is False.
+        If True, overwrite the final output ImageCollection file if it exists. Note that this will still load intermediate chunks from cache if they exist; it does not force reprocessing of cached chunks. Default is False.
     fail_on_error : bool, optional
         If True, fail the entire ingestion of a collection if any images for the collection failed to standardize. Default is False.
     exclude_bands : list of str, optional
@@ -383,7 +383,7 @@ def execute(args):
 
         collection_sizes = []
         all_unique_refs = set()
-        for col in tqdm(collections, desc="Counting", unit="col"):
+        for col in collections:
             try:
                 # Build where clause and bind dict
                 where_clauses = []
@@ -457,9 +457,8 @@ def execute(args):
         )
 
     # Ingest each collection
-    pbar = tqdm(collections, desc="Collections", unit="col")
-    for collection_name in pbar:
-        pbar.set_description(f"Col: {collection_name[:30]}...")
+    for i, collection_name in enumerate(collections, 1):
+        logger.info(f"Processing collection {i}/{len(collections)}: {collection_name}")
         ingest_collection(
             butler,
             args.repo,
@@ -473,7 +472,7 @@ def execute(args):
             args.fail_on_error,
             args.exclude_bands,
             args.num_workers,
-            refs_pbar=pbar,
+            refs_pbar=None,
             cone_region=cone_region,
             chunk_size=args.chunk_size,
         )
@@ -518,7 +517,7 @@ def main():
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Overwrite existing ImageCollections",
+        help="Overwrite the final output ImageCollection file if it exists. Note: Cached intermediate chunks will still be loaded unless manually deleted.",
     )
     parser.add_argument(
         "--dry",
