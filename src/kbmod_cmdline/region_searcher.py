@@ -379,7 +379,7 @@ if __name__ == "__main__":
         dest="bands_to_drop",
         help="list of bands to drop from ImageCollection, e.g., --bands-to-drop u y",
         type=str,
-        default=["u", "y"],
+        default=[],
         nargs="+",
     )
     parser.add_argument(
