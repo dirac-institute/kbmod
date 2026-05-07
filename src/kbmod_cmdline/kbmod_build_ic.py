@@ -20,9 +20,13 @@ you can use the `--max_exposures` flag to limit the number of exposures processe
 """
 
 import argparse
+import hashlib
+import json
 import logging
 import os
 import re
+
+import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 
@@ -66,7 +70,7 @@ RUBIN_MASK_FLAGS = [
 ]
 
 
-def _process_refs_chunk_threaded(refs_chunk, repo, config, fail_on_error):
+def _process_refs_chunk_threaded(refs_chunk, butler_or_repo, config, fail_on_error):
     """
     Worker function for threaded parallel processing.
     Creates its own Butler instance to avoid contention.
@@ -75,8 +79,8 @@ def _process_refs_chunk_threaded(refs_chunk, repo, config, fail_on_error):
     ----------
     refs_chunk : list
         List of Butler DatasetRefs to process.
-    repo : str
-        Path to the Butler repository. Each worker creates its own Butler instance.
+    butler_or_repo : str or dafButler.Butler
+        Path to the Butler repository or an existing Butler instance.
     config : ButlerStandardizerConfig
         Configuration for the ButlerStandardizer.
     fail_on_error : bool
@@ -87,7 +91,11 @@ def _process_refs_chunk_threaded(refs_chunk, repo, config, fail_on_error):
     ImageCollection or None
     """
     try:
-        worker_butler = dafButler.Butler(repo)
+        if isinstance(butler_or_repo, str):
+            worker_butler = dafButler.Butler(butler_or_repo)
+        else:
+            worker_butler = butler_or_repo
+
         ic = kbmod.ImageCollection.fromTargets(
             refs_chunk,
             butler=worker_butler,
@@ -116,6 +124,7 @@ def ingest_collection(
     num_workers=1,
     refs_pbar=None,
     cone_region=None,
+    chunk_size=None,
 ):
     """
     Ingest a single collection from the LSST Butler repository into a KBMOD ImageCollection, which is then saved as a .collection file.
@@ -208,55 +217,126 @@ def ingest_collection(
         # Update refs to filtered refs
         refs = filtered_refs
 
-    # Build ImageCollection - either serial or parallel
+    # Sort refs by visit then detector for deterministic chunking and chronological processing
+    logger.info(f"Starting to sort {len(refs)} refs")
+    refs.sort(key=lambda r: (r.dataId.get("visit", 0), r.dataId.get("detector", 0)))
+
     total_refs = len(refs)
+    logger.info(f"Finished sorting {total_refs} refs")
 
     # Update outer progress bar description if provided
     if refs_pbar is not None:
         refs_pbar.set_postfix_str(f"{total_refs} refs")
 
-    if num_workers > 1 and len(refs) > num_workers:
-        # Threaded parallel processing - each worker creates its own Butler
-        logger.info(f"Processing {len(refs)} refs with {num_workers} threads (each with own Butler)")
-
-        # Chunk the refs
-        chunk_size = max(1, (len(refs) + num_workers - 1) // num_workers)
-        chunks = [refs[i : i + chunk_size] for i in range(0, len(refs), chunk_size)]
-
-        # Process chunks in parallel threads
-        ics = []
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            futures = [
-                executor.submit(
-                    _process_refs_chunk_threaded, chunk, repo, butler_standardizer_config, fail_on_error
-                )
-                for chunk in chunks
-            ]
-            for future in tqdm(as_completed(futures), total=len(futures), desc="Workers", unit="chunk"):
-                result = future.result()
-                if result is not None:
-                    ics.append(result)
-        logger.info(f"Finished building {len(ics)} ImageCollection chunks")
-
-        if not ics:
-            logger.warning(f"No ImageCollections created for {collection_name}")
-            return
-
-        # Merge all ImageCollections
-        ic = ics[0]
-        if len(ics) > 1:
-            ic.vstack(ics[1:])
-        logger.debug(f"Merged {len(ics)} ImageCollections")
+    # Determine chunk size
+    if chunk_size is not None:
+        cs = chunk_size
+    elif num_workers > 1:
+        cs = max(1, (total_refs + num_workers - 1) // num_workers)
     else:
-        # Serial processing (original path)
-        logger.debug(f"Creating ImageCollection for collection {collection_name}")
-        ic = kbmod.ImageCollection.fromTargets(
-            refs,
-            butler=butler,
-            force="ButlerStandardizer",
-            config=butler_standardizer_config,
-            fail_on_error=fail_on_error,
+        cs = total_refs
+
+    chunks = [refs[i : i + cs] for i in range(0, total_refs, cs)]
+
+    # Setup caching directory if output_dir is provided
+    cache_dir = None
+    manifest_path = None
+    if output_dir is not None:
+        output_collection_name = collection_name.replace("/", "_")
+        cache_dir = os.path.join(output_dir, "intermediates", output_collection_name)
+        os.makedirs(cache_dir, exist_ok=True)
+        manifest_path = os.path.join(cache_dir, "manifest.parquet")
+
+    chunks_to_process = []
+    ics = []
+    new_manifest_records = []
+
+    for idx, chunk in enumerate(chunks):
+        # Create a unique hash for this chunk based on its references
+        chunk_str = json.dumps(
+            [(r.dataId.get("visit", 0), r.dataId.get("detector", 0)) for r in chunk], sort_keys=True
         )
+        chunk_hash = hashlib.md5(chunk_str.encode("utf-8")).hexdigest()
+
+        cached_path = None
+        if cache_dir is not None:
+            chunk_filename = f"chunk_{chunk_hash}.collection"
+            cached_path = os.path.join(cache_dir, chunk_filename)
+            for r in chunk:
+                new_manifest_records.append(
+                    {
+                        "chunk_filename": chunk_filename,
+                        "visit": r.dataId.get("visit"),
+                        "detector": r.dataId.get("detector"),
+                    }
+                )
+
+        if cached_path and os.path.exists(cached_path):
+            logger.info(f"Loading cached chunk {idx+1}/{len(chunks)} from {cached_path}")
+            try:
+                ic = kbmod.ImageCollection.read(cached_path)
+                ics.append((idx, ic))
+                continue
+            except Exception as e:
+                logger.warning(f"Failed to load cached chunk {cached_path}, will reprocess: {e}")
+
+        chunks_to_process.append((idx, chunk, cached_path))
+
+    if cache_dir is not None and new_manifest_records:
+        df_new = pd.DataFrame(new_manifest_records)
+        if os.path.exists(manifest_path):
+            try:
+                df_old = pd.read_parquet(manifest_path)
+                df_combined = pd.concat([df_old, df_new]).drop_duplicates(ignore_index=True)
+            except Exception as e:
+                logger.warning(f"Failed to read existing manifest {manifest_path}: {e}")
+                df_combined = df_new
+        else:
+            df_combined = df_new
+        df_combined.to_parquet(manifest_path, index=False)
+
+    if chunks_to_process:
+        if num_workers > 1:
+            logger.info(
+                f"Processing {len(chunks_to_process)} chunks with {num_workers} processes (each with own Butler)"
+            )
+            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+                futures = {}
+                for idx, chunk, cached_path in chunks_to_process:
+                    future = executor.submit(
+                        _process_refs_chunk_threaded, chunk, repo, butler_standardizer_config, fail_on_error
+                    )
+                    futures[future] = (idx, cached_path)
+
+                for future in tqdm(as_completed(futures), total=len(futures), desc="Workers", unit="chunk"):
+                    idx, cached_path = futures[future]
+                    result = future.result()
+                    if result is not None:
+                        if cached_path:
+                            result.write(cached_path, overwrite=True)
+                        ics.append((idx, result))
+        else:
+            logger.info(f"Processing {len(chunks_to_process)} chunks serially")
+            for idx, chunk, cached_path in tqdm(chunks_to_process, desc="Chunks", unit="chunk"):
+                result = _process_refs_chunk_threaded(
+                    chunk, butler, butler_standardizer_config, fail_on_error
+                )
+                if result is not None:
+                    if cached_path:
+                        result.write(cached_path, overwrite=True)
+                    ics.append((idx, result))
+
+    ics.sort(key=lambda x: x[0])
+    ics_list = [ic for idx, ic in ics]
+
+    if not ics_list:
+        logger.warning(f"No ImageCollections created for {collection_name}")
+        return
+
+    ic = ics_list[0]
+    if len(ics_list) > 1:
+        ic.vstack(ics_list[1:])
+    logger.debug(f"Merged {len(ics_list)} ImageCollections")
 
     logger.debug(f"Created ImageCollection for collection {collection_name} with {len(ic)} images")
     ic["collection"] = collection_name
@@ -395,6 +475,7 @@ def execute(args):
             args.num_workers,
             refs_pbar=pbar,
             cone_region=cone_region,
+            chunk_size=args.chunk_size,
         )
 
 
@@ -495,6 +576,12 @@ def main():
         "--fail_on_error",
         action="store_true",
         help="Fail the entire ingestion of a collection if any images for the collection failed to standardize",
+    )
+    parser.add_argument(
+        "--chunk_size",
+        type=int,
+        default=None,
+        help="Number of exposures per chunk. If not specified, divides evenly among workers.",
     )
     parser.add_argument(
         "--cone_ra",
