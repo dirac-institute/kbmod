@@ -588,3 +588,52 @@ class TestRegionSearch(unittest.TestCase):
         overlap = patch1.measure_overlap(patch3.polygon)
         self.assertEqual(overlap, 0.0)
         self.assertFalse(patch1.overlaps_polygon(patch3.polygon))
+
+    def test_patch_ic_write_produces_valid_output(self):
+        """Verify that ICs produced by get_image_collection_from_patch can be
+        written with validate=False and read back as valid. This compensates for
+        skipping runtime validation in generate_or_load_patch_ic."""
+        import tempfile
+        import shutil
+
+        rs = RegionSearch(self.ic, guess_dists=[], earth_loc=self.earth_loc)
+        dec_range = (min(self.ic.data["dec"] - 0.5), max(self.ic.data["dec"] + 0.5))
+        rs.generate_patches(
+            arcminutes=self.patch_size,
+            overlap_percentage=0,
+            pixel_scale=0.2,
+            dec_range=dec_range,
+        )
+
+        # Find a patch that has images
+        ephems = Ephems(
+            self.test_ephems,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[],
+            earth_loc=self.earth_loc,
+        )
+        found_patches = rs.search_patches_by_ephems(ephems)
+        self.assertGreater(len(found_patches), 0)
+
+        patch_id = next(iter(found_patches))
+        patch_ic = rs.get_image_collection_from_patch(patch_id, min_overlap=0)
+        self.assertGreater(len(patch_ic), 0)
+
+        # Write with validate=False (matching production behavior in region_searcher)
+        tmpdir = tempfile.mkdtemp()
+        try:
+            out_path = f"{tmpdir}/test_patch.collection"
+            patch_ic.write(out_path, validate=False)
+
+            # Read it back — this calls validate() by default and will raise if invalid
+            loaded_ic = ImageCollection.read(out_path)
+            self.assertEqual(len(loaded_ic), len(patch_ic))
+            self.assertTrue(loaded_ic.validate())
+
+            # Verify key columns survived the round-trip
+            for col in ["visit", "detector", "ra", "dec", "overlap_deg"]:
+                self.assertIn(col, loaded_ic.data.columns)
+        finally:
+            shutil.rmtree(tmpdir)
