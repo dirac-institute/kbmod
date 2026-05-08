@@ -244,6 +244,7 @@ def generate_or_load_patch_ic(patch_ids, guess_distance, patch_size, region_sear
             patch_ic.write(
                 patch_id_to_ic_path(patch_id, guess_distance, patch_size, ic_dir=ic_dir),
                 overwrite=overwrite,
+                validate=False,  # Data was sliced from a validated parent IC
             )
             files_written += 1
         except ValueError as msg:
@@ -397,24 +398,23 @@ def region_searcher(
         # Note: We are loading this again later if known_objects_ephem is provided, which is slightly inefficient
         # but cleaner for code organization unless we refactor significantly.
         # Given the "early loading" requirement, we could load it once here.
-        
+
         # Optimize: reuse this loaded table later if possible, but for now just load it here to filter.
 
         if known_objects_ephem.endswith(".parquet"):
             import pandas as pd
+
             known_objects_filter = Table.from_pandas(pd.read_parquet(known_objects_ephem))
         else:
             known_objects_filter = Table.read(known_objects_ephem)
         # Reflex correct the ephemeris table
         known_objects_filter = reflex_correct_ephem_table(
-            known_objects_filter, 
-            barycentric_dist=guess_distance, 
-            obs_site=site_name
+            known_objects_filter, barycentric_dist=guess_distance, obs_site=site_name
         )
         # Rename Name column if necessary (logic copied from bottom loop)
         ephem_obj_name_col = "Clean Name"
         if ephem_obj_name_col in known_objects_filter.colnames:
-             known_objects_filter["Name"] = known_objects_filter[ephem_obj_name_col]
+            known_objects_filter["Name"] = known_objects_filter[ephem_obj_name_col]
 
         filter_ephems = kbmod.region_search.Ephems(
             known_objects_filter,
@@ -424,14 +424,16 @@ def region_searcher(
             guess_dists=[guess_distance],
             earth_loc=earth_loc,
         )
-        
+
         filtered_patch_ids = region_search.search_patches_within_radius(
             filter_ephems, search_radius, guess_dist=guess_distance
         )
-        
+
         original_count = len(found_patches)
         found_patches = found_patches.intersection(filtered_patch_ids)
-        print(f"{elapsed_t(startTime)} Filtered down to {len(found_patches)} patches (from {original_count}).")
+        print(
+            f"{elapsed_t(startTime)} Filtered down to {len(found_patches)} patches (from {original_count})."
+        )
 
     ic_dir = os.path.join(out_dir, dist_patch_size_str(guess_distance, patch_size))
     if not os.path.exists(ic_dir):
@@ -457,13 +459,13 @@ def region_searcher(
         analysis_table_path = os.path.join(ic_dir, "analysis_table.csv")
         analysis_table.write(analysis_table_path, overwrite=True)
         print(f"{elapsed_t(startTime)} Saved analysis table to {analysis_table_path}")
-        
 
     if known_objects_ephem is not None:
         print(f"{elapsed_t(startTime)} Loading known object ephemerides from {known_objects_ephem}...")
         # Load and clean the ephemeris table to ensure it has the required columns
         if known_objects_ephem.endswith(".parquet"):
             import pandas as pd
+
             known_objects_filter = Table.from_pandas(pd.read_parquet(known_objects_ephem))
         else:
             known_objects_filter = Table.read(known_objects_ephem)
