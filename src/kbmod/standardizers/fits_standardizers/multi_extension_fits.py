@@ -4,7 +4,6 @@ from astropy.io.fits import CompImageHDU, PrimaryHDU, ImageHDU
 
 from .fits_standardizer import FitsStandardizer, FitsStandardizerConfig
 
-
 __all__ = [
     "MultiExtensionFits",
 ]

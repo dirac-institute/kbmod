@@ -15,6 +15,8 @@ from astropy.table import Table, Column, vstack
 from astropy.io import fits as fitsio
 from astropy.wcs import WCS
 from astropy.utils import isiterable
+from astropy.coordinates import EarthLocation
+import astropy.units as u
 
 import numpy as np
 
@@ -23,7 +25,7 @@ from .standardizers import Standardizer, ButlerStandardizer
 
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
-
+from reproject.mosaicking import find_optimal_celestial_wcs
 
 __all__ = [
     "ImageCollection",
@@ -514,6 +516,23 @@ class ImageCollection:
         if "is_packed" in self.data.meta:
             return self.data.meta["is_packed"]
         return False
+
+    def get_observatory(self):
+        """Get the observatory EarthLocation from the first row of the ImageCollection.
+
+        Returns
+        -------
+        observatory : `astropy.coordinates.EarthLocation` or `None`
+            The observatory location constructed from obs_lat, obs_lon, and obs_elev.
+            Returns None if the ImageCollection is empty.
+        """
+        if len(self.data) == 0:
+            logger.warning("Empty ImageCollection does not have an observatory location.")
+            return None
+        obs_lat = self.data["obs_lat"][0]
+        obs_lon = self.data["obs_lon"][0]
+        obs_elev = self.data["obs_elev"][0]
+        return EarthLocation(lat=obs_lat * u.deg, lon=obs_lon * u.deg, height=obs_elev * u.m)
 
     @property
     def wcs(self):
@@ -1171,6 +1190,61 @@ class ImageCollection:
         imgstack = ImageStackPy()
         for layimg in layered_images:
             imgstack.append_layered_image(layimg)
-        work = WorkUnit(imgstack, search_config, org_image_meta=metadata)
+
+        # Get the observatory location from the ImageCollection metadata.
+        observatory = self.get_observatory()
+        if observatory is None:
+            logger.warning(
+                "No observatory location found in ImageCollection metadata, using Rubin Observatory."
+            )
+            # Rubin Observatory coordinates (site name not available in all astropy versions)
+            observatory = EarthLocation(lat=-30.2446 * u.deg, lon=-70.7494 * u.deg, height=2663 * u.m)
+
+        work = WorkUnit(imgstack, search_config, org_image_meta=metadata, observatory=observatory)
 
         return work
+
+    def get_global_wcs(self, auto_fit=False):
+        """Get the global WCS for the ImageCollection.
+
+        First attempts to read a serialized global WCS from the ``self.data`` table,
+        specifically the ``"global_wcs"`` column as populated by external
+        standardization workflows. If present, optional pixel shape information is
+        restored from the ``"global_wcs_pixel_shape_0"`` and
+        ``"global_wcs_pixel_shape_1"`` columns. If these columns are missing and
+        ``auto_fit`` is True, the method computes a global WCS from the optimal
+        celestial footprint of the individual exposures.
+
+        Parameters
+        ----------
+        auto_fit : bool, optional
+            If True, calculates the optimal WCS from existing exposure WCS footprints
+            when a stored global WCS is not present in the ``self.data`` table columns.
+
+        Returns
+        -------
+        global_wcs : `astropy.wcs.WCS` or None
+        """
+        if "global_wcs" in self.data.columns:
+            wcs_data = self.data["global_wcs"][0]
+            try:
+                wcs_data = json.loads(wcs_data)
+            except Exception:
+                pass
+            global_wcs = WCS(wcs_data, relax=True)
+            if (
+                "global_wcs_pixel_shape_0" in self.data.columns
+                and "global_wcs_pixel_shape_1" in self.data.columns
+            ):
+                global_wcs.pixel_shape = (
+                    self.data["global_wcs_pixel_shape_0"][0],
+                    self.data["global_wcs_pixel_shape_1"][0],
+                )
+            return global_wcs
+
+        if auto_fit:
+            global_wcs, shape = find_optimal_celestial_wcs(list(self.wcs))
+            global_wcs.array_shape = shape
+            return global_wcs
+
+        return None

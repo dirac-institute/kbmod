@@ -13,6 +13,7 @@ from .mock_fits import DECamImdiffFactory
 
 __all__ = [
     "MockButler",
+    "MockFailedButler",
     "Registry",
     "Datastore",
     "DatasetRef",
@@ -264,6 +265,7 @@ class MockButler:
         registry=None,
         missing_headers=[],
         failed_fits_appoximation=False,
+        use_header_dimensions=False,
     ):
         self.datastore = Datastore(root)
         self._datastore = Datastore(root)
@@ -271,6 +273,7 @@ class MockButler:
         self.mockImages = mock_images_f
         self.missing_headers = missing_headers
         self.failed_fits_appoximation = failed_fits_appoximation
+        self.use_header_dimensions = use_header_dimensions
 
     def getURI(self, ref, dataId=None, collections=None):
         mocked = mock.Mock(name="ButlerURI")
@@ -434,7 +437,9 @@ class MockButler:
         return mocked
 
     def mock_exposure(self, ref):
-        hdul = FitsFactory.get_fits(ref % FitsFactory.n_files, spoof_data=True)
+        hdul = FitsFactory.get_fits(
+            ref % FitsFactory.n_files, spoof_data=True, use_header_dimensions=self.use_header_dimensions
+        )
         prim = hdul["PRIMARY"].header
 
         mocked = mock.Mock(
@@ -450,6 +455,8 @@ class MockButler:
                 "variance",
                 "mask",
                 "wcs",
+                "psf",
+                "photoCalib",
             ],
         )
 
@@ -491,6 +498,38 @@ class MockButler:
         mocked.mask.getMaskPlaneDict.return_value = bit_flag_map
 
         return mocked
+
+
+class MockFailedButler:
+    """Mocked Vera C. Rubin Data Butler that always fails to resolve
+    any reference.
+
+    Keep the same signature for init and the rest of methods, just
+    fail in a way that mimics the butler instead of resolving it.
+    """
+
+    def __init__(
+        self,
+        root,
+        ref=None,
+        mock_images_f=None,
+        registry=None,
+        missing_headers=[],
+        failed_fits_appoximation=False,
+    ):
+        pass
+
+    def getURI(self, ref, dataId=None, collections=None):
+        return None
+
+    def getDataset(self, datid):
+        return None
+
+    def get_dataset(self, datid, dimension_records=False, datastore_records=False):
+        return None
+
+    def get(self, ref, collections=None, dataId=None):
+        return None
 
 
 class dafButler:

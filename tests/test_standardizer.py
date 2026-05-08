@@ -15,7 +15,6 @@ from kbmod.standardizers import (
     KBMODV1Config,
 )
 
-
 # Use a shared factory to skip having to untar the archive
 FitsFactory = DECamImdiffFactory()
 

@@ -8,7 +8,6 @@ from numba import jit, typed
 
 from kbmod.core.image_stack_py import ImageStackPy
 
-
 # -----------------------------------------------------------------------------
 # --- Data Extraction Functions -----------------------------------------------
 # -----------------------------------------------------------------------------
@@ -371,7 +370,7 @@ def extract_stamp(img, x_val, y_val, radius):
         A square (2 * radius + 1, 2 * radius + 1) matrix representing
         the stamp with NaNs anywhere there is no data.
     """
-    (img_height, img_width) = img.shape
+    img_height, img_width = img.shape
 
     # Compute the start and end x locations in the full image [x_img_s, x_img_e] and the
     # corresponding bounds in the stamp [x_stp_s, x_stp_e].
@@ -499,7 +498,7 @@ def _extract_curve_values(imgs, x_vals, y_vals):
     """
     num_results = x_vals.shape[0]
     num_times = len(imgs)
-    (height, width) = imgs[0].shape
+    height, width = imgs[0].shape
 
     # Extract the values of the pixels that fall within the images.
     # We compile this function to speed up the nested loops.

@@ -37,6 +37,12 @@ class test_trajectory_list(unittest.TestCase):
         for i in range(8):
             self.assertEqual(trj_list2.get_trajectory(i).x, 2 * i)
 
+    def test_reset_all(self):
+        trj_list2 = TrajectoryList([Trajectory(x=2 * i) for i in range(8)])
+        trj_list2.reset_all()
+        for i in range(8):
+            self.assertEqual(trj_list2.get_trajectory(i).x, 0)
+
     def test_estimate_memory(self):
         self.assertEqual(TrajectoryList.estimate_memory(10), 280)
 

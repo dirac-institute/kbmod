@@ -16,7 +16,6 @@ from astropy.io import fits
 import os
 from copy import copy
 
-
 # The number of executors to use in the parallel reprojecting function.
 MAX_PROCESSES = 8
 _DEFAULT_TQDM_BAR = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"

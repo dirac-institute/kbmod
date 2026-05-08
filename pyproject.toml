@@ -31,7 +31,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "astropy>=5.1",
+    "astropy>=5.3",
     "h5py",
     "joblib>=1.4",
     "jplephem",
@@ -55,6 +55,7 @@ dependencies = [
 kbmod-create-test-data = "kbmod_cmdline.kbmod_create_test_data:main"
 kbmod-filter = "kbmod_cmdline.kbmod_filter:main"
 kbmod-merge-results = "kbmod_cmdline.kbmod_merge_results:main"
+kbmod-migrate-results = "kbmod_cmdline.kbmod_migrate_results:main"
 kbmod-rater = "kbmod_cmdline.kbmod_results_rater:main"
 kbmod-stamps = "kbmod_cmdline.kbmod_stamps:main"
 kbmod-stats = "kbmod_cmdline.kbmod_stats:main"

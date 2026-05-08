@@ -26,7 +26,6 @@ import numpy as np
 
 from kbmod.results import Results
 
-
 logger = logging.getLogger(__name__)
 
 

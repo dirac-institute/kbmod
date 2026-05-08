@@ -131,7 +131,7 @@ class MockFitsFileFactory(abc.ABC):
             return self.lexical_type_map[format](value)
         return value
 
-    def get_fits(self, fits_idx, spoof_data=False):
+    def get_fits(self, fits_idx, spoof_data=False, use_header_dimensions=False):
         """Create a FITS file using the raw data selected by the `fits_idx`.
 
         **IMPORTANT**: MockFactories guarantee to return Headers that match the
@@ -150,6 +150,18 @@ class MockFitsFileFactory(abc.ABC):
 
         The change usually affects NAXIS1/2 cards for all HDU types, but could
         also alter PGCOUNT, GCOUNT, TFIELDS, NAXIS as well as endianness.
+
+        Parameters
+        ----------
+        fits_idx : int
+            Index of the FITS file to create.
+        spoof_data : bool, optional
+            If True, populate the data arrays with zeros. Default False.
+        use_header_dimensions : bool, optional
+            If True and spoof_data is True, use the actual dimensions from the
+            header (NAXIS1, NAXIS2) instead of small 5x5 arrays. This ensures
+            WCS coordinate conversions remain consistent with image bounds.
+            Default False.
         """
         hdul = HDUList()
         file_group = self.table.groups[fits_idx % self.n_files]
@@ -175,11 +187,11 @@ class MockFitsFileFactory(abc.ABC):
         warnings.resetwarnings()
 
         if spoof_data:
-            hdul = self.spoof_data(hdul)
+            hdul = self.spoof_data(hdul, use_header_dimensions=use_header_dimensions)
 
         return hdul
 
-    def get_range(self, start_idx, end_idx, spoof_data=False):
+    def get_range(self, start_idx, end_idx, spoof_data=False, use_header_dimensions=False):
         """Get a list of HDUList objects from the specified range.
         When range exceeds the number of available serialized headers it's
         wrapped back to start.
@@ -193,24 +205,24 @@ class MockFitsFileFactory(abc.ABC):
             )
         files = []
         for i in range(start_idx, end_idx):
-            files.append(self.get_fits(i % self.n_files, spoof_data))
+            files.append(self.get_fits(i % self.n_files, spoof_data, use_header_dimensions))
         return files
 
-    def get_n(self, n, spoof_data=False):
+    def get_n(self, n, spoof_data=False, use_header_dimensions=False):
         """Get next n fits files. Wraps around when available `n_files`
         is exceeded. Updates the current index counter."""
-        files = self.get_range(self._current, self._current + n, spoof_data)
+        files = self.get_range(self._current, self._current + n, spoof_data, use_header_dimensions)
         self._current = (self._current + n) % self.n_files
         return files
 
-    def mock_fits(self, spoof_data=False):
+    def mock_fits(self, spoof_data=False, use_header_dimensions=False):
         """Return new mocked FITS.
 
         Raw data is read sequentially, once exhausted it's reset and starts
         over again.
         """
         self._current = (self._current + 1) % self.n_files
-        return self.get_fits(self._current, spoof_data)
+        return self.get_fits(self._current, spoof_data, use_header_dimensions)
 
 
 class DECamImdiffFactory(MockFitsFileFactory):
@@ -261,7 +273,7 @@ class DECamImdiffFactory(MockFitsFileFactory):
     def hdu_types(self):
         return self.hdus
 
-    def spoof_data(self, hdul):
+    def spoof_data(self, hdul, use_header_dimensions=False):
         # Mocking FITS files is hard. The data is, usually, well described by
         # the header, to the point where it's possible to construct byte
         # offsets and memmap the fits, like FITS readers usually do. Spoofing
@@ -279,9 +291,19 @@ class DECamImdiffFactory(MockFitsFileFactory):
         # Of course, storing data takes too much space, so now we have to reverse
         # engineer the data, on a per-standardizer level, taking care we don't
         # hit any of these roadblocks.
-        empty_array = np.zeros((5, 5), np.float32)
+        #
+        # When use_header_dimensions=True, use actual dimensions from header so
+        # WCS coordinate conversions remain consistent. This is important for
+        # injection tests where RA/Dec -> pixel conversions must land within
+        # image bounds.
+        if use_header_dimensions:
+            naxis1 = hdul["IMAGE"].header.get("NAXIS1", 5)
+            naxis2 = hdul["IMAGE"].header.get("NAXIS2", 5)
+            empty_array = np.zeros((naxis2, naxis1), np.float32)
+        else:
+            empty_array = np.zeros((5, 5), np.float32)
         hdul["IMAGE"].data = empty_array
-        hdul["VARIANCE"].data = empty_array
+        hdul["VARIANCE"].data = empty_array.copy()
         hdul["MASK"].data = empty_array.astype(np.int32)
 
         # These are the 12 BinTableHDUs we're not using atm

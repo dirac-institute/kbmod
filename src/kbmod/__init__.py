@@ -87,6 +87,7 @@ for name in _logging.root.manager.loggerDict:
 
 from . import (  # noqa: F401
     filters,
+    injection,
     results,
     run_search,
     util_functions,
