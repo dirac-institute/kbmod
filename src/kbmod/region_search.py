@@ -67,6 +67,15 @@ class Ephems:
             # Skip correction for distance 0.0 - use original coordinates
             if guess_dist == 0.0:
                 continue
+            if (
+                self._reflex_corrected_col(self.ra_col, guess_dist) in self.ephems_data.colnames
+                and self._reflex_corrected_col(self.dec_col, guess_dist) in self.ephems_data.colnames
+            ):
+                print(
+                    f"Using pre-calculated reflex-corrected RA and Dec columns for guess distance {guess_dist}"
+                )
+                continue
+
             # Calculate the parallax correction for each RA, Dec in the target observations
             corrected_ra_dec, _ = correct_parallax_geometrically_vectorized(
                 self.ephems_data[self.ra_col],
@@ -736,6 +745,67 @@ class RegionSearch:
 
         return new_ic
 
+    def _get_cached_ic_coords(self, guess_dist):
+        """Get or create a cached SkyCoord array for the IC at a given guess distance.
+
+        This avoids reconstructing a SkyCoord from 3.5M+ rows on every call to
+        get_image_collection_from_patch.
+
+        Parameters
+        ----------
+        guess_dist : float
+            The guess distance for reflex correction.
+
+        Returns
+        -------
+        SkyCoord
+            Cached SkyCoord array of all IC image centers.
+        """
+        if not hasattr(self, "_cached_ic_coords"):
+            self._cached_ic_coords = {}
+        if guess_dist not in self._cached_ic_coords:
+            self._cached_ic_coords[guess_dist] = SkyCoord(
+                ra=self.ic.data[self.ic.reflex_corrected_col("ra", guess_dist)],
+                dec=self.ic.data[self.ic.reflex_corrected_col("dec", guess_dist)],
+                unit=(u.deg, u.deg),
+                frame="icrs",
+            )
+        return self._cached_ic_coords[guess_dist]
+
+    def _get_cached_chip_distance(self, guess_dist, ic_coords):
+        """Get or create a cached max chip corner distance for a given guess distance.
+
+        The chip distance is the maximum separation between the center of any chip
+        and its farthest corner. This is the same for all chips (same detector geometry)
+        and is used to pre-filter candidate images for patch overlap checks.
+
+        Parameters
+        ----------
+        guess_dist : float
+            The guess distance for reflex correction.
+        ic_coords : SkyCoord
+            The cached SkyCoord array of IC image centers.
+
+        Returns
+        -------
+        astropy.units.Quantity
+            The maximum chip corner distance in degrees.
+        """
+        if not hasattr(self, "_cached_chip_distance"):
+            self._cached_chip_distance = {}
+        if guess_dist not in self._cached_chip_distance:
+            chip_distance = 0 * u.deg
+            for corner in ["tl", "tr", "br", "bl"]:
+                curr_corner = SkyCoord(
+                    ra=self.ic.data[self.ic.reflex_corrected_col(f"ra_{corner}", guess_dist)][0],
+                    dec=self.ic.data[self.ic.reflex_corrected_col(f"dec_{corner}", guess_dist)][0],
+                    unit=(u.deg, u.deg),
+                    frame="icrs",
+                )
+                chip_distance = max(chip_distance, curr_corner.separation(ic_coords[0]))
+            self._cached_chip_distance[guess_dist] = chip_distance
+        return self._cached_chip_distance[guess_dist]
+
     def get_image_collection_from_patch(self, patch, guess_dist=0.0, min_overlap=0, max_images=None):
         """
         Filters down an ImageCollection to all images that overlap with a given patch.
@@ -769,14 +839,10 @@ class RegionSearch:
             # Get the patch object from the index
             patch = self.get_patches()[patch]
 
-        # To check if any of the images in the ImageCollection overlap with the patch,
-        # first create a skycoord of the reflex-corrected image centers.
-        ic_coords = SkyCoord(
-            ra=self.ic.data[self.ic.reflex_corrected_col("ra", guess_dist)],
-            dec=self.ic.data[self.ic.reflex_corrected_col("dec", guess_dist)],
-            unit=(u.deg, u.deg),
-            frame="icrs",
-        )
+        # Use cached SkyCoord array and chip distance to avoid recomputing per-patch
+        ic_coords = self._get_cached_ic_coords(guess_dist)
+        chip_distance = self._get_cached_chip_distance(guess_dist, ic_coords)
+
         # Get the patch center coordinates
         patch_center = SkyCoord(
             ra=patch.ra,
@@ -785,18 +851,6 @@ class RegionSearch:
             frame="icrs",
         )
 
-        # We want to get the maximum separation between the patch center and any corner of the chip
-        # so that we can pre-filter out images that are too far away to overlap with the patch (since
-        # checking overlap with polygons is expensive).
-        chip_distance = 0 * u.deg
-        for corner in ["tl", "tr", "br", "bl"]:
-            curr_corner = SkyCoord(
-                ra=self.ic.data[self.ic.reflex_corrected_col(f"ra_{corner}", guess_dist)][0],
-                dec=self.ic.data[self.ic.reflex_corrected_col(f"dec_{corner}", guess_dist)][0],
-                unit=(u.deg, u.deg),
-                frame="icrs",
-            )
-            chip_distance = max(chip_distance, curr_corner.separation(ic_coords[0]))
         # The maximum separation between the patch center and the image center for there to be any overlap
         # of the image on the patch.
         max_sep = patch.patch_radius() + chip_distance
