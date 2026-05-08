@@ -6,6 +6,7 @@ from astropy.wcs import WCS
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 
+from shapely import polygons as shapely_polygons
 from shapely.geometry import Polygon, Point
 
 
@@ -195,37 +196,53 @@ class RegionSearch:
         Generates a dictionary of Polygons for each chip in the ImageCollection, both
         in the original coordinates and across each reflex-corrected guess distance.
 
+        Uses Shapely 2's vectorized ``shapely.polygons()`` to batch-construct all chip
+        polygons at once, rather than calling ``Polygon()`` per-row.
+
         Returns
         -------
         dict
             A dictionary of Polygons for each chip in the ImageCollection. The keys are the
             [visit][detector][guess_dist] (with 0.0 used for the original coordinates).
         """
-        # For each row in the ImageCollection, create a Polygon from the corners of the chip at each guess distance
         shapes = {}
-        for row in self.ic.data:
-            visit = row["visit"]
-            if visit not in shapes:
-                shapes[visit] = {}
-            detector = row["detector"]
-            if detector not in shapes[visit]:
-                shapes[visit][detector] = {}
-            # We include 0.0 to represent the original coordinates
-            shape_dists = [0.0] + self.guess_dists if 0.0 not in self.guess_dists else self.guess_dists
-            for guess_dist in shape_dists:
-                if guess_dist not in shapes[visit][detector]:
-                    shapes[visit][detector][guess_dist] = {}
-                # Get the corners of the chip in RA and Dec for this guess distance
-                ra_corners = [
-                    row[self.ic.reflex_corrected_col(f"ra_{corner}", guess_dist)]
-                    for corner in ["tl", "tr", "br", "bl"]
+        # We include 0.0 to represent the original coordinates
+        shape_dists = [0.0] + self.guess_dists if 0.0 not in self.guess_dists else self.guess_dists
+
+        # Pre-extract visit/detector arrays once
+        visits = np.array(self.ic.data["visit"])
+        detectors = np.array(self.ic.data["detector"])
+        n_rows = len(self.ic.data)
+
+        for guess_dist in shape_dists:
+            # Extract the 4 corner coordinate columns as contiguous arrays
+            corner_names = ["tl", "tr", "br", "bl"]
+            ra_arrays = np.column_stack(
+                [
+                    np.array(self.ic.data[self.ic.reflex_corrected_col(f"ra_{c}", guess_dist)])
+                    for c in corner_names
                 ]
-                dec_corners = [
-                    row[self.ic.reflex_corrected_col(f"dec_{corner}", guess_dist)]
-                    for corner in ["tl", "tr", "br", "bl"]
+            )  # shape: (n_rows, 4)
+            dec_arrays = np.column_stack(
+                [
+                    np.array(self.ic.data[self.ic.reflex_corrected_col(f"dec_{c}", guess_dist)])
+                    for c in corner_names
                 ]
-                # Create a shapely polygon from the corners to efficiently check for overlap with this chip
-                shapes[visit][detector][guess_dist] = Polygon(list(zip(ra_corners, dec_corners)))
+            )  # shape: (n_rows, 4)
+
+            # Build (n_rows, 4, 2) coordinate array and batch-construct all Polygons at once
+            coords = np.stack([ra_arrays, dec_arrays], axis=-1)  # (n_rows, 4, 2)
+            all_polys = shapely_polygons(coords)  # Vectorized Shapely 2 construction
+
+            # Map each polygon to its (visit, detector, guess_dist) key
+            for i in range(n_rows):
+                v = visits[i]
+                d = detectors[i]
+                if v not in shapes:
+                    shapes[v] = {}
+                if d not in shapes[v]:
+                    shapes[v][d] = {}
+                shapes[v][d][guess_dist] = all_polys[i]
         return shapes
 
     def _get_patch_radius(self):
@@ -806,6 +823,65 @@ class RegionSearch:
             self._cached_chip_distance[guess_dist] = chip_distance
         return self._cached_chip_distance[guess_dist]
 
+    def _precompute_patch_candidates(self, guess_dist):
+        """Pre-compute candidate image indices for all patches using a single search_around_sky call.
+
+        This replaces per-patch separation computations O(N_patches × N_images) with a single
+        KD-tree query O(N_images × log(N_patches) + N_matches), which is dramatically faster
+        when processing many patches.
+
+        Parameters
+        ----------
+        guess_dist : float
+            The guess distance for reflex correction.
+
+        Returns
+        -------
+        dict
+            Mapping from patch ID (int) to numpy array of candidate image indices.
+        """
+        if not hasattr(self, "_precomputed_candidates"):
+            self._precomputed_candidates = {}
+        if guess_dist in self._precomputed_candidates:
+            return self._precomputed_candidates[guess_dist]
+
+        if not self.patches:
+            self._precomputed_candidates[guess_dist] = {}
+            return self._precomputed_candidates[guess_dist]
+
+        ic_coords = self._get_cached_ic_coords(guess_dist)
+        chip_distance = self._get_cached_chip_distance(guess_dist, ic_coords)
+
+        patch_centers = SkyCoord(
+            [p.ra for p in self.patches],
+            [p.dec for p in self.patches],
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+        max_sep = self.patches[0].patch_radius() + chip_distance
+
+        # Single KD-tree query finds all (image, patch) candidate pairs at once
+        print(f"Pre-computing patch candidates for guess_dist={guess_dist} using search_around_sky...")
+        ic_idx, patch_idx, _, _ = search_around_sky(ic_coords, patch_centers, max_sep)
+
+        # Group by patch ID
+        candidates = {}
+        for i_idx, p_idx in zip(ic_idx, patch_idx):
+            p_id = int(p_idx)
+            if p_id not in candidates:
+                candidates[p_id] = []
+            candidates[p_id].append(int(i_idx))
+
+        # Convert lists to numpy arrays for efficient indexing
+        for p_id in candidates:
+            candidates[p_id] = np.array(candidates[p_id])
+
+        print(
+            f"Found candidates for {len(candidates)} patches ({sum(len(v) for v in candidates.values())} total pairs)."
+        )
+        self._precomputed_candidates[guess_dist] = candidates
+        return candidates
+
     def get_image_collection_from_patch(self, patch, guess_dist=0.0, min_overlap=0, max_images=None):
         """
         Filters down an ImageCollection to all images that overlap with a given patch.
@@ -839,25 +915,10 @@ class RegionSearch:
             # Get the patch object from the index
             patch = self.get_patches()[patch]
 
-        # Use cached SkyCoord array and chip distance to avoid recomputing per-patch
-        ic_coords = self._get_cached_ic_coords(guess_dist)
-        chip_distance = self._get_cached_chip_distance(guess_dist, ic_coords)
-
-        # Get the patch center coordinates
-        patch_center = SkyCoord(
-            ra=patch.ra,
-            dec=patch.dec,
-            unit=(u.deg, u.deg),
-            frame="icrs",
-        )
-
-        # The maximum separation between the patch center and the image center for there to be any overlap
-        # of the image on the patch.
-        max_sep = patch.patch_radius() + chip_distance
-
-        # Get the indices of ic_coords that are within the patch size of the patch center
-        seps = ic_coords.separation(patch_center)
-        candidate_indices = np.where(seps <= max_sep)[0]
+        # Use bulk pre-computed candidates (single search_around_sky for all patches)
+        # instead of per-patch O(N_images) separation computation.
+        all_candidates = self._precompute_patch_candidates(guess_dist)
+        candidate_indices = all_candidates.get(patch.id, np.array([], dtype=int))
 
         # Iterate over all candidates and check if they actually overlap with the patch
         overlap_deg = np.zeros(len(self.ic), dtype=float)
@@ -955,6 +1016,9 @@ class Patch:
         # Create a polygon representation of the patch
         self.polygon = Polygon(self.corners)
 
+        # Cache the patch radius (distance from center to corner) to avoid recomputing
+        self._radius = np.sqrt((self.width / 2) ** 2 + (self.height / 2) ** 2) * u.deg
+
     def __str__(self):
         """Returns a string representation of the patch."""
         return f"Patch ID: {self.id} RA: {self.ra}, Dec: {self.dec}, Width (pixels): {self.width}, Height (piexels): {self.height}"
@@ -1038,7 +1102,7 @@ class Patch:
 
         Returns
         -------
-        asropy.units.Quantity
+        astropy.units.Quantity
             The radius of the patch in degrees.
         """
-        return np.sqrt((self.width / 2) ** 2 + (self.height / 2) ** 2) * u.deg
+        return self._radius
