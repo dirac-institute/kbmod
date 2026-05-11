@@ -1,3 +1,4 @@
+import time
 import numpy as np
 
 from astropy.coordinates import SkyCoord, search_around_sky
@@ -8,6 +9,18 @@ from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 
 from shapely import polygons as shapely_polygons
 from shapely.geometry import Polygon, Point
+
+
+def _rss_gb():
+    """Resident memory of the current process in GiB (best-effort, no hard dep on psutil)."""
+    try:
+        import resource
+
+        # ru_maxrss is KiB on Linux, bytes on macOS
+        kib = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return kib / (1024 * 1024)
+    except Exception:
+        return float("nan")
 
 
 def patch_arcmin_to_pixels(patch_size, pixel_scale):
@@ -167,6 +180,8 @@ class RegionSearch:
             Whether to enforce that there is only one image per visit and detector in the ImageCollection.
         """
         self.ic = ic
+        t0 = time.time()
+        print(f"[RegionSearch] init start (n_rows={len(ic.data)}, rss={_rss_gb():.2f} GiB)")
 
         if enforce_unique_visit_detector:
             # Check that for each combination of visit and detector, there is only one Image
@@ -174,6 +189,7 @@ class RegionSearch:
             visit_detectors = set(zip(ic.data["visit"], ic.data["detector"]))
             if len(visit_detectors) != len(ic.data):
                 raise ValueError("Multiple images found for the same visit and detector")
+            print(f"[RegionSearch] visit/detector uniqueness check: {time.time() - t0:.1f}s")
 
         self.guess_dists = guess_dists
         if self.guess_dists:
@@ -183,10 +199,37 @@ class RegionSearch:
                     "Must provide an EarthLocation if we are taking into account reflex correction."
                 )
             self.earth_loc = earth_loc
-            self.ic.reflex_correct(self.guess_dists, self.earth_loc)
+
+            # Skip distances whose reflex-corrected columns already exist (e.g. from a primed IC on disk).
+            # Mirrors the existing skip logic in Ephems.__init__.
+            needs_correction = [
+                d
+                for d in self.guess_dists
+                if self.ic.reflex_corrected_col("ra", d) not in self.ic.data.colnames
+            ]
+            if needs_correction:
+                t1 = time.time()
+                print(f"[RegionSearch] reflex_correct for {needs_correction}...")
+                self.ic.reflex_correct(needs_correction, self.earth_loc)
+                print(
+                    f"[RegionSearch] reflex_correct done: {time.time() - t1:.1f}s "
+                    f"(rss={_rss_gb():.2f} GiB)"
+                )
+            else:
+                print(
+                    f"[RegionSearch] reflex_correct skipped (cached columns present for {self.guess_dists})"
+                )
 
         # Generate the polygon objects for each chip in the ImageCollection (as a visit, detector, guess_dist)
+        t2 = time.time()
+        print(f"[RegionSearch] _generate_chip_shapes start...")
         self.chip_shapes = self._generate_chip_shapes()
+        print(
+            f"[RegionSearch] _generate_chip_shapes done: {time.time() - t2:.1f}s "
+            f"(rss={_rss_gb():.2f} GiB)"
+        )
+
+        print(f"[RegionSearch] init total: {time.time() - t0:.1f}s (rss={_rss_gb():.2f} GiB)")
 
         # Initially Patches are not defined.
         self.patches = None
@@ -230,9 +273,21 @@ class RegionSearch:
                 ]
             )  # shape: (n_rows, 4)
 
+            # Fix RA wrap (bowtie effect at 0/360 boundary or pole crossings)
+            # Find chips where the max RA - min RA > 180 (indicates boundary crossing)
+            ra_ranges = np.ptp(ra_arrays, axis=1)
+            wrap_mask = ra_ranges > 180.0
+
+            # For wrapped chips, add 360 to any RA < 180 to unwrap them into a continuous block
+            if np.any(wrap_mask):
+                wrapped_ras = ra_arrays[wrap_mask]
+                wrapped_ras[wrapped_ras < 180.0] += 360.0
+                ra_arrays[wrap_mask] = wrapped_ras
+
             # Build (n_rows, 4, 2) coordinate array and batch-construct all Polygons at once
             coords = np.stack([ra_arrays, dec_arrays], axis=-1)  # (n_rows, 4, 2)
             all_polys = shapely_polygons(coords)  # Vectorized Shapely 2 construction
+            # all_polys = make_valid(all_polys)  # Ensure no self-intersecting polygons from extreme parallax
 
             # Map each polygon to its (visit, detector, guess_dist) key
             for i in range(n_rows):
@@ -1072,9 +1127,22 @@ class Patch:
         float
             The area of overlap in square degrees.
         """
+        from shapely import affinity
+
         # Get the overlap between the shapely polygon and our patch in square degrees
-        overlap = self.polygon.intersection(poly)
-        return overlap.area
+        overlap = self.polygon.intersection(poly).area
+
+        # Handle RA wrap: if the chip polygon was unwrapped to > 360 or < 0,
+        # test intersection with a translated patch as well.
+        min_x, min_y, max_x, max_y = poly.bounds
+        if max_x > 360.0 and self.ra < 180.0:
+            shifted_patch = affinity.translate(self.polygon, xoff=360.0)
+            overlap += shifted_patch.intersection(poly).area
+        elif min_x < 0.0 and self.ra > 180.0:
+            shifted_patch = affinity.translate(self.polygon, xoff=-360.0)
+            overlap += shifted_patch.intersection(poly).area
+
+        return overlap
 
     def overlaps_polygon(self, poly):
         """

@@ -210,8 +210,8 @@ def generate_or_load_patch_ic(patch_ids, guess_distance, patch_size, region_sear
     """
     # Which patches need to be newly generated
     patch_ics_to_generate = []
-    # Maps patch_id to an ImageCollection
-    patch_id_to_ic = {}
+    # Maps patch_id to its computed metrics for the analysis table
+    patch_id_to_metrics = {}
 
     if overwrite:
         patch_ics_to_generate = patch_ids
@@ -220,19 +220,25 @@ def generate_or_load_patch_ic(patch_ids, guess_distance, patch_size, region_sear
         for patch_id in patch_ids:
             ic_file = patch_id_to_ic_path(patch_id, guess_distance, patch_size, ic_dir=ic_dir)
             if os.path.exists(ic_file):
-                patch_id_to_ic[patch_id] = ImageCollection.read(ic_file)
-                if "overlap_deg" not in patch_id_to_ic[patch_id].columns:
+                patch_ic = ImageCollection.read(ic_file)
+                if "overlap_deg" not in patch_ic.columns:
                     print(
                         f"Warning: Loaded ImageCollection for patch_id {patch_id} is missing 'overlap_deg' column. Regenerating..."
                     )
                     patch_ics_to_generate.append(patch_id)
                     os.remove(ic_file)
-                    del patch_id_to_ic[patch_id]
+                else:
+                    patch_id_to_metrics[patch_id] = {
+                        "overlap_deg": sum(patch_ic["overlap_deg"]),
+                        "visit_count": len(set(patch_ic["visit"])),
+                        "unique_mjds": len(set([int(m) for m in patch_ic["mjd_mid"]])),
+                        "obs_nights_spanned": patch_ic.obs_nights_spanned(),
+                    }
             else:
                 patch_ics_to_generate.append(patch_id)
 
     print(
-        f"Recycled {len(patch_id_to_ic)} ImageCollections from {ic_dir}. Continuing to generation phase (if needed)..."
+        f"Recycled {len(patch_id_to_metrics)} ImageCollections from {ic_dir}. Continuing to generation phase (if needed)..."
     )
     files_written = 0
     error_patch_ids = []
@@ -240,17 +246,22 @@ def generate_or_load_patch_ic(patch_ids, guess_distance, patch_size, region_sear
     for patch_id in tqdm(patch_ics_to_generate, desc="Processing patches"):
         try:
             patch_ic = region_search.get_image_collection_from_patch(patch_id, guess_dist=guess_distance)
-            patch_id_to_ic[patch_id] = patch_ic
+            patch_id_to_metrics[patch_id] = {
+                "overlap_deg": sum(patch_ic["overlap_deg"]),
+                "visit_count": len(set(patch_ic["visit"])),
+                "unique_mjds": len(set([int(m) for m in patch_ic["mjd_mid"]])),
+                "obs_nights_spanned": patch_ic.obs_nights_spanned(),
+            }
             patch_ic.write(
                 patch_id_to_ic_path(patch_id, guess_distance, patch_size, ic_dir=ic_dir),
                 overwrite=overwrite,
                 validate=False,  # Data was sliced from a validated parent IC
             )
             files_written += 1
-        except ValueError as msg:
+        except Exception as msg:
             print(f"Error for patch_id {patch_id} : {msg}")
             error_patch_ids.append(patch_id)
-            errors.append(msg)
+            errors.append(str(msg))
 
     print(
         f"Wrote {files_written} new ImageCollections to {ic_dir}. {len(patch_ics_to_generate) - files_written} failed to generate."
@@ -259,17 +270,17 @@ def generate_or_load_patch_ic(patch_ids, guess_distance, patch_size, region_sear
     error_table = Table({"patch_id": error_patch_ids, "error_msg": errors})
     error_table.write(os.path.join(ic_dir, "errors.csv"), overwrite=True)
 
-    return patch_id_to_ic
+    return patch_id_to_metrics
 
 
-def generate_analysis_table(patch_id_to_ic):
+def generate_analysis_table(patch_id_to_metrics):
     """
     Generate an analysis table summarizing overlap statistics for each patch.
 
     Parameters
     ----------
-    patch_id_to_ic : dict
-        A dictionary mapping patch IDs to their corresponding ImageCollections.
+    patch_id_to_metrics : dict
+        A dictionary mapping patch IDs to their computed metrics.
 
     Returns
     -------
@@ -282,12 +293,12 @@ def generate_analysis_table(patch_id_to_ic):
     visit_counts = []
     unique_mjds = []
     obs_nights_spanned = []
-    for patch_id, patch_ic in patch_id_to_ic.items():
+    for patch_id, metrics in patch_id_to_metrics.items():
         patch_ids.append(patch_id)
-        overlap_deg.append(sum(patch_ic["overlap_deg"]))
-        visit_counts.append(len(set(patch_ic["visit"])))
-        unique_mjds.append(len(set([int(m) for m in patch_ic["mjd_mid"]])))
-        obs_nights_spanned.append(patch_ic.obs_nights_spanned())
+        overlap_deg.append(metrics["overlap_deg"])
+        visit_counts.append(metrics["visit_count"])
+        unique_mjds.append(metrics["unique_mjds"])
+        obs_nights_spanned.append(metrics["obs_nights_spanned"])
     t = Table(
         {
             "patch_id": patch_ids,
@@ -442,7 +453,7 @@ def region_searcher(
     if not no_generate:
         # For all of the patches that had matches to images in or base ImageCollection,
         # generate or load their ImageCollections (a collection of only the images overlapping that patch).
-        patch_id_to_ic = generate_or_load_patch_ic(
+        patch_id_to_metrics = generate_or_load_patch_ic(
             patch_ids=list(found_patches),
             guess_distance=guess_distance,
             patch_size=patch_size,
@@ -455,7 +466,7 @@ def region_searcher(
         print(f"{elapsed_t(startTime)} Finished!")
 
         # Generate analysis table
-        analysis_table = generate_analysis_table(patch_id_to_ic)
+        analysis_table = generate_analysis_table(patch_id_to_metrics)
         analysis_table_path = os.path.join(ic_dir, "analysis_table.csv")
         analysis_table.write(analysis_table_path, overwrite=True)
         print(f"{elapsed_t(startTime)} Saved analysis table to {analysis_table_path}")
