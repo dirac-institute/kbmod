@@ -10,7 +10,6 @@ from astropy.coordinates import EarthLocation, SkyCoord, solar_system_ephemeris,
 from kbmod.reprojection_utils import (
     correct_parallax,
     correct_parallax_geometrically,
-    invert_correct_parallax,
     fit_barycentric_wcs,
     transform_wcses_to_ebd,
     correct_parallax_geometrically_vectorized,
@@ -156,14 +155,15 @@ class test_reprojection_utils(unittest.TestCase):
         assert geo_dist == self.equinox_geo_dist
 
     def test_invert_correct_parallax(self):
-        corrected_coord1_geo, geo_dist1_geo = correct_parallax(
+        corrected_coord1_geo, _ = correct_parallax(
             coord=self.sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
             barycentric_distance=50.0,
+            use_minimizer=True,
         )
 
-        corrected_coord1_min, geo_dist1_min = correct_parallax(
+        corrected_coord1_min, _ = correct_parallax(
             coord=self.sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
@@ -171,41 +171,41 @@ class test_reprojection_utils(unittest.TestCase):
         )
 
         fresh_sc1 = SkyCoord(
-            ra=corrected_coord1_geo.ra.degree, dec=corrected_coord1_geo.dec.degree, unit="deg"
+            ra=corrected_coord1_geo.ra.degree * u.degree,
+            dec=corrected_coord1_geo.dec.degree * u.degree,
+            distance=50.0 * u.au,
         )
 
-        uncorrected_coord1 = invert_correct_parallax(
-            coord=fresh_sc1,
-            obstime=self.icrs_time1,
+        uncorrected_coord1 = invert_correct_parallax_vectorized(
+            coords=fresh_sc1,
+            obstimes=self.icrs_time1.mjd,
             point_on_earth=self.eq_loc,
-            geocentric_distance=geo_dist1_geo,
-            barycentric_distance=50.0,
         )
 
         assert self.sc1.separation(uncorrected_coord1).arcsecond < 0.001
 
         fresh_sc1 = SkyCoord(
-            ra=corrected_coord1_min.ra.degree, dec=corrected_coord1_min.dec.degree, unit="deg"
+            ra=corrected_coord1_min.ra.degree * u.degree,
+            dec=corrected_coord1_min.dec.degree * u.degree,
+            distance=50.0 * u.au,
         )
 
-        uncorrected_coord1 = invert_correct_parallax(
-            coord=fresh_sc1,
-            obstime=self.icrs_time1,
+        uncorrected_coord1 = invert_correct_parallax_vectorized(
+            coords=fresh_sc1,
+            obstimes=self.icrs_time1,
             point_on_earth=self.eq_loc,
-            geocentric_distance=geo_dist1_min,
-            barycentric_distance=50.0,
         )
 
         assert self.sc1.separation(uncorrected_coord1).arcsecond < 0.001
 
-        corrected_coord2_geo, geo_dist2_geo = correct_parallax(
+        corrected_coord2_geo, _ = correct_parallax(
             coord=self.sc2,
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
             barycentric_distance=50.0,
         )
 
-        corrected_coord2_min, geo_dist2_min = correct_parallax(
+        corrected_coord2_min, _ = correct_parallax(
             coord=self.sc2,
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
@@ -214,29 +214,29 @@ class test_reprojection_utils(unittest.TestCase):
         )
 
         fresh_sc2 = SkyCoord(
-            ra=corrected_coord2_geo.ra.degree, dec=corrected_coord2_geo.dec.degree, unit="deg"
+            ra=corrected_coord2_geo.ra.degree * u.degree,
+            dec=corrected_coord2_geo.dec.degree * u.degree,
+            distance=50.0 * u.au,
         )
 
-        uncorrected_coord2 = invert_correct_parallax(
-            coord=fresh_sc2,
-            obstime=self.icrs_time2,
+        uncorrected_coord2 = invert_correct_parallax_vectorized(
+            coords=fresh_sc2,
+            obstimes=self.icrs_time2,
             point_on_earth=self.eq_loc,
-            geocentric_distance=geo_dist2_geo,
-            barycentric_distance=50.0,
         )
 
         assert self.sc2.separation(uncorrected_coord2).arcsecond < 0.001
 
-        fresh_sc2 = SkyCoord(
-            ra=corrected_coord2_min.ra.degree, dec=corrected_coord2_min.dec.degree, unit="deg"
+        fresh_sc3 = SkyCoord(
+            ra=corrected_coord2_min.ra.degree * u.degree,
+            dec=corrected_coord2_min.dec.degree * u.degree,
+            distance=50.0 * u.au,
         )
 
-        uncorrected_coord2 = invert_correct_parallax(
-            coord=fresh_sc2,
-            obstime=self.icrs_time2,
+        uncorrected_coord2 = invert_correct_parallax_vectorized(
+            coords=fresh_sc3,
+            obstimes=self.icrs_time2,
             point_on_earth=self.eq_loc,
-            geocentric_distance=geo_dist2_min,
-            barycentric_distance=50.0,
         )
 
         assert self.sc2.separation(uncorrected_coord2).arcsecond < 0.001
