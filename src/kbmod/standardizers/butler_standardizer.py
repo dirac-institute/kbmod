@@ -287,11 +287,11 @@ class ButlerStandardizer(Standardizer):
         cls = self.__class__
         new = cls.__new__(cls)
         memo[id(self)] = new
-        butler = getattr(self, "butler", None)
-        if butler is not None:
-            memo[id(butler)] = butler
         for k, v in self.__dict__.items():
-            setattr(new, k, copy.deepcopy(v, memo))
+            if k == "butler":
+                new.butler = v
+            else:
+                setattr(new, k, copy.deepcopy(v, memo))
         return new
 
     def _fitWCSFallback(self, wcs, naxis1, naxis2, n_rand_pts, sip_degree, sample_outside_chip=True):
