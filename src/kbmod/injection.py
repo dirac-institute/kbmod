@@ -306,26 +306,11 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
     # Stack all the injected catalogs
     injected_cats = vstack(injected_cats)
 
-    # Rebuild the standardizers with the new exposures.
-    # ButlerStandardizer holds a reference to a DirectButler. copy.deepcopy
-    # pickles/unpickles that butler, and each unpickle calls
-    # DirectButler.create_from_config which opens a fresh psycopg2 connection
-    # to the registry. For N images this fans out into N new DB connections
-    # per call -- and across parallel workers that overwhelms the registry
-    # pooler (manifests as SSLConnectionClosed / server_login_retry). Detach
-    # the butler around the deepcopy and share the original instance with the
-    # new standardizer.
+    # Rebuild the standardizers with the new exposures
     standardizers = ic.get_standardizers(butler=butler)
     new_standardizers = []
     for std, ref, exp in zip(standardizers, references, exposures):
-        original_std = std["std"]
-        saved_butler = getattr(original_std, "butler", None)
-        try:
-            original_std.butler = None
-            new_std = copy.deepcopy(original_std)
-        finally:
-            original_std.butler = saved_butler
-        new_std.butler = saved_butler
+        new_std = copy.deepcopy(std["std"])
         new_std.exp = exp
         new_std.ref = ref
         new_standardizers.append(new_std)
