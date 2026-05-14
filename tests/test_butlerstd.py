@@ -1,3 +1,4 @@
+import copy
 import uuid
 import unittest
 from unittest import mock
@@ -385,6 +386,21 @@ class TestButlerStandardizer(unittest.TestCase):
             mjd = 60828.91666667 + hour / 24.0
             obs_day = ButlerStandardizer._mjd_to_obs_day(mjd)
             self.assertEqual(obs_day, 20250602)
+
+    def test_deepcopy(self):
+        """Deep-copying a ButlerStandardizer yields an independent object
+        whose butler attribute is the same instance as the original's."""
+        std = ButlerStandardizer(DatasetId(7, fill_metadata=True), butler=self.butler)
+        std._metadata = {"k": "v"}
+
+        new_std = copy.deepcopy(std)
+
+        self.assertIsNot(new_std, std)
+        self.assertIs(new_std.butler, std.butler)
+        # Other state is independent: mutating the copy's dict does not affect the original.
+        self.assertIsNot(new_std._metadata, std._metadata)
+        new_std._metadata["k"] = "mutated"
+        self.assertEqual(std._metadata["k"], "v")
 
 
 if __name__ == "__main__":
