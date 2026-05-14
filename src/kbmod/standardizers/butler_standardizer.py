@@ -2,6 +2,7 @@
 via the Rubin Data Butler.
 """
 
+import copy
 import importlib
 import logging
 import uuid
@@ -275,6 +276,23 @@ class ButlerStandardizer(Standardizer):
         self._metadata = None
         self._naxis1 = None
         self._naxis2 = None
+
+    def __deepcopy__(self, memo):
+        # Share self.butler across the copy. DirectButler pickles to a config
+        # and unpickles by calling create_from_config, which opens a fresh
+        # psycopg2 connection to the registry. Deep-copying many standardizers
+        # (e.g. in kbmod.injection.inject_sources_into_ic) would otherwise fan
+        # out into one new DB connection per image and overwhelm the registry
+        # pooler under parallel workers.
+        cls = self.__class__
+        new = cls.__new__(cls)
+        memo[id(self)] = new
+        butler = getattr(self, "butler", None)
+        if butler is not None:
+            memo[id(butler)] = butler
+        for k, v in self.__dict__.items():
+            setattr(new, k, copy.deepcopy(v, memo))
+        return new
 
     def _fitWCSFallback(self, wcs, naxis1, naxis2, n_rand_pts, sip_degree, sample_outside_chip=True):
         """Create a simple TAN WCS centered on the detector through sampling random points.
