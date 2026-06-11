@@ -8,7 +8,7 @@ from kbmod.run_search import configure_kb_search_stack
 from kbmod.search import DebugTimer, StackSearch, Logging, Trajectory
 from kbmod.filters.clustering_filters import NNSweepFilter
 from kbmod.filters.stamp_filters import append_all_stamps, append_coadds
-from kbmod.trajectory_generator import PencilSearch, VelocityGridSearch
+from kbmod.trajectory_generator import PencilSearch, VelocityGridSearch, generate_all_trajectories
 from kbmod.trajectory_utils import make_trajectory_from_ra_dec
 
 logger = Logging.getLogger(__name__)
@@ -223,10 +223,13 @@ class TrajectoryExplorer:
         num_pixels = (2 * pixel_radius + 1) * (2 * pixel_radius + 1)
         logger.debug(f"Testing {num_pixels} starting pixels.")
 
-        # Create a pencil search around the given trajectory.
+        # Create a pencil search around the given trajectory. Filter out any duplicates.
         trj_generator = PencilSearch(vx, vy, max_ang_offset, ang_step, max_vel_offset, vel_step)
-        num_trj = len(trj_generator)
-        logger.debug(f"Exploring {num_trj} trajectories per starting pixel.")
+        candidates = generate_all_trajectories(
+            trj_generator,
+            self.config["candidate_dup_px"],
+            np.max(self.search.zeroed_times) - np.min(self.search.zeroed_times),
+        )
 
         # Set the search bounds to right around the trajectory's starting position and
         # turn off all filtering.
@@ -242,7 +245,6 @@ class TrajectoryExplorer:
 
         # Do the actual search.
         search_timer = DebugTimer("grid search", logger)
-        candidates = [trj for trj in trj_generator]
         self.search.search_all(candidates, use_gpu)
         search_timer.stop()
 
@@ -304,17 +306,6 @@ class TrajectoryExplorer:
         if max_dv < 0 or dv_steps < 1:
             raise ValueError(f"max_dv must be >= 0 and dv_steps must be >= 1.")
 
-        trj_generator = VelocityGridSearch(
-            dv_steps,
-            vx - max_dv,
-            vx + max_dv,
-            dv_steps,
-            vy - max_dv,
-            vy + max_dv,
-        )
-        candidates = [trj for trj in trj_generator]
-        logger.debug(f"Exploring {len(candidates)} trajectories per starting pixel.")
-
         # Set the search bounds to right around the trajectory's starting position.
         reduced_config = self.config.copy()
         reduced_config.set("x_pixel_bounds", [x - pixel_radius, x + pixel_radius + 1])
@@ -323,6 +314,21 @@ class TrajectoryExplorer:
             raise ValueError(f"max_results must be >= 1. Got {max_results}")
         reduced_config.set("results_per_pixel", max_results)
         self.initialize_data(config=reduced_config)
+
+        # Generate and de-duplicate the candidates (if needed).
+        trj_generator = VelocityGridSearch(
+            dv_steps,
+            vx - max_dv,
+            vx + max_dv,
+            dv_steps,
+            vy - max_dv,
+            vy + max_dv,
+        )
+        candidates = generate_all_trajectories(
+            trj_generator,
+            reduced_config["candidate_dup_px"],
+            np.max(self.search.zeroed_times) - np.min(self.search.zeroed_times),
+        )
 
         # Do the actual search.
         search_timer = DebugTimer("grid search", logger)

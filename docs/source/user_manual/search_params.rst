@@ -33,6 +33,9 @@ Configuration Parameters
 +------------------------+-----------------------------+----------------------------------------+
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
 +------------------------+-----------------------------+----------------------------------------+
+| ``candidate_dup_px``   | 0                           | The threshold for considering two      |
+|                        |                             | candidates as duplicates (in pixels).  |
++------------------------+-----------------------------+----------------------------------------+
 | ``color_scale``        | None                        | If provided this should be a dict      |
 |                        |                             | mapping filter names to a magnitude    |
 |                        |                             | color scaling factor.                  |

@@ -72,6 +72,13 @@ class _ParamInfo:
 # List of all the supported configuration parameters (in alphabetical order).
 _SUPPORTED_PARAMS = [
     _ParamInfo(
+        name="candidate_dup_px",
+        default_value=0,
+        description="The threshold for considering two candidates as duplicates (in pixels).",
+        section="core",
+        validate_func=lambda x: isinstance(x, (int, float)) and x >= 0,
+    ),
+    _ParamInfo(
         name="clip_negative",
         default_value=False,
         description="If True remove all negative values prior to sigmaG computing the percentiles.",
