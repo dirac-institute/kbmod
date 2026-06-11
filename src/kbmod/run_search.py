@@ -16,7 +16,7 @@ from .filters.sns_filters import peak_offset_filter, predictive_line_cluster
 from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
 from .reprojection_utils import invert_correct_parallax_vectorized
 from .results import Results, write_results_to_files_destructive
-from .trajectory_generator import create_trajectory_generator
+from .trajectory_generator import create_trajectory_generator, generate_all_trajectories
 from .trajectory_utils import predict_pixel_locations
 
 logger = kb.Logging.getLogger(__name__)
@@ -369,11 +369,15 @@ class SearchRunner:
         )
         configure_kb_search_stack(search, config)
 
-        # Do the actual search.
+        # Generate the candidates and remove any duplicates (if needed).
         self._start_phase("grid search")
-        logger.debug(f"Trajectory Generator: {trj_generator}")
-        candidates = [trj for trj in trj_generator]
-        logger.debug(f"Using {len(candidates)} candidates per pixel.")
+        candidates = generate_all_trajectories(
+            trj_generator,
+            candidate_dup_px=config["candidate_dup_px"],
+            max_dt=np.max(search.zeroed_times) - np.min(search.zeroed_times),
+        )
+
+        # Do the actual search.
         try:
             search.search_all(candidates, use_gpu)
         except:

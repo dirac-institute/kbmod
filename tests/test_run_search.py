@@ -347,6 +347,41 @@ class test_run_search(unittest.TestCase):
         self.assertAlmostEqual(keep["vx"][0], 21.0)
         self.assertAlmostEqual(keep["vy"][0], 16.0)
 
+    def test_core_search_dedup(self):
+        # Create a very small fake data set.
+        num_times = 20
+        width = 50
+        height = 60
+        fake_times = [59000.0 + float(i) / num_times for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        # Create a Trajectory for the object and insert it into the image stack.
+        trj = Trajectory(x=17, y=12, vx=21.0, vy=15.0, flux=250.0)
+        fake_ds.insert_object(trj)
+
+        # Use a small grid of search trajectories around the true velocity. With de-duplication,
+        # we should only evaluate 3 trajectory per pixel (vx=19, 21, and 23).
+        trj_gen = VelocityGridSearch(21, 19.0, 23.5, 21, 14.0, 16.0)
+        config = SearchConfiguration()
+        config.set("cpu_only", True)
+        config.set("candidate_dup_px", 2)
+        config.set("lh_level", 0.0)  # No LH filter.
+        config.set("results_per_pixel", 1000)  # No per pixel filtering.
+        config.set("near_dup_thresh", 0)  # No post duplicate filtering.
+        config.set("num_obs", 1)  # No num_obs_filtering
+        config.set("sigmaG_filter", False)  # No sigmaG filtering.
+
+        # Only search a 3 x 3 region of pixels.
+        config.set("x_pixel_bounds", [16, 19])
+        config.set("y_pixel_bounds", [11, 14])
+
+        # Run the core search algorithm and confirm that we get fewer than 100 results per pixel.
+        # Without de-duplication, we would have 21*21=441 trajectories per pixel.
+        runner = SearchRunner()
+        keep = runner.do_core_search(config, fake_ds.stack_py, trj_gen)
+        self.assertGreater(len(keep), 18)  # More than 2 results per pixel
+        self.assertLess(len(keep), 90)  # Less than 10 results per pixel
+
     @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_core_search_gpu(self):
         # Create a very small fake data set.
