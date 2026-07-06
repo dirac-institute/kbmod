@@ -173,6 +173,9 @@ def execute(args):
                     where=where_filter,
                     collections=collections,
                     limit=args.max_exposures,
+                    # return [] instead of raising EmptyQueryResultError when a
+                    # (chained or run) collection has no datasets of this type
+                    explain=False,
                 )
             )
         )
