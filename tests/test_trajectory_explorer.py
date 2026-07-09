@@ -156,6 +156,49 @@ class test_trajectory_explorer(unittest.TestCase):
         self.assertLess(np.abs(results["vx"][0] - self.vx), 1.0)
         self.assertLess(np.abs(results["vy"][0] - self.vy), 1.0)
 
+    # The two CPU (use_gpu=False) tests below are intentionally NOT gated on
+    # kb_has_gpu(). The candidate-generation path they exercise
+    # (generate_all_trajectories, num_trj, im_stack.zeroed_times) runs before any
+    # GPU work, so a GPU-only test would skip -- and hence miss -- a break there
+    # on CI without a GPU (as happened with the generate_all_trajectories
+    # keyword-only refactor).
+    def test_evaluate_around_linear_trajectory_cpu(self):
+        radius = 3
+        num_pixels = (2 * radius + 1) * (2 * radius + 1)
+        results = self.explorer.evaluate_around_linear_trajectory(
+            self.x0,
+            self.y0,
+            self.vx,
+            self.vy,
+            pixel_radius=radius,
+            max_ang_offset=0.2618,
+            ang_step=0.035,
+            max_vel_offset=10.0,
+            vel_step=0.5,
+            use_gpu=False,
+        )
+        # 615 trajectories generated per starting pixel (see GPU counterpart).
+        self.assertEqual(len(results), num_pixels * 615)
+
+    def test_refine_linear_trajectory_cpu(self):
+        # Start with a trajectory that is offset from the true one.
+        results = self.explorer.refine_linear_trajectory(
+            self.x0 + 1,
+            self.y0 - 1,
+            self.vx + 2.5,
+            self.vy - 2.5,
+            pixel_radius=3,
+            max_dv=10.0,
+            dv_steps=21,
+            use_gpu=False,
+        )
+        # We get one result and it recovers the true trajectory.
+        self.assertEqual(len(results), 1)
+        self.assertAlmostEqual(results["x"][0], self.x0, delta=1)
+        self.assertAlmostEqual(results["y"][0], self.y0, delta=1)
+        self.assertLess(np.abs(results["vx"][0] - self.vx), 1.0)
+        self.assertLess(np.abs(results["vy"][0] - self.vy), 1.0)
+
     @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_refine_all_results(self):
         # Create a small fake data set.
