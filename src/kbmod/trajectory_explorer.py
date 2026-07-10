@@ -227,9 +227,10 @@ class TrajectoryExplorer:
         trj_generator = PencilSearch(vx, vy, max_ang_offset, ang_step, max_vel_offset, vel_step)
         candidates = generate_all_trajectories(
             trj_generator,
-            self.config["candidate_dup_px"],
-            np.max(self.search.zeroed_times) - np.min(self.search.zeroed_times),
+            candidate_dup_px=self.config["candidate_dup_px"],
+            max_dt=np.max(self.im_stack.zeroed_times) - np.min(self.im_stack.zeroed_times),
         )
+        num_trj = len(candidates)
 
         # Set the search bounds to right around the trajectory's starting position and
         # turn off all filtering.
@@ -326,8 +327,8 @@ class TrajectoryExplorer:
         )
         candidates = generate_all_trajectories(
             trj_generator,
-            reduced_config["candidate_dup_px"],
-            np.max(self.search.zeroed_times) - np.min(self.search.zeroed_times),
+            candidate_dup_px=reduced_config["candidate_dup_px"],
+            max_dt=np.max(self.search.zeroed_times) - np.min(self.search.zeroed_times),
         )
 
         # Do the actual search.
