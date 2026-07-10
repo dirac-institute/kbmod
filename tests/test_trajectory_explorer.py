@@ -156,12 +156,7 @@ class test_trajectory_explorer(unittest.TestCase):
         self.assertLess(np.abs(results["vx"][0] - self.vx), 1.0)
         self.assertLess(np.abs(results["vy"][0] - self.vy), 1.0)
 
-    # The two CPU (use_gpu=False) tests below are intentionally NOT gated on
-    # kb_has_gpu(). The candidate-generation path they exercise
-    # (generate_all_trajectories, num_trj, im_stack.zeroed_times) runs before any
-    # GPU work, so a GPU-only test would skip -- and hence miss -- a break there
-    # on CI without a GPU (as happened with the generate_all_trajectories
-    # keyword-only refactor).
+    # The two CPU (use_gpu=False) tests below test the pre-GPU candidate-generation path
     def test_evaluate_around_linear_trajectory_cpu(self):
         radius = 3
         num_pixels = (2 * radius + 1) * (2 * radius + 1)
