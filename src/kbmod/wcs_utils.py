@@ -211,6 +211,35 @@ def make_fake_wcs(center_ra, center_dec, height, width, deg_per_pixel=None):
     return wcs
 
 
+def max_sky_separation(radec_a, radec_b):
+    """Compute the maximum on-sky angular separation between two sets
+    of matched (RA, Dec) coordinates.
+
+    Parameters
+    ----------
+    radec_a : `numpy.ndarray`
+        Array of shape ``(N, 2)`` of (RA, Dec) coordinates in degrees.
+    radec_b : `numpy.ndarray`
+        Array of shape ``(N, 2)`` of (RA, Dec) coordinates in degrees,
+        matched row-by-row to ``radec_a``.
+
+    Returns
+    -------
+    max_separation : `float`
+        The largest angular separation between matching coordinate
+        pairs, in degrees.
+    """
+    radec_a = numpy.atleast_2d(radec_a)
+    radec_b = numpy.atleast_2d(radec_b)
+    coords_a = astropy.coordinates.SkyCoord(
+        ra=radec_a[:, 0] * astropy.units.deg, dec=radec_a[:, 1] * astropy.units.deg
+    )
+    coords_b = astropy.coordinates.SkyCoord(
+        ra=radec_b[:, 0] * astropy.units.deg, dec=radec_b[:, 1] * astropy.units.deg
+    )
+    return coords_a.separation(coords_b).deg.max()
+
+
 def wcs_fits_equal(wcs_a, wcs_b):
     """Test if two WCS objects are equal at the level they would be
     written to FITS headers. Treats a pair of None values as equal.
