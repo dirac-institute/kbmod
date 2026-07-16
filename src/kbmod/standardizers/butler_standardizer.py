@@ -19,6 +19,8 @@ import numpy as np
 
 from .standardizer import Standardizer, StandardizerConfig
 
+from kbmod.wcs_utils import max_sky_separation
+
 from kbmod.core.psf import PSF
 
 from kbmod.core.image_stack_py import LayeredImagePy
@@ -515,11 +517,12 @@ class ButlerStandardizer(Standardizer):
         center_pt = bbox.getCenter()
         self._metadata["pixel_scale"] = wcs.getPixelScale(center_pt).asArcseconds()
 
-        # calculate the WCS "error" (max difference between edge coordinates
-        # from Rubin's more powerful SkyWCS and Atropy's Fits-WCS)
+        # calculate the WCS "error" (max on-sky separation between edge
+        # coordinates from Rubin's more powerful SkyWCS and Astropy's
+        # Fits-WCS), in degrees
         skyBBox = self._computeSkyBBox(wcs, self._naxis2, self._naxis1)
         apyBBox = self._computeBBoxArray(self._wcs, self._naxis2, self._naxis1)
-        self._metadata["wcs_err"] = (skyBBox - apyBBox).max()
+        self._metadata["wcs_err"] = max_sky_separation(skyBBox, apyBBox)
 
         # TODO: see issue #666
         # this will unroll the entire bbox into columns
