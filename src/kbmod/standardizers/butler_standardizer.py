@@ -351,9 +351,13 @@ class ButlerStandardizer(Standardizer):
         )
 
         # Fit a TAN WCS to these points, with optional SIP distortion
-        return fit_wcs_from_points(
+        fitted_wcs = fit_wcs_from_points(
             (rand_x, rand_y), world_coords, detector_center_coord, sip_degree=sip_degree
         )
+        # fit_wcs_from_points sets pixel_shape from the sampled points' bounding
+        # box, which extends beyond the chip; pin it to the true dimensions
+        fitted_wcs.pixel_shape = (naxis1, naxis2)
+        return fitted_wcs
 
     def _computeSkyBBox(self, wcs, dimX, dimY):
         """Given an Rubin SkyWCS object and the dimensions of an image

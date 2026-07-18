@@ -152,6 +152,9 @@ class TestButlerStandardizer(unittest.TestCase):
 
         # Validate that getFitsMetadata raises an error forcing us to use a fallback WCS
         std._wcs is not None
+        # The fallback-fitted WCS must carry the true chip dimensions, not the
+        # sampled points' bounding box
+        self.assertEqual(std._wcs.pixel_shape, (std._naxis1, std._naxis2))
         wcs_ref = std.ref.makeComponentRef("wcs")
         wcs = missing_wcs_butler.get(wcs_ref)
         with self.assertRaises(Exception):
