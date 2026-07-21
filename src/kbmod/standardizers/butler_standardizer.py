@@ -506,17 +506,12 @@ class ButlerStandardizer(Standardizer):
         # a copy.
         wcs_ref = self.ref.makeComponentRef("wcs")
         wcs = self.butler.get(wcs_ref)
-        try:
-            meta = dict(wcs.getFitsMetadata())
-            meta["NAXIS1"] = self._naxis1
-            meta["NAXIS2"] = self._naxis2
-            self._wcs = WCS(meta)
-        except Exception as e:
-            logger.debug(f"Could not parse WCS metadata for {self.ref}, got {e}. Creating fallback fit.")
-            # Create a simple TAN WCS centered on the detector through sampling random points.
-            n_rand_pts = self.config["wcs_fallback_points"]
-            sip_degree = self.config["wcs_fallback_sips_degree"]
-            self._wcs = self._fitWCSFallback(wcs, self._naxis1, self._naxis2, n_rand_pts, sip_degree)
+        # Always resample the WCS via SIP fit to the Rubin SkyWCS; the lossy
+        # getFitsMetadata() TAN-SIP export is not used. _fitWCSFallback sets
+        # pixel_shape=(naxis1,naxis2), so serialized NAXIS is correct.
+        n_rand_pts = self.config["wcs_fallback_points"]
+        sip_degree = self.config["wcs_fallback_sips_degree"]
+        self._wcs = self._fitWCSFallback(wcs, self._naxis1, self._naxis2, n_rand_pts, sip_degree)
 
         center_pt = bbox.getCenter()
         self._metadata["pixel_scale"] = wcs.getPixelScale(center_pt).asArcseconds()
