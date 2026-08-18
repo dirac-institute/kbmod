@@ -13,6 +13,7 @@ User Manual
    output_files
    results_filtering
    custom_filtering
+   sorcha_injection
 
 
 Overview
