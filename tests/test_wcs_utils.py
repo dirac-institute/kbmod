@@ -1,5 +1,6 @@
 import unittest
 
+import numpy as np
 from astropy.wcs import WCS
 from astropy.io import fits
 
@@ -91,6 +92,39 @@ class test_wcs_conversion(unittest.TestCase):
         pos = test_wcs.pixel_to_world(100, 48)
         self.assertAlmostEqual(pos.ra.degree, 25.01, delta=0.01)
         self.assertAlmostEqual(pos.dec.degree, -10.0, delta=0.01)
+
+
+class test_max_sky_separation(unittest.TestCase):
+    def test_identical_points(self):
+        pts = np.array([[10.0, -5.0], [200.0, 45.0]])
+        self.assertAlmostEqual(max_sky_separation(pts, pts), 0.0)
+
+    def test_max_of_pairwise_separations(self):
+        pts_a = np.array([[10.0, 0.0], [100.0, 20.0]])
+        pts_b = np.array([[10.0, 1.0], [100.0, 20.5]])
+        # separations are 1.0 and 0.5 degrees; max is 1.0
+        self.assertAlmostEqual(max_sky_separation(pts_a, pts_b), 1.0, places=10)
+
+    def test_sign_of_difference_is_irrelevant(self):
+        # A large negative dec offset must dominate a tiny positive
+        # RA offset (regression test for issue #1150).
+        pts_a = np.array([[10.0, 0.0], [100.0, 20.0]])
+        pts_b = np.array([[10.0, 10.0], [100.0 - 0.001 / 3600.0, 20.0]])
+        self.assertAlmostEqual(max_sky_separation(pts_a, pts_b), 10.0, places=6)
+
+    def test_ra_wrap(self):
+        # Coordinates on either side of the 0/360 boundary are close on-sky.
+        pts_a = np.array([[359.9995, 0.0]])
+        pts_b = np.array([[0.0005, 0.0]])
+        self.assertAlmostEqual(max_sky_separation(pts_a, pts_b), 0.001, places=6)
+
+    def test_ra_scales_with_cos_dec(self):
+        # Near the pole a degree of RA is a much smaller on-sky distance.
+        pts_a = np.array([[10.0, 89.0]])
+        pts_b = np.array([[11.0, 89.0]])
+        sep = max_sky_separation(pts_a, pts_b)
+        self.assertLess(sep, 0.02)
+        self.assertGreater(sep, 0.01)
 
 
 if __name__ == "__main__":

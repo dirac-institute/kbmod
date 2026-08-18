@@ -103,6 +103,35 @@ class TestButlerStandardizer(unittest.TestCase):
                 DatasetId(7, fill_metadata=True), butler=[self.failed_butler, self.failed_butler]
             )
 
+    def test_wcs_err_is_on_sky_separation(self):
+        """Test wcs_err is the max on-sky separation between the SkyWCS
+        and Astropy WCS bounding boxes, not a signed coordinate difference
+        (regression test for issue #1150)."""
+        true_bbox = ButlerStandardizer._computeSkyBBox
+
+        def corrupted_bbox_array(std_self, wcs, dimX, dimY):
+            # Reuse the SkyWCS-derived corners as ground truth, then
+            # perturb: bottom-left dec by +10 deg (a signed difference
+            # of -10) and top-right RA by -0.001 arcsec (a signed
+            # difference of +0.001"). The buggy max() picked the tiny
+            # positive value; on-sky separation must report ~10 deg.
+            pts = true_bbox(std_self, std_self._test_sky_wcs, dimX, dimY).copy()
+            pts[1, 1] += 10.0
+            pts[3, 0] -= 0.001 / 3600.0
+            return pts
+
+        def spying_sky_bbox(std_self, wcs, dimX, dimY):
+            std_self._test_sky_wcs = wcs
+            return true_bbox(std_self, wcs, dimX, dimY)
+
+        with mock.patch.object(
+            ButlerStandardizer, "_computeSkyBBox", spying_sky_bbox
+        ), mock.patch.object(ButlerStandardizer, "_computeBBoxArray", corrupted_bbox_array):
+            std = ButlerStandardizer(uuid.uuid1(), butler=self.butler)
+            meta = std.standardizeMetadata()
+
+        self.assertAlmostEqual(meta["wcs_err"], 10.0, places=3)
+
     def test_standardize_missing_wcs(self):
         """Test ButlerStandardizer instantiates and standardizes as expected een when fits appoximation of the WCS failed."""
         missing_wcs_butler = MockButler("/far/far/away", failed_fits_appoximation=True)
@@ -123,6 +152,9 @@ class TestButlerStandardizer(unittest.TestCase):
 
         # Validate that getFitsMetadata raises an error forcing us to use a fallback WCS
         std._wcs is not None
+        # The fallback-fitted WCS must carry the true chip dimensions, not the
+        # sampled points' bounding box
+        self.assertEqual(std._wcs.pixel_shape, (std._naxis1, std._naxis2))
         wcs_ref = std.ref.makeComponentRef("wcs")
         wcs = missing_wcs_butler.get(wcs_ref)
         with self.assertRaises(Exception):

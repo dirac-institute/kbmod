@@ -19,6 +19,8 @@ import numpy as np
 
 from .standardizer import Standardizer, StandardizerConfig
 
+from kbmod.wcs_utils import max_sky_separation
+
 from kbmod.core.psf import PSF
 
 from kbmod.core.image_stack_py import LayeredImagePy
@@ -349,9 +351,13 @@ class ButlerStandardizer(Standardizer):
         )
 
         # Fit a TAN WCS to these points, with optional SIP distortion
-        return fit_wcs_from_points(
+        fitted_wcs = fit_wcs_from_points(
             (rand_x, rand_y), world_coords, detector_center_coord, sip_degree=sip_degree
         )
+        # fit_wcs_from_points sets pixel_shape from the sampled points' bounding
+        # box, which extends beyond the chip; pin it to the true dimensions
+        fitted_wcs.pixel_shape = (naxis1, naxis2)
+        return fitted_wcs
 
     def _computeSkyBBox(self, wcs, dimX, dimY):
         """Given an Rubin SkyWCS object and the dimensions of an image
@@ -500,26 +506,22 @@ class ButlerStandardizer(Standardizer):
         # a copy.
         wcs_ref = self.ref.makeComponentRef("wcs")
         wcs = self.butler.get(wcs_ref)
-        try:
-            meta = dict(wcs.getFitsMetadata())
-            meta["NAXIS1"] = self._naxis1
-            meta["NAXIS2"] = self._naxis2
-            self._wcs = WCS(meta)
-        except Exception as e:
-            logger.debug(f"Could not parse WCS metadata for {self.ref}, got {e}. Creating fallback fit.")
-            # Create a simple TAN WCS centered on the detector through sampling random points.
-            n_rand_pts = self.config["wcs_fallback_points"]
-            sip_degree = self.config["wcs_fallback_sips_degree"]
-            self._wcs = self._fitWCSFallback(wcs, self._naxis1, self._naxis2, n_rand_pts, sip_degree)
+        # Always resample the WCS via SIP fit to the Rubin SkyWCS; the lossy
+        # getFitsMetadata() TAN-SIP export is not used. _fitWCSFallback sets
+        # pixel_shape=(naxis1,naxis2), so serialized NAXIS is correct.
+        n_rand_pts = self.config["wcs_fallback_points"]
+        sip_degree = self.config["wcs_fallback_sips_degree"]
+        self._wcs = self._fitWCSFallback(wcs, self._naxis1, self._naxis2, n_rand_pts, sip_degree)
 
         center_pt = bbox.getCenter()
         self._metadata["pixel_scale"] = wcs.getPixelScale(center_pt).asArcseconds()
 
-        # calculate the WCS "error" (max difference between edge coordinates
-        # from Rubin's more powerful SkyWCS and Atropy's Fits-WCS)
+        # calculate the WCS "error" (max on-sky separation between edge
+        # coordinates from Rubin's more powerful SkyWCS and Astropy's
+        # Fits-WCS), in degrees
         skyBBox = self._computeSkyBBox(wcs, self._naxis2, self._naxis1)
         apyBBox = self._computeBBoxArray(self._wcs, self._naxis2, self._naxis1)
-        self._metadata["wcs_err"] = (skyBBox - apyBBox).max()
+        self._metadata["wcs_err"] = max_sky_separation(skyBBox, apyBBox)
 
         # TODO: see issue #666
         # this will unroll the entire bbox into columns

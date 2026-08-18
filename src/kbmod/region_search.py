@@ -521,8 +521,14 @@ class RegionSearch:
             new_ic.data["global_wcs_pixel_shape_0"] = patch_wcs.pixel_shape[0]
             new_ic.data["global_wcs_pixel_shape_1"] = patch_wcs.pixel_shape[1]
 
-        # Reset standardizer-related metadata in our ImageCollection.
+        # Reset standardizer-related metadata in our ImageCollection. The
+        # per-row ``std_idx`` COLUMN must be renumbered too, not just the meta:
+        # ``new_ic`` is a slice of a larger collection, so its rows still carry
+        # the parent's (non-contiguous, possibly out-of-range) std_idx values.
+        # Leaving those breaks get_standardizers/toWorkUnit and
+        # reset_lazy_loading_indices on any patch IC read back from disk.
         new_ic.meta["n_stds"] = len(new_ic)
+        new_ic.data["std_idx"] = list(range(len(new_ic)))
         new_ic.data.meta["std_idx"] = list(range(len(new_ic)))
 
         return new_ic

@@ -164,6 +164,19 @@ class TestImageCollection(unittest.TestCase):
         # cleanup resources
         shutil.rmtree(tmpdir)
 
+    def test_wcs_serialization_roundtrip(self):
+        """Per-image WCS pixel dimensions survive a write/read round-trip."""
+        ic = ImageCollection.fromTargets(self.fits)
+        orig_shapes = [wcs.pixel_shape for wcs in ic.wcs]
+        self.assertTrue(all(shape is not None for shape in orig_shapes))
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fname = os.path.join(tmpdir, "ic.ecsv")
+            ic.write(fname)
+            ic2 = ImageCollection.read(fname)
+
+        self.assertEqual([wcs.pixel_shape for wcs in ic2.wcs], orig_shapes)
+
     def test_bintablehdu(self):
         ic2 = ImageCollection.fromTargets(self.fits)
 
