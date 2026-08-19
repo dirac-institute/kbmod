@@ -31,42 +31,13 @@ from .visits import ic_visit_table, sorcha_epoch_from_ic
 logger = logging.getLogger(__name__)
 
 
-def _patch_healpix_cells(global_wcs, nside, pad_factor=1.5):
-    """NEST healpix cells plausibly overlapping a global WCS footprint.
-
-    Uses the circumscribing circle of the footprint, inflated a little, and asks for
-    inclusive coverage. This is only a pre-filter -- exact containment is tested later
-    -- so erring generous is correct.
-    """
-    import hpgeom
-
-    try:
-        corners = global_wcs.calc_footprint()
-    except Exception:
-        return None
-    if corners is None or len(corners) == 0:
-        return None
-
-    center = SkyCoord(corners[:, 0] * u.deg, corners[:, 1] * u.deg).cartesian.mean()
-    center = SkyCoord(center, representation_type="cartesian").represent_as("unitspherical")
-    c_ra, c_dec = center.lon.deg, center.lat.deg
-    radius = (
-        SkyCoord(c_ra * u.deg, c_dec * u.deg)
-        .separation(SkyCoord(corners[:, 0] * u.deg, corners[:, 1] * u.deg))
-        .deg.max()
-    )
-    return hpgeom.query_circle(
-        nside, c_ra, c_dec, radius * pad_factor, inclusive=True, nest=True, lonlat=True, degrees=True
-    )
-
-
 def _ic_observed_healpix_cells(ic, nside, pad_factor=1.5, margin_deg=0.2):
     """NEST healpix cells covering an ImageCollection's images in the OBSERVED frame.
 
     The Sorcha index is keyed on each detection's *raw on-sky* position, so the
     healpix pre-filter must be built in the observed frame. Building it from a
-    reflex-corrected patch WCS (as :func:`_patch_healpix_cells` does) is wrong:
-    that footprint is shifted from the observed sky by the parallax the reflex
+    reflex-corrected patch WCS would be wrong: that footprint is shifted
+    from the observed sky by the parallax the reflex
     correction removes -- up to a degree or more -- so an object with a large
     reflex shift lands outside the cells and is silently dropped, even though its
     raw detections fall squarely on the patch's images. This uses the collection's
