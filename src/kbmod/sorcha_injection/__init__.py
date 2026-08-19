@@ -40,6 +40,7 @@ from .visits import (
     sorcha_epoch_from_ic,
 )
 from .index import SorchaIndex, build_sorcha_index
+from .tracks import build_object_tracks
 from .selector import select_injections_for_ic
 from .catalog import (
     generate_injection_catalog_from_sorcha,
@@ -52,6 +53,7 @@ __all__ = [
     "PointingDB",
     "SorchaIndex",
     "build_sorcha_index",
+    "build_object_tracks",
     "ic_visit_table",
     "sorcha_epoch_from_ic",
     "select_injections_for_ic",

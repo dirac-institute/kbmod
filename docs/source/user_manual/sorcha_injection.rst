@@ -136,6 +136,46 @@ of the exposure it is injected into, so ``mag`` is always already in the right b
 colour transformation is applied.
 
 
+All-sky per-object tracks
+-------------------------
+
+The injection index is deliberately narrow: it keeps only the visits belonging to the
+collections being injected into, which is what makes per-patch queries cheap.
+:py:func:`~kbmod.sorcha_injection.build_object_tracks` builds the complementary wide
+product -- every object's track across **all** 80,859 visits in the pointing database,
+i.e. the whole LSST-observed sky rather than the ~6% of it the DP2 collections cover.
+
+.. code-block:: python
+
+    from kbmod.sorcha_injection import build_object_tracks
+
+    build_object_tracks(
+        out_path="/path/to/tracks_lsst_allsky",
+        populations=("cc", "hc", "cen", "de", "re_21", "re_32"),
+        mag_max=27.0,
+    )
+
+Two files are written. ``object_tracks.parquet`` holds one row per object -- arc length and
+angular span, endpoints, sky bounding box, median and maximum rate, magnitudes, ecliptic
+position, heliocentric distance, and the number of nights it was seen on.
+``object_positions/`` holds the tracks themselves, thinned to one position per object per
+night and split by population.
+
+``helio_dist_au`` is the median Sun-object distance over the track, converted from Sorcha's
+``Obj_Sun_LTC_km``. It is the quantity KBMOD's reflex correction is parameterised by, so it
+is the natural way to pick injection targets near a patch's ``helio_guess_dist``. Note the
+codebase uses "heliocentric" and "barycentric" interchangeably for this knob
+(``helio_guess_dist`` versus ``WorkUnit.barycentric_distance``); the Sun-barycentre offset is
+under 0.01 au, which is far below any guess-distance grid spacing.
+
+The main use is picking targets for cross-collection linking tests: sort by ``path_deg`` to
+find the objects that sweep across the most sky, then check which patches their track
+crosses. It is also the natural input for population-level sky maps.
+
+The build is shard-parallel with no merge step, because Sorcha writes each object to exactly
+one shard -- object sets from different shards of the same population are disjoint. That
+means a worker can compute complete per-object statistics from its shard alone.
+
 A note on track completeness
 ----------------------------
 

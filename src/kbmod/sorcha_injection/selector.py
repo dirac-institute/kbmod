@@ -92,11 +92,7 @@ def _ic_observed_healpix_cells(ic, nside, pad_factor=1.5, margin_deg=0.2):
     center = SkyCoord(ra * u.deg, dec * u.deg).cartesian.mean()
     center = SkyCoord(center, representation_type="cartesian").represent_as("unitspherical")
     c_ra, c_dec = center.lon.deg, center.lat.deg
-    radius = (
-        SkyCoord(c_ra * u.deg, c_dec * u.deg)
-        .separation(SkyCoord(ra * u.deg, dec * u.deg))
-        .deg.max()
-    )
+    radius = SkyCoord(c_ra * u.deg, c_dec * u.deg).separation(SkyCoord(ra * u.deg, dec * u.deg)).deg.max()
     # ``ra``/``dec`` are image centres; pad by roughly a detector half-size so the
     # corners of edge exposures are covered before the generous pad_factor.
     radius = (radius + margin_deg) * pad_factor

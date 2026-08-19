@@ -385,3 +385,37 @@ class TestValidation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTrackGeometry(unittest.TestCase):
+    """The vectorised helpers behind the all-sky per-object track product."""
+
+    def test_angsep_matches_astropy(self):
+        from astropy.coordinates import SkyCoord
+        import astropy.units as u
+        from kbmod.sorcha_injection.tracks import _angsep_deg
+
+        rng = np.random.default_rng(0)
+        ra1, ra2 = rng.uniform(0, 360, 200), rng.uniform(0, 360, 200)
+        d1, d2 = rng.uniform(-89, 89, 200), rng.uniform(-89, 89, 200)
+        want = SkyCoord(ra1 * u.deg, d1 * u.deg).separation(SkyCoord(ra2 * u.deg, d2 * u.deg)).deg
+        np.testing.assert_allclose(_angsep_deg(ra1, d1, ra2, d2), want, atol=1e-9)
+
+    def test_ecliptic_puts_the_ecliptic_pole_at_ninety(self):
+        from kbmod.sorcha_injection.tracks import _to_ecliptic
+
+        # The north ecliptic pole sits at RA 18h, Dec +66.56 in equatorial coordinates.
+        _, lat = _to_ecliptic(np.array([270.0]), np.array([66.5607]))
+        self.assertAlmostEqual(float(lat[0]), 90.0, places=3)
+        # A point on the equator at the vernal equinox has zero ecliptic latitude.
+        _, lat0 = _to_ecliptic(np.array([0.0]), np.array([0.0]))
+        self.assertAlmostEqual(float(lat0[0]), 0.0, places=6)
+
+    def test_group_median_skips_nan(self):
+        from kbmod.sorcha_injection.tracks import _group_median
+
+        vals = np.array([1.0, 3.0, np.nan, 10.0, 20.0, 30.0])
+        codes = np.array([0, 0, 0, 1, 1, 1])
+        out = _group_median(vals, codes, 2)
+        self.assertAlmostEqual(out[0], 2.0)
+        self.assertAlmostEqual(out[1], 20.0)
