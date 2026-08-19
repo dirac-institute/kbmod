@@ -60,6 +60,51 @@ def _patch_healpix_cells(global_wcs, nside, pad_factor=1.5):
     )
 
 
+def _ic_observed_healpix_cells(ic, nside, pad_factor=1.5, margin_deg=0.2):
+    """NEST healpix cells covering an ImageCollection's images in the OBSERVED frame.
+
+    The Sorcha index is keyed on each detection's *raw on-sky* position, so the
+    healpix pre-filter must be built in the observed frame. Building it from a
+    reflex-corrected patch WCS (as :func:`_patch_healpix_cells` does) is wrong:
+    that footprint is shifted from the observed sky by the parallax the reflex
+    correction removes -- up to a degree or more -- so an object with a large
+    reflex shift lands outside the cells and is silently dropped, even though its
+    raw detections fall squarely on the patch's images. This uses the collection's
+    own observed image centres (the ``ra``/``dec`` columns), padded generously; the
+    exact in-patch containment is still tested later against ``global_wcs``.
+
+    Returns ``None`` (no pre-filter) when the collection carries no observed
+    positions, which is the correct generous fallback.
+    """
+    import hpgeom
+
+    data = getattr(ic, "data", ic)
+    colnames = getattr(data, "colnames", None) or []
+    if "ra" not in colnames or "dec" not in colnames:
+        return None
+    ra = np.asarray(data["ra"], dtype=float)
+    dec = np.asarray(data["dec"], dtype=float)
+    good = np.isfinite(ra) & np.isfinite(dec)
+    if not good.any():
+        return None
+    ra, dec = ra[good], dec[good]
+
+    center = SkyCoord(ra * u.deg, dec * u.deg).cartesian.mean()
+    center = SkyCoord(center, representation_type="cartesian").represent_as("unitspherical")
+    c_ra, c_dec = center.lon.deg, center.lat.deg
+    radius = (
+        SkyCoord(c_ra * u.deg, c_dec * u.deg)
+        .separation(SkyCoord(ra * u.deg, dec * u.deg))
+        .deg.max()
+    )
+    # ``ra``/``dec`` are image centres; pad by roughly a detector half-size so the
+    # corners of edge exposures are covered before the generous pad_factor.
+    radius = (radius + margin_deg) * pad_factor
+    return hpgeom.query_circle(
+        nside, c_ra, c_dec, radius, inclusive=True, nest=True, lonlat=True, degrees=True
+    )
+
+
 def _row_wcs(ic_data, i):
     """Per-exposure `astropy.wcs.WCS` for row ``i`` of an ImageCollection table."""
     raw = ic_data["wcs"][i]
@@ -184,9 +229,12 @@ def select_injections_for_ic(ic, index, config, global_wcs=None, guess_distance=
     field_times = _field_times_for_ic(visits)
     nights = np.unique(np.floor(field_times[np.isfinite(field_times)])).astype(np.int32)
 
-    healpix = None
-    if global_wcs is not None:
-        healpix = _patch_healpix_cells(global_wcs, index.nside)
+    # Sky pre-filter for the index pull. The index is keyed on each detection's raw
+    # observed position, so the healpix cells must come from the collection's observed
+    # image footprints -- NOT the reflex-corrected patch WCS, whose footprint is shifted
+    # by the parallax and would wrongly exclude large-reflex-shift objects. Exact in-patch
+    # containment is still enforced later via ``global_wcs``.
+    healpix = _ic_observed_healpix_cells(ic, index.nside)
 
     table = index.read(
         visits=visits["visit"],
