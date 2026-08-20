@@ -114,5 +114,11 @@ Indices and tables
     .. toctree::
        :maxdepth: 1
 
+       developer/index
+
+
+    .. toctree::
+       :maxdepth: 1
+
        project_details/index
 
