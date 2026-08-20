@@ -438,7 +438,10 @@ def _reproject_work_unit_in_parallel(
         stack = ImageStackPy()
         for result in future_reprojections:
             science_add, variance_add, mask_add, time = result.result()
-            psf = _get_first_psf_at_time(work_unit, obstime)
+            # Use the time carried by this result. Reading the submission loop's
+            # `obstime` here leaked its final value into every iteration, giving
+            # every image the last obstime's PSF.
+            psf = _get_first_psf_at_time(work_unit, time)
 
             stack.append_image(
                 time,
