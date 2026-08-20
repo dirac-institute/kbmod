@@ -93,7 +93,14 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """List of flags that will be masked."""
 
     psf_std = 1
-    """Standard deviation of the Point Spread Function."""
+    """Standard deviation of the Point Spread Function. Used as a fallback
+    when ``psf_std_from_summary`` is disabled, or when the measured value is
+    unavailable for an image."""
+
+    psf_std_from_summary = True
+    """Build each image's PSF kernel from the measured ``psfSigma`` in the
+    exposure summary statistics rather than the fixed ``psf_std``. Set False to
+    restore the previous constant-kernel behaviour."""
 
     standardize_metadata = True
     """Fetch and include values from Rubin's Exposure.metadata
@@ -681,6 +688,18 @@ class ButlerStandardizer(Standardizer):
         # self.exp.psf.getKernel
         # self.exp.psf.getLocalKernel
         std = self.config["psf_std"]
+
+        # Prefer the measured per-image PSF width from the exposure summary
+        # stats. A single configured constant mismatches the matched filter
+        # whenever the seeing differs from it, which costs signal-to-noise on
+        # every detection in the image.
+        if self.config["psf_std_from_summary"]:
+            if self._metadata is None:
+                self._fetch_meta()
+            measured = self._metadata.get("psfSigma", None)
+            if measured is not None and np.isfinite(measured) and measured > 0:
+                std = float(measured)
+
         return [PSF.make_gaussian_kernel(std)]
 
     # These exist because standardizers promise to return lists
