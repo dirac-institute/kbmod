@@ -20,6 +20,7 @@ import numpy as np
 from .standardizer import Standardizer, StandardizerConfig
 
 from kbmod.core.psf import PSF
+from kbmod.standardizers.rubin_psf import RubinPsfError, average_position, render_rubin_psf
 
 from kbmod.core.image_stack_py import LayeredImagePy
 
@@ -91,7 +92,44 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """List of flags that will be masked."""
 
     psf_std = 1
-    """Standard deviation of the Point Spread Function."""
+    """Standard deviation of the Gaussian PSF.
+
+    .. deprecated::
+       Ignored for Butler data, which now uses the exposure's own Rubin
+       ``Exposure.psf`` model. Set ``psf_fallback_std`` if you deliberately want
+       a Gaussian when the Rubin model is unusable. This option still applies to
+       the FITS standardizers, which have no Rubin model to read.
+    """
+
+    psf_eval_position = "average"
+    """Where to evaluate the spatially varying Rubin PSF.
+
+    One of ``"average"`` (the model's own ``getAveragePosition``, falling back
+    to the detector center), ``"center"`` (the detector center), or an explicit
+    ``(x, y)`` pixel coordinate. The coordinate actually used is recorded as
+    ``psf_eval_x``/``psf_eval_y`` so a stored kernel can be traced back to the
+    position it came from.
+    """
+
+    psf_fallback_std = None
+    """Standard deviation of a Gaussian to fall back on, or `None`.
+
+    `None` means a missing or unusable Rubin PSF raises, rather than being
+    silently replaced. Silent replacement is what this work exists to remove:
+    a fixed Gaussian standing in for a real model produces plausible-looking
+    results that are quietly wrong. Set this only when you have decided a
+    Gaussian is acceptable for the data at hand.
+    """
+
+    standardize_psf_metadata = True
+    """Record PSF provenance columns during metadata standardization.
+
+    Adds ``psf_source``, ``psf_eval_x/y``, ``psf_center_x/y``, ``psf_native_sum``
+    and ``psf_width`` so placement and provenance reach the ImageCollection and
+    then ``WorkUnit.org_img_meta``. Fetching the Butler's ``psf`` component is
+    much cheaper than loading the Exposure, but it is still one extra fetch per
+    dataset; turn this off for very large collections that do not need it.
+    """
 
     standardize_metadata = True
     """Fetch and include values from Rubin's Exposure.metadata
@@ -276,6 +314,7 @@ class ButlerStandardizer(Standardizer):
         self._metadata = None
         self._naxis1 = None
         self._naxis2 = None
+        self._psf_metadata = None
 
     def __deepcopy__(self, memo):
         # Share self.butler across the copy. DirectButler pickles to a config
@@ -590,6 +629,47 @@ class ButlerStandardizer(Standardizer):
             # Save the full string representation of ref.
             self._metadata["location"] = str(self.ref)
 
+        if self.config["standardize_psf_metadata"]:
+            self._metadata.update(self._fetch_psf_metadata())
+
+    def _fetch_psf_metadata(self):
+        """Describe the exposure's PSF without materializing the Exposure.
+
+        The Butler serves ``psf`` as its own component, so provenance can be
+        recorded during metadata standardization -- which is what carries it
+        into the ImageCollection and then ``WorkUnit.org_img_meta`` -- without
+        paying for the pixels.
+
+        Unlike `standardizePSF`, a failure here is recorded rather than raised.
+        Metadata is descriptive, and refusing to describe a collection because
+        one exposure has a bad PSF would be unhelpful. The kernel actually used
+        for science is produced by `standardizePSF`, which does raise.
+        """
+        empty = {
+            "psf_source": "unavailable",
+            "psf_eval_x": np.nan,
+            "psf_eval_y": np.nan,
+            "psf_center_x": np.nan,
+            "psf_center_y": np.nan,
+            "psf_native_sum": np.nan,
+            "psf_width": -1,
+        }
+
+        try:
+            psf_ref = self.ref.makeComponentRef("psf")
+            psf_model = self.butler.get(psf_ref)
+        except Exception as err:
+            logger.debug("Could not fetch the PSF component for metadata: %s", err)
+            return empty
+
+        try:
+            _, metadata = self._standardize_psf_stamp(psf_model)
+        except RubinPsfError as err:
+            logger.debug("Could not render the Rubin PSF for metadata: %s", err)
+            return empty
+
+        return metadata
+
     @property
     def wcs(self):
         if self._wcs is None:
@@ -671,15 +751,116 @@ class ButlerStandardizer(Standardizer):
             mask,
         ]
 
+    def _psf_eval_position(self, source):
+        """Resolve the pixel coordinate at which to evaluate the Rubin PSF.
+
+        Parameters
+        ----------
+        source : Rubin ``Exposure`` or ``Psf``
+            Used to query the model's own average position when configured.
+
+        Returns
+        -------
+        `tuple`
+            ``(x, y, description)`` where description records which rule was
+            applied, for provenance.
+        """
+        requested = self.config["psf_eval_position"]
+
+        if isinstance(requested, (tuple, list)) and len(requested) == 2:
+            return float(requested[0]), float(requested[1]), "configured"
+
+        if self._naxis1 is None or self._naxis2 is None:
+            self._fetch_meta()
+        center = (self._naxis1 / 2.0, self._naxis2 / 2.0)
+
+        if requested == "center":
+            return center[0], center[1], "detector_center"
+
+        if requested == "average":
+            position = average_position(source)
+            if position is not None:
+                return position[0], position[1], "psf_average_position"
+            # Fall back deliberately, and record that we did so rather than
+            # letting it look like the model supplied this position.
+            return center[0], center[1], "detector_center_fallback"
+
+        raise ValueError(
+            f"Unrecognized psf_eval_position {requested!r}; expected 'average', 'center', or an (x, y) pair."
+        )
+
+    def _standardize_psf_stamp(self, source):
+        """Render the Rubin PSF and record its provenance.
+
+        Returns
+        -------
+        `tuple`
+            ``(kernel, metadata)``. ``kernel`` is a normalized ndarray suitable
+            for the search; ``metadata`` describes where it came from.
+
+        Raises
+        ------
+        RubinPsfError
+            If the Rubin model is unusable and no fallback is configured.
+        """
+        eval_x, eval_y, rule = self._psf_eval_position(source)
+
+        try:
+            # "kernel" mode: an origin-centered stamp, which is what a
+            # convolution needs. Image mode would bake the position's
+            # fractional pixel phase into the kernel and bias measured
+            # positions.
+            stamp = render_rubin_psf(source, eval_x, eval_y, mode="kernel")
+        except RubinPsfError as err:
+            fallback = self.config["psf_fallback_std"]
+            if fallback is None:
+                raise RubinPsfError(f"{err} (evaluating at ({eval_x}, {eval_y}) via {rule})") from err
+            logger.warning(
+                "Falling back to a Gaussian PSF with std=%s because the Rubin model could not be "
+                "used: %s. This is an explicit opt-in via 'psf_fallback_std'.",
+                fallback,
+                err,
+            )
+            kernel = PSF.make_gaussian_kernel(fallback)
+            metadata = {
+                "psf_source": "gaussian_fallback",
+                "psf_eval_x": eval_x,
+                "psf_eval_y": eval_y,
+                "psf_center_x": (kernel.shape[1] - 1) / 2.0,
+                "psf_center_y": (kernel.shape[0] - 1) / 2.0,
+                "psf_native_sum": float(kernel.sum()),
+                "psf_width": int(kernel.shape[0]),
+            }
+            return kernel, metadata
+
+        metadata = {
+            "psf_source": f"rubin:{stamp.provenance}",
+            "psf_eval_x": stamp.eval_x,
+            "psf_eval_y": stamp.eval_y,
+            "psf_center_x": stamp.centroid_x,
+            "psf_center_y": stamp.centroid_y,
+            "psf_native_sum": stamp.native_sum,
+            "psf_width": int(stamp.width),
+        }
+        return stamp.array, metadata
+
     def standardizePSF(self):
-        # TODO: Update when we formalize the PSF, Any of these are available
-        # from the stack:
-        # self.exp.psf.computeImage
-        # self.exp.psf.computeKernelImage
-        # self.exp.psf.getKernel
-        # self.exp.psf.getLocalKernel
-        std = self.config["psf_std"]
-        return [PSF.make_gaussian_kernel(std)]
+        """Return the exposure's Rubin PSF as a normalized search kernel.
+
+        Uses the exposure's own spatially varying ``Exposure.psf`` model rather
+        than a fixed Gaussian. A missing or unusable model raises unless the
+        ``psf_fallback_std`` config option opts in to a Gaussian: silently
+        substituting one produces results that look fine and are wrong.
+        """
+        # The sibling standardize* methods all lazily load the exposure; this
+        # one historically did not, because it never touched it.
+        self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
+
+        kernel, metadata = self._standardize_psf_stamp(self.exp)
+        self._psf_metadata = metadata
+        if self._metadata is not None:
+            self._metadata.update(metadata)
+        return [kernel]
 
     # These exist because standardizers promise to return lists
     # for compatiblity for single-data and multi-data sources

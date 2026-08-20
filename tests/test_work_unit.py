@@ -993,5 +993,57 @@ class test_work_unit(unittest.TestCase):
             )
 
 
+class test_legacy_psf_preservation(unittest.TestCase):
+    """Kernels in existing WorkUnits must be returned exactly as stored.
+
+    Stored kernels are not necessarily normalized -- the shipped reprojection
+    fixture's sum to 0.994608 -- and silently renormalizing them on read would
+    change the results of reprocessing archived data. Legacy kernels also carry
+    unknown provenance and must never be presented as effective common-frame
+    PSFs.
+    """
+
+    def setUp(self):
+        from utils.utils_for_tests import get_absolute_data_path
+
+        self.path = get_absolute_data_path("shifted_wcs_diff_dimms_tiled.fits")
+
+    def test_kernels_are_byte_for_byte_identical_to_the_file(self):
+        from astropy.io import fits
+
+        work_unit = WorkUnit.from_fits(self.path, show_progress=False)
+
+        with fits.open(self.path) as hdul:
+            stored = [np.asarray(hdu.data) for hdu in hdul if hdu.name.upper().startswith("PSF")]
+
+        self.assertEqual(len(stored), len(work_unit.im_stack.psfs))
+        for index, expected in enumerate(stored):
+            npt.assert_array_equal(
+                work_unit.im_stack.psfs[index],
+                expected,
+                err_msg=f"legacy PSF {index} was altered on read",
+            )
+
+    def test_unnormalized_kernels_are_not_renormalized(self):
+        work_unit = WorkUnit.from_fits(self.path, show_progress=False)
+        for index, kernel in enumerate(work_unit.im_stack.psfs):
+            with self.subTest(index=index):
+                # The fixture's kernels are deliberately not unit-sum. If this
+                # starts equalling 1.0, something normalized them on read.
+                self.assertAlmostEqual(float(np.sum(kernel)), 0.994608, places=6)
+
+    def test_kernels_survive_a_fits_round_trip(self):
+        work_unit = WorkUnit.from_fits(self.path, show_progress=False)
+        original = [np.copy(k) for k in work_unit.im_stack.psfs]
+
+        with tempfile.TemporaryDirectory() as directory:
+            out_path = os.path.join(directory, "legacy_roundtrip.fits")
+            work_unit.to_fits(out_path)
+            reloaded = WorkUnit.from_fits(out_path, show_progress=False)
+
+        for index, expected in enumerate(original):
+            npt.assert_array_equal(reloaded.im_stack.psfs[index], expected)
+
+
 if __name__ == "__main__":
     unittest.main()

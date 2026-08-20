@@ -6,10 +6,23 @@ from unittest import mock
 from astropy.time import Time
 import numpy as np
 
-from utils import DECamImdiffFactory, MockButler, MockFailedButler, DatasetRef, DatasetId, dafButler
+from utils import (
+    DECamImdiffFactory,
+    MockButler,
+    MockFailedButler,
+    DatasetRef,
+    DatasetId,
+    dafButler,
+    lsstGeom,
+    MockRubinPsf,
+    BrokenRubinPsf,
+    Point2D,
+)
 from kbmod import Standardizer, StandardizerConfig
 from kbmod.core.psf import PSF
 from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
+from kbmod.standardizers.rubin_psf import RubinPsfError
+from kbmod.psf_reprojection import measure_moments, summarize_shape
 
 # Use a shared factory so that we can reference the same fits files in mocks
 # and tests without having to untar the archive multiple times.
@@ -22,6 +35,7 @@ FitsFactory = DECamImdiffFactory()
         "lsst.daf.butler": dafButler,
         "lsst.daf.butler.core.DatasetRef": DatasetRef,
         "lsst.daf.butler.core.DatasetId": DatasetId,
+        "lsst.geom": lsstGeom,
     },
 )
 class TestButlerStandardizer(unittest.TestCase):
@@ -204,6 +218,36 @@ class TestButlerStandardizer(unittest.TestCase):
             with self.subTest("Failed to rounndtrip", key=k):
                 self.assertEqual(standardized["meta"][k], standardized2["meta"][k])
 
+    def test_psf_provenance_reaches_imagecollection_and_workunit(self):
+        """PSF kernel and provenance survive the path into a WorkUnit.
+
+        The kernel is only useful if it arrives intact at the thing that
+        searches it, and the provenance is only useful if it arrives alongside.
+        Both are checked end to end rather than at the standardizer alone.
+        """
+        from kbmod import ImageCollection
+
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=self.butler)
+        expected_kernel = std.standardizePSF()[0]
+
+        collection = ImageCollection.fromStandardizers([std])
+
+        for column in ("psf_source", "psf_eval_x", "psf_eval_y", "psf_native_sum", "psf_width"):
+            self.assertIn(column, collection.data.colnames, f"{column} missing from ImageCollection")
+        self.assertEqual(collection.data["psf_source"][0], "rubin:computeKernelImage")
+
+        work_unit = collection.toWorkUnit(butler=self.butler)
+        stored = work_unit.im_stack.psfs[0]
+
+        # The Rubin kernel, not a Gaussian, and unaltered in transit.
+        np.testing.assert_allclose(stored, expected_kernel, rtol=1e-6)
+        self.assertEqual(stored.shape, expected_kernel.shape)
+        self.assertAlmostEqual(float(np.sum(stored)), 1.0, places=5)
+
+        # Provenance travels with it.
+        self.assertIn("psf_source", work_unit.org_img_meta.colnames)
+        self.assertEqual(work_unit.org_img_meta["psf_source"][0], "rubin:computeKernelImage")
+
     def test_imagecollection_roundtrip(self):
         """Test ButlerStandardizer can be reconstructed via ImageCollection's
         load_std path, which unpacks table columns as keyword arguments.
@@ -338,13 +382,184 @@ class TestButlerStandardizer(unittest.TestCase):
         self.assertFalse(mask[-1, :].all())
         self.assertFalse(mask[:, -1].all())
 
-    def test_psf(self):
-        """Test PSFs are created as expected. Test instance config overrides."""
-        std = Standardizer.get(DatasetId(11), butler=self.butler)
+    def test_psf_uses_rubin_model(self):
+        """The Rubin Exposure.psf is used, not a Gaussian stand-in.
 
-        psf = std.standardizePSF()[0]
-        expected_psf = PSF.make_gaussian_kernel(std.config["psf_std"])
-        self.assertTrue(np.allclose(psf, expected_psf))
+        Checks the properties a fixed Gaussian could not reproduce: the model's
+        asymmetry, its measured width, and its orientation, all against the
+        mock's analytic truth.
+        """
+        std = Standardizer.get(DatasetId(11), butler=self.butler)
+        kernel = std.standardizePSF()[0]
+
+        # Not the legacy Gaussian.
+        legacy = PSF.make_gaussian_kernel(std.config["psf_std"])
+        self.assertNotEqual(kernel.shape, legacy.shape)
+
+        # Normalized, finite, non-negative, odd and square -- the invariants
+        # KBMOD's PSF class enforces downstream.
+        self.assertAlmostEqual(float(kernel.sum()), 1.0, places=6)
+        self.assertTrue(np.all(np.isfinite(kernel)))
+        self.assertTrue(np.all(kernel >= 0.0))
+        self.assertEqual(kernel.shape[0], kernel.shape[1])
+        self.assertEqual(kernel.shape[0] % 2, 1)
+        PSF(kernel)  # must be acceptable as a search kernel
+
+        # Shape agrees with the analytic truth of the very model that produced
+        # the kernel. Reconstructing a second model from guessed constructor
+        # arguments would test the guess, not the extraction.
+        eval_x = std._psf_metadata["psf_eval_x"]
+        eval_y = std._psf_metadata["psf_eval_y"]
+        truth = std.exp.psf
+        self.assertIsInstance(truth, MockRubinPsf)
+        moments = measure_moments(kernel)
+        shape = summarize_shape(moments.covariance)
+
+        expected_major = 2.3548200450309493 * truth.sigma_major_at(eval_x, eval_y)
+        expected_minor = 2.3548200450309493 * truth.sigma_minor_at(eval_x, eval_y)
+        self.assertAlmostEqual(shape.fwhm_major / expected_major, 1.0, places=2)
+        self.assertAlmostEqual(shape.fwhm_minor / expected_minor, 1.0, places=2)
+
+        # Genuinely asymmetric: a Gaussian stand-in would be circular.
+        self.assertGreater(shape.fwhm_major / shape.fwhm_minor, 1.2)
+
+        # Kernel mode is centered, so the centroid sits on the middle pixel.
+        center = (kernel.shape[0] - 1) / 2.0
+        self.assertAlmostEqual(moments.centroid_x, center, places=2)
+        self.assertAlmostEqual(moments.centroid_y, center, places=2)
+
+    def test_psf_evaluation_position_is_honored(self):
+        """The configured evaluation position actually changes the kernel.
+
+        The mock PSF varies with position, so a standardizer that evaluates at
+        the wrong place produces a measurably different kernel. With a constant
+        PSF this class of bug would be invisible.
+        """
+        detector = Standardizer.get(DatasetId(11), butler=self.butler)
+        detector.standardizeMetadata()  # populates the detector dimensions
+        detector_width = detector._naxis1
+        self.assertIsNotNone(detector_width)
+
+        kernels = {}
+        for name, position in (
+            ("origin", (0.0, 0.0)),
+            ("far", (float(detector_width * 8), 0.0)),
+        ):
+            config = ButlerStandardizerConfig(psf_eval_position=position)
+            std = Standardizer.get(DatasetId(11), butler=self.butler, config=config)
+            kernels[name] = std.standardizePSF()[0]
+            self.assertEqual(std._psf_metadata["psf_eval_x"], position[0])
+            self.assertEqual(std._psf_metadata["psf_eval_y"], position[1])
+
+        far_shape = summarize_shape(measure_moments(kernels["far"]).covariance)
+        origin_shape = summarize_shape(measure_moments(kernels["origin"]).covariance)
+        # The mock widens with x, so evaluating further out must be wider.
+        self.assertGreater(far_shape.fwhm_major, origin_shape.fwhm_major)
+
+    def test_psf_eval_position_modes(self):
+        """'average', 'center', and an explicit coordinate are distinguishable."""
+        std = Standardizer.get(DatasetId(11), butler=self.butler)
+        std.standardizePSF()
+        self.assertEqual(std._psf_metadata["psf_source"], "rubin:computeKernelImage")
+
+        config = ButlerStandardizerConfig(psf_eval_position="center")
+        centered = Standardizer.get(DatasetId(11), butler=self.butler, config=config)
+        centered.standardizePSF()
+        self.assertAlmostEqual(centered._psf_metadata["psf_eval_x"], centered._naxis1 / 2.0)
+        self.assertAlmostEqual(centered._psf_metadata["psf_eval_y"], centered._naxis2 / 2.0)
+
+        config = ButlerStandardizerConfig(psf_eval_position="nonsense")
+        bad = Standardizer.get(DatasetId(11), butler=self.butler, config=config)
+        with self.assertRaises(ValueError):
+            bad.standardizePSF()
+
+    def test_psf_lazily_loads_exposure(self):
+        """standardizePSF works when called first, without the exposure loaded.
+
+        The sibling standardize* methods all lazily load the exposure; this one
+        historically did not, because it never touched it. Calling it in
+        isolation is the case that would have broken.
+        """
+        std = Standardizer.get(DatasetId(11), butler=self.butler)
+        self.assertIsNone(std.exp)
+        kernel = std.standardizePSF()[0]
+        self.assertIsNotNone(std.exp)
+        self.assertAlmostEqual(float(kernel.sum()), 1.0, places=6)
+
+    def test_psf_missing_model_raises(self):
+        """A missing Rubin PSF raises rather than silently becoming a Gaussian."""
+        butler = MockButler("/far/far/away", mock_psf=False)
+        std = Standardizer.get(DatasetId(11), butler=butler)
+        with self.assertRaises(RubinPsfError) as context:
+            std.standardizePSF()
+        # The message must point at the opt-in rather than being a bare failure.
+        self.assertIn("psf_fallback_std", str(context.exception))
+
+    def test_psf_broken_model_raises(self):
+        """A model that raises is reported, not swallowed."""
+        butler = MockButler("/far/far/away", mock_psf=BrokenRubinPsf("detector on fire"))
+        std = Standardizer.get(DatasetId(11), butler=butler)
+        with self.assertRaises(RubinPsfError) as context:
+            std.standardizePSF()
+        self.assertIn("detector on fire", str(context.exception))
+
+    def test_psf_fallback_is_opt_in(self):
+        """The Gaussian fallback is reachable only when explicitly configured."""
+        butler = MockButler("/far/far/away", mock_psf=False)
+        config = ButlerStandardizerConfig(psf_fallback_std=2)
+        std = Standardizer.get(DatasetId(11), butler=butler, config=config)
+
+        kernel = std.standardizePSF()[0]
+        expected = PSF.make_gaussian_kernel(2)
+        np.testing.assert_allclose(kernel, expected)
+        # The fallback must be labeled, so a stored kernel is never mistaken
+        # for a real Rubin model.
+        self.assertEqual(std._psf_metadata["psf_source"], "gaussian_fallback")
+
+    def test_psf_metadata_reaches_standardized_metadata(self):
+        """PSF provenance columns are recorded during metadata standardization.
+
+        These are what carry placement into the ImageCollection and then into
+        WorkUnit.org_img_meta.
+        """
+        std = Standardizer.get(DatasetId(11), butler=self.butler)
+        meta = std.standardizeMetadata()
+
+        for key in (
+            "psf_source",
+            "psf_eval_x",
+            "psf_eval_y",
+            "psf_center_x",
+            "psf_center_y",
+            "psf_native_sum",
+            "psf_width",
+        ):
+            self.assertIn(key, meta)
+
+        self.assertEqual(meta["psf_source"], "rubin:computeKernelImage")
+        self.assertGreater(meta["psf_width"], 1)
+        self.assertGreater(meta["psf_native_sum"], 0.0)
+
+    def test_psf_metadata_records_unavailable_without_raising(self):
+        """Metadata degrades gracefully where the science kernel would raise.
+
+        Refusing to describe an entire collection because one exposure has a
+        bad PSF would be unhelpful; refusing to *search* it silently would not.
+        """
+        butler = MockButler("/far/far/away", mock_psf=False)
+        std = Standardizer.get(DatasetId(11), butler=butler)
+        meta = std.standardizeMetadata()
+        self.assertEqual(meta["psf_source"], "unavailable")
+        # ... but producing the science kernel still refuses.
+        with self.assertRaises(RubinPsfError):
+            std.standardizePSF()
+
+    def test_psf_metadata_can_be_disabled(self):
+        """The extra component fetch can be turned off for large collections."""
+        config = ButlerStandardizerConfig(standardize_psf_metadata=False)
+        std = Standardizer.get(DatasetId(11), butler=self.butler, config=config)
+        meta = std.standardizeMetadata()
+        self.assertNotIn("psf_source", meta)
 
     def test_to_layered_image(self):
         """Test ButlerStandardizer can create a LayeredImagePy."""

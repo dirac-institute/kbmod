@@ -136,6 +136,65 @@ input. Library defaults have changed historically; the canaries exist so that
 such a change is a test failure rather than a silent shift in the science.
 
 
+Reading the native Rubin PSF
+----------------------------
+
+Butler-backed data uses the exposure's own ``Exposure.psf`` model. A fixed
+Gaussian is never substituted silently: a missing or unusable model raises, and
+the ``psf_fallback_std`` config option is the only way to opt in to a Gaussian.
+A stand-in PSF produces results that look entirely reasonable and are quietly
+wrong, which is the failure mode this work exists to remove.
+
+**The two rendering entry points are not interchangeable.**
+
+``computeKernelImage(position)``
+    Returns the PSF centered on the origin. This is what a convolution or
+    matched filter requires, and it is what ``standardizePSF`` returns.
+
+``computeImage(position)``
+    Returns the PSF as it would appear in the image, retaining the fractional
+    pixel phase of ``position`` and carrying a bounding box that locates the
+    stamp in exposure coordinates. This is the correct source when the stamp is
+    to be placed in the native frame and reprojected, because the pixel phase is
+    part of what reprojection acts on.
+
+Using an image-mode stamp as a search kernel bakes a sub-pixel offset into the
+matched filter and biases every recovered position. Using a kernel-mode stamp as
+a reprojection source discards the pixel phase reprojection needs. The mode is
+therefore explicit at every call and recorded in the stamp's provenance.
+
+**Placement metadata must survive.** ``NativePsfStamp`` keeps the Rubin
+bounding-box origin (``xy0``) beside the array, so ``origin + centroid`` returns
+the evaluation coordinate. Converting a Rubin image with ``.array`` and dropping
+its origin is the most likely way to introduce a one-pixel error here.
+
+**Where the model is evaluated is recorded.** Rubin PSFs vary across the
+detector. ``psf_eval_position`` selects the model's own ``getAveragePosition``,
+the detector center, or an explicit coordinate, and the coordinate actually used
+is stored as ``psf_eval_x``/``psf_eval_y`` so a kernel can always be traced back
+to the position it came from. A single kernel per exposure is only defensible
+while the model's variation across the detector is small; measuring that is
+Phase 5's job, not an assumption to make here.
+
+**Unusable stamps are refused, not repaired:**
+
+* non-finite values, non-square or empty stamps, and all-zero stamps raise;
+* an **even** width raises rather than being padded, because padding moves the
+  centroid half a pixel and silently biases every position measured with it;
+* a **materially negative** pixel raises. Negatives at the level of
+  interpolation noise are clipped and the clipped total is reported, but a real
+  signed lobe is not flattened -- doing so changes the kernel's normalization
+  and its meaning. If a genuinely signed response is ever needed, it requires
+  different likelihood mathematics, not a clipped kernel.
+
+Metadata standardization is deliberately more forgiving than kernel production.
+``standardizePSF`` raises, because it produces the kernel used for science.
+``standardizeMetadata`` records ``psf_source="unavailable"`` and continues,
+because refusing to describe an entire collection over one bad exposure would be
+unhelpful. The Butler's ``psf`` component is fetched for metadata rather than
+the full ``Exposure``, so provenance is affordable for large collections.
+
+
 PSF normalization and centering
 -------------------------------
 

@@ -7,6 +7,7 @@ from kbmod.standardizers import KBMODV1Config
 
 from astropy.time import Time
 from astropy.wcs import WCS
+from astropy.wcs.utils import proj_plane_pixel_scales
 import numpy as np
 
 from .mock_fits import DECamImdiffFactory
@@ -22,6 +23,12 @@ __all__ = [
     "DimensionRecord",
     "ConvexPolygon",
     "LonLat",
+    "Point2D",
+    "lsstGeom",
+    "MockBBox2I",
+    "MockPsfImage",
+    "MockRubinPsf",
+    "BrokenRubinPsf",
 ]
 
 
@@ -145,11 +152,19 @@ class DatasetQueryResults:
 
 
 class Angle:
+    """Stand-in for an ``lsst.geom.Angle``, holding a value in degrees."""
+
     def __init__(self, value):
         self.value = value
 
     def asDegrees(self):
         return self.value
+
+    def asArcseconds(self):
+        return self.value * 3600.0
+
+    def asRadians(self):
+        return np.deg2rad(self.value)
 
 
 class LonLat:
@@ -233,6 +248,167 @@ class Registry:
 FitsFactory = DECamImdiffFactory()
 
 
+# ---------------------------------------------------------------------------
+# Rubin PSF mocking
+#
+# The exposure mock previously listed "psf" in its spec but configured no
+# behavior, so `exposure.psf.computeImage(...)` returned a bare Mock. Nothing
+# could test PSF extraction against it. The classes below implement enough of
+# the Rubin PSF API to exercise the parts that matter: the two rendering entry
+# points with their different centering semantics, bounding-box placement, and
+# a genuinely spatially varying, asymmetric model whose truth is analytic.
+# ---------------------------------------------------------------------------
+
+
+class Point2D:
+    """Stand-in for ``lsst.geom.Point2D``."""
+
+    def __init__(self, x, y):
+        self._x = float(x)
+        self._y = float(y)
+
+    def getX(self):
+        return self._x
+
+    def getY(self):
+        return self._y
+
+    def __repr__(self):
+        return f"Point2D({self._x}, {self._y})"
+
+
+class lsstGeom:
+    """Intercepts ``import lsst.geom`` and shortcuts it to our mocks."""
+
+    Point2D = Point2D
+
+
+class MockBBox2I:
+    """Stand-in for ``lsst.geom.Box2I``, carrying a stamp's ``xy0`` origin."""
+
+    def __init__(self, x0, y0, width, height):
+        self._x0, self._y0 = int(x0), int(y0)
+        self._width, self._height = int(width), int(height)
+
+    def getMinX(self):
+        return self._x0
+
+    def getMinY(self):
+        return self._y0
+
+    def getWidth(self):
+        return self._width
+
+    def getHeight(self):
+        return self._height
+
+
+class MockPsfImage:
+    """Stand-in for the ``lsst.afw.image.Image`` a Rubin PSF returns."""
+
+    def __init__(self, array, x0, y0):
+        self.array = array
+        self._bbox = MockBBox2I(x0, y0, array.shape[1], array.shape[0])
+
+    def getBBox(self):
+        return self._bbox
+
+
+class MockRubinPsf:
+    """A spatially varying, asymmetric Rubin PSF model with analytic truth.
+
+    The model is an elliptical Gaussian whose width grows with ``x`` and whose
+    position angle rotates with ``y``. Both properties matter for testing:
+
+    * **Asymmetry** makes transposes and axis swaps detectable. A circular PSF
+      centered in a square stamp is invariant under both.
+    * **Spatial variation** makes the evaluation coordinate observable. With a
+      constant PSF, code that evaluates at the wrong position still returns the
+      right answer, so the bug survives the test.
+
+    ``computeKernelImage`` renders the PSF centered on the stamp, as required
+    for convolution. ``computeImage`` retains the fractional pixel phase of the
+    requested position and reports a bounding box placing the stamp in exposure
+    coordinates, as required for reprojection.
+    """
+
+    def __init__(self, width=41, base_sigma=3.0, detector_width=2048, detector_height=4096):
+        if width % 2 == 0:
+            raise ValueError("PSF stamp width must be odd.")
+        self.width = width
+        self.radius = width // 2
+        self.base_sigma = base_sigma
+        self.detector_width = detector_width
+        self.detector_height = detector_height
+
+    # -- analytic truth, for tests to compare against ----------------------
+
+    def sigma_major_at(self, x, y):
+        """Major-axis sigma at a position, in pixels."""
+        return self.base_sigma * (1.0 + 0.25 * (float(x) / self.detector_width))
+
+    def sigma_minor_at(self, x, y):
+        """Minor-axis sigma at a position, in pixels."""
+        return 0.65 * self.sigma_major_at(x, y)
+
+    def angle_at(self, x, y):
+        """Position angle at a position, in degrees CCW from +x."""
+        return 40.0 * (float(y) / self.detector_height)
+
+    def average_position(self):
+        return (self.detector_width / 2.0, self.detector_height / 2.0)
+
+    # -- rendering ---------------------------------------------------------
+
+    def _render(self, x, y, offset_x, offset_y):
+        sigma_major = self.sigma_major_at(x, y)
+        sigma_minor = self.sigma_minor_at(x, y)
+        angle = np.deg2rad(self.angle_at(x, y))
+
+        coords = np.arange(self.width) - self.radius
+        xx, yy = np.meshgrid(coords, coords)
+        dx = xx - offset_x
+        dy = yy - offset_y
+
+        u = dx * np.cos(angle) + dy * np.sin(angle)
+        v = -dx * np.sin(angle) + dy * np.cos(angle)
+        stamp = np.exp(-(u**2 / (2 * sigma_major**2) + v**2 / (2 * sigma_minor**2)))
+        return (stamp / stamp.sum()).astype(np.float64)
+
+    def computeKernelImage(self, position):
+        """Origin-centered stamp, for use as a convolution kernel."""
+        x, y = position.getX(), position.getY()
+        array = self._render(x, y, 0.0, 0.0)
+        return MockPsfImage(array, -self.radius, -self.radius)
+
+    def computeImage(self, position):
+        """Stamp as it appears in the image, retaining pixel phase."""
+        x, y = position.getX(), position.getY()
+        offset_x = x - np.floor(x)
+        offset_y = y - np.floor(y)
+        array = self._render(x, y, offset_x, offset_y)
+        return MockPsfImage(array, int(np.floor(x)) - self.radius, int(np.floor(y)) - self.radius)
+
+    def getAveragePosition(self):
+        return Point2D(*self.average_position())
+
+
+class BrokenRubinPsf:
+    """A Rubin PSF model that raises, to exercise the error path."""
+
+    def __init__(self, message="PSF model is corrupt"):
+        self.message = message
+
+    def computeKernelImage(self, position):
+        raise RuntimeError(self.message)
+
+    def computeImage(self, position):
+        raise RuntimeError(self.message)
+
+    def getAveragePosition(self):
+        raise RuntimeError(self.message)
+
+
 class MockButler:
     """Mocked Vera C. Rubin Data Butler functionality sufficient to be used in
     a ButlerStandardizer.
@@ -266,8 +442,13 @@ class MockButler:
         missing_headers=[],
         failed_fits_appoximation=False,
         use_header_dimensions=False,
+        mock_psf=None,
     ):
         self.datastore = Datastore(root)
+        # PSF model returned by mocked exposures. None means the default
+        # spatially varying elliptical Gaussian; pass a model to exercise the
+        # error paths, or False to simulate an exposure with no PSF at all.
+        self.mock_psf = mock_psf
         self._datastore = Datastore(root)
         self.registry = Registry() if registry is None else registry
         self.mockImages = mock_images_f
@@ -328,6 +509,8 @@ class MockButler:
             return self.mock_wcs(ref)
         elif ".bbox" in orig_ref.datasetType.name:
             return self.mock_bbox(ref)
+        elif ".psf" in orig_ref.datasetType.name:
+            return self.mock_psf_component(ref)
         else:
             return self.mock_exposure(ref)
 
@@ -359,6 +542,20 @@ class MockButler:
 
         mocked_visit.getObservatory.return_value = mocked_obs
 
+        # Real values for the remaining standardized fields. Left as bare Mocks
+        # these produce object-dtype table columns, which cannot be serialized
+        # to a FITS binary table -- so ImageCollection.toWorkUnit() failed on
+        # anything butler-backed.
+        mocked_visit.object = prim.get("OBJECT", "test_field")
+        mocked_visit.boresightAirmass = float(prim.get("AIRMASS", 1.2))
+
+        wcs = WCS(hdul[1].header)
+        center = wcs.pixel_to_world(hdul[1].header["NAXIS1"] / 2, hdul[1].header["NAXIS2"] / 2)
+        mocked_boresight = mock.Mock(name="BoresightRaDec")
+        mocked_boresight.getRa.return_value = Angle(center.ra.deg)
+        mocked_boresight.getDec.return_value = Angle(center.dec.deg)
+        mocked_visit.boresightRaDec = mocked_boresight
+
         return mocked_visit
 
     def mock_summarystats(self, ref):
@@ -375,6 +572,7 @@ class MockButler:
         mocked.zeroPoint = 1.0
         mocked.astromOffsetMean = 1.0
         mocked.astromOffsetStd = 1.0
+        mocked.meanVar = 1.0
 
         mocked.effTime = 0
         mocked.effTimePsfSigmaScale = 0
@@ -422,6 +620,11 @@ class MockButler:
         mocked.pixelToSky.side_effect = fake_skywcs_transform
         mocked.pixelToSkyArray.side_effect = fake_skywcs_transform_array
 
+        # A real pixel scale, for the same serialization reason as the
+        # visitInfo fields above.
+        scale_deg = float(np.mean(proj_plane_pixel_scales(wcs)))
+        mocked.getPixelScale.return_value = Angle(scale_deg)
+
         if self.failed_fits_appoximation:
             # Raise an exception to simulate failure in WCS approximation
             mocked.getFitsMetadata.side_effect = Exception("Failed to fit WCS approximation")
@@ -435,6 +638,25 @@ class MockButler:
         mocked.getWidth.return_value = hdul[1].header["NAXIS1"]
         mocked.getHeight.return_value = hdul[1].header["NAXIS2"]
         return mocked
+
+    def mock_psf_component(self, ref):
+        """Serve the PSF model on its own, as the Butler's `psf` component does.
+
+        Fetching the component avoids materializing a full Exposure, which is
+        what makes PSF metadata affordable when building a large
+        ImageCollection.
+        """
+        hdul = FitsFactory.get_fits(
+            ref % FitsFactory.n_files, use_header_dimensions=self.use_header_dimensions
+        )
+        if self.mock_psf is False:
+            return None
+        if self.mock_psf is not None:
+            return self.mock_psf
+        return MockRubinPsf(
+            detector_width=hdul[1].header["NAXIS1"],
+            detector_height=hdul[1].header["NAXIS2"],
+        )
 
     def mock_exposure(self, ref):
         hdul = FitsFactory.get_fits(
@@ -489,6 +711,19 @@ class MockButler:
         mocked.mask.array = hdul["MASK"].data
         if self.mockImages is not None:
             self.mockImages(mocked)
+
+        # Attach a PSF model. The exposure spec has always listed "psf", but
+        # without behavior it returned a bare Mock, so PSF extraction could not
+        # be tested at all.
+        if self.mock_psf is False:
+            mocked.psf = None
+        elif self.mock_psf is not None:
+            mocked.psf = self.mock_psf
+        else:
+            mocked.psf = MockRubinPsf(
+                detector_width=hdul[1].header["NAXIS1"],
+                detector_height=hdul[1].header["NAXIS2"],
+            )
 
         # Same issue as with WCS, what if there's a change in definition of the
         # mask plane? Note the change in definition of a flag to exponent only.
