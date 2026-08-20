@@ -6,6 +6,7 @@ from tqdm.asyncio import tqdm
 
 from kbmod import is_interactive
 from kbmod.core.image_stack_py import ImageStackPy
+from kbmod.reprojection_config import LEGACY_CONFIG
 from kbmod.search import KB_NO_DATA
 from kbmod.work_unit import (
     add_image_data_to_hdul,
@@ -21,7 +22,7 @@ MAX_PROCESSES = 8
 _DEFAULT_TQDM_BAR = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
 
 
-def reproject_image(image, original_wcs, common_wcs):
+def reproject_image(image, original_wcs, common_wcs, config=LEGACY_CONFIG):
     """Given an ndarray representing image data (either science or variance,
     when used with `reproject_work_unit`), as well as a common wcs, return the reprojected
     image and footprint as a numpy.ndarray.
@@ -34,6 +35,12 @@ def reproject_image(image, original_wcs, common_wcs):
         The WCS of the original image.
     common_wcs : `astropy.wcs.WCS`
         The WCS to reproject all the images into.
+    config : `AdaptiveReprojectionConfig`, optional
+        The explicit adaptive reprojection options. Defaults to
+        `LEGACY_CONFIG`, which reproduces KBMOD's historical behavior. The
+        effective PSF must be generated with the same configuration used here,
+        so callers that reproject science should pass the same object to the
+        PSF path.
 
     Returns
     -------
@@ -58,9 +65,8 @@ def reproject_image(image, original_wcs, common_wcs):
         image_data,
         common_wcs,
         shape_out=common_wcs.array_shape,
-        bad_value_mode="ignore",
         output_footprint=footprint,
-        roundtrip_coords=False,
+        **config.as_kwargs(),
     )
 
     # if we passed in a stack of ndarrays (i.e. science, varianace, mask), we only
