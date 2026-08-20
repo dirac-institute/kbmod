@@ -438,7 +438,10 @@ def _reproject_work_unit_in_parallel(
         stack = ImageStackPy()
         for result in future_reprojections:
             science_add, variance_add, mask_add, time = result.result()
-            psf = _get_first_psf_at_time(work_unit, obstime)
+            # Use this result's own obstime. `obstime` is a leftover loop variable
+            # from the submission loop above and holds only the last epoch's value,
+            # which would give every image the last epoch's PSF.
+            psf = _get_first_psf_at_time(work_unit, time)
 
             stack.append_image(
                 time,

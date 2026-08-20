@@ -4,6 +4,7 @@ from utils.utils_for_tests import get_absolute_data_path
 import tempfile
 
 from kbmod.core.image_stack_py import ImageStackPy
+from kbmod.core.psf import PSF
 from kbmod.reprojection import (
     reproject_work_unit,
     _get_first_psf_at_time,
@@ -172,6 +173,43 @@ class test_reprojection(unittest.TestCase):
 
         _psf = _get_first_psf_at_time(self.test_wunit, obstimes[0])
         assert np.allclose(psf, _psf)
+
+    def test_reproject_in_memory_keeps_per_image_psfs(self):
+        """Each reprojected image must keep its own PSF.
+
+        Regression test: the in-memory (write_output=False) path used a leftover
+        loop variable instead of each result's own obstime, so every image was
+        given the last epoch's PSF. Invisible unless the PSFs actually differ.
+        """
+        wunit = WorkUnit.from_fits(self.data_path, show_progress=False)
+
+        # Give every image a distinguishable PSF so a mix-up is detectable.
+        n_img = len(wunit.im_stack)
+        widths = [1.0 + 0.5 * i for i in range(n_img)]
+        wunit.im_stack.psfs = [PSF.make_gaussian_kernel(w) for w in widths]
+        # Images can share an obstime (multi-chip); reprojection collapses those
+        # into one image that takes the FIRST PSF at that obstime.
+        expected = {}
+        for i, t in enumerate(wunit.get_all_obstimes()):
+            expected.setdefault(float(t), wunit.im_stack.psfs[i])
+        self.assertGreater(len({p.shape for p in wunit.im_stack.psfs}), 1)
+
+        reprojected = reproject_work_unit(
+            work_unit=wunit,
+            common_wcs=self.common_wcs,
+            write_output=False,
+            show_progress=False,
+        )
+
+        for i, t in enumerate(reprojected.get_all_obstimes()):
+            got = reprojected.im_stack.psfs[i]
+            want = expected[float(t)]
+            self.assertEqual(
+                got.shape,
+                want.shape,
+                f"image {i} (obstime {t}) got a PSF of shape {got.shape}, expected {want.shape}",
+            )
+            self.assertTrue(np.allclose(got, want), f"image {i} (obstime {t}) has the wrong PSF")
 
     def test_get_first_psf_at_time_exception(self):
         """Make sure that an exception is raised when the obstime is not found."""
