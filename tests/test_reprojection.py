@@ -196,7 +196,7 @@ class test_reprojection(unittest.TestCase):
         k2 = np.array([[0.0, 0.0, 0.0], [0.0, 0.1, 0.2], [0.0, 0.2, 0.5]], dtype=np.float32)
         kernels = [k0 / k0.sum(), k1 / k1.sum(), k2 / k2.sum()]
 
-        # Guard the guard: the test is meaningless if these are not distinct.
+        # Validate that the PSFs are distinct.
         for a in range(len(kernels)):
             for b in range(a + 1, len(kernels)):
                 assert not np.allclose(kernels[a], kernels[b])
@@ -218,7 +218,7 @@ class test_reprojection(unittest.TestCase):
         kernels = self._distinct_psf_kernels()
         self.assertEqual(len(unique_times), len(kernels))
 
-        # Assign one distinct kernel per unique time; images sharing a time share a kernel.
+        # Assign one distinct PSF kernel per unique time; images sharing a time share a kernel.
         expected_by_time = {}
         for kernel, time, indices in zip(kernels, unique_times, unique_indices):
             for i in indices:
@@ -236,11 +236,11 @@ class test_reprojection(unittest.TestCase):
 
                 self.assertEqual(len(reprojected.im_stack), len(unique_times))
                 for i, time in enumerate(reprojected.im_stack.times):
-                    expected = expected_by_time[float(time)]
-                    actual = reprojected.im_stack.psfs[i]
+                    expected_kernel = expected_by_time[float(time)]
+                    actual_kernel = reprojected.im_stack.psfs[i]
                     np.testing.assert_allclose(
-                        actual,
-                        expected,
+                        actual_kernel,
+                        expected_kernel,
                         err_msg=(
                             f"image {i} at obstime {time} carries the wrong PSF "
                             f"(parallelize={parallelize})"
