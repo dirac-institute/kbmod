@@ -672,13 +672,20 @@ class ButlerStandardizer(Standardizer):
         ]
 
     def standardizePSF(self):
-        # TODO: Update when we formalize the PSF, Any of these are available
-        # from the stack:
-        # self.exp.psf.computeImage
-        # self.exp.psf.computeKernelImage
-        # self.exp.psf.getKernel
-        # self.exp.psf.getLocalKernel
-        std = self.config["psf_std"]
+        # Use the exposure's REAL PSF width (psfSigma from summaryStats) so the
+        # matched-filter kernel matches the data. Falling back to the fixed
+        # config["psf_std"] placeholder (default 1 px) badly mismatches the LSST
+        # PSF (sigma ~2.8 px): a sigma=1 kernel costs ~37% likelihood and ~4x flux.
+        # (self.exp.psf.computeKernelImage is the fuller option; a Gaussian of the
+        #  correct width recovers the matched-filter efficiency and stays robust.)
+        std = None
+        if self._metadata is not None and "psfSigma" in self._metadata:
+            try:
+                std = float(self._metadata["psfSigma"])
+            except (TypeError, ValueError):
+                std = None
+        if std is None or not np.isfinite(std) or std <= 0:
+            std = self.config["psf_std"]
         return [PSF.make_gaussian_kernel(std)]
 
     # These exist because standardizers promise to return lists
