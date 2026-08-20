@@ -25,12 +25,16 @@ Conventions, which are a common source of half-pixel and transpose errors:
   multiplied by ``cos(dec)`` so the units are true angle on the sky.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from astropy.wcs.utils import local_partial_pixel_derivatives
 
 __all__ = [
+    "EffectivePsf",
+    "EffectivePsfError",
+    "make_effective_psf",
+    "DEFAULT_MAX_SUPPORT",
     "MomentMeasurement",
     "ShapeSummary",
     "measure_moments",
@@ -43,6 +47,12 @@ __all__ = [
 
 # FWHM of a Gaussian in units of its standard deviation.
 _FWHM_PER_SIGMA = 2.0 * np.sqrt(2.0 * np.log(2.0))
+
+#: Default cap on the effective-PSF support radius, giving a 51x51 kernel.
+#: Convergence alone is not a sufficient stopping rule: a noiseless Moffat's
+#: wings keep contributing flux well past any support affordable to convolve
+#: with. The cap trades a reported, quantified truncation for a usable kernel.
+DEFAULT_MAX_SUPPORT = 25
 
 
 @dataclass(frozen=True)
@@ -327,3 +337,356 @@ def encircled_energy_radius(image, center_x, center_y, fraction=0.5):
         return float(radii[index])
     weight = (fraction - low) / (high - low)
     return float(radii[index - 1] + weight * (radii[index] - radii[index - 1]))
+
+
+# ---------------------------------------------------------------------------
+# Effective PSF generation
+#
+# The PSF that matters for a search is the one present in the pixels actually
+# searched, which is the native model *after* the same resampling the science
+# image went through. Generating it by any route other than the real science
+# operator -- fitting a wider Gaussian, adding widths in quadrature -- produces
+# a kernel that is close enough to look right and wrong enough to bias
+# photometry. So the native stamp is pasted into a frame and pushed through the
+# identical configured operator, with the identical options.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class EffectivePsf:
+    """A PSF resampled into the common frame by the science operator.
+
+    Attributes
+    ----------
+    kernel : `numpy.ndarray`
+        Normalized, odd-sized, square, float32. This is the search-facing
+        representation.
+    centroid_x, centroid_y : `float`
+        Centroid of the resampled PSF in common-frame pixels.
+    sum_before_normalization : `float`
+        Total inside the support before normalizing. Comparing this against the
+        reprojected flux of a real source is how truncation is detected.
+    lost_fraction : `float`
+        Fraction of the resampled stamp's flux falling outside the support.
+        Reported before normalization, because normalizing hides it.
+    native_x, native_y : `float`
+        Where the stamp sat in the original frame.
+    output_x, output_y : `float`
+        Where that position maps to in the common frame.
+    support_radius : `int`
+        Half-width of the kernel; the width is ``2 * support_radius + 1``.
+    covariance : `numpy.ndarray`
+        Second-moment matrix of the kernel, in common-frame pixels.
+    provenance : `dict`
+        Reprojection preset, config hash, ``reproject`` version, and method.
+    warnings : `list`
+        Non-fatal issues worth surfacing, e.g. support that hit its cap before
+        converging.
+    """
+
+    kernel: np.ndarray
+    centroid_x: float
+    centroid_y: float
+    sum_before_normalization: float
+    lost_fraction: float
+    native_x: float
+    native_y: float
+    output_x: float
+    output_y: float
+    support_radius: int
+    covariance: np.ndarray
+    provenance: dict = field(default_factory=dict)
+    warnings: list = field(default_factory=list)
+
+    @property
+    def width(self):
+        """Width of the kernel in pixels."""
+        return self.kernel.shape[0]
+
+
+class EffectivePsfError(ValueError):
+    """Raised when an effective PSF cannot be generated safely."""
+
+
+def _enclosed(image, cx, cy, radius):
+    """Sum and second moments within a square support, ignoring NaN."""
+    y0, y1 = int(round(cy)) - radius, int(round(cy)) + radius + 1
+    x0, x1 = int(round(cx)) - radius, int(round(cx)) + radius + 1
+    if y0 < 0 or x0 < 0 or y1 > image.shape[0] or x1 > image.shape[1]:
+        return None
+    patch = image[y0:y1, x0:x1]
+    if not np.all(np.isfinite(patch)):
+        return None
+    return patch, (x0, y0)
+
+
+def _required_padding(config, scale_ratio):
+    """Native-pixel padding needed so the resampler never samples off-canvas.
+
+    The adaptive resampler reads a region ``sample_region_width`` output pixels
+    across for each output pixel. With ``boundary_mode="strict"`` any output
+    pixel whose region falls off the input becomes NaN, so the canvas has to
+    extend past the stamp by that region expressed in native pixels, plus slack
+    for the interpolation kernel itself.
+
+    Measured rather than guessed: the generated kernel is bit-identical for any
+    padding from 2 to 30 px on the default configuration, because the stamp is
+    already near zero at its own edge and the support crop sits well inside the
+    canvas. Over-padding is not free -- it shrinks the region of the native
+    frame where a PSF can be evaluated at all, which matters for mosaic tiles
+    that only clip the common frame. Insufficient padding fails loudly, since
+    the support crop refuses to include NaN.
+    """
+    ratio = max(1.0, float(scale_ratio))
+    region = float(config.sample_region_width) * ratio
+    tail = 2.0 * float(config.kernel_width) * ratio
+    return int(np.ceil(region + tail)) + 2
+
+
+def _local_scale_ratio(original_wcs, common_wcs, x, y):
+    """Native pixels per output pixel at a position (linear, not area)."""
+    native = local_wcs_jacobian(original_wcs, x, y)
+    sky = original_wcs.pixel_to_world_values(x, y)
+    out_x, out_y = common_wcs.world_to_pixel_values(*sky)
+    common = local_wcs_jacobian(common_wcs, float(out_x), float(out_y))
+    native_scale = np.sqrt(abs(np.linalg.det(native)))
+    common_scale = np.sqrt(abs(np.linalg.det(common)))
+    return native_scale / common_scale if common_scale > 0 else 1.0
+
+
+def make_effective_psf(
+    stamp,
+    stamp_origin,
+    original_wcs,
+    common_wcs,
+    config=None,
+    method="cutout",
+    max_support=None,
+    flux_tolerance=1e-5,
+    moment_tolerance=1e-3,
+):
+    """Resample a native PSF stamp into the common frame.
+
+    Parameters
+    ----------
+    stamp : `numpy.ndarray`
+        The native PSF stamp. Need not be normalized.
+    stamp_origin : `tuple`
+        ``(x0, y0)``, the native pixel coordinate of ``stamp[0, 0]``. This is
+        the Rubin bounding-box origin; supplying it wrong shifts the result by
+        exactly that error, which is why it is required rather than guessed.
+    original_wcs, common_wcs : `astropy.wcs.WCS`
+        Input and output WCS. Both must carry an ``array_shape``.
+    config : `AdaptiveReprojectionConfig`, optional
+        The reprojection options. **Must be the same object used for the
+        science image**; a different configuration produces a different
+        effective PSF. Defaults to the legacy preset.
+    method : `str`
+        ``"full"`` pastes into a full-size native frame -- the simple reference
+        implementation. ``"cutout"`` works on a padded sub-frame and is the
+        default; the two are required to agree.
+    max_support : `int`, optional
+        Cap on the support radius. Defaults to `DEFAULT_MAX_SUPPORT`. Heavy
+        wings converge slowly -- a noiseless Moffat can formally demand a radius
+        past 40, an 80-pixel-wide kernel that would dominate search cost for a
+        negligible amount of flux. When the cap binds before convergence the
+        truncated fraction is reported in ``lost_fraction`` and a warning is
+        recorded, rather than the loss being normalized away.
+    flux_tolerance, moment_tolerance : `float`
+        Convergence thresholds for growing the support.
+
+    Returns
+    -------
+    `EffectivePsf`
+
+    Raises
+    ------
+    EffectivePsfError
+        If the stamp cannot be placed, the resampled PSF is clipped by a
+        boundary, or the support cannot be established without hitting NaN.
+    """
+    from kbmod.reprojection import reproject_image
+    from kbmod.reprojection_config import LEGACY_CONFIG
+
+    if config is None:
+        config = LEGACY_CONFIG
+    if method not in ("full", "cutout"):
+        raise ValueError(f"method must be 'full' or 'cutout', got {method!r}.")
+
+    stamp = np.asarray(stamp, dtype=np.float64)
+    if stamp.ndim != 2:
+        raise EffectivePsfError(f"PSF stamp must be 2D, got shape {stamp.shape}.")
+    if not np.all(np.isfinite(stamp)):
+        raise EffectivePsfError("PSF stamp contains non-finite values.")
+    if stamp.sum() <= 0:
+        raise EffectivePsfError("PSF stamp has no positive flux.")
+
+    origin_x, origin_y = int(stamp_origin[0]), int(stamp_origin[1])
+    stamp_moments = measure_moments(stamp)
+    native_x = origin_x + stamp_moments.centroid_x
+    native_y = origin_y + stamp_moments.centroid_y
+
+    sky = original_wcs.pixel_to_world_values(native_x, native_y)
+    output_x, output_y = (float(v) for v in common_wcs.world_to_pixel_values(*sky))
+
+    scale_ratio = _local_scale_ratio(original_wcs, common_wcs, native_x, native_y)
+    pad = _required_padding(config, scale_ratio)
+
+    height, width = stamp.shape
+    warnings_out = []
+
+    if method == "full":
+        native_shape = original_wcs.array_shape
+        canvas = np.zeros(native_shape, dtype=np.float32)
+        if (
+            origin_x < 0
+            or origin_y < 0
+            or origin_x + width > native_shape[1]
+            or origin_y + height > native_shape[0]
+        ):
+            raise EffectivePsfError(
+                f"PSF stamp at origin ({origin_x}, {origin_y}) with shape {stamp.shape} does not fit "
+                f"inside the native frame {native_shape}. The evaluation point is too close to the edge; "
+                "a clipped stamp must not be silently normalized."
+            )
+        canvas[origin_y : origin_y + height, origin_x : origin_x + width] = stamp
+        canvas_wcs = original_wcs
+        out_wcs = common_wcs
+        out_offset = (0, 0)
+    else:
+        # Native cutout around the stamp, padded so the resampler never reads
+        # off the edge of what we hand it.
+        nx0 = origin_x - pad
+        ny0 = origin_y - pad
+        nx1 = origin_x + width + pad
+        ny1 = origin_y + height + pad
+        native_shape = original_wcs.array_shape
+        if nx0 < 0 or ny0 < 0 or nx1 > native_shape[1] or ny1 > native_shape[0]:
+            raise EffectivePsfError(
+                f"PSF stamp at ({origin_x}, {origin_y}) needs {pad} px of padding for the resampler's "
+                f"sample region, which runs outside the native frame {native_shape}. The evaluation "
+                "point is too close to the edge to produce an unclipped effective PSF."
+            )
+        canvas = np.zeros((ny1 - ny0, nx1 - nx0), dtype=np.float32)
+        canvas[origin_y - ny0 : origin_y - ny0 + height, origin_x - nx0 : origin_x - nx0 + width] = stamp
+        canvas_wcs = original_wcs.slice((slice(ny0, ny1), slice(nx0, nx1)))
+
+        # Output cutout: the mapped position plus enough room for the support
+        # search, in output pixels.
+        out_pad = int(np.ceil(max(width, height) / max(scale_ratio, 1e-6))) + pad
+        ox0 = int(np.floor(output_x)) - out_pad
+        oy0 = int(np.floor(output_y)) - out_pad
+        ox1 = int(np.floor(output_x)) + out_pad + 1
+        oy1 = int(np.floor(output_y)) + out_pad + 1
+        common_shape = common_wcs.array_shape
+        ox0_c, oy0_c = max(ox0, 0), max(oy0, 0)
+        ox1_c, oy1_c = min(ox1, common_shape[1]), min(oy1, common_shape[0])
+        if ox1_c - ox0_c < 3 or oy1_c - oy0_c < 3:
+            raise EffectivePsfError(
+                f"The PSF maps to ({output_x:.2f}, {output_y:.2f}), which leaves no usable region "
+                f"inside the common frame {common_shape}."
+            )
+        if (ox0_c, oy0_c, ox1_c, oy1_c) != (ox0, oy0, ox1, oy1):
+            warnings_out.append("output cutout was clipped by the common frame edge")
+        out_wcs = common_wcs.slice((slice(oy0_c, oy1_c), slice(ox0_c, ox1_c)))
+        out_offset = (ox0_c, oy0_c)
+
+    resampled, _ = reproject_image(canvas, canvas_wcs, out_wcs, config=config)
+
+    finite = np.isfinite(resampled)
+    if not np.any(finite & (resampled > 0)):
+        raise EffectivePsfError(
+            "Resampling the PSF stamp produced no positive finite pixels. The evaluation point is "
+            "probably outside the common frame's footprint."
+        )
+
+    usable = np.where(finite, resampled, 0.0)
+    local = measure_moments(usable)
+    cx, cy = local.centroid_x, local.centroid_y
+
+    # Grow the support until enclosed flux and second moments stop changing.
+    # Cropping to a fixed radius would silently truncate a Moffat-like wing.
+    limit = min(
+        int(min(usable.shape) // 2) - 1,
+        int(min(cx, cy, usable.shape[1] - 1 - cx, usable.shape[0] - 1 - cy)),
+    )
+    limit = min(limit, DEFAULT_MAX_SUPPORT if max_support is None else int(max_support))
+    if limit < 2:
+        raise EffectivePsfError(
+            f"Only {limit} px of room around the resampled PSF centroid; cannot establish a support."
+        )
+
+    start = max(2, int(np.ceil(2.0 * np.sqrt(max(local.covariance[0, 0], local.covariance[1, 1])))))
+    start = min(start, limit)
+
+    chosen = None
+    previous = None
+    for radius in range(start, limit + 1):
+        window = _enclosed(usable, cx, cy, radius)
+        if window is None:
+            # Hit a NaN or an edge before converging.
+            break
+        patch, _ = window
+        total = float(patch.sum())
+        if total <= 0:
+            continue
+        patch_moments = measure_moments(patch)
+        current = (total, patch_moments.covariance[0, 0], patch_moments.covariance[1, 1])
+        if previous is not None:
+            flux_change = abs(current[0] - previous[0]) / max(current[0], 1e-30)
+            moment_change = max(
+                abs(current[1] - previous[1]) / max(current[1], 1e-30),
+                abs(current[2] - previous[2]) / max(current[2], 1e-30),
+            )
+            if flux_change < flux_tolerance and moment_change < moment_tolerance:
+                chosen = radius
+                break
+        previous = current
+
+    if chosen is None:
+        # Convergence failed. Fall back to the *largest* safe support, not the
+        # smallest: the whole reason convergence failed is that flux is still
+        # arriving, so the widest affordable kernel truncates least.
+        chosen = limit
+        warnings_out.append(
+            f"support did not converge within radius {limit}; using {chosen}. Check lost_fraction: "
+            "heavy PSF wings converge slowly and the kernel is truncated here."
+        )
+
+    window = _enclosed(usable, cx, cy, chosen)
+    if window is None:
+        raise EffectivePsfError(
+            "The resampled PSF is clipped by a boundary or contains NaN within its support. "
+            "Normalizing a clipped kernel would hide the lost flux."
+        )
+    patch, (px0, py0) = window
+
+    total_resampled = float(usable.sum())
+    enclosed_sum = float(patch.sum())
+    lost_fraction = max(0.0, 1.0 - enclosed_sum / total_resampled) if total_resampled > 0 else 1.0
+
+    patch_moments = measure_moments(patch)
+    kernel = (patch / enclosed_sum).astype(np.float32)
+
+    return EffectivePsf(
+        kernel=kernel,
+        centroid_x=out_offset[0] + px0 + patch_moments.centroid_x,
+        centroid_y=out_offset[1] + py0 + patch_moments.centroid_y,
+        sum_before_normalization=enclosed_sum,
+        lost_fraction=lost_fraction,
+        native_x=native_x,
+        native_y=native_y,
+        output_x=output_x,
+        output_y=output_y,
+        support_radius=chosen,
+        covariance=patch_moments.covariance,
+        provenance={
+            "method": method,
+            "preset": config.preset_name,
+            "config_hash": config.hexdigest,
+            "reproject_version": config.provenance["reproject_version"],
+            "scale_ratio": scale_ratio,
+            "padding": pad,
+        },
+        warnings=warnings_out,
+    )

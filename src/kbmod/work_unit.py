@@ -35,6 +35,22 @@ _DEFAULT_WORKUNIT_TQDM_BAR = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
 logger = Logging.getLogger(__name__)
 
 
+def _read_reprojection_provenance(header):
+    """Recover reprojection provenance from a primary header.
+
+    Returns an empty dict for files written before provenance was recorded.
+    That absence is meaningful: those kernels are native or legacy Gaussians of
+    unknown origin, and must never be labeled as effective common-frame PSFs.
+    """
+    keys = {
+        "PSFSRC": "psf_source",
+        "REPPRSET": "preset",
+        "REPCFGH": "config_hash",
+        "REPVER": "reproject_version",
+    }
+    return {name: header[key] for key, name in keys.items() if key in header}
+
+
 class WorkUnit:
     """The work unit is a storage and I/O class for all of the data
     needed for a full run of KBMOD, including the: the search parameters,
@@ -121,6 +137,7 @@ class WorkUnit:
         per_image_wcs=None,
         reprojected=False,
         reprojection_frame=None,
+        reprojection_provenance=None,
         per_image_indices=None,
         barycentric_distance=None,
         lazy=False,
@@ -168,6 +185,12 @@ class WorkUnit:
         # Set the global metadata for reprojection.
         self.reprojected = reprojected
         self.reprojection_frame = reprojection_frame
+
+        # Provenance of the resampling operator, so a stored PSF can be traced
+        # back to the configuration that produced it. Kernels in older files
+        # carry no provenance and must not be presented as effective
+        # common-frame PSFs; an empty dict means exactly that.
+        self.reprojection_provenance = dict(reprojection_provenance or {})
         self.barycentric_distance = barycentric_distance
 
         # Set the observatory location (defaults to Rubin Observatory).
@@ -560,6 +583,7 @@ class WorkUnit:
                 reprojection_frame = hdul[0].header["REPFRAME"]
             else:
                 reprojection_frame = None
+            reprojection_provenance = _read_reprojection_provenance(hdul[0].header)
 
             # Read observatory location if available
             if "OBS_LAT" in hdul[0].header:
@@ -601,6 +625,7 @@ class WorkUnit:
             barycentric_distance=barycentric_distance,
             reprojected=reprojected,
             reprojection_frame=reprojection_frame,
+            reprojection_provenance=reprojection_provenance,
             per_image_indices=per_image_indices,
             org_image_meta=org_image_meta,
             observatory=observatory,
@@ -853,6 +878,7 @@ class WorkUnit:
                 reprojection_frame = primary[0].header["REPFRAME"]
             else:
                 reprojection_frame = None
+            reprojection_provenance = _read_reprojection_provenance(primary[0].header)
 
         per_image_indices = []
         file_paths = []
@@ -887,6 +913,7 @@ class WorkUnit:
             wcs=global_wcs,
             reprojected=reprojected,
             reprojection_frame=reprojection_frame,
+            reprojection_provenance=reprojection_provenance,
             lazy=lazy,
             barycentric_distance=barycentric_distance,
             per_image_indices=per_image_indices,
@@ -912,6 +939,11 @@ class WorkUnit:
         pri.header["NCON"] = self.n_constituents
         pri.header["REPRJCTD"] = self.reprojected
         pri.header["REPFRAME"] = self.reprojection_frame
+        if self.reprojection_provenance:
+            pri.header["PSFSRC"] = self.reprojection_provenance.get("psf_source", "unknown")
+            pri.header["REPPRSET"] = self.reprojection_provenance.get("preset", "unknown")
+            pri.header["REPCFGH"] = self.reprojection_provenance.get("config_hash", "unknown")
+            pri.header["REPVER"] = self.reprojection_provenance.get("reproject_version", "unknown")
         pri.header["BARY"] = self.barycentric_distance
 
         # Serialize observatory location

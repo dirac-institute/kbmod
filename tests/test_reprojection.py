@@ -1,3 +1,4 @@
+import os
 import unittest
 import numpy as np
 from utils.utils_for_tests import get_absolute_data_path
@@ -6,9 +7,11 @@ import tempfile
 from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.reprojection import (
     reproject_work_unit,
-    _get_first_psf_at_time,
+    _effective_psfs_for_indices,
+    _normalized_cross_correlation,
     _validate_original_wcs,
 )
+from kbmod.reprojection_config import LEGACY_CONFIG
 from kbmod.search import pixel_value_valid
 from kbmod.work_unit import WorkUnit
 
@@ -165,23 +168,6 @@ class test_reprojection(unittest.TestCase):
                 except ValueError as e:
                     assert str(e) == "Images with the same obstime are overlapping."
 
-    def test_get_first_psf_at_time(self):
-        """Make sure that the expected PSF is returned for a given time."""
-        obstimes = np.array(self.test_wunit.get_all_obstimes())
-        psf = self.test_wunit.im_stack.psfs[0]
-
-        _psf = _get_first_psf_at_time(self.test_wunit, obstimes[0])
-        assert np.allclose(psf, _psf)
-
-    def test_get_first_psf_at_time_exception(self):
-        """Make sure that an exception is raised when the obstime is not found."""
-        obstimes = np.array(self.test_wunit.get_all_obstimes())
-        time = obstimes[0] - 1
-        try:
-            _get_first_psf_at_time(self.test_wunit, time)
-        except ValueError as e:
-            assert str(e) == f"Observation time {time} not found in work unit."
-
     @staticmethod
     def _distinct_psf_kernels():
         """Three deliberately distinct, normalized 3x3 PSF kernels.
@@ -203,27 +189,59 @@ class test_reprojection(unittest.TestCase):
         return kernels
 
     def test_reproject_selects_psf_of_matching_time(self):
-        """Each reprojected image must carry the PSF of *its own* obstime.
+        """Each reprojected image must carry the PSF derived from *its own* obstime.
 
         Regression test for the leaked-loop-variable defect in the parallel
-        reprojection path, where the PSF was looked up with the final value of the
-        submission loop's `obstime` rather than the time of the result being
-        processed. That gave every output image the last obstime's PSF.
+        reprojection path, where the PSF was looked up with the final value of
+        the submission loop's `obstime` rather than the time of the result being
+        processed, giving every output image the last obstime's PSF.
 
-        Images that share an obstime are deliberately given the *same* kernel so
-        that this test isolates the wrong-time defect from the separate question of
+        Since Phase 2 the stored kernel is the *effective* PSF -- the native
+        model resampled through the same operator as the science image -- so the
+        expectation is computed per time rather than compared against the native
+        kernel. The test still discriminates: it first asserts the resampled
+        kernels remain mutually distinguishable, so matching the right one is a
+        real constraint.
+
+        Images that share an obstime are deliberately given the same kernel so
+        that this isolates the wrong-time defect from the separate question of
         which of several same-time constituent PSFs should be chosen.
         """
         unique_times, unique_indices = self.test_wunit.get_unique_obstimes_and_indices()
         kernels = self._distinct_psf_kernels()
         self.assertEqual(len(unique_times), len(kernels))
 
-        # Assign one distinct PSF kernel per unique time; images sharing a time share a kernel.
-        expected_by_time = {}
-        for kernel, time, indices in zip(kernels, unique_times, unique_indices):
+        wcs_list = self.test_wunit.get_constituent_meta("per_image_wcs")
+
+        # Assign one distinct kernel per unique time; images sharing a time share a kernel.
+        for kernel, indices in zip(kernels, unique_indices):
             for i in indices:
                 self.test_wunit.im_stack.psfs[i] = kernel.copy()
-            expected_by_time[float(time)] = kernel
+
+        # The expected effective PSF for each time, generated the same way the
+        # reprojection does, from that time's first usable constituent.
+        expected_by_time = {}
+        for kernel, time, indices in zip(kernels, unique_times, unique_indices):
+            effective, _, _ = _effective_psfs_for_indices(
+                [self.test_wunit.im_stack.psfs[i] for i in indices],
+                [wcs_list[i] for i in indices],
+                self.common_wcs,
+                LEGACY_CONFIG,
+                time,
+                list(indices),
+            )
+            expected_by_time[float(time)] = effective[0].kernel
+
+        # Guard the guard: resampling must not have collapsed the kernels into
+        # lookalikes, or picking the wrong one would go undetected.
+        resampled = list(expected_by_time.values())
+        for a in range(len(resampled)):
+            for b in range(a + 1, len(resampled)):
+                self.assertLess(
+                    _normalized_cross_correlation(resampled[a], resampled[b]),
+                    0.99,
+                    "resampled kernels are too similar for this test to discriminate",
+                )
 
         for parallelize in [False, True]:
             with self.subTest(parallelize=parallelize):
@@ -236,16 +254,53 @@ class test_reprojection(unittest.TestCase):
 
                 self.assertEqual(len(reprojected.im_stack), len(unique_times))
                 for i, time in enumerate(reprojected.im_stack.times):
-                    expected_kernel = expected_by_time[float(time)]
+                    expected = expected_by_time[float(time)]
                     actual_kernel = reprojected.im_stack.psfs[i]
+                    self.assertEqual(
+                        actual_kernel.shape,
+                        expected.shape,
+                        f"image {i} at obstime {time} has the wrong kernel shape "
+                        f"(parallelize={parallelize})",
+                    )
                     np.testing.assert_allclose(
                         actual_kernel,
-                        expected_kernel,
+                        expected,
+                        rtol=1e-5,
+                        atol=1e-7,
                         err_msg=(
                             f"image {i} at obstime {time} carries the wrong PSF "
                             f"(parallelize={parallelize})"
                         ),
                     )
+
+    def test_reprojection_provenance_is_recorded_and_round_trips(self):
+        """A stored effective kernel must be traceable to the operator that made it.
+
+        Provenance is what keeps a legacy native kernel from later being
+        mistaken for an effective common-frame PSF. Its absence on an old file
+        is meaningful, so that case is asserted too.
+        """
+        # A legacy file carries no provenance, and must not claim any.
+        self.assertEqual(self.test_wunit.reprojection_provenance, {})
+
+        reprojected = reproject_work_unit(
+            self.test_wunit,
+            self.common_wcs,
+            parallelize=False,
+            show_progress=False,
+            reprojection_config=LEGACY_CONFIG,
+        )
+        provenance = reprojected.reprojection_provenance
+        self.assertEqual(provenance["psf_source"], "effective")
+        self.assertEqual(provenance["preset"], "legacy")
+        self.assertEqual(provenance["config_hash"], LEGACY_CONFIG.hexdigest)
+        self.assertEqual(provenance["reproject_version"], LEGACY_CONFIG.provenance["reproject_version"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "provenance.fits")
+            reprojected.to_fits(path)
+            reloaded = WorkUnit.from_fits(path, show_progress=False)
+        self.assertEqual(reloaded.reprojection_provenance, provenance)
 
     def test_validate_original_wcs(self):
         """Make sure that the original WCS is validated correctly."""

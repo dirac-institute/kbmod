@@ -219,6 +219,70 @@ For kernels read from existing files:
    provenance and must never be labeled as effective common-frame PSFs.
 
 
+Generating the effective PSF
+-----------------------------
+
+The searched PSF is the native model *after* the same resampling the science
+image went through. It is produced by pasting the native stamp into a frame at
+its bounding-box coordinates and pushing it through the identical configured
+operator -- not by fitting a wider Gaussian or adding widths in quadrature,
+either of which lands close enough to look right and wrong enough to bias
+photometry.
+
+Verification is by direct comparison: for an isolated injected source, the
+generated kernel and the reprojected source agree to machine precision across
+transforms, profiles, and subpixel phases. That agreement is only meaningful
+because the comparison can fail -- generating the PSF with a different operator,
+or placing the stamp three pixels off, both show up immediately.
+
+**The evaluation position is chosen from the footprint overlap.** The obvious
+choice, the native frame center, is wrong for tiled mosaics: a tile's center can
+map outside the common frame entirely. The position must lie inside both
+footprints and far enough from the native edge for the resampler's sample
+region.
+
+**Padding is measured, not guessed.** The generated kernel is bit-identical for
+any padding between 2 and 30 pixels on the default configuration, because the
+stamp is already near zero at its own edge. Over-padding is not free: it shrinks
+the region where a PSF can be evaluated at all, which matters for tiles that
+only clip the common frame. Insufficient padding fails loudly, because the
+support crop refuses to include NaN.
+
+**Support is grown until it converges, then capped.** Convergence alone is not a
+sufficient stopping rule -- a noiseless Moffat's wings keep contributing past any
+support affordable to convolve with, formally demanding a radius past 40. The
+cap (`DEFAULT_MAX_SUPPORT`) trades a *reported* truncation for a usable kernel:
+``lost_fraction`` records what was dropped, and normalization happens only after
+that is measured.
+
+.. warning::
+   ``lost_fraction`` measures flux outside the **support**, not flux the caller
+   already truncated when rendering the **native stamp**. A stamp that clips a
+   Moffat's wings yields a quietly wrong effective PSF with ``lost_fraction``
+   near zero. Supplying an adequate native stamp is the caller's responsibility;
+   for a Moffat, a half-width of roughly 7x the FWHM was needed to stay inside
+   the residual gates.
+
+**One kernel per time is enforced, not assumed.** KBMOD stores a single PSF per
+observation time. When several detector images share a time, their resampled
+PSFs are compared by normalized cross-correlation and must exceed
+``PSF_UNIFORMITY_NCC``; otherwise the reprojection raises rather than applying
+one detector's PSF to another's pixels. Tiled multi-PSF search is deliberately
+out of scope, so this is a real, user-visible refusal.
+
+A constituent that only clips the common frame may have no usable evaluation
+position at all. Such an image is excluded from the PSF for its time with a
+logged warning naming it, rather than aborting the reprojection -- but note that
+its pixels are still reprojected, so that sliver of the mosaic is searched with
+another constituent's PSF.
+
+**Provenance travels with the kernel.** A reprojected WorkUnit records the
+preset, config hash, ``reproject`` version, and ``psf_source="effective"`` in
+its primary header. Older files carry no such record, and that absence is
+meaningful: their kernels are native or legacy Gaussians of unknown origin and
+must never be presented as effective common-frame PSFs.
+
+
 Separating pixel scale from interpolation
 -----------------------------------------
 
