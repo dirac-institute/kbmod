@@ -192,6 +192,97 @@ class test_effective_psf_matches_science_path(unittest.TestCase):
         moved = np.hypot(correct.centroid_x - shifted.centroid_x, correct.centroid_y - shifted.centroid_y)
         self.assertGreater(moved, 1.0)
 
+    def test_position_dependence_is_measured_not_explained(self):
+        """Effective PSFs differ measurably with native position, cause unresolved.
+
+        Recorded because it bears on how densely a spatially varying PSF must be
+        sampled. What is measured: generating the effective PSF at native
+        positions 60, 120 and 180 in an identity reprojection gives normalized
+        peaks spanning about 0.9%, identically on the full-frame and cutout
+        paths, so it is not a slicing artifact.
+
+        What is *not* established is the mechanism. An earlier note attributed
+        it to the resampler interpolating the Jacobian across the output; that
+        explanation did not survive testing. With distance-from-boundary held
+        equal the raw resampler shows no peak variation at all (0.0000%), and
+        ``center_jacobian=True`` increases the spread rather than removing it.
+        The originally quoted figure came from two positions at different
+        distances from the frame edge, which is a confound, not a result.
+
+        Contributors identified so far are a varying enclosed sum and a
+        systematic sub-pixel centroid drift of order 0.002 px per 60 px. This
+        test pins the observation so a future change to it is noticed; it
+        deliberately asserts no cause.
+        """
+        identity = self.original_wcs
+        half = 5
+        stamp = render_source((2 * half + 1, 2 * half + 1), half, half, gaussian_source(2.0))
+
+        peaks, full_peaks = [], []
+        for origin in (60, 120, 180):
+            cutout = make_effective_psf(
+                stamp,
+                (origin, origin),
+                self.original_wcs,
+                identity,
+                config=LEGACY_CONFIG,
+                method="cutout",
+            )
+            full = make_effective_psf(
+                stamp,
+                (origin, origin),
+                self.original_wcs,
+                identity,
+                config=LEGACY_CONFIG,
+                method="full",
+            )
+            # Whatever the cause, it is not the cutout.
+            np.testing.assert_allclose(cutout.kernel, full.kernel, rtol=1e-5, atol=1e-7)
+            peaks.append(float(cutout.kernel.max()))
+            full_peaks.append(float(full.kernel.max()))
+
+        spread = (max(peaks) - min(peaks)) / np.mean(peaks)
+        self.assertGreater(spread, 1e-3, "position dependence vanished; re-examine the note above")
+        self.assertLess(spread, 0.05, "position dependence grew materially; investigate")
+        np.testing.assert_allclose(peaks, full_peaks, rtol=1e-5)
+
+    def test_convergence_tracks_the_covariance_cross_term(self):
+        """Support convergence must watch the xy term, not just the diagonal.
+
+        For a rotated asymmetric PSF the cross-term controls position angle and
+        can still be moving after the two diagonal terms look settled, so a
+        diagonal-only test can stop while the shape is still changing.
+        """
+        common_wcs = _wcs(scale=0.85, rot=25.0)
+        half = 40
+        profile = elliptical_gaussian_source(7.0, 3.0, 40.0)
+        stamp = render_source((2 * half + 1, 2 * half + 1), half, half, profile)
+
+        effective = make_effective_psf(
+            stamp,
+            (CENTER - half, CENTER - half),
+            self.original_wcs,
+            common_wcs,
+            config=CONSERVE_FLUX_CONFIG,
+        )
+
+        # The converged kernel must carry a genuine cross-term ...
+        self.assertGreater(abs(effective.covariance[0, 1]), 0.0)
+        # ... and its position angle must be stable against a wider support.
+        wider = make_effective_psf(
+            stamp,
+            (CENTER - half, CENTER - half),
+            self.original_wcs,
+            common_wcs,
+            config=CONSERVE_FLUX_CONFIG,
+            max_support=effective.support_radius + 4,
+        )
+        from kbmod.psf_reprojection import summarize_shape
+
+        angle = summarize_shape(effective.covariance).position_angle
+        wider_angle = summarize_shape(wider.covariance).position_angle
+        self.assertLess(abs(angle - wider_angle), 0.5)
+
     def test_full_and_cutout_agree(self):
         """The optimized path must match the full-frame reference."""
         common_wcs = _wcs(scale=0.85, rot=25.0)
@@ -271,13 +362,56 @@ class test_effective_psf_errors(unittest.TestCase):
         self.original_wcs = _wcs()
         self.common_wcs = _wcs(scale=0.85, rot=25.0)
 
-    def test_stamp_too_close_to_the_edge(self):
-        """A stamp needing padding beyond the frame must raise, not be clipped."""
+    def test_stamp_clipped_by_the_detector_raises(self):
+        """A stamp that does not fit inside the detector must raise.
+
+        The stamp and the resampler's padding are governed by different rules.
+        A clipped *stamp* describes a PSF whose wings were genuinely cut off by
+        the detector edge, and normalizing that would hide the loss. The
+        *padding* is synthetic -- zeros around the stamp -- so it may extend past
+        the detector, which is what lets a mosaic tile that only clips the
+        common frame still have its own PSF measured.
+        """
         half = 20
         stamp = render_source((2 * half + 1, 2 * half + 1), half, half, gaussian_source(3.0))
+
+        # Straddling the frame edge: the stamp itself is clipped.
         with self.assertRaises(EffectivePsfError) as context:
-            make_effective_psf(stamp, (0, 0), self.original_wcs, self.common_wcs, config=LEGACY_CONFIG)
-        self.assertIn("edge", str(context.exception))
+            make_effective_psf(
+                stamp, (-5, CENTER - half), self.original_wcs, self.common_wcs, config=LEGACY_CONFIG
+            )
+        self.assertIn("does not fit", str(context.exception))
+
+    def test_padding_may_extend_past_the_detector(self):
+        """A stamp that fits, but whose padding does not, still works.
+
+        This is the case that decides whether a barely-overlapping mosaic tile
+        keeps its pixels. The result must match one computed well inside the
+        frame, since the padding region is zero either way.
+        """
+        half = 5
+        stamp = render_source((2 * half + 1, 2 * half + 1), half, half, gaussian_source(2.0))
+
+        identity = self.original_wcs
+        origin = (half + 1, half + 1)  # padding reaches to -3, outside the frame
+
+        cutout = make_effective_psf(
+            stamp, origin, self.original_wcs, identity, config=LEGACY_CONFIG, method="cutout"
+        )
+        reference = make_effective_psf(
+            stamp, origin, self.original_wcs, identity, config=LEGACY_CONFIG, method="full"
+        )
+
+        self.assertAlmostEqual(float(cutout.kernel.sum()), 1.0, places=6)
+        self.assertTrue(np.all(np.isfinite(cutout.kernel)))
+
+        # The full-frame path never slices, so agreeing with it is what shows
+        # the out-of-bounds slice was handled correctly. Compare at the *same*
+        # position: effective PSFs generated at different native positions do
+        # differ measurably (see test_position_dependence_is_measured), so a
+        # cross-position comparison would conflate that with a slicing defect.
+        self.assertEqual(cutout.kernel.shape, reference.kernel.shape)
+        np.testing.assert_allclose(cutout.kernel, reference.kernel, rtol=1e-5, atol=1e-7)
 
     def test_position_outside_the_common_frame(self):
         """A stamp mapping outside the output frame raises."""

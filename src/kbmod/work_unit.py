@@ -35,12 +35,20 @@ _DEFAULT_WORKUNIT_TQDM_BAR = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
 logger = Logging.getLogger(__name__)
 
 
+#: Marker recorded for kernels loaded from a file that predates provenance.
+#: Absence of a record is not self-describing, so it is replaced by an explicit
+#: label: those kernels are native or legacy Gaussians of unknown origin and
+#: must never be presented as effective common-frame PSFs.
+LEGACY_PSF_SOURCE = "legacy/unknown"
+
+
 def _read_reprojection_provenance(header):
     """Recover reprojection provenance from a primary header.
 
-    Returns an empty dict for files written before provenance was recorded.
-    That absence is meaningful: those kernels are native or legacy Gaussians of
-    unknown origin, and must never be labeled as effective common-frame PSFs.
+    Files written before provenance was recorded are labeled
+    `LEGACY_PSF_SOURCE` rather than returning an empty record. A WorkUnit built
+    in memory keeps an empty record until something sets it; only a *loaded*
+    file whose header lacks the keys is legacy.
     """
     keys = {
         "PSFSRC": "psf_source",
@@ -48,7 +56,11 @@ def _read_reprojection_provenance(header):
         "REPCFGH": "config_hash",
         "REPVER": "reproject_version",
     }
-    return {name: header[key] for key, name in keys.items() if key in header}
+    found = {name: header[key] for key, name in keys.items() if key in header}
+    if not found:
+        return {"psf_source": LEGACY_PSF_SOURCE}
+    found.setdefault("psf_source", LEGACY_PSF_SOURCE)
+    return found
 
 
 class WorkUnit:

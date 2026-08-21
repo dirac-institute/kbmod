@@ -127,16 +127,42 @@ def _choose_native_eval_position(original_wcs, common_wcs, margin):
     if not np.any(np.isfinite(px)) or not np.any(np.isfinite(py)):
         return None
 
-    low_x = max(margin, float(np.nanmin(px)))
-    high_x = min(native_width - 1.0 - margin, float(np.nanmax(px)))
-    low_y = max(margin, float(np.nanmin(py)))
-    high_y = min(native_height - 1.0 - margin, float(np.nanmax(py)))
-    if high_x < low_x or high_y < low_y:
+    # The region of this image that the common frame actually covers.
+    overlap_x = (float(np.nanmin(px)), float(np.nanmax(px)))
+    overlap_y = (float(np.nanmin(py)), float(np.nanmax(py)))
+
+    # Positions where a stamp plus the resampler's sample region still fit.
+    usable_x = (margin, native_width - 1.0 - margin)
+    usable_y = (margin, native_height - 1.0 - margin)
+    if usable_x[1] < usable_x[0] or usable_y[1] < usable_y[0]:
+        # The frame is too small to host a stamp anywhere.
         return None
 
-    candidate = (0.5 * (low_x + high_x), 0.5 * (low_y + high_y))
+    # Prefer the middle of the overlap, but the evaluation point does not have
+    # to lie *inside* the overlap. The PSF is a slowly varying shape, and a tile
+    # that only clips the common frame would otherwise have no measurable PSF at
+    # all -- forcing a choice between discarding its real pixels and searching
+    # them with a neighbour's kernel. Clamping to the nearest usable position
+    # keeps the data and still measures this image's own PSF.
+    target = (
+        (
+            0.5 * (max(overlap_x[0], usable_x[0]) + min(overlap_x[1], usable_x[1]))
+            if min(overlap_x[1], usable_x[1]) >= max(overlap_x[0], usable_x[0])
+            else 0.5 * (overlap_x[0] + overlap_x[1])
+        ),
+        (
+            0.5 * (max(overlap_y[0], usable_y[0]) + min(overlap_y[1], usable_y[1]))
+            if min(overlap_y[1], usable_y[1]) >= max(overlap_y[0], usable_y[0])
+            else 0.5 * (overlap_y[0] + overlap_y[1])
+        ),
+    )
+    candidate = (
+        float(np.clip(target[0], usable_x[0], usable_x[1])),
+        float(np.clip(target[1], usable_y[0], usable_y[1])),
+    )
 
-    # The candidate must also land inside the common frame.
+    # The chosen point must still reproject into the common frame, or the
+    # resampled stamp would be empty.
     candidate_sky = original_wcs.pixel_to_world_values(*candidate)
     out_x, out_y = common_wcs.world_to_pixel_values(*candidate_sky)
     if not (0 <= float(out_x) < common_width and 0 <= float(out_y) < common_height):
@@ -163,9 +189,9 @@ def _effective_psf_for_image(psf_kernel, original_wcs, common_wcs, config, nativ
     radius = kernel.shape[0] // 2
 
     if native_xy is None:
-        from kbmod.psf_reprojection import _required_padding
-
-        margin = radius + _required_padding(config, 1.0)
+        # Only the stamp must fit inside the detector; the resampler's padding
+        # is synthetic and may extend past it (see make_effective_psf).
+        margin = radius
         native_xy = _choose_native_eval_position(original_wcs, common_wcs, margin)
         if native_xy is None:
             # Fall back to the native center so the failure surfaces from
@@ -193,6 +219,21 @@ def _normalized_cross_correlation(first, second):
     a, b = centered(first), centered(second)
     denominator = np.sqrt((a * a).sum() * (b * b).sum())
     return float((a * b).sum() / denominator) if denominator > 0 else 0.0
+
+
+def _validate_no_overlap(planes, wcs_list, common_wcs, config):
+    """Raise if constituents sharing a time land on overlapping output pixels.
+
+    Checked before PSF resolution so that invalid input geometry is reported
+    ahead of any PSF disagreement, and so that dropping a constituent for
+    lacking a measurable PSF cannot mask an overlap defect in the data.
+    """
+    footprint_total = np.zeros(common_wcs.array_shape, dtype=np.ubyte)
+    for plane, wcs in zip(planes, wcs_list):
+        _, footprint = reproject_image(plane, wcs, common_wcs, config=config)
+        footprint_total += footprint
+        if np.any(footprint_total > 1):
+            raise ValueError("Images with the same obstime are overlapping.")
 
 
 def _effective_psfs_for_indices(psf_kernels, wcs_list, common_wcs, config, obstime, indices):
@@ -231,8 +272,8 @@ def _effective_psfs_for_indices(psf_kernels, wcs_list, common_wcs, config, obsti
     if skipped:
         logger.warning(
             "Obstime %s: %d of %d constituent image(s) could not produce an effective PSF and were "
-            "excluded from the PSF for this time (%s). Their pixels are still reprojected, so that "
-            "part of the mosaic is searched with another constituent's PSF.",
+            "dropped entirely -- pixels as well as kernel (%s). That region of the mosaic has no "
+            "data rather than data searched with a PSF that was never measured.",
             obstime,
             len(skipped),
             len(psf_kernels),
@@ -431,7 +472,29 @@ def _reproject_work_unit(
         mask_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
         footprint_add = np.zeros(common_wcs.array_shape, dtype=np.ubyte)
 
-        for index in indices:
+        # Resolve the PSFs before any pixels are accumulated. A constituent
+        # whose effective PSF cannot be measured is dropped entirely -- pixels
+        # as well as kernel -- rather than leaving a region searched with a
+        # neighbour's PSF. The overlap check below still sees every
+        # constituent, so invalid input geometry is reported before PSF
+        # disagreement, which is the more specific of the two complaints.
+        _validate_no_overlap(
+            [work_unit.im_stack.get_mask(i) for i in indices],
+            [wcs_list[i] for i in indices],
+            common_wcs,
+            reprojection_config,
+        )
+        effective, kept, _ = _effective_psfs_for_indices(
+            [work_unit.im_stack.psfs[i] for i in indices],
+            [wcs_list[i] for i in indices],
+            common_wcs,
+            reprojection_config,
+            time,
+            list(indices),
+        )
+        psf = _combine_constituent_psfs(effective, time, kept).kernel
+
+        for index in kept:
             science = work_unit.im_stack.sci[index]
             variance = work_unit.im_stack.var[index]
             mask = work_unit.im_stack.get_mask(index)
@@ -440,7 +503,9 @@ def _reproject_work_unit(
             if original_wcs is None:
                 raise ValueError(f"No WCS provided for index {index}")
 
-            reprojected_science, footprint = reproject_image(science, original_wcs, common_wcs)
+            reprojected_science, footprint = reproject_image(
+                science, original_wcs, common_wcs, config=reprojection_config
+            )
 
             footprint_add += footprint
             # we'll enforce that there be no overlapping images at the same time,
@@ -448,9 +513,11 @@ def _reproject_work_unit(
             if np.any(footprint_add > 1):
                 raise ValueError("Images with the same obstime are overlapping.")
 
-            reprojected_variance, _ = reproject_image(variance, original_wcs, common_wcs)
+            reprojected_variance, _ = reproject_image(
+                variance, original_wcs, common_wcs, config=reprojection_config
+            )
 
-            reprojected_mask, _ = reproject_image(mask, original_wcs, common_wcs)
+            reprojected_mask, _ = reproject_image(mask, original_wcs, common_wcs, config=reprojection_config)
 
             # change all the NaNs to zeroes so that the matrix addition works properly.
             # `footprint_add` will maintain the information about what areas of the frame
@@ -472,19 +539,6 @@ def _reproject_work_unit(
         # transforms the mask back into a bitmask. Note that we need to be explicit
         # about the dtypes for 0.0 and 1.0, otherwise mask_add will be cast to float64.
         mask_add = np.where(np.isclose(mask_add, 0.0, atol=0.2), np.float32(0.0), np.float32(1.0))
-
-        # Resample each constituent's PSF through the same operator as the
-        # science image, then require them to be interchangeable before
-        # collapsing to the single kernel KBMOD stores per time.
-        effective, kept, _ = _effective_psfs_for_indices(
-            [work_unit.im_stack.psfs[i] for i in indices],
-            [wcs_list[i] for i in indices],
-            common_wcs,
-            reprojection_config,
-            time,
-            list(indices),
-        )
-        psf = _combine_constituent_psfs(effective, time, kept).kernel
 
         if write_output:
             _write_images_to_shard(
@@ -630,6 +684,7 @@ def _reproject_work_unit_in_parallel(
                         original_wcs=original_wcs,
                         directory=directory,
                         filename=filename,
+                        reprojection_config=reprojection_config,
                     )
                 )
             else:
@@ -803,7 +858,10 @@ def reproject_lazy_work_unit(
     new_work_unit._per_image_indices = unique_obstimes_indices
     new_work_unit.wcs = common_wcs
     new_work_unit.reprojected = True
-    new_work_unit.reprojecton = frame
+    # Was `reprojecton` (misspelled), which created a stray attribute and left
+    # reprojection_frame unset on every lazily reprojected WorkUnit.
+    new_work_unit.reprojection_frame = frame
+    new_work_unit.reprojection_provenance = _reprojection_provenance(reprojection_config)
 
     hdul = new_work_unit.metadata_to_hdul()
     hdul.writeto(os.path.join(directory, filename))
@@ -914,6 +972,7 @@ def _load_images_and_reproject(
         variance_images=variance_images,
         mask_images=mask_images,
         psf=psf,
+        reprojection_config=reprojection_config,
         obstime=obstime,
         obstime_index=obstime_index,
         common_wcs=common_wcs,
@@ -936,6 +995,7 @@ def _reproject_and_write(
     original_wcs,
     directory,
     filename,
+    reprojection_config=LEGACY_CONFIG,
 ):
     """Reproject a set of images and write out the output to a sharded `WorkUnit.
 
@@ -973,6 +1033,7 @@ def _reproject_and_write(
         obstime,
         common_wcs,
         original_wcs,
+        reprojection_config=reprojection_config,
     )
 
     _write_images_to_shard(
@@ -1000,7 +1061,7 @@ def _reproject_images(
     original_wcs,
     psfs=None,
     indices=None,
-    reprojection_config=None,
+    reprojection_config=LEGACY_CONFIG,
 ):
     """This is the worker function that will be parallelized across multiple processes.
     Given a set of science, variance, and mask images, use astropy's reproject
@@ -1040,6 +1101,25 @@ def _reproject_images(
     ValueError
         If any images overlap, raise an error.
     """
+    effective_psf = None
+    if psfs is not None:
+        # Resolve PSFs before accumulating pixels so a constituent without a
+        # measurable one can be dropped along with its pixels. Overlap is
+        # validated across every constituent first, so invalid input geometry
+        # is still reported ahead of PSF disagreement.
+        _validate_no_overlap(mask_images, original_wcs, common_wcs, reprojection_config)
+        label = list(indices) if indices is not None else list(range(len(psfs)))
+        effective, kept, _ = _effective_psfs_for_indices(
+            psfs, original_wcs, common_wcs, reprojection_config, obstime, label
+        )
+        effective_psf = _combine_constituent_psfs(effective, obstime, kept).kernel
+
+        keep = [label.index(i) for i in kept]
+        science_images = [science_images[i] for i in keep]
+        variance_images = [variance_images[i] for i in keep]
+        mask_images = [mask_images[i] for i in keep]
+        original_wcs = [original_wcs[i] for i in keep]
+
     science_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
     variance_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
     mask_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
@@ -1050,7 +1130,7 @@ def _reproject_images(
     ):
         # reproject science, variance, and mask images simulataneously.
         reprojected_images, footprints = reproject_image(
-            [science, variance, mask], this_original_wcs, common_wcs
+            [science, variance, mask], this_original_wcs, common_wcs, config=reprojection_config
         )
 
         footprint_add += footprints
@@ -1076,17 +1156,6 @@ def _reproject_images(
 
     # transforms the mask back into a bitmask.
     mask_add = np.where(np.isclose(mask_add, 0.0, atol=0.2), np.float32(0.0), np.float32(1.0))
-
-    effective_psf = None
-    if psfs is not None:
-        # Resample each constituent PSF through the operator just applied to
-        # the science planes, then require the constituents to agree before
-        # collapsing to the one kernel KBMOD stores per time.
-        label = list(indices) if indices is not None else list(range(len(psfs)))
-        effective, kept, _ = _effective_psfs_for_indices(
-            psfs, original_wcs, common_wcs, reprojection_config, obstime, label
-        )
-        effective_psf = _combine_constituent_psfs(effective, obstime, kept).kernel
 
     return science_add, variance_add, mask_add, obstime, effective_psf
 

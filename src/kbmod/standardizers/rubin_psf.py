@@ -73,6 +73,11 @@ class NativePsfStamp:
     provenance : `str`
         Which Rubin entry point produced this, ``"computeKernelImage"`` or
         ``"computeImage"``.
+    origin_source : `str`
+        How the origin was obtained: ``"bbox"``, ``"xy0"``, or ``"guessed"``.
+        A guessed origin is not authoritative placement, and image mode refuses
+        it outright, because exact placement is a prerequisite for reprojecting
+        the stamp.
     clipped_negative_sum : `float`
         Total magnitude of negative pixels clipped as interpolation noise. Non
         zero values are worth reporting; large ones raise instead.
@@ -89,6 +94,7 @@ class NativePsfStamp:
     centroid_y: float
     native_sum: float
     provenance: str
+    origin_source: str = "bbox"
     clipped_negative_sum: float = 0.0
     diagnostics: dict = field(default_factory=dict)
 
@@ -122,12 +128,19 @@ def _point2d(x, y):
 
 
 def _stamp_origin(image, x, y, width, height):
-    """Return the stamp's ``xy0`` origin, falling back to a centered guess."""
+    """Return the stamp's origin and how it was determined.
+
+    Returns
+    -------
+    `tuple`
+        ``(origin_x, origin_y, origin_source)`` where ``origin_source`` is
+        ``"bbox"``, ``"xy0"``, or ``"guessed"``.
+    """
     getter = getattr(image, "getBBox", None)
     if getter is not None:
         try:
             bbox = getter()
-            return int(bbox.getMinX()), int(bbox.getMinY())
+            return int(bbox.getMinX()), int(bbox.getMinY()), "bbox"
         except Exception:
             pass
 
@@ -135,13 +148,13 @@ def _stamp_origin(image, x, y, width, height):
     if getter is not None:
         try:
             xy0 = getter()
-            return int(xy0.getX()), int(xy0.getY())
+            return int(xy0.getX()), int(xy0.getY()), "xy0"
         except Exception:
             pass
 
     # No placement information available. Assume the stamp is centered on the
-    # evaluation pixel, and say so rather than pretending it is authoritative.
-    return int(np.floor(x)) - width // 2, int(np.floor(y)) - height // 2
+    # evaluation pixel, and label it so callers can refuse it.
+    return int(np.floor(x)) - width // 2, int(np.floor(y)) - height // 2, "guessed"
 
 
 def _measure_centroid(array):
@@ -271,7 +284,17 @@ def render_rubin_psf(source, x, y, mode="kernel", diagnostics=False):
         raise RubinPsfError(f"Rubin PSF stamp sums to {native_sum}; cannot normalize.")
 
     centroid_x, centroid_y = _measure_centroid(array)
-    origin_x, origin_y = _stamp_origin(rubin_image, x, y, width, height)
+    origin_x, origin_y, origin_source = _stamp_origin(rubin_image, x, y, width, height)
+
+    if mode == "image" and origin_source == "guessed":
+        # Image mode exists to preserve exact placement. A guessed origin
+        # silently relocates the stamp, and reprojecting from it would produce a
+        # confidently misplaced effective PSF.
+        raise RubinPsfError(
+            f"{method_name} returned an image with no usable bounding box or xy0, so the stamp's "
+            "placement is unknown. Exact placement is required in image mode; use kernel mode if a "
+            "centered kernel is what you need."
+        )
 
     normalized = (array / native_sum).astype(np.float32)
 
@@ -285,6 +308,7 @@ def render_rubin_psf(source, x, y, mode="kernel", diagnostics=False):
         centroid_y=centroid_y,
         native_sum=native_sum,
         provenance=method_name,
+        origin_source=origin_source,
         clipped_negative_sum=clipped_negative_sum,
     )
 

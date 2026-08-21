@@ -145,6 +145,42 @@ class test_render_rubin_psf(unittest.TestCase):
         # propagating, so the caller can fall back deliberately.
         self.assertIsNone(average_position(BrokenRubinPsf()))
 
+    def test_guessed_origin_is_labeled_and_refused_in_image_mode(self):
+        """Placement must be known, not assumed, when the stamp will be reprojected.
+
+        Kernel mode only needs a centered array, so a guessed origin is
+        tolerated and labeled. Image mode exists to preserve exact placement, so
+        a guess is refused: reprojecting from it would yield a confidently
+        misplaced effective PSF.
+        """
+
+        class NoPlacementImage:
+            def __init__(self, array):
+                self.array = array
+
+        class NoPlacementPsf:
+            def __init__(self, array):
+                self._array = array
+
+            def computeKernelImage(self, position):
+                return NoPlacementImage(self._array)
+
+            computeImage = computeKernelImage
+
+        array = np.ones((5, 5))
+        model = NoPlacementPsf(array)
+
+        kernel_stamp = render = render_rubin_psf(model, 10.0, 20.0, mode="kernel")
+        self.assertEqual(kernel_stamp.origin_source, "guessed")
+
+        with self.assertRaises(RubinPsfError) as context:
+            render_rubin_psf(model, 10.0, 20.0, mode="image")
+        self.assertIn("placement", str(context.exception))
+
+    def test_origin_source_is_bbox_for_a_normal_model(self):
+        stamp = render_rubin_psf(self.exposure, 1024.0, 2048.0, mode="image")
+        self.assertEqual(stamp.origin_source, "bbox")
+
     def test_invalid_mode(self):
         with self.assertRaises(ValueError):
             render_rubin_psf(self.exposure, 0.0, 0.0, mode="sideways")

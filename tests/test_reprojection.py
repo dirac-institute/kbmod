@@ -1,19 +1,21 @@
 import os
 import unittest
 import numpy as np
+import numpy.testing as npt
 from utils.utils_for_tests import get_absolute_data_path
 import tempfile
 
 from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.reprojection import (
     reproject_work_unit,
+    reproject_lazy_work_unit,
     _effective_psfs_for_indices,
     _normalized_cross_correlation,
     _validate_original_wcs,
 )
 from kbmod.reprojection_config import LEGACY_CONFIG
 from kbmod.search import pixel_value_valid
-from kbmod.work_unit import WorkUnit
+from kbmod.work_unit import WorkUnit, LEGACY_PSF_SOURCE
 
 
 class test_reprojection(unittest.TestCase):
@@ -280,8 +282,8 @@ class test_reprojection(unittest.TestCase):
         mistaken for an effective common-frame PSF. Its absence on an old file
         is meaningful, so that case is asserted too.
         """
-        # A legacy file carries no provenance, and must not claim any.
-        self.assertEqual(self.test_wunit.reprojection_provenance, {})
+        # A legacy file is explicitly labeled, not left silently empty.
+        self.assertEqual(self.test_wunit.reprojection_provenance, {"psf_source": LEGACY_PSF_SOURCE})
 
         reprojected = reproject_work_unit(
             self.test_wunit,
@@ -301,6 +303,165 @@ class test_reprojection(unittest.TestCase):
             reprojected.to_fits(path)
             reloaded = WorkUnit.from_fits(path, show_progress=False)
         self.assertEqual(reloaded.reprojection_provenance, provenance)
+
+    def test_configuration_reaches_science_and_psf_alike(self):
+        """The supplied operator must be applied to the pixels, not just the PSF.
+
+        Negative control for the project's central invariant: science and
+        effective-PSF reprojection use identical options. A version that plumbed
+        the config into the PSF path only still produced a WorkUnit whose header
+        claimed a custom preset, while the science planes were resampled with
+        the legacy operator -- provenance that was confidently false.
+
+        The test fails if *either* side silently falls back, so it cannot be
+        satisfied by fixing one of them.
+        """
+        custom = LEGACY_CONFIG.evolve(kernel_width=2.8, sample_region_width=7.0)
+
+        def run(config):
+            work_unit = WorkUnit.from_fits(self.data_path, show_progress=False)
+            work_unit.org_img_meta["data_loc"] = self.data_locs
+            return reproject_work_unit(
+                work_unit,
+                self.common_wcs,
+                parallelize=False,
+                show_progress=False,
+                reprojection_config=config,
+            )
+
+        legacy_result = run(LEGACY_CONFIG)
+        custom_result = run(custom)
+
+        # The science planes must actually differ under a different operator.
+        science_differences = [
+            float(
+                np.nanmax(
+                    np.abs(
+                        np.nan_to_num(legacy_result.im_stack.sci[i])
+                        - np.nan_to_num(custom_result.im_stack.sci[i])
+                    )
+                )
+            )
+            for i in range(len(legacy_result.im_stack))
+        ]
+        self.assertGreater(
+            max(science_differences),
+            0.0,
+            "science planes are identical under different operators: the configuration "
+            "never reached reproject_image, so recorded provenance would be false",
+        )
+
+        # ... and so must the PSFs.
+        psf_differs = any(
+            legacy_result.im_stack.psfs[i].shape != custom_result.im_stack.psfs[i].shape
+            or not np.allclose(legacy_result.im_stack.psfs[i], custom_result.im_stack.psfs[i])
+            for i in range(len(legacy_result.im_stack))
+        )
+        self.assertTrue(psf_differs, "the configuration never reached the PSF path")
+
+        # The recorded provenance must describe the operator that was used.
+        self.assertEqual(custom_result.reprojection_provenance["config_hash"], custom.hexdigest)
+        self.assertEqual(legacy_result.reprojection_provenance["config_hash"], LEGACY_CONFIG.hexdigest)
+
+    def test_all_execution_paths_agree_under_a_non_default_config(self):
+        """Serial, parallel, write-read, and lazy must produce the same result.
+
+        Every WorkUnit test previously used the default configuration, so a
+        defect that dropped the config on the science path changed nothing and
+        stayed invisible. This test drives all four paths with a non-default
+        operator and compares science, PSF, times, and provenance.
+
+        Note what this does *not* prove: if the configuration were dropped on
+        every path alike, all four would still agree here. Establishing that the
+        operator is actually applied is the job of
+        `test_configuration_reaches_science_and_psf_alike`, which compares two
+        different configurations against each other. The two tests are
+        complementary and both are needed.
+        """
+        custom = LEGACY_CONFIG.evolve(kernel_width=2.4, sample_region_width=6.0)
+
+        def build():
+            work_unit = WorkUnit.from_fits(self.data_path, show_progress=False)
+            work_unit.org_img_meta["data_loc"] = self.data_locs
+            return work_unit
+
+        results = {}
+        results["serial"] = reproject_work_unit(
+            build(),
+            self.common_wcs,
+            parallelize=False,
+            show_progress=False,
+            reprojection_config=custom,
+        )
+        results["parallel"] = reproject_work_unit(
+            build(),
+            self.common_wcs,
+            parallelize=True,
+            show_progress=False,
+            reprojection_config=custom,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            reproject_work_unit(
+                build(),
+                self.common_wcs,
+                parallelize=False,
+                show_progress=False,
+                write_output=True,
+                directory=directory,
+                filename="written.fits",
+                reprojection_config=custom,
+            )
+            results["write_read"] = WorkUnit.from_sharded_fits("written.fits", directory)
+
+        with tempfile.TemporaryDirectory() as directory:
+            build().to_sharded_fits("lazy_in.fits", directory)
+            lazy = WorkUnit.from_sharded_fits("lazy_in.fits", directory, lazy=True)
+            reproject_lazy_work_unit(
+                lazy,
+                self.common_wcs,
+                directory,
+                "lazy_out.fits",
+                show_progress=False,
+                reprojection_config=custom,
+            )
+            results["lazy"] = WorkUnit.from_sharded_fits("lazy_out.fits", directory)
+
+        reference = results["serial"]
+        for name, result in results.items():
+            with self.subTest(path=name):
+                self.assertEqual(len(result.im_stack), len(reference.im_stack))
+                npt.assert_allclose(result.im_stack.times, reference.im_stack.times)
+
+                for i in range(len(reference.im_stack)):
+                    npt.assert_allclose(
+                        np.nan_to_num(result.im_stack.sci[i]),
+                        np.nan_to_num(reference.im_stack.sci[i]),
+                        rtol=1e-5,
+                        atol=1e-6,
+                        err_msg=f"science differs on the {name} path",
+                    )
+                    self.assertEqual(
+                        result.im_stack.psfs[i].shape,
+                        reference.im_stack.psfs[i].shape,
+                        f"PSF shape differs on the {name} path",
+                    )
+                    npt.assert_allclose(
+                        result.im_stack.psfs[i],
+                        reference.im_stack.psfs[i],
+                        rtol=1e-5,
+                        atol=1e-7,
+                        err_msg=f"PSF differs on the {name} path",
+                    )
+
+                # Provenance must describe the operator actually used, on every path.
+                self.assertEqual(
+                    result.reprojection_provenance.get("config_hash"),
+                    custom.hexdigest,
+                    f"provenance missing or wrong on the {name} path",
+                )
+                self.assertEqual(result.reprojection_provenance.get("psf_source"), "effective")
+                self.assertEqual(result.reprojection_frame, "original")
 
     def test_validate_original_wcs(self):
         """Make sure that the original WCS is validated correctly."""

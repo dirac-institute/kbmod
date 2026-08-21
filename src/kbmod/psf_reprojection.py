@@ -556,17 +556,36 @@ def make_effective_psf(
     else:
         # Native cutout around the stamp, padded so the resampler never reads
         # off the edge of what we hand it.
+        native_shape = original_wcs.array_shape
+
+        # The *stamp* must fit inside the real detector: a stamp clipped by the
+        # frame edge describes a PSF whose wings were genuinely cut off, and
+        # normalizing that would hide the loss.
+        if (
+            origin_x < 0
+            or origin_y < 0
+            or origin_x + width > native_shape[1]
+            or origin_y + height > native_shape[0]
+        ):
+            raise EffectivePsfError(
+                f"PSF stamp at origin ({origin_x}, {origin_y}) with shape {stamp.shape} does not fit "
+                f"inside the native frame {native_shape}. A stamp clipped by the detector edge must "
+                "not be silently normalized."
+            )
+
+        # The *padding* may extend past the detector. It exists so the resampler
+        # never reads off the edge of the canvas, and the canvas is synthetic --
+        # zeros with the stamp pasted in -- so those samples are zero whether or
+        # not real data exists there. Requiring the padding to fit inside the
+        # native frame would leave a mosaic tile that only clips the common
+        # frame with no measurable PSF at all, forcing a choice between
+        # discarding its real pixels and searching them with a neighbour's
+        # kernel. WCS.slice handles out-of-range starts by CRPIX arithmetic, and
+        # the full-frame reference path cross-checks the result.
         nx0 = origin_x - pad
         ny0 = origin_y - pad
         nx1 = origin_x + width + pad
         ny1 = origin_y + height + pad
-        native_shape = original_wcs.array_shape
-        if nx0 < 0 or ny0 < 0 or nx1 > native_shape[1] or ny1 > native_shape[0]:
-            raise EffectivePsfError(
-                f"PSF stamp at ({origin_x}, {origin_y}) needs {pad} px of padding for the resampler's "
-                f"sample region, which runs outside the native frame {native_shape}. The evaluation "
-                "point is too close to the edge to produce an unclipped effective PSF."
-            )
         canvas = np.zeros((ny1 - ny0, nx1 - nx0), dtype=np.float32)
         canvas[origin_y - ny0 : origin_y - ny0 + height, origin_x - nx0 : origin_x - nx0 + width] = stamp
         canvas_wcs = original_wcs.slice((slice(ny0, ny1), slice(nx0, nx1)))
@@ -631,13 +650,14 @@ def make_effective_psf(
         if total <= 0:
             continue
         patch_moments = measure_moments(patch)
-        current = (total, patch_moments.covariance[0, 0], patch_moments.covariance[1, 1])
+        # The full covariance, including the xy cross-term. Comparing only the
+        # diagonal would let a rotated asymmetric PSF appear converged while its
+        # position angle was still moving.
+        current = (total, patch_moments.covariance.copy())
         if previous is not None:
             flux_change = abs(current[0] - previous[0]) / max(current[0], 1e-30)
-            moment_change = max(
-                abs(current[1] - previous[1]) / max(current[1], 1e-30),
-                abs(current[2] - previous[2]) / max(current[2], 1e-30),
-            )
+            scale = max(np.abs(current[1]).max(), 1e-30)
+            moment_change = float(np.abs(current[1] - previous[1]).max() / scale)
             if flux_change < flux_tolerance and moment_change < moment_tolerance:
                 chosen = radius
                 break
