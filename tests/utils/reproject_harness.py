@@ -32,10 +32,15 @@ __all__ = [
     "TrialResult",
     "make_tan_wcs",
     "gaussian_source",
+    "coma_source",
+    "empirical_source",
     "moffat_source",
     "elliptical_gaussian_source",
     "render_source",
     "run_trial",
+    "matched_filter_sums",
+    "measure_matched_flux",
+    "measure_trajectory_flux",
 ]
 
 
@@ -114,6 +119,52 @@ def moffat_source(fwhm, beta=2.5):
 
     def profile(dx, dy):
         return (1.0 + (dx**2 + dy**2) / alpha**2) ** (-beta)
+
+    return profile
+
+
+def coma_source(fwhm, asymmetry=0.45):
+    """Return a coma-like asymmetric profile callable of ``(dx, dy)``.
+
+    A bright core plus a displaced, broader, fainter lobe, giving the profile a
+    genuine third moment. Unlike an ellipse this is not symmetric under a
+    180-degree rotation, so it detects sign and reflection errors that an
+    elliptical Gaussian cannot.
+    """
+    to_sigma = 1.0 / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+    core = fwhm * to_sigma
+    tail = 1.8 * core
+    offset = asymmetry * fwhm
+
+    def profile(dx, dy):
+        main = np.exp(-(dx**2 + dy**2) / (2.0 * core**2))
+        lobe = 0.35 * np.exp(-((dx - offset) ** 2 + (dy - 0.5 * offset) ** 2) / (2.0 * tail**2))
+        return main + lobe
+
+    return profile
+
+
+def empirical_source(array, pixel_scale=1.0):
+    """Return a profile callable interpolating a tabulated PSF array.
+
+    Stands in for a Rubin model supplied as pixels rather than an analytic form,
+    which is the realistic case. ``array`` must be odd-sized and square; its
+    center pixel is the profile origin.
+    """
+    from scipy.ndimage import map_coordinates
+
+    array = np.asarray(array, dtype=np.float64)
+    if array.ndim != 2 or array.shape[0] != array.shape[1]:
+        raise ValueError(f"Empirical PSF must be a 2D square array, got {array.shape}.")
+    if array.shape[0] % 2 == 0:
+        raise ValueError("Empirical PSF must have an odd width so its center is well defined.")
+    radius = array.shape[0] // 2
+
+    def profile(dx, dy):
+        rows = np.asarray(dy, dtype=np.float64) / pixel_scale + radius
+        cols = np.asarray(dx, dtype=np.float64) / pixel_scale + radius
+        values = map_coordinates(array, [rows.ravel(), cols.ravel()], order=1, mode="constant", cval=0.0)
+        return values.reshape(np.shape(dx))
 
     return profile
 
@@ -274,3 +325,70 @@ def run_trial(
 def encircled_energy(image, moments, fraction=0.5):
     """Convenience wrapper measuring encircled energy about measured moments."""
     return encircled_energy_radius(image, moments.centroid_x, moments.centroid_y, fraction)
+
+
+# ---------------------------------------------------------------------------
+# Matched-filter photometry
+#
+# These drive KBMOD's own `generate_psi_phi_images` and reproduce the flux and
+# likelihood definitions from `Results._update_likelihood`:
+#
+#     flux       = sum(psi) / sum(phi)
+#     likelihood = sum(psi) / sqrt(sum(phi))
+#
+# so what is measured here is the estimator the search actually uses, not a
+# re-derivation of it.
+#
+# Why the kernel choice decides the answer: for an image f * P with constant
+# variance and a filter kernel K,
+#
+#     flux_hat = f * sum(P * K) / sum(K * K)
+#
+# which equals f exactly when K == P and is biased otherwise. The effective PSF
+# is the K that matches the P actually present in reprojected pixels, so the
+# flux bias measured below is a direct read-out of kernel mismatch.
+# ---------------------------------------------------------------------------
+
+
+def matched_filter_sums(science, variance, kernel, x, y):
+    """Return ``(psi, phi)`` sampled at the pixel nearest ``(x, y)``.
+
+    Sampling at an integer pixel is deliberate: the search evaluates candidate
+    trajectories at integer pixels too, so the phase-dependent component of the
+    bias this exposes is one KBMOD genuinely experiences.
+    """
+    from kbmod.core.shift_and_stack import generate_psi_phi_images
+
+    psi, phi = generate_psi_phi_images(science, variance, np.asarray(kernel, dtype=np.float32))
+    row, col = int(round(y)), int(round(x))
+    if not (0 <= row < psi.shape[0] and 0 <= col < psi.shape[1]):
+        return np.nan, np.nan
+    return float(psi[row, col]), float(phi[row, col])
+
+
+def measure_matched_flux(science, variance, kernel, x, y):
+    """Matched-filter flux and likelihood for a stationary source."""
+    psi, phi = matched_filter_sums(science, variance, kernel, x, y)
+    if not np.isfinite(psi) or not np.isfinite(phi) or phi <= 0:
+        return np.nan, np.nan
+    return psi / phi, psi / np.sqrt(phi)
+
+
+def measure_trajectory_flux(science_list, variance_list, kernels, xs, ys):
+    """Matched-filter flux and likelihood summed along a trajectory.
+
+    Mirrors the search: psi and phi are accumulated across epochs at the
+    trajectory's position in each, then combined once at the end.
+    """
+    psi_total = 0.0
+    phi_total = 0.0
+    used = 0
+    for science, variance, kernel, x, y in zip(science_list, variance_list, kernels, xs, ys):
+        psi, phi = matched_filter_sums(science, variance, kernel, x, y)
+        if np.isfinite(psi) and np.isfinite(phi) and phi > 0:
+            psi_total += psi
+            phi_total += phi
+            used += 1
+    if phi_total <= 0 or used == 0:
+        return np.nan, np.nan, used
+    return psi_total / phi_total, psi_total / np.sqrt(phi_total), used
