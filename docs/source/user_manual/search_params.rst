@@ -26,6 +26,15 @@ The dictionary values take precedence over all other settings, allowing you to u
 
 In addition :py:class:`~kbmod.configuration.SearchConfiguration` objects are automatically saved and loaded within a :py:class:`~~kbmod.work_unit.WorkUnit`.
 
+To skip all result-image generation, set the primary stamp type to YAML ``null``
+and leave the coadd list empty::
+
+    stamp_type: null
+    coadds: []
+    save_all_stamps: false
+
+Coadds needed by an enabled peak-offset or CNN filter are still generated.
+
 
 Configuration Parameters
 ------------------------
@@ -59,13 +68,10 @@ Configuration Parameters
 |                        |                             | relative to differences in distances   |
 |                        |                             | during clustering.                     |
 +------------------------+-----------------------------+----------------------------------------+
-| ``coadds``             | []                          | A list of additional coadds to create. |
-|                        |                             | These are not used in filtering, but   |
-|                        |                             | saved to columns for analysis. Can     |
+| ``coadds``             | []                          | A list of named coadds to create and   |
+|                        |                             | save as columns for analysis. Can      |
 |                        |                             | include: "sum", "mean", "median", and  |
 |                        |                             | "weighted".                            |
-|                        |                             | The filtering coadd is controlled by   |
-|                        |                             | the ``stamp_type`` parameter.          |
 +------------------------+-----------------------------+----------------------------------------+
 | ``cpu_only``           | False                       | Perform the core search on the CPU     |
 |                        |                             | (even if the GPU is available).        |
@@ -168,7 +174,8 @@ Configuration Parameters
 |                        |                             | (in pixels).                           |
 +------------------------+-----------------------------+----------------------------------------+
 | ``stamp_type``         | sum                         | The type of coadd to use as the main   |
-|                        |                             | stamp:                                 |
+|                        |                             | legacy ``stamp`` column. Set to        |
+|                        |                             | ``None``/YAML ``null`` to omit it:     |
 |                        |                             | * ``sum`` - (default) Per pixel sum    |
 |                        |                             | * ``median`` - Per pixel median        |
 |                        |                             | * ``mean`` - Per pixel mean            |

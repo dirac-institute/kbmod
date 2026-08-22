@@ -355,9 +355,9 @@ _SUPPORTED_PARAMS = [
     _ParamInfo(
         name="stamp_type",
         default_value="sum",
-        description="The type of stamp to extract.",
+        description="The type of primary stamp to extract. Set to None to omit the legacy stamp column.",
         section="stamps",
-        validate_func=lambda x: x in ["sum", "mean", "median", "weighted"],
+        validate_func=lambda x: x is None or x in ["sum", "mean", "median", "weighted"],
     ),
     _ParamInfo(
         name="timeout_hours",

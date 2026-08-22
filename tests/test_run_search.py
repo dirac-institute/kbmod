@@ -3,6 +3,7 @@
 import logging
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 from astropy.coordinates import EarthLocation
@@ -15,6 +16,7 @@ from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.results import Results
 from kbmod.run_search import (
     SearchRunner,
+    _get_coadd_types,
     append_positions_to_results,
     configure_kb_search_stack,
 )
@@ -25,6 +27,59 @@ from kbmod.work_unit import WorkUnit
 
 
 class test_run_search(unittest.TestCase):
+    def test_required_coadd_types(self):
+        config = SearchConfiguration()
+        self.assertEqual(_get_coadd_types(config), {"sum"})
+
+        config.set("stamp_type", None)
+        self.assertEqual(_get_coadd_types(config), set())
+
+        config.set("coadds", ["median"])
+        self.assertEqual(_get_coadd_types(config), {"median"})
+
+        config.set("peak_offset_max", 2)
+        self.assertEqual(_get_coadd_types(config), {"mean", "median"})
+
+        config.set("cnn_filter", True)
+        config.set("cnn_coadd_type", "sum")
+        self.assertEqual(_get_coadd_types(config), {"mean", "median", "sum"})
+
+    def test_optional_result_stamp_columns(self):
+        fake_ds = FakeDataSet(15, 10, create_fake_times(3, t0=60676.0))
+        trj = Trajectory(x=7, y=5, vx=0.0, vy=0.0, obs_count=3, lh=100.0)
+
+        def run_with(config):
+            runner = SearchRunner()
+            with patch.object(
+                runner,
+                "do_core_search",
+                return_value=Results.from_trajectories([trj]),
+            ):
+                return runner.run_search(config, fake_ds.stack_py)
+
+        config = SearchConfiguration({"do_clustering": False})
+        results = run_with(config)
+        self.assertIn("stamp", results.colnames)
+        self.assertIn("coadd_sum", results.colnames)
+
+        config = SearchConfiguration({"do_clustering": False, "stamp_type": None})
+        with patch("kbmod.run_search.append_coadds") as append:
+            results = run_with(config)
+        append.assert_not_called()
+        self.assertNotIn("stamp", results.colnames)
+        self.assertFalse(any(col.startswith("coadd_") for col in results.colnames))
+
+        config = SearchConfiguration({"do_clustering": False, "stamp_type": None, "coadds": ["mean"]})
+        results = run_with(config)
+        self.assertNotIn("stamp", results.colnames)
+        self.assertIn("coadd_mean", results.colnames)
+
+        config = SearchConfiguration({"do_clustering": False, "stamp_type": None, "save_all_stamps": True})
+        results = run_with(config)
+        self.assertNotIn("stamp", results.colnames)
+        self.assertFalse(any(col.startswith("coadd_") for col in results.colnames))
+        self.assertIn("all_stamps", results.colnames)
+
     @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_run_search_bad_config(self):
         """Test cases where the search configuration is bad."""
