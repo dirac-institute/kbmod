@@ -182,6 +182,71 @@ class test_reprojection(unittest.TestCase):
         except ValueError as e:
             assert str(e) == f"Observation time {time} not found in work unit."
 
+    @staticmethod
+    def _distinct_psf_kernels():
+        """Three deliberately distinct, normalized 3x3 PSF kernels.
+
+        They differ in peak position and asymmetry, not merely in scale, so that
+        selecting the wrong one cannot be masked by a loose numerical tolerance.
+        The shipped reprojection fixture stores four *identical* PSFs, which makes
+        a wrong-PSF selection undetectable; these replace them.
+        """
+        k0 = np.array([[0.5, 0.2, 0.0], [0.2, 0.1, 0.0], [0.0, 0.0, 0.0]], dtype=np.float32)
+        k1 = np.array([[0.0, 0.2, 0.0], [0.2, 0.2, 0.2], [0.0, 0.2, 0.0]], dtype=np.float32)
+        k2 = np.array([[0.0, 0.0, 0.0], [0.0, 0.1, 0.2], [0.0, 0.2, 0.5]], dtype=np.float32)
+        kernels = [k0 / k0.sum(), k1 / k1.sum(), k2 / k2.sum()]
+
+        # Validate that the PSFs are distinct.
+        for a in range(len(kernels)):
+            for b in range(a + 1, len(kernels)):
+                assert not np.allclose(kernels[a], kernels[b])
+        return kernels
+
+    def test_reproject_selects_psf_of_matching_time(self):
+        """Each reprojected image must carry the PSF of *its own* obstime.
+
+        Regression test for the leaked-loop-variable defect in the parallel
+        reprojection path, where the PSF was looked up with the final value of the
+        submission loop's `obstime` rather than the time of the result being
+        processed. That gave every output image the last obstime's PSF.
+
+        Images that share an obstime are deliberately given the *same* kernel so
+        that this test isolates the wrong-time defect from the separate question of
+        which of several same-time constituent PSFs should be chosen.
+        """
+        unique_times, unique_indices = self.test_wunit.get_unique_obstimes_and_indices()
+        kernels = self._distinct_psf_kernels()
+        self.assertEqual(len(unique_times), len(kernels))
+
+        # Assign one distinct PSF kernel per unique time; images sharing a time share a kernel.
+        expected_by_time = {}
+        for kernel, time, indices in zip(kernels, unique_times, unique_indices):
+            for i in indices:
+                self.test_wunit.im_stack.psfs[i] = kernel.copy()
+            expected_by_time[float(time)] = kernel
+
+        for parallelize in [False, True]:
+            with self.subTest(parallelize=parallelize):
+                reprojected = reproject_work_unit(
+                    self.test_wunit,
+                    self.common_wcs,
+                    parallelize=parallelize,
+                    show_progress=False,
+                )
+
+                self.assertEqual(len(reprojected.im_stack), len(unique_times))
+                for i, time in enumerate(reprojected.im_stack.times):
+                    expected_kernel = expected_by_time[float(time)]
+                    actual_kernel = reprojected.im_stack.psfs[i]
+                    np.testing.assert_allclose(
+                        actual_kernel,
+                        expected_kernel,
+                        err_msg=(
+                            f"image {i} at obstime {time} carries the wrong PSF "
+                            f"(parallelize={parallelize})"
+                        ),
+                    )
+
     def test_validate_original_wcs(self):
         """Make sure that the original WCS is validated correctly."""
         wcs = self.test_wunit.get_wcs(0)
