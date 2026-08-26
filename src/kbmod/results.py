@@ -450,8 +450,17 @@ class Results:
                 shape = tuple(shape) if isinstance(shape, list) else shape
                 logger.debug(f"Reshaping column '{colname}' to {shape}")
                 try:
+                    col_data = np.asarray(self.table[colname])
+                    # The parquet -> pandas -> astropy round trip used by
+                    # read_table_chunks yields an object-dtype column whose
+                    # cells are individual flattened arrays. np.reshape cannot
+                    # operate on such a column (it sees only len(self) elements),
+                    # so stack the per-row arrays into a contiguous numeric
+                    # array first.
+                    if col_data.dtype == object:
+                        col_data = np.stack([np.asarray(row) for row in self.table[colname]])
                     new_shape = tuple([len(self)] + list(shape))
-                    self.table[colname] = np.reshape(self.table[colname], new_shape)
+                    self.table[colname] = np.reshape(col_data, new_shape)
                 except ValueError as e:
                     logger.warning(
                         f"Could not reshape column '{colname}' to {shape}: {e}. "
