@@ -462,7 +462,6 @@ def region_searcher(
             overwrite=False,
         )
 
-        # Generate and save         known_objects_filter = reflex_correct_ephem_table(       t.write(table_csvfile, overwrite=True)
         print(f"{elapsed_t(startTime)} Finished!")
 
         # Generate analysis table
