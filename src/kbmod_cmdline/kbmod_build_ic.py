@@ -456,26 +456,48 @@ def execute(args):
             f"Cone search filter: {args.cone_radius}° radius circle at RA={args.cone_ra}, Dec={args.cone_dec}"
         )
 
-    # Ingest each collection
+    # Ingest each collection. Wrap per-collection so one collection's failure
+    # (notably the final ImageCollection.vstack merge, which crashes on
+    # 'numpy.ndarray has no extend') does NOT abort the remaining collections:
+    # the per-chunk caches under intermediates/<collection>/ are written BEFORE
+    # the merge, so a crash here loses only the final merged file. The surviving
+    # chunk_*.collection files can be merged separately by reading each with
+    # ImageCollection.read, vstacking the astropy tables, and renumbering std_idx.
+    # --fail_on_error still aborts immediately, and any failure sets a non-zero
+    # exit status so a caller cannot mistake a partial run for a clean one.
+    failed = []
     for i, collection_name in enumerate(collections, 1):
         logger.info(f"Processing collection {i}/{len(collections)}: {collection_name}")
-        ingest_collection(
-            butler,
-            args.repo,
-            collection_name,
-            args.datasetType,
-            std_config,
-            args.target,
-            args.max_exposures,
-            args.output_dir,
-            args.overwrite,
-            args.fail_on_error,
-            args.exclude_bands,
-            args.num_workers,
-            refs_pbar=None,
-            cone_region=cone_region,
-            chunk_size=args.chunk_size,
-        )
+        try:
+            ingest_collection(
+                butler,
+                args.repo,
+                collection_name,
+                args.datasetType,
+                std_config,
+                args.target,
+                args.max_exposures,
+                args.output_dir,
+                args.overwrite,
+                args.fail_on_error,
+                args.exclude_bands,
+                args.num_workers,
+                refs_pbar=None,
+                cone_region=cone_region,
+                chunk_size=args.chunk_size,
+            )
+        except Exception:
+            if args.fail_on_error:
+                raise
+            failed.append(collection_name)
+            logger.exception(
+                f"Collection {collection_name} failed during ingest/merge "
+                f"(chunk caches preserved for separate merge)"
+            )
+
+    if failed:
+        logger.error(f"{len(failed)}/{len(collections)} collections failed: {', '.join(failed)}")
+        raise SystemExit(1)
 
 
 def main():
