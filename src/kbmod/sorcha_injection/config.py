@@ -10,12 +10,24 @@ logger = logging.getLogger(__name__)
 DEFAULT_SORCHA_ROOT = "/astro/store/shire/murtagh/sorcha/dp2__outputs"
 DEFAULT_POINTING_DB = "/astro/store/shire/murtagh/sorcha/surveysetup/exposures_from_rubin_fixed.db"
 
-# Populations present under DEFAULT_SORCHA_ROOT.
-ALL_POPULATIONS = ("cc", "cen", "de", "hc", "re_21", "re_32", "re_52")
+# Populations present under DEFAULT_SORCHA_ROOT. All ten Sorcha runs are complete
+# (each population's log ends "Sorcha process is completed"; last writes 2026-08-21).
+ALL_POPULATIONS = (
+    "cc", "cen", "de", "hc", "sc",
+    "re_21", "re_32", "re_52", "re_73", "re_74",
+)
 
-# Populations that are complete and safe to read. ``re_52`` is excluded by default
-# because it was still being generated as of 2026-08-17; reading a shard mid-write
-# yields a truncated parquet footer.
+# Trans-Neptunian classes only -- centaurs (``cen``) are interlopers between Jupiter
+# and Neptune, not TNOs, so they are excluded from TNO recoverability estimates.
+# ``sc`` (scattered) and the ``re_*`` mean-motion resonances (2:1, 3:2 plutinos, 5:2,
+# 7:3, 7:4) are all trans-Neptunian.
+TNO_POPULATIONS = (
+    "cc", "hc", "de", "sc",
+    "re_21", "re_32", "re_52", "re_73", "re_74",
+)
+
+# Historical default (the four populations the first ``index_dp2_mag27`` was built
+# from). Retained for backward compatibility; new indexes use ``ALL_POPULATIONS``.
 DEFAULT_POPULATIONS = ("cc", "hc", "cen", "de")
 
 

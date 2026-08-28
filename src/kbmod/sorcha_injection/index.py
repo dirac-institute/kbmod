@@ -81,32 +81,37 @@ def _process_shard(args):
         table = pq.read_table(path, columns=_SOURCE_COLUMNS)
     except Exception as exc:  # truncated footer on a shard still being written
         logger.warning("Skipping unreadable shard %s: %s: %s", path, type(exc).__name__, exc)
-        return None, dict(path=path, n_in=0, n_out=0, skipped=True)
+        return None, dict(path=path, n_in=0, n_out=0, n_obj_seen=0, skipped=True)
 
     n_in = table.num_rows
     if n_in == 0:
-        return None, dict(path=path, n_in=0, n_out=0, skipped=False)
+        return None, dict(path=path, n_in=0, n_out=0, n_obj_seen=0, skipped=False)
 
-    # --- magnitude cut first: it is the cheapest and by far the most selective ---
+    # --- resolve visit ids once, on the unfiltered table ---
+    pdb = _get_pointing_db(db_path)
+    field_mjd = table["fieldMJD_TAI"].to_numpy(zero_copy_only=False)
+    visit, visit_time = pdb.visits_for_field_times(field_mjd)
+    in_visits = visit >= 0
+    if whitelist is not None:
+        in_visits &= np.isin(visit, whitelist)
+
+    # Objects the whitelisted visits saw at all, before any magnitude ceiling. Reported
+    # separately because "observed at least once" is a geometric question and should not
+    # silently inherit whatever mag_max the index was built with. Objects never span
+    # shards (Sorcha writes each to exactly one), so these per-shard counts simply add.
+    n_obj_seen = (
+        int(pc.count_distinct(table["ObjID"].filter(pa.array(in_visits))).as_py()) if in_visits.any() else 0
+    )
+
+    # --- magnitude cut: the most selective filter, applied on top of the visit cut ---
     mag = table["trailedSourceMag"]
     keep = pc.and_(pc.greater_equal(mag, _MAG_SANITY_MIN), pc.less(mag, _MAG_SANITY_MAX))
     if mag_max is not None:
         keep = pc.and_(keep, pc.less(mag, mag_max))
     keep = pc.and_(keep, pc.is_valid(mag))
-    table = table.filter(keep)
-    if table.num_rows == 0:
-        return None, dict(path=path, n_in=n_in, n_out=0, skipped=False)
-
-    # --- resolve visit ids from the pointing database ---
-    pdb = _get_pointing_db(db_path)
-    field_mjd = table["fieldMJD_TAI"].to_numpy(zero_copy_only=False)
-    visit, visit_time = pdb.visits_for_field_times(field_mjd)
-
-    good = visit >= 0
-    if whitelist is not None:
-        good &= np.isin(visit, whitelist)
+    good = np.asarray(keep) & in_visits
     if not good.any():
-        return None, dict(path=path, n_in=n_in, n_out=0, skipped=False)
+        return None, dict(path=path, n_in=n_in, n_out=0, n_obj_seen=n_obj_seen, skipped=False)
 
     table = table.filter(pa.array(good))
     visit = visit[good]
@@ -135,7 +140,7 @@ def _process_shard(args):
             "night": pa.array(np.floor(field_mjd).astype(np.int32), type=pa.int32()),
         }
     )
-    return out, dict(path=path, n_in=n_in, n_out=out.num_rows, skipped=False)
+    return out, dict(path=path, n_in=n_in, n_out=out.num_rows, n_obj_seen=n_obj_seen, skipped=False)
 
 
 # One PointingDB per worker process, loaded lazily and cached.
@@ -246,6 +251,7 @@ def build_sorcha_index(
 
     t0 = time.time()
     tables, n_in_total, n_skipped, per_pop = [], 0, 0, {p: 0 for p in populations}
+    seen_total, seen_pop = 0, {p: 0 for p in populations}
     done = 0
     with ProcessPoolExecutor(max_workers=n_workers) as pool:
         futures = {pool.submit(_process_shard, t): t for t in tasks}
@@ -254,6 +260,8 @@ def build_sorcha_index(
             done += 1
             n_in_total += stat["n_in"]
             n_skipped += int(stat["skipped"])
+            seen_total += stat.get("n_obj_seen", 0)
+            seen_pop[futures[fut][1]] += stat.get("n_obj_seen", 0)
             if table is not None and table.num_rows:
                 tables.append(table)
                 per_pop[futures[fut][1]] += table.num_rows
@@ -271,6 +279,16 @@ def build_sorcha_index(
         raise ValueError("Every shard filtered to zero rows -- check mag_max and visit_whitelist")
 
     combined = pa.concat_tables(tables)
+    # With all ten populations the concatenated string columns (e.g. ObjID) can exceed
+    # the 2 GB span a 32-bit ``string`` offset can address, which overflows inside the
+    # sort's take(). Promote string columns to ``large_string`` (64-bit offsets) first;
+    # parquet stores both identically, so readers are unaffected.
+    schema = combined.schema
+    promote = [i for i, f in enumerate(schema) if pa.types.is_string(f.type)]
+    if promote:
+        for i in promote:
+            schema = schema.set(i, schema.field(i).with_type(pa.large_string()))
+        combined = combined.cast(schema)
     # Sorting by (night, healpix) makes row-group statistics useful for the spatial
     # pre-filter, on top of the directory-level night partitioning.
     combined = combined.sort_by([("night", "ascending"), ("healpix", "ascending")])
@@ -296,6 +314,8 @@ def build_sorcha_index(
         "n_rows_scanned": int(n_in_total),
         "n_rows_kept": int(combined.num_rows),
         "n_objects": int(obj_ids.nunique()),
+        "n_objects_seen_any_mag": int(seen_total),
+        "objects_seen_per_population": {k: int(v) for k, v in seen_pop.items()},
         "rows_per_population": {k: int(v) for k, v in per_pop.items()},
         "n_visits": int(pc.count_distinct(combined["visit"]).as_py()),
         "n_nights": int(pc.count_distinct(combined["night"]).as_py()),
