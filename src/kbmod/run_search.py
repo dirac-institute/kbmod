@@ -22,6 +22,18 @@ from .trajectory_utils import predict_pixel_locations
 logger = kb.Logging.getLogger(__name__)
 
 
+def _get_coadd_types(config):
+    """Return the coadd types needed for output and enabled filters."""
+    coadds = set(config["coadds"])
+    if config["stamp_type"] is not None:
+        coadds.add(config["stamp_type"])
+    if config["peak_offset_max"] is not None:
+        coadds.add("mean")
+    if config["cnn_filter"]:
+        coadds.add(config["cnn_coadd_type"])
+    return coadds
+
+
 def configure_kb_search_stack(search, config):
     """Configure the kbmod SearchStack object from a search configuration.
 
@@ -490,21 +502,20 @@ class SearchRunner:
             keep.filter_rows(np.arange(config["max_results"]), "max_results")
             self._end_phase("max_results")
 
-        # Generate coadded stamps without filtering -- both the "stamp" column
-        # as well as any additional coadds.
+        # Generate any coadds needed for output or filtering.
         self._start_phase("stamp generation")
         stamp_radius = config["stamp_radius"]
         stamp_type = config["stamp_type"]
-        coadds = set(config["coadds"])
-        coadds.add(stamp_type)
+        coadds = _get_coadd_types(config)
 
-        # Add all the "coadd_*" columns and a "stamp" column. This is only
-        # short term until we stop using the "stamp" column.
-        self._start_phase("appending co-adds")
-        append_coadds(keep, stack, coadds, stamp_radius, nightly=config["nightly_coadds"])
-        if f"coadd_{stamp_type}" in keep.colnames:
+        if coadds:
+            self._start_phase("appending co-adds")
+            append_coadds(keep, stack, coadds, stamp_radius, nightly=config["nightly_coadds"])
+            self._end_phase("appending co-adds")
+
+        # Keep the legacy "stamp" column only when explicitly configured.
+        if stamp_type is not None:
             keep.table["stamp"] = keep.table[f"coadd_{stamp_type}"]
-        self._end_phase("appending co-adds")
 
         # peak_offset_filter is used only if max offset is declared
         if config["peak_offset_max"] is not None:

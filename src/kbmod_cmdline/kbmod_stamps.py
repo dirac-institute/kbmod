@@ -20,6 +20,8 @@ The type specifies which stamp type to generate:
      The output is a 4-d numpy array of shape (num results, num nights, stamp width, stamp width)
   - "sum-nightly" generates a stamp sum coadded stamp for each (result, night) pair.
      The output is a 4-d numpy array of shape (num results, num nights, stamp width, stamp width)
+  - "weighted" generates a variance-weighted coadded stamp for each result.
+  - "weighted-nightly" generates a variance-weighted coadded stamp for each (result, night) pair.
 
 You can specify a subset of indices (rows in the results file) using the --indices flag.
 For example "--indices=1,3,5" will generate stamps from rows 1, 3, and 5.
@@ -36,6 +38,7 @@ from kbmod.core.stamp_utils import (
     coadd_sum,
     extract_stamp_stack,
 )
+from kbmod.filters.stamp_filters import append_coadds
 from kbmod.results import Results
 from kbmod.trajectory_utils import predict_pixel_locations
 from kbmod.util_functions import mjd_to_day
@@ -90,6 +93,28 @@ def generate_all_stamps(results, images, radius=10, indices=None):
         all_stamps[out_i, :, :, :] = extract_stamp_stack(sci_data, xvals[in_i, :], yvals[in_i, :], radius)
 
     return all_stamps
+
+
+def generate_coadds(results, images, coadd_type, radius=10, indices=None, nightly=False):
+    """Generate coadds using the same valid-observation logic as a KBMOD search."""
+    if coadd_type not in ["mean", "median", "sum", "weighted"]:
+        raise ValueError(f"Unrecognized coadd type {coadd_type}")
+    if radius <= 0:
+        raise ValueError(f"Stamp radius must be > 0 (received {radius}).")
+
+    if indices is None:
+        indices = np.arange(len(results))
+    else:
+        indices = np.asanyarray(indices)
+
+    selected_results = Results(results.table[indices].copy(), wcs=results.wcs)
+    append_coadds(selected_results, images, [coadd_type], radius, nightly=nightly)
+
+    if not nightly:
+        return np.asarray(selected_results[f"coadd_{coadd_type}"])
+
+    day_columns = sorted(col for col in selected_results.colnames if col.startswith(f"coadd_{coadd_type}_"))
+    return np.stack([np.asarray(selected_results[col]) for col in day_columns], axis=1)
 
 
 def coadd_all_stamps(all_stamps, coadd_type):
@@ -198,18 +223,19 @@ def execute(args):
         if np.any(indices < 0) or np.any(indices >= len(results)):
             raise ValueError(f"Invalid indices. Values must be in [0, {len(results)-1}].")
 
-    all_stamps = generate_all_stamps(results, wu.im_stack, args.radius, indices)
-
     if args.coadd_type == "all":
-        result_stamps = all_stamps
-    elif "-nightly" in args.coadd_type:
-        result_stamps = coadd_all_nightly(
-            all_stamps,
-            wu.im_stack.times,
-            args.coadd_type,
-        )
+        result_stamps = generate_all_stamps(results, wu.im_stack, args.radius, indices)
     else:
-        result_stamps = coadd_all_stamps(all_stamps, args.coadd_type)
+        nightly = args.coadd_type.endswith("-nightly")
+        coadd_type = args.coadd_type.removesuffix("-nightly")
+        result_stamps = generate_coadds(
+            results,
+            wu.im_stack,
+            coadd_type,
+            radius=args.radius,
+            indices=indices,
+            nightly=nightly,
+        )
     np.save(args.outfile, result_stamps)
 
 
@@ -257,9 +283,20 @@ def main():
         type=str,
         default="all",
         dest="coadd_type",
+        choices=[
+            "all",
+            "sum",
+            "sum-nightly",
+            "mean",
+            "mean-nightly",
+            "median",
+            "median-nightly",
+            "weighted",
+            "weighted-nightly",
+        ],
         help=(
             "The stamp type. Must be one of 'all', 'sum', 'sum-nightly', 'mean', "
-            "'mean-nightly', 'median', or 'median-nightly'."
+            "'mean-nightly', 'median', 'median-nightly', 'weighted', or 'weighted-nightly'."
         ),
     )
     optional.add_argument(
