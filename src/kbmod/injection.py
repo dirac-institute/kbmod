@@ -327,6 +327,7 @@ def match_injection_results(
     sep_thresh=5.0,
     time_thresh_s=60.0,
     min_obs=3,
+    obs_ratio=None,
     matcher_name="injected_sources",
 ):
     """Match KBMOD search results against an injection catalog.
@@ -451,10 +452,17 @@ def match_injection_results(
     match_col = matcher.match_min_obs_col(min_obs)
     recovered, missed = matcher.get_recovered_objects(results, match_col)
 
+    # Optionally also add an object-completeness (obs_ratio) recovery column:
+    # fraction of the KNOWN object's observations that matched (>= obs_ratio).
+    if obs_ratio is not None:
+        results = matcher.match_on_obs_ratio(results, obs_ratio=obs_ratio)
+
     n_total = len(set(catalog["obj_ids"]))
     logger.info(
         f"Injection recovery: {len(recovered)}/{n_total} objects recovered "
-        f"({len(missed)} missed) with min_obs={min_obs}, sep_thresh={sep_thresh}"
+        f"({len(missed)} missed) with min_obs={min_obs}"
+        + (f", obs_ratio={obs_ratio}" if obs_ratio is not None else "")
+        + f", sep_thresh={sep_thresh}"
     )
 
     return results, recovered, missed
