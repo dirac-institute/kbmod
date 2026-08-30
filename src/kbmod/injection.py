@@ -284,8 +284,24 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
                 photo_calib=imdiff.photoCalib,
                 wcs=imdiff.wcs,
             )
+            out_cat = result.output_catalog
+            # Propagate the original synthetic object name (obj_ids) from the input
+            # catalog when provided. LSST's VisitInjectTask keys output rows by
+            # injection_id, so recover the name through that; fall back to a
+            # positional copy when row counts line up. Without this the curated
+            # object identity is lost and downstream matching only sees ordinals.
+            if "obj_ids" in srccat.colnames:
+                if "injection_id" in out_cat.colnames and "injection_id" in srccat.colnames:
+                    id2name = dict(
+                        zip(np.asarray(srccat["injection_id"]), np.asarray(srccat["obj_ids"]))
+                    )
+                    out_cat["obj_ids"] = [
+                        id2name.get(iid) for iid in np.asarray(out_cat["injection_id"])
+                    ]
+                elif len(out_cat) == len(srccat):
+                    out_cat["obj_ids"] = np.asarray(srccat["obj_ids"])
             exposures.append(result.output_exposure)
-            injected_cats.append(result.output_catalog)
+            injected_cats.append(out_cat)
             injected_exposure_cnt += 1
         except RuntimeError:
             # If no objects are rendered within bounds, append the original exposure and an empty catalog
