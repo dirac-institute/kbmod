@@ -260,9 +260,15 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     // copy their time before progressing. We need to do this before pruning on
     // (x, y) in order to correctly handle blocks at the edge of the image.
     __shared__ double shared_times[MAX_NUM_IMAGES];
-    int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
-    if ((time_idx < psi_phi_meta.num_times) && (time_idx < MAX_NUM_IMAGES)) {
-        shared_times[time_idx] = image_times[time_idx];
+    const int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
+    const int block_threads = blockDim.x * blockDim.y;
+    // Stride so a block with fewer threads than MAX_NUM_IMAGES still loads every
+    // time. The previous one-thread-one-time copy silently required
+    // THREAD_DIM_X * THREAD_DIM_Y >= MAX_NUM_IMAGES, which tied the image limit
+    // to the pixel tiling: raising MAX_NUM_IMAGES past 256 threw "Insufficient
+    // threads to load all the times" on every search, whatever its image count.
+    for (int t = time_idx; (t < psi_phi_meta.num_times) && (t < MAX_NUM_IMAGES); t += block_threads) {
+        shared_times[t] = image_times[t];
     }
     __syncthreads();  // Block until all are done loading.
 
@@ -338,9 +344,8 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     if (num_images > MAX_NUM_IMAGES) {
         throw std::runtime_error("Number of images exceeds GPU maximum " + std::to_string(MAX_NUM_IMAGES));
     }
-    if (THREAD_DIM_X * THREAD_DIM_Y < MAX_NUM_IMAGES) {
-        throw std::runtime_error("Insufficient threads to load all the times.");
-    }
+    // (The block no longer needs one thread per time: shared_times is filled with
+    // a strided loop, so the block size and the image limit are independent.)
 
     // Check that the device vectors have already been allocated.
     if (!psi_phi_array.on_gpu()) {
