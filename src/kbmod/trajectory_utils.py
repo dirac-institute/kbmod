@@ -105,7 +105,7 @@ def make_trajectory_from_ra_dec(ra, dec, v_ra, v_dec, wcs):
     return Trajectory(x=x0, y=y0, vx=(x1 - x0), vy=(y1 - y0))
 
 
-def trajectory_predict_skypos(trj, wcs, times):
+def trajectory_predict_skypos(trj, wcs, times, t0=None):
     """Predict the (RA, dec) locations of the trajectory at different times.
 
     Parameters
@@ -116,6 +116,15 @@ def trajectory_predict_skypos(trj, wcs, times):
         The WCS for the images.
     times : `list` or `numpy.ndarray`
         The times at which to predict the positions in MJD.
+    t0 : `float`, optional
+        The epoch (in MJD) at which the trajectory's starting pixel
+        (``trj.x``, ``trj.y``) is defined. Times are offset relative to this
+        epoch. If ``None`` (the default) the first entry of ``times`` is used,
+        which is only correct when ``times`` starts at the trajectory's own
+        epoch. Callers passing a subset of the stack's obstimes (for example,
+        only the valid observations of a result) must pass the stack's first
+        obstime here, otherwise every predicted position is displaced by
+        ``|v| * (times[0] - t0)``.
 
     .. note::
        The motion is approximated as linear and will be approximately correct
@@ -129,9 +138,11 @@ def trajectory_predict_skypos(trj, wcs, times):
         A SkyCoord with the transformed locations.
     """
     dt = np.asarray(times)
+    if t0 is None:
+        t0 = dt[0]
     # Note that we do a reassignment to avoid modifying the input, which may
     # happen if `times` is already an array and `np.asarray` is a no-op.
-    zeroed_dt = dt - dt[0]
+    zeroed_dt = dt - t0
 
     # Predict locations in pixel space.
     x_vals = trj.x + trj.vx * zeroed_dt

@@ -77,6 +77,35 @@ class test_trajectory_utils(unittest.TestCase):
             self.assertAlmostEqual(my_sky.ra[1].deg, 45.2, delta=0.01)
             self.assertAlmostEqual(my_sky.dec[1].deg, -15.5, delta=0.01)
 
+    def test_predict_skypos_t0(self):
+        """Predicting on a subset of the times must give the same answer as
+        predicting on the full vector and then subsetting, as long as the
+        trajectory's own epoch is passed as t0."""
+        my_wcs = WCS(naxis=2)
+        my_wcs.wcs.crpix = [10.0, 10.0]
+        my_wcs.wcs.crval = [45.0, -15.0]
+        my_wcs.wcs.cdelt = [0.1, 0.1]
+        my_wcs.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
+
+        trj = Trajectory(x=9, y=9, vx=2.0, vy=-5.0)
+        obstimes = np.array([57921.0, 57922.0, 57923.0, 57924.0])
+
+        # The reference: predict over every time, anchored at the first one.
+        full = trajectory_predict_skypos(trj, my_wcs, obstimes)
+
+        # A subset that does not include the trajectory's epoch. Without t0 the
+        # subset is re-zeroed on its own first element and the positions shift.
+        subset = obstimes[2:]
+        with_t0 = trajectory_predict_skypos(trj, my_wcs, subset, t0=obstimes[0])
+        self.assertTrue(np.all(with_t0.separation(full[2:]).arcsec < 1e-6))
+
+        without_t0 = trajectory_predict_skypos(trj, my_wcs, subset)
+        self.assertTrue(np.any(without_t0.separation(full[2:]).arcsec > 1.0))
+
+        # Passing the first time explicitly matches the default behavior.
+        explicit = trajectory_predict_skypos(trj, my_wcs, obstimes, t0=obstimes[0])
+        self.assertTrue(np.all(explicit.separation(full).arcsec < 1e-6))
+
     def test_fit_trajectory_from_pixels(self):
         x_vals = np.array([5.0, 7.0, 9.0, 11.0])
         y_vals = np.array([4.0, 3.0, 2.0, 1.0])
