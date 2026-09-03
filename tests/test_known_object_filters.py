@@ -556,14 +556,24 @@ class TestKnownObjMatcher(unittest.TestCase):
     def test_match_obs_ratio(self):
         # Here we test considering a known object recovered based on the ratio of observations
         # in the catalog that were temporally within
+        # `obs_ratio` is a *minimum*: an object is recovered when at least that
+        # fraction of the object's own catalog observations matched. Only two of
+        # the catalog objects match at all here, at these ratios:
+        #   spatial_close_time_close_1: 20 of its 25 observations = 0.8
+        #       (result 1 has 5 invalid observations, which can never match)
+        #   sparse_8:                    2 of its  3 observations = 0.667
         min_obs_ratios = [
-            0.0,
-            1.0,
+            0.0,  # Every matched object clears a zero minimum.
+            0.7,  # Only the denser of the two objects clears this.
+            0.8,  # The comparison is inclusive, so 0.8 still clears it.
+            1.0,  # Neither object matched every one of its observations.
         ]
         # The expected matching objects for each min_obs_ratio parameter chosen.
         expected_matches = [
-            set([]),
             set(["spatial_close_time_close_1", "sparse_8"]),
+            set(["spatial_close_time_close_1"]),
+            set(["spatial_close_time_close_1"]),
+            set([]),
         ]
         orig_res = self.res.table.copy()
         for obs_ratio, expected in zip(min_obs_ratios, expected_matches):

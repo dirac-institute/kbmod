@@ -376,6 +376,33 @@ class TestMatchInjectionResults(unittest.TestCase):
             list(matched_results.table["recovered_injected_sources_min_obs_3"][0]), [str(injected_obj_id)]
         )
 
+        # Without the obs_ratio kwarg no obs_ratio column is added.
+        self.assertFalse(
+            any("obs_ratio" in name for name in matched_results.table.colnames),
+        )
+
+        # Rebuild the results with the last observation marked invalid, so only
+        # 2 of the object's 3 catalog observations can match: an obs_ratio of 2/3.
+        results = Results.from_trajectories([trj])
+        results.wcs = wcs
+        results.mjd_mid = np.array(obstimes)
+        results.table["obs_valid"] = [np.array([True, True, False])]
+
+        # obs_ratio is a minimum, so a threshold below 2/3 still recovers the object.
+        matched_results, _, _ = match_injection_results(
+            catalog, results, guess_distance=None, sep_thresh=1.0, min_obs=2, obs_ratio=0.5
+        )
+        self.assertEqual(
+            list(matched_results.table["recovered_injected_sources_obs_ratio_0.5"][0]),
+            [str(injected_obj_id)],
+        )
+
+        # A threshold above 2/3 does not.
+        matched_results, _, _ = match_injection_results(
+            catalog, results, guess_distance=None, sep_thresh=1.0, min_obs=2, obs_ratio=0.9
+        )
+        self.assertEqual(list(matched_results.table["recovered_injected_sources_obs_ratio_0.9"][0]), [])
+
 
 if __name__ == "__main__":
     unittest.main()
