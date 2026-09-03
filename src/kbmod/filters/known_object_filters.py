@@ -373,7 +373,7 @@ class KnownObjsMatcher:
                     raise ValueError(f"Unknown known object {name}")
 
                 curr_obs_ratio = np.count_nonzero(matches[name]) / known_obj_cnts[name]
-                if curr_obs_ratio <= obs_ratio:
+                if curr_obs_ratio >= obs_ratio:
                     matched_objs[-1].add(name)
 
         # Add the matched objects to the results table, converting our de-deduplicated sets
