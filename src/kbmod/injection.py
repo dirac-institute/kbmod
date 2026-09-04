@@ -266,6 +266,13 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
         ref = butler.get_dataset(did, dimension_records=True)
         imdiff = butler.get(ref)
 
+        # EXPERIMENT (branch experiment/zero-exposure-before-injection):
+        # zero the science image before injection so the fakes land on an empty
+        # background. Variance and mask are left real, so injected-source SNR and
+        # pixel masking are unchanged -- this isolates the recovery ceiling from
+        # real-sky noise/confusion. Remove this block to restore normal injection.
+        imdiff.image.array[:] = 0.0
+
         if len(srccat) == 0:
             # If no sources are found for this timestep, append the original exposure and an empty catalog
             exposures.append(imdiff)
