@@ -297,6 +297,11 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
             # output = original + fakes, so subtracting the original leaves the fakes.
             result.output_exposure.image.array[:] = (
                 np.asarray(result.output_exposure.image.array) - _orig_img)
+            # HIGH-SNR variant (branch experiment/zero-exposure-high-snr): shrink the
+            # variance 1e-4 (median ~5128 -> ~0.5, +100x SNR) so even faint fakes are
+            # trivially detectable. This isolates grid/search coverage from flux/depth:
+            # any expected object the grid can reach should now be recovered.
+            result.output_exposure.variance.array[:] *= 1e-4
             out_cat = result.output_catalog
             # Propagate the original synthetic object name (obj_ids) from the input
             # catalog when provided. LSST's VisitInjectTask keys output rows by
