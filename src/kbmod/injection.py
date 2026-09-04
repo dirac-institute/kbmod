@@ -267,14 +267,16 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
         imdiff = butler.get(ref)
 
         # EXPERIMENT (branch experiment/zero-exposure-before-injection):
-        # zero the science image before injection so the fakes land on an empty
-        # background. Variance and mask are left real, so injected-source SNR and
-        # pixel masking are unchanged -- this isolates the recovery ceiling from
-        # real-sky noise/confusion. Remove this block to restore normal injection.
-        imdiff.image.array[:] = 0.0
+        # inject on the REAL image (the injector's gain inference is degenerate on a
+        # zeroed image -> SVD fails), then subtract the original so only the injected
+        # sources remain on an empty background. Variance and mask stay real, so
+        # injected-source SNR and pixel masking are unchanged -- this isolates the
+        # recovery ceiling from real-sky noise/confusion. Remove for normal injection.
+        _orig_img = np.array(imdiff.image.array, copy=True)
 
         if len(srccat) == 0:
-            # If no sources are found for this timestep, append the original exposure and an empty catalog
+            # no sources this timestep -> empty background exposure (experiment)
+            imdiff.image.array[:] = 0.0
             exposures.append(imdiff)
             injected_cats.append(
                 Table(names=catalog.colnames, dtype=[catalog[c].dtype for c in catalog.colnames])
@@ -291,6 +293,10 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
                 photo_calib=imdiff.photoCalib,
                 wcs=imdiff.wcs,
             )
+            # keep only the injected sources on an empty background (experiment):
+            # output = original + fakes, so subtracting the original leaves the fakes.
+            result.output_exposure.image.array[:] = (
+                np.asarray(result.output_exposure.image.array) - _orig_img)
             out_cat = result.output_catalog
             # Propagate the original synthetic object name (obj_ids) from the input
             # catalog when provided. LSST's VisitInjectTask keys output rows by
