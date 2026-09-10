@@ -700,7 +700,6 @@ class ButlerStandardizer(Standardizer):
             else:
                 std = measured
 
-        # TODO we investigate using self.exp.psf.computeKernelImage
         return [PSF.make_gaussian_kernel(std)]
 
     # These exist because standardizers promise to return lists
