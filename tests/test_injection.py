@@ -312,14 +312,14 @@ class TestInjectSources(unittest.TestCase):
 class TestEmptyBackgroundInjection(unittest.TestCase):
     """Check zero-background output for successful, absent, and failed injections."""
 
-    def run_mixed_injections(self, in_place=True, **kwargs):
+    def run_mixed_injections(self, in_place=True, read_only_variance=False, **kwargs):
         ic = mock.MagicMock()
         ic.__len__.return_value = 3
         ic.data = Table({"dataId": [0, 1, 2], "mjd_mid": [59000.0, 59001.0, 59002.0]})
         ic.get_standardizers.return_value = [{"std": SimpleNamespace()} for _ in range(3)]
 
         def make_exposure():
-            return SimpleNamespace(
+            exposure = SimpleNamespace(
                 image=SimpleNamespace(array=np.full((2, 2), 10.0, dtype=np.float32)),
                 variance=SimpleNamespace(array=np.full((2, 2), 100.0, dtype=np.float32)),
                 mask=SimpleNamespace(array=np.ones((2, 2), dtype=np.int32)),
@@ -327,6 +327,9 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
                 photoCalib=None,
                 wcs=None,
             )
+            if read_only_variance:
+                exposure.variance.array.setflags(write=False)
+            return exposure
 
         butler = mock.Mock()
         butler.get_dataset.side_effect = lambda did, **kwargs: did
@@ -379,12 +382,28 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
                     np.testing.assert_allclose(exposure.variance.array, 0.01)
 
     def test_default_preserves_science_background(self):
-        exposures = self.run_mixed_injections()
+        exposures = self.run_mixed_injections(read_only_variance=True)
         np.testing.assert_array_equal(exposures[0].image.array, [[12.0, 10.0], [10.0, 10.0]])
         for exposure in exposures[1:]:
             np.testing.assert_array_equal(exposure.image.array, 10.0)
         for exposure in exposures:
             np.testing.assert_array_equal(exposure.variance.array, 100.0)
+
+    def test_unit_variance_scale_does_not_write_pixels(self):
+        with self.assertLogs("kbmod.injection", level="INFO") as logs:
+            exposures = self.run_mixed_injections(
+                zero_background=True, variance_scale=1.0, read_only_variance=True
+            )
+        for exposure in exposures:
+            np.testing.assert_array_equal(exposure.variance.array, 100.0)
+            self.assertFalse(exposure.variance.array.flags.writeable)
+        self.assertIn("zero_background=True", "\n".join(logs.output))
+        self.assertIn("Skipping variance scaling (variance_scale=1.0)", "\n".join(logs.output))
+
+    def test_logs_applied_variance_scale(self):
+        with self.assertLogs("kbmod.injection", level="INFO") as logs:
+            self.run_mixed_injections(zero_background=True, variance_scale=1e-4)
+        self.assertIn("Applying variance_scale=0.0001 to all 3 returned exposures", "\n".join(logs.output))
 
     def test_variance_scale_preserves_science_background(self):
         exposures = self.run_mixed_injections(variance_scale=1e-4)

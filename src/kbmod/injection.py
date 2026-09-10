@@ -259,6 +259,10 @@ def inject_sources_into_ic(
             f"{required_cols}. Missing: {missing_cols}"
         )
 
+    logger.info("Injecting sources into %d exposures (zero_background=%s).", len(ic), zero_background)
+    if zero_background:
+        logger.info("Removing original science backgrounds after injection; retaining injector-added noise.")
+
     if inject_config is None:
         inject_config = VisitInjectConfig()
     inject_task = VisitInjectTask(config=inject_config)
@@ -324,8 +328,15 @@ def inject_sources_into_ic(
 
     # Apply the same scaling to successful, empty-catalog, and no-render exposures.
     if variance_scale != 1.0:
+        logger.info(
+            "Applying variance_scale=%g to all %d returned exposures.", variance_scale, len(exposures)
+        )
         for exposure in exposures:
             exposure.variance.array[:] *= variance_scale
+    else:
+        logger.info(
+            "Skipping variance scaling (variance_scale=1.0); leaving injector output variance untouched."
+        )
 
     if injected_exposure_cnt == 0:
         warnings.warn("No objects were successfully rendered within bounds.")
