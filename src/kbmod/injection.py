@@ -225,9 +225,10 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None, variance_sca
     inject_config : `VisitInjectConfig`, optional
         Configuration for VisitInjectTask.
     variance_scale : float, optional
-        EXPERIMENT knob. The science image is always zeroed before injection (fakes on an
+        EXPERIMENT knob. The original science image is subtracted after injection (fakes on an
         empty background); this additionally multiplies the variance plane by
-        ``variance_scale`` on every injected exposure. Default 1.0 leaves variance real
+        ``variance_scale`` on every returned exposure, including exposures with no rendered
+        sources. Default 1.0 leaves variance real
         (the plain empty-background regime); set 1e-4 for the high-SNR regime (~100x SNR,
         detectability ceiling). Set from the runtime config's
         ``apps.reproject_wu.injection.variance_scale``.
@@ -302,15 +303,7 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None, variance_sca
             )
             # keep only the injected sources on an empty background (experiment):
             # output = original + fakes, so subtracting the original leaves the fakes.
-            result.output_exposure.image.array[:] = (
-                np.asarray(result.output_exposure.image.array) - _orig_img)
-            # Variance scaling (config: apps.reproject_wu.injection.variance_scale).
-            # 1.0 (default) = plain empty-background regime; 1e-4 = high-SNR regime
-            # (median ~5128 -> ~0.5, +100x SNR) so even faint fakes are trivially
-            # detectable, isolating grid/search coverage from flux/depth. The zeroing
-            # above always happens; only this multiplier is parameterised.
-            if variance_scale != 1.0:
-                result.output_exposure.variance.array[:] *= variance_scale
+            result.output_exposure.image.array[:] = np.asarray(result.output_exposure.image.array) - _orig_img
             out_cat = result.output_catalog
             # Propagate the original synthetic object name (obj_ids) from the input
             # catalog when provided. LSST's VisitInjectTask keys output rows by
@@ -319,27 +312,30 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None, variance_sca
             # object identity is lost and downstream matching only sees ordinals.
             if "obj_ids" in srccat.colnames:
                 if "injection_id" in out_cat.colnames and "injection_id" in srccat.colnames:
-                    id2name = dict(
-                        zip(np.asarray(srccat["injection_id"]), np.asarray(srccat["obj_ids"]))
-                    )
-                    out_cat["obj_ids"] = [
-                        id2name.get(iid) for iid in np.asarray(out_cat["injection_id"])
-                    ]
+                    id2name = dict(zip(np.asarray(srccat["injection_id"]), np.asarray(srccat["obj_ids"])))
+                    out_cat["obj_ids"] = [id2name.get(iid) for iid in np.asarray(out_cat["injection_id"])]
                 elif len(out_cat) == len(srccat):
                     out_cat["obj_ids"] = np.asarray(srccat["obj_ids"])
             exposures.append(result.output_exposure)
             injected_cats.append(out_cat)
             injected_exposure_cnt += 1
         except RuntimeError:
-            # If no objects are rendered within bounds, append the original exposure and an empty catalog
+            # No rendered sources still means an empty background in this experiment.
             warnings.warn(
                 f"Exposure {i}/{len(ic)} ({dataId}) had no objects successfully rendered within bounds."
             )
+            imdiff.image.array[:] = 0.0
             exposures.append(imdiff)
             injected_cats.append(
                 Table(names=catalog.colnames, dtype=[catalog[c].dtype for c in catalog.colnames])
             )
         references.append(ref)
+
+    # Scale every retained exposure consistently, including empty and no-render frames.
+    # Do this after injection so gain inference sees the original variance plane.
+    if variance_scale != 1.0:
+        for exposure in exposures:
+            exposure.variance.array[:] *= variance_scale
 
     if injected_exposure_cnt == 0:
         warnings.warn("No objects were successfully rendered within bounds.")
