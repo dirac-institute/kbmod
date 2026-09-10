@@ -7,7 +7,7 @@ from astropy.time import Time
 import numpy as np
 
 from utils import DECamImdiffFactory, MockButler, MockFailedButler, DatasetRef, DatasetId, dafButler
-from kbmod import Standardizer, StandardizerConfig
+from kbmod import ImageCollection, Standardizer, StandardizerConfig
 from kbmod.core.psf import PSF
 from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
 
@@ -365,8 +365,6 @@ class TestButlerStandardizer(unittest.TestCase):
     def test_psf_from_reconstructed_standardizer(self):
         """A standardizer rebuilt from a serialized ImageCollection row starts
         with no cached metadata, and must still build the measured kernel."""
-        from kbmod import ImageCollection
-
         butler = MockButler("/far/far/away", psf_sigma=2.8)
         std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=butler)
         ic = ImageCollection.fromStandardizers([std])

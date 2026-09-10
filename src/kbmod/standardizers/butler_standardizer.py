@@ -97,8 +97,7 @@ class ButlerStandardizerConfig(StandardizerConfig):
 
     psf_std_from_summary = True
     """Build each image's PSF kernel from the measured ``psfSigma`` in the
-    exposure summary statistics rather than the fixed ``psf_std``. Set False to
-    restore the previous constant-kernel behaviour."""
+    exposure summary statistics. Set False to use the fixed ``psf_std``."""
 
     standardize_metadata = True
     """Fetch and include values from Rubin's Exposure.metadata
@@ -679,32 +678,29 @@ class ButlerStandardizer(Standardizer):
         ]
 
     def standardizePSF(self):
-        # TODO: Update when we formalize the PSF. The full Rubin PSF model is
-        # available from the stack via self.exp.psf.computeKernelImage (and
-        # friends); a Gaussian of the measured width already recovers most of
-        # the matched-filter efficiency and avoids loading the exposure.
+        # A user-supplied fallback value for when the measured PSF width is unavailable.
         std = self.config["psf_std"]
 
-        # Prefer the measured per-image PSF width from the exposure summary
-        # stats. A single configured constant mismatches the matched filter
-        # whenever the seeing differs from it, which costs signal-to-noise on
-        # every detection in the image: against the LSST PSF (sigma ~2.8 px) the
-        # default sigma=1 kernel costs ~37% likelihood and ~4x flux.
-        if self.config["psf_std_from_summary"]:
-            # Metadata is lazily fetched. Without this a standardizer that has
-            # not standardized anything else yet - a fresh one, or one that
-            # ImageCollection.read reconstructed from a table row - would
-            # silently fall back to psf_std.
+        if not self.config["psf_std_from_summary"]:
+            logger.debug(f"Using fallback psf_std: {std}.")
+        else:
+            # Use the measured PSF width from the summary statistics if available, otherwise fall back to the user-supplied value.
             if self._metadata is None:
+                # Metadata is lazily fetched so explicitly check and fetch in case this is a fresh standardizer.
                 self._fetch_meta()
-            measured = self._metadata.get("psfSigma", None)
+            # Keep the raw value around so the warning below can report what the
+            # butler actually handed back, not the None the failed cast leaves.
+            raw = self._metadata.get("psfSigma", None)
             try:
-                measured = float(measured)
+                measured = float(raw)
             except (TypeError, ValueError):
                 measured = None
-            if measured is not None and np.isfinite(measured) and measured > 0:
+            if measured is None or not np.isfinite(measured) or measured <= 0:
+                logger.warning(f"Unusable psfSigma {raw!r}. Using fallback psf_std: {std}.")
+            else:
                 std = measured
 
+        # TODO we investigate using self.exp.psf.computeKernelImage
         return [PSF.make_gaussian_kernel(std)]
 
     # These exist because standardizers promise to return lists
