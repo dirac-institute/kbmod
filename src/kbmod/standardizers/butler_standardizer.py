@@ -91,7 +91,14 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """List of flags that will be masked."""
 
     psf_std = 1
-    """Standard deviation of the Point Spread Function."""
+    """Standard deviation of the Point Spread Function. Used as a fallback
+    when ``psf_std_from_summary`` is disabled, or when the measured value is
+    unavailable for an image."""
+
+    psf_std_from_summary = True
+    """Build each image's PSF kernel from the measured ``psfSigma`` in the
+    exposure summary statistics rather than the fixed ``psf_std``. Set False to
+    restore the previous constant-kernel behaviour."""
 
     standardize_metadata = True
     """Fetch and include values from Rubin's Exposure.metadata
@@ -672,20 +679,32 @@ class ButlerStandardizer(Standardizer):
         ]
 
     def standardizePSF(self):
-        # Use the exposure's REAL PSF width (psfSigma from summaryStats) so the
-        # matched-filter kernel matches the data. Falling back to the fixed
-        # config["psf_std"] placeholder (default 1 px) badly mismatches the LSST
-        # PSF (sigma ~2.8 px): a sigma=1 kernel costs ~37% likelihood and ~4x flux.
-        # (self.exp.psf.computeKernelImage is the fuller option; a Gaussian of the
-        #  correct width recovers the matched-filter efficiency and stays robust.)
-        std = None
-        if self._metadata is not None and "psfSigma" in self._metadata:
+        # TODO: Update when we formalize the PSF. The full Rubin PSF model is
+        # available from the stack via self.exp.psf.computeKernelImage (and
+        # friends); a Gaussian of the measured width already recovers most of
+        # the matched-filter efficiency and avoids loading the exposure.
+        std = self.config["psf_std"]
+
+        # Prefer the measured per-image PSF width from the exposure summary
+        # stats. A single configured constant mismatches the matched filter
+        # whenever the seeing differs from it, which costs signal-to-noise on
+        # every detection in the image: against the LSST PSF (sigma ~2.8 px) the
+        # default sigma=1 kernel costs ~37% likelihood and ~4x flux.
+        if self.config["psf_std_from_summary"]:
+            # Metadata is lazily fetched. Without this a standardizer that has
+            # not standardized anything else yet - a fresh one, or one that
+            # ImageCollection.read reconstructed from a table row - would
+            # silently fall back to psf_std.
+            if self._metadata is None:
+                self._fetch_meta()
+            measured = self._metadata.get("psfSigma", None)
             try:
-                std = float(self._metadata["psfSigma"])
+                measured = float(measured)
             except (TypeError, ValueError):
-                std = None
-        if std is None or not np.isfinite(std) or std <= 0:
-            std = self.config["psf_std"]
+                measured = None
+            if measured is not None and np.isfinite(measured) and measured > 0:
+                std = measured
+
         return [PSF.make_gaussian_kernel(std)]
 
     # These exist because standardizers promise to return lists

@@ -266,6 +266,7 @@ class MockButler:
         missing_headers=[],
         failed_fits_appoximation=False,
         use_header_dimensions=False,
+        psf_sigma=1.0,
     ):
         self.datastore = Datastore(root)
         self._datastore = Datastore(root)
@@ -274,6 +275,7 @@ class MockButler:
         self.missing_headers = missing_headers
         self.failed_fits_appoximation = failed_fits_appoximation
         self.use_header_dimensions = use_header_dimensions
+        self.psf_sigma = psf_sigma
 
     def getURI(self, ref, dataId=None, collections=None):
         mocked = mock.Mock(name="ButlerURI")
@@ -367,7 +369,7 @@ class MockButler:
         naxis1, naxis2 = hdul[1].header["NAXIS1"], hdul[1].header["NAXIS2"]
 
         mocked = mock.Mock(name="SummaryStats")
-        mocked.psfSigma = 1.0
+        mocked.psfSigma = self.psf_sigma
         mocked.psfArea = 1.0
         mocked.nPsfStar = 1.0
         mocked.skyBg = 1.0
