@@ -202,7 +202,13 @@ def generate_injection_catalog(
 
 
 def inject_sources_into_ic(
-    ic, catalog, butler, inject_config=None, variance_scale=1.0, zero_background=False
+    ic,
+    catalog,
+    butler,
+    inject_config=None,
+    variance_scale=1.0,
+    zero_background=False,
+    constant_variance=False,
 ):
     """
     Inject simulated moving objects directly into the exposures specified by an ImageCollection
@@ -229,13 +235,17 @@ def inject_sources_into_ic(
     variance_scale : `float`, optional
         Positive, finite multiplier for the variance plane of every returned exposure,
         including exposures with no rendered sources. Applied after injection so gain
-        inference uses the original variance. Default 1.0 leaves the variance unchanged.
+        inference uses the original variance. Default 1.0 skips scaling.
     zero_background : `bool`, optional
         If True, subtract the original science image after injection to retain only the
         injected sources, and zero exposures with no rendered sources. Injection still
         runs on the original image so gain inference remains well defined. Mask planes
         and any noise added by the injector are retained. Default False preserves the
         original science background.
+    constant_variance : `bool`, optional
+        If True, set every returned variance plane to 1.0 after injection, preserving
+        masks and science pixels. Default False. Cannot be combined with a
+        ``variance_scale`` other than 1.0.
 
     Returns
     -------
@@ -249,6 +259,8 @@ def inject_sources_into_ic(
 
     if not np.isfinite(variance_scale) or variance_scale <= 0:
         raise ValueError("variance_scale must be positive and finite.")
+    if constant_variance and variance_scale != 1.0:
+        raise ValueError("constant_variance cannot be combined with variance_scale != 1.0.")
 
     # Validate that the ImageCollection has the required columns for Butler-backed injection
     required_cols = ["dataId", "mjd_mid"]
@@ -326,8 +338,12 @@ def inject_sources_into_ic(
             )
         references.append(ref)
 
-    # Apply the same scaling to successful, empty-catalog, and no-render exposures.
-    if variance_scale != 1.0:
+    # Apply the same variance mode to successful, empty-catalog, and no-render exposures.
+    if constant_variance:
+        logger.info("Setting variance planes to constant 1.0 for all %d returned exposures.", len(exposures))
+        for exposure in exposures:
+            exposure.variance.array[:] = 1.0
+    elif variance_scale != 1.0:
         logger.info(
             "Applying variance_scale=%g to all %d returned exposures.", variance_scale, len(exposures)
         )

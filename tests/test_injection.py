@@ -414,6 +414,31 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
             np.testing.assert_allclose(exposure.variance.array, 0.01)
 
     @mock.patch("kbmod.injection.HAS_LSST", True)
+    def test_constant_variance_rejects_scaling(self):
+        for scale in [1e-4, 2.0]:
+            with self.subTest(variance_scale=scale):
+                with self.assertRaisesRegex(ValueError, "constant_variance cannot be combined"):
+                    inject_sources_into_ic(None, None, None, constant_variance=True, variance_scale=scale)
+
+    def test_constant_variance_applies_after_injection_to_every_exposure(self):
+        for zero_background in [False, True]:
+            for in_place in [False, True]:
+                with self.subTest(zero_background=zero_background, in_place=in_place):
+                    with self.assertLogs("kbmod.injection", level="INFO") as logs:
+                        exposures = self.run_mixed_injections(
+                            constant_variance=True, zero_background=zero_background, in_place=in_place
+                        )
+                    for exposure in exposures:
+                        np.testing.assert_array_equal(exposure.variance.array, 1.0)
+                    background = 0.0 if zero_background else 10.0
+                    expected = np.full((2, 2), background)
+                    expected[0, 0] += 2.0
+                    np.testing.assert_array_equal(exposures[0].image.array, expected)
+                    for exposure in exposures[1:]:
+                        np.testing.assert_array_equal(exposure.image.array, background)
+                    self.assertIn("Setting variance planes to constant 1.0", "\n".join(logs.output))
+
+    @mock.patch("kbmod.injection.HAS_LSST", True)
     def test_invalid_variance_scale(self):
         for scale in [0.0, -1.0, np.nan, np.inf, -np.inf]:
             with self.subTest(variance_scale=scale):
