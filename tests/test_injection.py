@@ -334,6 +334,7 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
         butler = mock.Mock()
         butler.get_dataset.side_effect = lambda did, **kwargs: did
         butler.get.side_effect = lambda ref: make_exposure()
+        # The three exposures cover success, no catalog rows, and a rendering failure.
         catalog = Table({"injection_id": [0, 1], "obstime": [59000.0, 59002.0]})
 
         def inject(injection_catalogs, input_exposure, **kwargs):
@@ -360,6 +361,7 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
         self.assertEqual(task.return_value.run.call_count, 2)
         self.assertEqual([std.ref for std in standardizers], [0, 1, 2])
         self.assertEqual(list(injected_catalog["injection_id"]), [0])
+        # Every variance mode must preserve the original pixel masks.
         for std in standardizers:
             np.testing.assert_array_equal(std.exp.mask.array, 1)
         return [std.exp for std in standardizers]
@@ -373,6 +375,7 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
             np.testing.assert_array_equal(exposure.variance.array, 100.0)
 
     def test_variance_scale_applies_to_every_exposure(self):
+        # Support injectors that mutate their input or return a separate exposure.
         for in_place in [True, False]:
             with self.subTest(in_place=in_place):
                 exposures = self.run_mixed_injections(
@@ -390,6 +393,7 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
             np.testing.assert_array_equal(exposure.variance.array, 100.0)
 
     def test_unit_variance_scale_does_not_write_pixels(self):
+        # Read-only arrays catch even an unnecessary in-place multiplication by 1.0.
         with self.assertLogs("kbmod.injection", level="INFO") as logs:
             exposures = self.run_mixed_injections(
                 zero_background=True, variance_scale=1.0, read_only_variance=True
@@ -415,6 +419,7 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
 
     @mock.patch("kbmod.injection.HAS_LSST", True)
     def test_constant_variance_rejects_scaling(self):
+        # None inputs ensure the conflict is rejected before accessing exposures.
         for scale in [1e-4, 2.0]:
             with self.subTest(variance_scale=scale):
                 with self.assertRaisesRegex(ValueError, "constant_variance cannot be combined"):
@@ -430,6 +435,7 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
                         )
                     for exposure in exposures:
                         np.testing.assert_array_equal(exposure.variance.array, 1.0)
+                    # Constant variance must not change the chosen science-background behavior.
                     background = 0.0 if zero_background else 10.0
                     expected = np.full((2, 2), background)
                     expected[0, 0] += 2.0
