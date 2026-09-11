@@ -91,7 +91,13 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """List of flags that will be masked."""
 
     psf_std = 1
-    """Standard deviation of the Point Spread Function."""
+    """Standard deviation of the Point Spread Function. Used as a fallback
+    when ``psf_std_from_summary`` is disabled, or when the measured value is
+    unavailable for an image."""
+
+    psf_std_from_summary = True
+    """Build each image's PSF kernel from the measured ``psfSigma`` in the
+    exposure summary statistics. Set False to use the fixed ``psf_std``."""
 
     standardize_metadata = True
     """Fetch and include values from Rubin's Exposure.metadata
@@ -672,13 +678,28 @@ class ButlerStandardizer(Standardizer):
         ]
 
     def standardizePSF(self):
-        # TODO: Update when we formalize the PSF, Any of these are available
-        # from the stack:
-        # self.exp.psf.computeImage
-        # self.exp.psf.computeKernelImage
-        # self.exp.psf.getKernel
-        # self.exp.psf.getLocalKernel
+        # A user-supplied fallback value for when the measured PSF width is unavailable.
         std = self.config["psf_std"]
+
+        if not self.config["psf_std_from_summary"]:
+            logger.debug(f"Using fallback psf_std: {std}.")
+        else:
+            # Use the measured PSF width from the summary statistics if available, otherwise fall back to the user-supplied value.
+            if self._metadata is None:
+                # Metadata is lazily fetched so explicitly check and fetch in case this is a fresh standardizer.
+                self._fetch_meta()
+            # Keep the raw value around so the warning below can report what the
+            # butler actually handed back, not the None the failed cast leaves.
+            raw = self._metadata.get("psfSigma", None)
+            try:
+                measured = float(raw)
+            except (TypeError, ValueError):
+                measured = None
+            if measured is None or not np.isfinite(measured) or measured <= 0:
+                logger.warning(f"Unusable psfSigma {raw!r}. Using fallback psf_std: {std}.")
+            else:
+                std = measured
+
         return [PSF.make_gaussian_kernel(std)]
 
     # These exist because standardizers promise to return lists
