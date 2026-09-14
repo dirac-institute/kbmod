@@ -27,7 +27,7 @@ constexpr unsigned short CONV_THREAD_DIM = 32;
 constexpr unsigned short THREAD_DIM_X = 128;
 constexpr unsigned short THREAD_DIM_Y = 2;
 
-// Limits for the GPU specific functions.
+// Inclusive limits for the GPU specific functions.
 constexpr unsigned int MAX_NUM_IMAGES = 384;
 constexpr unsigned int MAX_STAMP_IMAGES = 384;
 

@@ -157,7 +157,7 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
     // Basic data checking. We don't use assert here because assert does not work in __device__ functions.
     // So we ignore the error and return so we do not access invalid memory.
     if ((psi_phi_vect == nullptr) || (image_times == nullptr) || (candidate == nullptr)) return;
-    if (psi_phi_meta.num_times >= MAX_NUM_IMAGES) return;
+    if (psi_phi_meta.num_times > MAX_NUM_IMAGES) return;
 
     // Data structures used for filtering. We fill in only what we need.
     float psi_array[MAX_NUM_IMAGES];
@@ -262,11 +262,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     __shared__ double shared_times[MAX_NUM_IMAGES];
     const int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
     const int block_threads = blockDim.x * blockDim.y;
-    // Stride so a block with fewer threads than MAX_NUM_IMAGES still loads every
-    // time. The previous one-thread-one-time copy silently required
-    // THREAD_DIM_X * THREAD_DIM_Y >= MAX_NUM_IMAGES, which tied the image limit
-    // to the pixel tiling: raising MAX_NUM_IMAGES past 256 threw "Insufficient
-    // threads to load all the times" on every search, whatever its image count.
+    // Each thread loads multiple times when the stack is larger than the block.
     for (int t = time_idx; (t < psi_phi_meta.num_times) && (t < MAX_NUM_IMAGES); t += block_threads) {
         shared_times[t] = image_times[t];
     }
@@ -344,8 +340,6 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     if (num_images > MAX_NUM_IMAGES) {
         throw std::runtime_error("Number of images exceeds GPU maximum " + std::to_string(MAX_NUM_IMAGES));
     }
-    // (The block no longer needs one thread per time: shared_times is filled with
-    // a strided loop, so the block size and the image limit are independent.)
 
     // Check that the device vectors have already been allocated.
     if (!psi_phi_array.on_gpu()) {
