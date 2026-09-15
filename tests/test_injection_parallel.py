@@ -1,10 +1,13 @@
 """Real process and FITS tests; Rubin rendering is supplied by a small fake."""
 
 from concurrent.futures import ThreadPoolExecutor
+import importlib.util
 import json
 import os
 from pathlib import Path
 import tempfile
+import sys
+from types import ModuleType
 import time
 import unittest
 from unittest import mock
@@ -60,7 +63,7 @@ def make_catalog():
 
 
 class FakeButler:
-    def __init__(self, config=None):
+    def __init__(self, config=None, **kwargs):
         self.pid = os.getpid()
 
     def close(self):
@@ -68,8 +71,9 @@ class FakeButler:
 
 
 class FakeInjected:
-    def __init__(self, data):
+    def __init__(self, data, noise_seed=None):
         self.data = data
+        self.noise_seed = noise_seed
 
     def __len__(self):
         return len(self.data)
@@ -78,6 +82,9 @@ class FakeInjected:
         sci = [np.arange(20, dtype=np.float32).reshape(4, 5) / 37 + int(i) for i in self.data["dataId"]]
         var = [np.full((4, 5), int(i) + 0.012345, dtype=np.float32) for i in self.data["dataId"]]
         for image in sci:
+            if self.noise_seed is not None:
+                rng = np.random.default_rng(self.noise_seed or None)
+                image += rng.poisson(25.0, size=image.shape).astype(np.float32) - 25.0
             image[0, 1] = np.nan
         psfs = [np.eye(3, dtype=np.float32) * (int(i) + 1) for i in self.data["dataId"]]
         stack = ImageStackPy(times=self.data["mjd_mid"], sci=sci, var=var, psfs=psfs)
@@ -95,12 +102,45 @@ def fake_inject(ic, catalog, butler, **kwargs):
     catalogs = [catalog[catalog["obstime"] == t] for t in ic.data["mjd_mid"]]
     from astropy.table import vstack
 
-    return FakeInjected(ic.data), vstack(catalogs)
+    config = kwargs.get("inject_config")
+    seed = None if config is None else config.noise_seed
+    return FakeInjected(ic.data, noise_seed=seed), vstack(catalogs)
 
 
 def fake_initializer(config):
     parallel._worker_butler = FakeButler(config)
     parallel.inject_sources_into_ic = fake_inject
+
+
+class FakeNoiseConfig:
+    def __init__(self):
+        self.noise_seed = 0
+        self.add_noise = True
+
+    def saveToString(self):
+        return json.dumps({"noise_seed": self.noise_seed, "add_noise": self.add_noise})
+
+    def loadFromString(self, text):
+        self.__dict__.update(json.loads(text))
+
+
+def fake_noise_module():
+    module = ModuleType("lsst.source.injection")
+    module.VisitInjectConfig = FakeNoiseConfig
+    return module
+
+
+def fake_noise_initializer(config):
+    sys.modules["lsst.source.injection"] = fake_noise_module()
+    fake_initializer(config)
+
+
+def load_smoke_module():
+    path = Path(__file__).resolve().parents[1] / "benchmarks/smoke_parallel_injection.py"
+    spec = importlib.util.spec_from_file_location("smoke_parallel_injection", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def fail_worker(job):
@@ -197,6 +237,94 @@ class TestInjectionShards(unittest.TestCase):
             for j in range(4):
                 np.testing.assert_array_equal(outputs[0].im_stack.sci[j], outputs[1].im_stack.sci[j])
                 np.testing.assert_array_equal(outputs[0].im_stack.var[j], outputs[1].im_stack.var[j])
+
+    def test_seeded_smoke_noise_survives_spawn(self):
+        smoke = load_smoke_module()
+        with mock.patch.dict(sys.modules, {"lsst.source.injection": fake_noise_module()}):
+            config = smoke.make_noise_config(314159)
+            self.assertTrue(config.add_noise)
+            for seed in (0, -1, True, 3.5, 2**31):
+                with self.assertRaises(ValueError):
+                    smoke.make_noise_config(seed)
+            ic = make_ic()
+            rows = ic.data[np.argsort(ic.data["mjd_mid"], kind="stable")].copy()
+            baseline = FakeInjected(rows, noise_seed=314159).toWorkUnit(SearchConfiguration(), FakeButler())
+            different_seed = FakeInjected(rows, noise_seed=271828).toWorkUnit(
+                SearchConfiguration(), FakeButler()
+            )
+            self.assertFalse(
+                np.array_equal(baseline.im_stack.sci[0], different_seed.im_stack.sci[0], equal_nan=True)
+            )
+            with tempfile.TemporaryDirectory() as directory:
+                for workers in (1, 2):
+                    output = Path(directory) / str(workers) / "x.fits"
+                    with (
+                        mock.patch.object(parallel, "_new_butler", FakeButler),
+                        mock.patch.object(parallel, "inject_sources_into_ic", fake_inject),
+                        mock.patch.object(parallel, "_initialize_worker", fake_noise_initializer),
+                    ):
+                        path, _ = parallel.inject_sources_to_workunit(
+                            ic,
+                            make_catalog(),
+                            "repo",
+                            output,
+                            injection_workers=workers,
+                            max_images_per_shard=2,
+                            inject_config=config,
+                        )
+                    work = WorkUnit.from_sharded_fits(output.name, str(output.parent))
+                    for index in range(4):
+                        np.testing.assert_array_equal(baseline.im_stack.sci[index], work.im_stack.sci[index])
+
+    def test_smoke_records_and_uses_same_seed_for_all_runs(self):
+        smoke = load_smoke_module()
+        butler_module = ModuleType("lsst.daf.butler")
+        butler_module.Butler = FakeButler
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_ic().write(root / "input.ecsv")
+            make_catalog().write(root / "catalog.ecsv")
+            SearchConfiguration().to_file(str(root / "search.yaml"))
+            argv = [
+                "smoke",
+                "--ic",
+                str(root / "input.ecsv"),
+                "--catalog",
+                str(root / "catalog.ecsv"),
+                "--search-config",
+                str(root / "search.yaml"),
+                "--butler-config",
+                "repo",
+                "--output-dir",
+                str(root / "out"),
+                "--noise-seed",
+                "271828",
+                "--workers",
+                "2",
+            ]
+            with (
+                mock.patch.object(sys, "argv", argv),
+                mock.patch.dict(
+                    sys.modules,
+                    {"lsst.source.injection": fake_noise_module(), "lsst.daf.butler": butler_module},
+                ),
+                mock.patch.object(parallel, "_new_butler", FakeButler),
+                mock.patch.object(parallel, "inject_sources_into_ic", fake_inject),
+                mock.patch.object(parallel, "_initialize_worker", fake_noise_initializer),
+                mock.patch.object(smoke, "inject_sources_into_ic", side_effect=fake_inject) as serial,
+                mock.patch.object(
+                    smoke, "inject_sources_to_workunit", wraps=parallel.inject_sources_to_workunit
+                ) as sharded,
+            ):
+                smoke.main()
+            self.assertEqual(serial.call_args.kwargs["inject_config"].noise_seed, 271828)
+            self.assertEqual(sharded.call_count, 2)
+            for call in sharded.call_args_list:
+                self.assertEqual(call.kwargs["inject_config"].noise_seed, 271828)
+            summary = json.loads((root / "out/summary.json").read_text())
+            self.assertTrue(summary["passed"])
+            self.assertEqual(summary["noise_seed"], 271828)
+            self.assertEqual(json.loads((root / "out/inject_config.py").read_text())["noise_seed"], 271828)
 
     def test_failure_cleans_staging(self):
         with (

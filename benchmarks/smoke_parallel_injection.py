@@ -8,6 +8,7 @@ import argparse
 import gc
 import importlib.metadata
 import json
+from numbers import Integral
 from pathlib import Path
 import threading
 import time
@@ -22,6 +23,24 @@ from kbmod.image_collection import ImageCollection
 from kbmod.injection import inject_sources_into_ic
 from kbmod.injection_parallel import _metadata_only, inject_sources_to_workunit
 from kbmod.work_unit import WorkUnit, load_layered_image_from_shard
+
+
+def make_noise_config(seed):
+    """Use a positive Rubin/GalSim seed for repeatable smoke-test shot noise.
+
+    Rubin restarts this seed for each exposure and increments it per source.
+    GalSim interprets zero as system entropy, so zero cannot support an exact
+    serial/sharded comparison. This smoke fixture deliberately shares a seed
+    across exposures; it is not a production independent-noise policy.
+    """
+    if isinstance(seed, bool) or not isinstance(seed, Integral) or not 0 < seed < 2**31:
+        raise ValueError("noise_seed must be an integer between 1 and 2**31 - 1.")
+    from lsst.source.injection import VisitInjectConfig
+
+    config = VisitInjectConfig()
+    config.noise_seed = int(seed)
+    config.add_noise = True
+    return config
 
 
 def measure(fn):
@@ -98,13 +117,24 @@ def main():
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--mjd-groups", type=int, default=3)
     parser.add_argument("--images-per-mjd", type=int, default=2)
+    parser.add_argument(
+        "--noise-seed",
+        type=int,
+        default=314159,
+        help="Positive Rubin/GalSim seed shared by all smoke runs (default: 314159)",
+    )
     parser.add_argument("--zero-background", action="store_true")
     parser.add_argument("--constant-variance", action="store_true")
     args = parser.parse_args()
     if min(args.workers, args.mjd_groups, args.images_per_mjd) < 1:
         parser.error("Workers and sample sizes must be positive.")
+    try:
+        inject_config = make_noise_config(args.noise_seed)
+    except ValueError as exc:
+        parser.error(str(exc))
     output = Path(args.output_dir).absolute()
     output.mkdir(parents=True, exist_ok=False)
+    (output / "inject_config.py").write_text(inject_config.saveToString())
     data = _metadata_only(ImageCollection.read(args.ic))
     times = np.unique(data["mjd_mid"])[: args.mjd_groups]
     # Explicitly take a small detector subset for the smoke test, then shuffle
@@ -136,6 +166,8 @@ def main():
         "input_mjds": list(np.asarray(data["mjd_mid"], dtype=float)),
         "catalog": str(Path(args.catalog).absolute()),
         "options": options,
+        "noise_seed": args.noise_seed,
+        "noise_policy": "fixed positive seed restarted per exposure; smoke fixture only",
         "runs": {},
     }
     for package in (
@@ -160,7 +192,9 @@ def main():
         original = ImageCollection(rows)
         butler = Butler(args.butler_config, writeable=False)
         try:
-            injected, rendered = inject_sources_into_ic(original, catalog, butler, **options)
+            injected, rendered = inject_sources_into_ic(
+                original, catalog, butler, inject_config=inject_config, **options
+            )
             work = injected.toWorkUnit(search_config=config, butler=butler)
             folder = output / "serial"
             folder.mkdir()
@@ -193,6 +227,7 @@ def main():
                 injection_workers=workers,
                 max_images_per_shard=args.images_per_mjd,
                 search_config=config,
+                inject_config=inject_config,
                 **options,
             )
         )

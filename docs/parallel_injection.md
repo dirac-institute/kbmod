@@ -88,7 +88,7 @@ python benchmarks/smoke_parallel_injection.py \
   --butler-config /path/to/butler.yaml \
   --search-config /path/to/search.yaml \
   --output-dir /scratch/parallel-injection-smoke \
-  --workers 2 --mjd-groups 3 --images-per-mjd 2 \
+  --workers 2 --mjd-groups 3 --images-per-mjd 2 --noise-seed 314159 \
   > /scratch/parallel-injection-smoke.log 2>&1
 ```
 
@@ -102,6 +102,21 @@ variance, masks, PSF kernels, output catalogs, dataset ordering, constituent ind
 WCS transforms and primary metadata, and writes `summary.json` with timings and
 sampled aggregate peak RSS. It is a correctness smoke test, not a reliable speedup
 benchmark: small samples, process startup, and successive cache warming affect time.
+
+The smoke explicitly sets `VisitInjectConfig.noise_seed` to a positive value
+(default `--noise-seed 314159`) for all three paths and keeps shot noise enabled.
+Rubin restarts that seed for each exposure, incrementing it per source; GalSim
+interprets zero as system entropy. The previous smoke used that nondeterministic
+zero default, so an exact pixel comparison could fail solely because of noise.
+The seed and serialized `inject_config.py` are now recorded alongside the results.
+See [Rubin's configuration](https://pipelines.lsst.io/py-api/lsst.source.injection.BaseInjectConfig.html)
+and [GalSim's seed semantics](https://galsim-developers.github.io/GalSim/_build/html/_modules/galsim/random.html).
+
+Exact pixel checks are retained for this reproducible fixture. A broad relative
+tolerance does not establish equivalence between independent Poisson draws,
+especially near zero science values. The smoke deliberately shares a seed across
+exposures; it does not introduce a production policy for independent exposure noise
+or change the normal injection defaults. Real-stack verification remains necessary.
 
 Repeat with `--zero-background --constant-variance` in a new directory for the
 opt-in image modes. Capture any mismatch rather than relaxing tolerances: real
