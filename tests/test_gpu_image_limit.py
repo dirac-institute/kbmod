@@ -7,7 +7,7 @@ import numpy as np
 from kbmod.search import StackSearch, Trajectory, kb_has_gpu
 
 # Include the old limit, the number of threads per block, and the new limit.
-IMAGE_COUNTS = (199, 200, 255, 256, 257, 383, 384)
+IMAGE_COUNTS = (199, 200, 255, 256, 257, 383, 384, 385, 447, 448)
 
 
 def make_search(num_images, num_bytes=4, masked=True):
@@ -39,7 +39,7 @@ def candidate():
 
 class TestImageLimitCPU(unittest.TestCase):
     def test_unfiltered_reference(self):
-        for n in (*IMAGE_COUNTS, 385):
+        for n in (*IMAGE_COUNTS, 449):
             with self.subTest(num_images=n):
                 search = make_search(n)
                 search.search_all([candidate()], False)
@@ -92,20 +92,20 @@ class TestImageLimitGPU(unittest.TestCase):
         for num_bytes in (1, 2):
             for filtered in (False, True):
                 with self.subTest(num_bytes=num_bytes, filtered=filtered):
-                    self.check_search(384, filtered, num_bytes)
+                    self.check_search(448, filtered, num_bytes)
 
     def test_all_images_valid_at_limit(self):
         # Fill every slot of the evaluator's local arrays, including sigma-G's
         # sorting arrays; the masked boundary tests use one fewer slot.
         for filtered in (False, True):
             with self.subTest(filtered=filtered):
-                self.check_search(384, filtered, masked=False)
+                self.check_search(448, filtered, masked=False)
 
     def test_reject_over_limit(self):
-        search = make_search(385)
-        with self.assertRaisesRegex(RuntimeError, "Too many images to evaluate on GPU. Max = 384"):
+        search = make_search(449)
+        with self.assertRaisesRegex(RuntimeError, "Too many images to evaluate on GPU. Max = 448"):
             search.evaluate_single_trajectory(candidate(), True)
-        with self.assertRaisesRegex(RuntimeError, "Number of images exceeds GPU maximum 384"):
+        with self.assertRaisesRegex(RuntimeError, "Number of images exceeds GPU maximum 448"):
             search.search_all([candidate()], True)
 
 
