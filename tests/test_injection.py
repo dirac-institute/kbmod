@@ -312,11 +312,13 @@ class TestInjectSources(unittest.TestCase):
 class TestEmptyBackgroundInjection(unittest.TestCase):
     """Check zero-background output for successful, absent, and failed injections."""
 
-    def run_mixed_injections(self, in_place=True, read_only_variance=False, **kwargs):
+    def run_mixed_injections(self, in_place=True, read_only_variance=False, original_do_mask=True, **kwargs):
         ic = mock.MagicMock()
         ic.__len__.return_value = 3
         ic.data = Table({"dataId": [0, 1, 2], "mjd_mid": [59000.0, 59001.0, 59002.0]})
-        ic.get_standardizers.return_value = [{"std": SimpleNamespace()} for _ in range(3)]
+        ic.get_standardizers.return_value = [
+            {"std": SimpleNamespace(config={"do_mask": original_do_mask})} for _ in range(3)
+        ]
 
         def make_exposure():
             exposure = SimpleNamespace(
@@ -341,6 +343,7 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
             # Gain inference must still receive the real image and unscaled variance.
             np.testing.assert_array_equal(input_exposure.image.array, 10.0)
             np.testing.assert_array_equal(input_exposure.variance.array, 100.0)
+            np.testing.assert_array_equal(input_exposure.mask.array, 1)
             if injection_catalogs["obstime"][0] == 59002.0:
                 raise RuntimeError("No sources were injected within bounds.")
             exposure = input_exposure if in_place else make_exposure()
@@ -364,7 +367,26 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
         # Every variance mode must preserve the original pixel masks.
         for std in standardizers:
             np.testing.assert_array_equal(std.exp.mask.array, 1)
+            self.assertEqual(std.config["do_mask"], False if kwargs.get("disable_mask") else original_do_mask)
+        for original in ic.get_standardizers.return_value:
+            self.assertEqual(original["std"].config["do_mask"], original_do_mask)
         return [std.exp for std in standardizers]
+
+    def test_disable_mask_preserves_input_masks_and_configuration(self):
+        # Only the returned standardizers change; all exposure paths keep their raw masks.
+        for original_do_mask in [False, True]:
+            with self.subTest(original_do_mask=original_do_mask):
+                with self.assertLogs("kbmod.injection", level="INFO") as logs:
+                    exposures = self.run_mixed_injections(
+                        disable_mask=True, original_do_mask=original_do_mask, read_only_variance=True
+                    )
+                np.testing.assert_array_equal(exposures[0].image.array, [[12.0, 10.0], [10.0, 10.0]])
+                for exposure in exposures:
+                    np.testing.assert_array_equal(exposure.variance.array, 100.0)
+                self.assertIn("Disabling standardizer masking", "\n".join(logs.output))
+
+    def test_default_preserves_disabled_mask_configuration(self):
+        self.run_mixed_injections(original_do_mask=False)
 
     def test_no_render_exposure_has_empty_background(self):
         exposures = self.run_mixed_injections(zero_background=True)

@@ -209,6 +209,7 @@ def inject_sources_into_ic(
     variance_scale=1.0,
     zero_background=False,
     constant_variance=False,
+    disable_mask=False,
 ):
     """
     Inject simulated moving objects directly into the exposures specified by an ImageCollection
@@ -246,6 +247,11 @@ def inject_sources_into_ic(
         If True, set every returned variance plane to 1.0 after injection, preserving
         masks and science pixels. Default False. Cannot be combined with a
         ``variance_scale`` other than 1.0.
+    disable_mask : `bool`, optional
+        If True, disable masking in the returned standardizers when building a WorkUnit.
+        Original exposure masks remain intact for injection and gain inference. Default
+        False preserves each standardizer's masking configuration. Pixels already NaN
+        in the science or variance planes are not restored.
 
     Returns
     -------
@@ -364,11 +370,15 @@ def inject_sources_into_ic(
 
     # Rebuild the standardizers with the new exposures
     standardizers = ic.get_standardizers(butler=butler)
+    if disable_mask:
+        logger.info("Disabling standardizer masking for all %d returned exposures.", len(exposures))
     new_standardizers = []
     for std, ref, exp in zip(standardizers, references, exposures):
         new_std = copy.deepcopy(std["std"])
         new_std.exp = exp
         new_std.ref = ref
+        if disable_mask:
+            new_std.config["do_mask"] = False
         new_standardizers.append(new_std)
 
     # Rebuild the ImageCollection from the new standardizers

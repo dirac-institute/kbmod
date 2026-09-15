@@ -4,11 +4,13 @@ import unittest
 from unittest import mock
 
 from astropy.time import Time
+from astropy.table import Table
 import numpy as np
 
 from utils import DECamImdiffFactory, MockButler, MockFailedButler, DatasetRef, DatasetId, dafButler
 from kbmod import ImageCollection, Standardizer, StandardizerConfig
 from kbmod.core.psf import PSF
+from kbmod.injection import inject_sources_into_ic
 from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
 
 # Use a shared factory so that we can reference the same fits files in mocks
@@ -270,6 +272,75 @@ class TestButlerStandardizer(unittest.TestCase):
                         self.assertEqual(mask.ravel()[i], True)
                     else:
                         self.assertEqual(mask.ravel()[i], False)
+
+    def test_disabled_mask_shape(self):
+        """A disabled mask is a list containing one zero mask matching the image shape."""
+        std = Standardizer.get(
+            DatasetId(11), butler=self.butler, config={"do_mask": False, "do_threshold": True}
+        )
+        std.standardizeMetadata()
+        std.exp = self.butler.get(std.ref)
+        std.exp.image.array = np.ones((2, 3), dtype=np.float32)
+        masks = std.standardizeMaskImage()
+        self.assertIsInstance(masks, list)
+        self.assertEqual(len(masks), 1)
+        self.assertEqual(masks[0].shape, (2, 3))
+        np.testing.assert_array_equal(masks[0], False)
+
+    def test_injected_mask_override_reaches_workunit(self):
+        """Bypass masks before stack construction would replace flagged pixels with NaNs."""
+
+        def flagged_exposure(exp):
+            exp.image.array[:] = 10.0
+            exp.image.array[0, 0] = np.nan
+            exp.variance.array[:] = 100.0
+            exp.mask.array[:] = KBMODV1Config.bit_flag_map["BAD"]
+
+        for disable_mask in [False, True]:
+            with self.subTest(disable_mask=disable_mask):
+                butler = MockButler("/far/far/away", mock_images_f=flagged_exposure)
+                std = Standardizer.get(DatasetId(11), butler=butler, config={"grow_mask": False})
+                ic = ImageCollection.fromStandardizers([std])
+                catalog = Table({"obstime": list(ic["mjd_mid"])})
+                task = mock.Mock()
+
+                def inject(injection_catalogs, input_exposure, **kwargs):
+                    self.assertTrue(np.all(input_exposure.mask.array != 0))
+                    return mock.Mock(output_exposure=input_exposure, output_catalog=injection_catalogs)
+
+                task.run.side_effect = inject
+                with mock.patch.multiple(
+                    "kbmod.injection",
+                    HAS_LSST=True,
+                    DatasetId=DatasetId,
+                    VisitInjectConfig=mock.Mock(),
+                    VisitInjectTask=mock.Mock(return_value=task),
+                    create=True,
+                ):
+                    injected, _ = inject_sources_into_ic(ic, catalog, butler, disable_mask=disable_mask)
+                self.assertTrue(std.config["do_mask"])
+                # The returned collection serializes the override as well as caching it.
+                restored = ImageCollection(metadata=injected.data.copy())
+                self.assertEqual(
+                    restored.get_standardizer(0, butler=butler)["std"].config["do_mask"], not disable_mask
+                )
+                # Unspecified optional mock metadata cannot be serialized to FITS.
+                injected.data.remove_columns(
+                    [
+                        name
+                        for name in injected.data.colnames
+                        if any(isinstance(value, mock.Mock) for value in injected.data[name])
+                    ]
+                )
+                workunit = injected.toWorkUnit()
+                if disable_mask:
+                    # Disabling masks cannot recover pixels that were already NaN.
+                    self.assertTrue(np.isnan(workunit.im_stack.sci[0][0, 0]))
+                    self.assertTrue(np.isfinite(workunit.im_stack.sci[0].ravel()[1:]).all())
+                    self.assertTrue(np.isfinite(workunit.im_stack.var).all())
+                else:
+                    self.assertTrue(np.isnan(workunit.im_stack.sci).all())
+                    self.assertTrue(np.isnan(workunit.im_stack.var).all())
 
     def test_bitmasking_missing_flags(self):
         """Test masking succeeds when mask_flags config contains flags
