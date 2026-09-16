@@ -333,6 +333,121 @@ class NNSweepFilter:
         return keep_vals
 
 
+class GreedyValidEndpointFilter:
+    """Experimental likelihood-ordered suppression on shared valid epochs.
+
+    Each pair is compared at the earliest and latest times where both rows
+    have ``obs_valid=True``. The distance is the Euclidean norm of the four
+    endpoint coordinate differences, as in ``nn_start_end``. A pair must share
+    at least ``min_shared_obs`` observations at two distinct times, and at least
+    ``min_shared_fraction`` of *each* row's valid observations.
+
+    Rows are visited in descending likelihood order (input order breaks ties).
+    Only retained rows suppress neighbors, avoiding transitive chains through
+    rejected candidates. This pair-dependent distance is not a KD-tree metric.
+    The reference implementation costs O(N^2 T) in the worst case and batches
+    comparisons to avoid allocating an N x N distance matrix.
+
+    Parameters
+    ----------
+    cluster_eps : `float`
+        Positive, finite endpoint distance threshold in pixels.
+    pred_times : array-like
+        One finite time offset per obs_valid column, in days relative to the
+        trajectory's reference epoch. Column order is preserved.
+    min_shared_obs : `int`, optional
+        Minimum number of shared valid observations. Default is 2.
+    min_shared_fraction : `float`, optional
+        Minimum shared fraction of each row's valid observations. Default is 0.5.
+    batch_size : `int`, optional
+        Maximum number of pair comparisons per batch. Default is 1024.
+    """
+
+    def __init__(
+        self, cluster_eps, pred_times, *, min_shared_obs=2, min_shared_fraction=0.5, batch_size=1024
+    ):
+        if not np.isfinite(cluster_eps) or cluster_eps <= 0:
+            raise ValueError("cluster_eps must be finite and > 0.")
+        self.thresh = cluster_eps
+        self.times = np.asarray(pred_times, dtype=np.float64)
+        if self.times.ndim != 1 or self.times.size == 0 or not np.all(np.isfinite(self.times)):
+            raise ValueError("pred_times must be a nonempty, finite one-dimensional array.")
+        if (
+            isinstance(min_shared_obs, (bool, np.bool_))
+            or not isinstance(min_shared_obs, (int, np.integer))
+            or min_shared_obs < 2
+        ):
+            raise ValueError("min_shared_obs must be an integer >= 2.")
+        if not np.isfinite(min_shared_fraction) or not 0 <= min_shared_fraction <= 1:
+            raise ValueError("min_shared_fraction must be finite and in [0, 1].")
+        if (
+            isinstance(batch_size, (bool, np.bool_))
+            or not isinstance(batch_size, (int, np.integer))
+            or batch_size < 1
+        ):
+            raise ValueError("batch_size must be a positive integer.")
+        self.min_shared_obs = min_shared_obs
+        self.min_shared_fraction = min_shared_fraction
+        self.batch_size = batch_size
+
+    def get_filter_name(self):
+        return (
+            f"GreedyValidEndpointFilter eps={self.thresh} "
+            f"min_shared_obs={self.min_shared_obs} min_shared_fraction={self.min_shared_fraction}"
+        )
+
+    def keep_indices(self, result_data):
+        """Return retained row indices in input order without changing the data.
+
+        Requires a boolean ``obs_valid`` matrix aligned with ``pred_times`` and
+        finite trajectory coordinates and likelihoods. Rows with insufficient
+        shared evidence are retained, including rows with no valid observations.
+        """
+        if len(result_data) == 0:
+            return []
+        if "obs_valid" not in result_data.colnames:
+            raise ValueError("greedy_valid_start_end requires an obs_valid column.")
+        valid = np.asarray(result_data["obs_valid"])
+        if valid.dtype.kind != "b" or valid.shape != (len(result_data), len(self.times)):
+            raise ValueError("obs_valid must be a boolean matrix with one column per prediction time.")
+        coords = np.column_stack([result_data[c] for c in ("x", "y", "vx", "vy")]).astype(float)
+        likelihood = np.asarray(result_data["likelihood"], dtype=float)
+        if not np.all(np.isfinite(coords)) or not np.all(np.isfinite(likelihood)):
+            raise ValueError("Trajectory coordinates and likelihoods must be finite.")
+
+        counts = valid.sum(axis=1)
+        order = np.argsort(-likelihood, kind="stable")
+        suppressed = np.zeros(len(result_data), dtype=bool)
+        keep = []
+        for rank, idx in enumerate(order):
+            if suppressed[idx]:
+                continue
+            keep.append(int(idx))
+            for start in range(rank + 1, len(order), self.batch_size):
+                others = order[start : start + self.batch_size]
+                others = others[~suppressed[others]]
+                if len(others) == 0:
+                    continue
+                shared = valid[others] & valid[idx]
+                num_shared = shared.sum(axis=1)
+                enough = (num_shared >= self.min_shared_obs) & (
+                    num_shared >= self.min_shared_fraction * np.maximum(counts[idx], counts[others])
+                )
+                others, shared = others[enough], shared[enough]
+                if len(others) == 0:
+                    continue
+                first = np.min(np.where(shared, self.times, np.inf), axis=1)
+                last = np.max(np.where(shared, self.times, -np.inf), axis=1)
+                delta = coords[others] - coords[idx]
+                dx_first = delta[:, 0] + delta[:, 2] * first
+                dy_first = delta[:, 1] + delta[:, 3] * first
+                dx_last = delta[:, 0] + delta[:, 2] * last
+                dy_last = delta[:, 1] + delta[:, 3] * last
+                distance = np.hypot(np.hypot(dx_first, dy_first), np.hypot(dx_last, dy_last))
+                suppressed[others[(first < last) & (distance <= self.thresh)]] = True
+        return sorted(keep)
+
+
 class ClusterGridFilter:
     """Use a discrete grid to cluster the points. Each trajectory
     is fit into a bin and only the best trajectory per bin is retained.
@@ -414,6 +529,10 @@ def apply_clustering(result_data, cluster_params):
     cluster_params : dict
         Contains values concerning the image and search settings including:
         cluster_type, cluster_eps, times, and cluster_v_scale (optional).
+        The experimental greedy_valid_start_end mode also accepts
+        cluster_min_shared_obs (default 2) and cluster_min_shared_fraction
+        (default 0.5). Times must align with the obs_valid columns and x/y
+        must refer to the first supplied time (the ImageStack reference epoch).
 
     Raises
     ------
@@ -432,6 +551,20 @@ def apply_clustering(result_data, cluster_params):
     # Get the times used for prediction clustering.
     if not "times" in cluster_params:
         raise KeyError("Missing times parameter in the clustering parameters.")
+    if cluster_type == "greedy_valid_start_end":
+        # Do not sort times independently of the per-observation validity mask.
+        times = np.asarray(cluster_params["times"], dtype=np.float64)
+        if times.ndim != 1 or times.size == 0 or not np.all(np.isfinite(times)):
+            raise ValueError("times must be a nonempty, finite one-dimensional array.")
+        filt = GreedyValidEndpointFilter(
+            cluster_params["cluster_eps"],
+            times - times[0],
+            min_shared_obs=cluster_params.get("cluster_min_shared_obs", 2),
+            min_shared_fraction=cluster_params.get("cluster_min_shared_fraction", 0.5),
+        )
+        logger.info(f"Clustering {len(result_data)} results using {filt.get_filter_name()}")
+        result_data.filter_rows(filt.keep_indices(result_data), filt.get_filter_name())
+        return
     all_times = np.sort(cluster_params["times"])
     zeroed_times = np.array(all_times) - all_times[0]
 

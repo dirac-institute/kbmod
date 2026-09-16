@@ -84,13 +84,79 @@ The ``cluster_eps`` parameter controls the bin sizes. So ``cluster_eps=10`` will
 While not a true "clustering" algorithm, it is a fast way to quickly filter out similar trajectories. To use, you set ``cluster_type= grid_start_end `` or ``cluster_type= grid_start``
 
 
+**Experimental validity-aware endpoint filtering**
+
+The existing clustering modes compare trajectory parameters or predictions at
+fixed epochs without consulting ``obs_valid``. This is a geometric definition of
+duplicate tracks, even when the representative is chosen using likelihood
+recomputed after sigma-G clipping. It can leave two candidates separate because
+their extrapolations diverge at epochs excluded from both likelihoods. Conversely,
+geometrically similar tracks supported by disjoint observations can be merged.
+
+The opt-in ``greedy_valid_start_end`` mode compares each pair at the earliest and
+latest epochs valid for **both** trajectories. It does not compare one trajectory's
+first valid position to another trajectory's position at a different date.
+The distance is ``sqrt(dx_first**2 + dy_first**2 + dx_last**2 + dy_last**2)``,
+using the same endpoint-distance convention as ``nn_start_end``. ``cluster_eps``
+is a threshold on this combined distance, not a separate tolerance per endpoint.
+For linear trajectories the shared endpoints also bound separation at intervening
+shared epochs.
+
+By default a pair must share at least two observations at two distinct times,
+and at least half of each trajectory's valid observations. These requirements
+are controlled by ``cluster_min_shared_obs`` (default 2, minimum 2) and
+``cluster_min_shared_fraction`` (default 0.5, range [0, 1]). Candidates with
+insufficient overlap, including disjoint masks, are not merged. Rows with no
+valid observations survive this filter; remove them separately if needed.
+
+Candidates are processed in descending stored likelihood order, with input
+order breaking ties. Only retained candidates can suppress neighbors; the mode
+does not form DBSCAN connected components through rejected intermediate tracks.
+Returned rows keep their input order. Likelihood is neither recomputed nor
+restricted to the shared epochs. Different masks still mean different evidence
+supports each score, so this is a duplicate-removal heuristic, not a statistical
+model comparison. Small shared intervals may hide meaningful differences outside
+that interval; overlap thresholds need validation on injected and real objects.
+
+The mode requires a boolean ``obs_valid`` column and finite coordinates and
+likelihoods. Supply one time per mask column in the same order. As in
+``ImageStackPy``, the first time is the reference epoch of x/y; times need not be
+sorted. Missing masks raise an error rather than silently ignoring validity.
+
+For a controlled experiment, generate a catalog with both earlier geometric
+duplicate filters disabled, and compare the clustering modes on copies of the
+same catalog after sigma-G clipping. A search configuration is::
+
+    do_clustering: true
+    cluster_type: greedy_valid_start_end
+    cluster_eps: 20.0
+    cluster_min_shared_obs: 2
+    cluster_min_shared_fraction: 0.5
+    generate_psi_phi: true
+    sigmaG_filter: true
+    near_dup_thresh: 0
+    candidate_dup_px: 0
+
+``near_dup_thresh`` normally defaults to 10 and removes candidates before the
+Python ``obs_valid`` masks are available. Changing the final clustering mode
+cannot recover candidates already removed there or by ``candidate_dup_px``.
+The example retains the usual epsilon only as a starting point; it is not a
+validated threshold for this new mode. Existing clustering defaults are unchanged.
+
+This reference implementation has worst-case O(N^2 T) cost for N candidates and
+T observations, with temporary comparisons bounded by a batch size. It does not
+allocate an N x N distance matrix. Start with small catalogs; this mode has not
+been validated for production-scale searches or scientific recovery rates.
+
+
 **Clustering Parameters**
 
 Relevant clustering parameters include:
 
-* ``cluster_type`` - The types of predicted values to use when determining which trajectories should be clustered together, including position, velocity, and angles  (if ``do_clustering = True``). Must be one of "all", "position", "mid_position", "start_end_position", "nn_start_end", "nn_start", "grid_start_end", or "grid_start". While "all" is used by default for consistency with earlier runs, many users will find “nn_start_end” effective and more understandable.
+* ``cluster_type`` - The types of predicted values to use when determining which trajectories should be clustered together, including position, velocity, and angles  (if ``do_clustering = True``). Must be one of "all", "position", "mid_position", "start_end_position", "nn_start_end", "nn_start", "grid_start_end", "grid_start", or the experimental "greedy_valid_start_end". While "all" is used by default for consistency with earlier runs, many users will find “nn_start_end” effective and more understandable.
 * ``do_clustering`` - Cluster the resulting trajectories to remove duplicates.
 * ``cluster_eps`` - The distance threshold (in pixels) used by the clustering algorithms.
 * ``cluster_v_scale`` - The relative scale between velocity differences and positional differences in ``all`` clustering.  This parameter is ignored for all other clustering types.
-
+* ``cluster_min_shared_obs`` - Minimum shared valid observations for the experimental ``greedy_valid_start_end`` mode (default 2).
+* ``cluster_min_shared_fraction`` - Minimum shared fraction of each candidate's valid observations for ``greedy_valid_start_end`` (default 0.5).
 

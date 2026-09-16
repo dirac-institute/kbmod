@@ -93,6 +93,20 @@ _SUPPORTED_PARAMS = [
         validate_func=lambda x: isinstance(x, (int, float)) and x >= 0,
     ),
     _ParamInfo(
+        name="cluster_min_shared_fraction",
+        default_value=0.5,
+        description="Minimum shared fraction of each row's valid observations for greedy_valid_start_end.",
+        section="clustering",
+        validate_func=lambda x: isinstance(x, (int, float)) and math.isfinite(x) and 0 <= x <= 1,
+    ),
+    _ParamInfo(
+        name="cluster_min_shared_obs",
+        default_value=2,
+        description="Minimum shared valid observations for greedy_valid_start_end (at least two distinct times).",
+        section="clustering",
+        validate_func=lambda x: isinstance(x, int) and not isinstance(x, bool) and x >= 2,
+    ),
+    _ParamInfo(
         name="cluster_type",
         default_value="all",
         description="The type of clustering algorithm to use (if do_clustering = True).",

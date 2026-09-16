@@ -39,6 +39,11 @@ Coadds needed by an enabled peak-offset or CNN filter are still generated.
 Configuration Parameters
 ------------------------
 
+The experimental ``cluster_type: greedy_valid_start_end`` mode additionally uses
+``cluster_min_shared_obs`` (default 2) and ``cluster_min_shared_fraction``
+(default 0.5). Both apply only to this mode. See :doc:`results_filtering` for its
+validity-mask requirements, overlap semantics, and controlled-experiment setup.
+
 +------------------------+-----------------------------+----------------------------------------+
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
 +------------------------+-----------------------------+----------------------------------------+
