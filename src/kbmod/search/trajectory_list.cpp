@@ -85,7 +85,10 @@ void TrajectoryList::set_trajectories(const std::vector<Trajectory>& new_values)
 std::vector<Trajectory> TrajectoryList::get_batch(uint64_t start, uint64_t count) {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
     if (count == 0) throw std::runtime_error("count must be greater than 0");
-    if (start >= max_size) throw std::runtime_error("start is out of bounds."); 
+
+    // If the start if outside the valid range, then (by definition) we return an
+    // empty array of results.
+    if (start >= max_size) return std::vector<Trajectory>();
 
     // If we are trying to read past the end of the array, just read until the end.
     const uint64_t end = std::min(start + count, max_size);

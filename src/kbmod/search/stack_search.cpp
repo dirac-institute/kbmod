@@ -43,7 +43,7 @@ StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_i
     // Get the image size data.
     num_imgs = sci_imgs.size();
     if (num_imgs == 0) {
-        throw std::runtime_error("No images in the to process.");
+        throw std::runtime_error("No images to process.");
     }
     if (sci_imgs.size() != var_imgs.size()) {
         throw std::runtime_error("The number of science and variance images do not match. Science: " +
@@ -308,8 +308,8 @@ Image StackSearch::get_all_psi_phi_curves(const std::vector<Trajectory>& traject
     for (int i = 0; i < num_trj; ++i) {
         std::vector<float> curve = extract_joint_psi_phi_curve(psi_phi_array, trajectories[i]);
 
-// Copy the data into the results.
-#pragma omp critical
+        // Copy the data into the results. Each thread writes a distinct row,
+        // so there is no need to serialize access with a critical section.
         for (int j = 0; j < 2 * num_imgs; ++j) {
             results(i, j) = curve[j];
         }
