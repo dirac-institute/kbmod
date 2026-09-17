@@ -305,6 +305,34 @@ class test_results(unittest.TestCase):
         table.update_obs_valid(obs_valid, drop_empty_rows=True)
         self.assertEqual(len(table), 2)
 
+        # Check that if we load a table with obs_valid but NOT a reason, we create
+        # an unknown reason when we try to update the table. Also check that we
+        # NEVER flip an observation back to valid.
+        table2 = Results.from_trajectories(self.trj_list[0:num_to_use])
+        table2.table["obs_valid"] = obs_valid
+        assert "obs_invalid_reason" not in table2.colnames
+
+        everything_valid = np.ones_like(obs_valid, dtype=bool)
+        table2.update_obs_valid(everything_valid, drop_empty_rows=False, reason=100)
+        assert np.array_equal(table2["obs_valid"], obs_valid)  # Nothing flipped.
+        assert "obs_invalid_reason" in table2.colnames
+        assert np.array_equal(table2["obs_invalid_reason"], np.where(obs_valid, 0, -1))
+
+        # Check that if we overwrite the obs_valid array with a new one, the existing
+        # invalid reasons are preserved.
+        new_obs_valid = np.array(
+            [
+                [False, True, True, True],
+                [True, True, False, True],
+                [False, True, True, True],
+            ]
+        )
+        table2.update_obs_valid(new_obs_valid, drop_empty_rows=False, reason=2)
+        assert np.array_equal(table2["obs_valid"], obs_valid & new_obs_valid)
+
+        expected_reasons = np.array([[2, 0, 0, 0], [0, -1, 2, 0], [-1, -1, -1, -1]])
+        assert np.array_equal(table2["obs_invalid_reason"], expected_reasons)
+
     def test_compute_likelihood_curves(self):
         num_to_use = 3
         table = Results.from_trajectories(self.trj_list[0:num_to_use])

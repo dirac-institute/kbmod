@@ -738,10 +738,10 @@ class Results:
         # If a reason is given, update the 'obs_invalid_reason' column for any entries that
         # have changed. But preserve existing reasons for entries that are already invalid.
         if "obs_invalid_reason" not in self.colnames:
-            self.table["obs_invalid_reason"] = np.full_like(
-                self.table["obs_valid"],
+            self.table["obs_invalid_reason"] = np.where(
+                prev_obs_valid,
                 InvalidPixelReason.VALID,
-                dtype=int,
+                InvalidPixelReason.INVALID_UNKNOWN,
             )
 
         if np.isscalar(reason) or isinstance(reason, InvalidPixelReason):
