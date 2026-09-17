@@ -267,7 +267,6 @@ class Results:
         # Reshape image columns if we have stored shape metadata
         # (parquet flattens multi-dimensional arrays to 1D)
         # This must happen after loading aux files since they may contain image columns.
-        results._reshape_image_columns(data.meta.get("image_column_shapes"))
         results._reshape_image_columns(image_column_shapes)
 
         return results
