@@ -249,7 +249,7 @@ class test_results(unittest.TestCase):
 
         # With obs_valid: Check the the data has been inserted and the
         # statistics have been updated.
-        table.add_psi_phi_data(psi_array, phi_array, obs_valid)
+        table.update_obs_valid(obs_valid, drop_empty_rows=False)
         for i in range(num_to_use):
             self.assertEqual(len(table["psi_curve"][i]), 4)
             self.assertEqual(len(table["phi_curve"][i]), 4)
@@ -279,9 +279,18 @@ class test_results(unittest.TestCase):
                 [False, False, False, False],
             ]
         )
-        table.update_obs_valid(obs_valid, drop_empty_rows=False)
+        obs_invalid_reason = np.array(
+            [
+                [0, 0, 0, 0],
+                [0, 1, 0, 0],
+                [3, 3, 3, 3],
+            ]
+        )
+        table.update_obs_valid(obs_valid, drop_empty_rows=False, reason=obs_invalid_reason)
         self.assertEqual(len(table), 3)
         self.assertEqual(table.get_num_times(), 4)
+        assert np.array_equal(table["obs_valid"], obs_valid)
+        assert np.array_equal(table["obs_invalid_reason"], obs_invalid_reason)
 
         exp_lh = [2.3, 2.020725, 0.0]
         exp_flux = [1.15, 1.1666667, 0.0]
@@ -321,7 +330,7 @@ class test_results(unittest.TestCase):
                 [True, True, False, True],
             ]
         )
-        table.add_psi_phi_data(psi_array, phi_array, obs_valid)
+        table.add_psi_phi_data(psi_array, phi_array, obs_valid=obs_valid)
 
         expected1 = np.array([[1.0, 1.1, 0.5, 0.0], [1.0, 0.0, 0.0, 0.0], [0.2, 1.0, 5.0, 0.25]])
         lh_mat1 = table.compute_likelihood_curves(filter_obs=False)

@@ -24,6 +24,7 @@ from kbmod.search import (
     extract_all_trajectory_vy,
     extract_all_trajectory_x,
     extract_all_trajectory_y,
+    InvalidPixelReason,
     Trajectory,
 )
 from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
@@ -267,6 +268,7 @@ class Results:
         # (parquet flattens multi-dimensional arrays to 1D)
         # This must happen after loading aux files since they may contain image columns.
         results._reshape_image_columns(data.meta.get("image_column_shapes"))
+        results._reshape_image_columns(image_column_shapes)
 
         return results
 
@@ -681,28 +683,32 @@ class Results:
         self.table["phi_curve"] = np.asanyarray(phi_array, dtype=np.float32)
 
         if obs_valid is not None:
-            # Make the data to match.
-            if len(obs_valid) != len(self.table):
-                raise ValueError(
-                    f"Wrong number of obs_valid provided. Expected {len(self.table)} rows."
-                    f" Found {len(obs_valid)} rows."
-                )
-            self.table["obs_valid"] = obs_valid
+            self.update_obs_valid(
+                obs_valid,
+                reason=InvalidPixelReason.INVALID_UNKNOWN,
+                drop_empty_rows=False,
+            )
 
         # Update the track likelihoods given this new information.
         self._update_likelihood()
 
         return self
 
-    def update_obs_valid(self, obs_valid, drop_empty_rows=True):
-        """Updates or appends the 'obs_valid' column.
+    def update_obs_valid(self, obs_valid, *, reason=-1, drop_empty_rows=True):
+        """Updates (or appends) the 'obs_valid' column. This method can only
+        be used to mark observations as invalid. Users cannot switch an observation
+        back to valid.
 
         Parameters
         ----------
         obs_valid : `numpy.ndarray`
             An array with one row per results and one column per timestamp
             with Booleans indicating whether the corresponding observation
-            is valid.
+            is valid. If some observations have already been marked as invalid
+            this will take the logical AND with the existing 'obs_valid' array.
+        reason : `int`, `InvalidPixelReason`, or `numpy.ndarray`, optional
+            The reason new values are marked as invalid. If a value is already
+            marked as invalid, this reason will not overwrite the existing one.
         drop_empty_rows : `bool`
             Filter the rows without any valid observations.
 
@@ -718,10 +724,42 @@ class Results:
         """
         if len(obs_valid) != len(self.table):
             raise ValueError(
-                f"Wrong number of obs_valid lists provided. Expected {len(self.table)} rows"
+                f"Wrong number of obs_valid arrays provided. Expected {len(self.table)} rows"
                 f" Found {len(obs_valid)} rows"
             )
-        self.table["obs_valid"] = obs_valid
+
+        # Flip the marking of newly invalid observations.
+        if "obs_valid" in self.colnames:
+            prev_obs_valid = self.table["obs_valid"]
+            self.table["obs_valid"] &= obs_valid
+        else:
+            prev_obs_valid = np.full_like(obs_valid, True, dtype=bool)
+            self.table["obs_valid"] = obs_valid
+
+        # If a reason is given, update the 'obs_invalid_reason' column for any entries that
+        # have changed. But preserve existing reasons for entries that are already invalid.
+        if "obs_invalid_reason" not in self.colnames:
+            self.table["obs_invalid_reason"] = np.full_like(
+                self.table["obs_valid"],
+                InvalidPixelReason.VALID,
+                dtype=int,
+            )
+
+        if np.isscalar(reason) or isinstance(reason, InvalidPixelReason):
+            reason = np.full_like(obs_valid, reason, dtype=int)
+        else:
+            if reason.shape != obs_valid.shape:
+                raise ValueError(
+                    f"Wrong shape for reason array. Expected {obs_valid.shape}, got {reason.shape}"
+                )
+            reason = reason.astype(int)
+
+        new_reason = np.where(
+            prev_obs_valid & ~obs_valid,
+            reason,
+            self.table["obs_invalid_reason"],
+        )
+        self.table["obs_invalid_reason"] = new_reason
 
         # Update the count of valid observations and filter any rows without valid observations.
         self.table["obs_count"] = self.table["obs_valid"].sum(axis=1)

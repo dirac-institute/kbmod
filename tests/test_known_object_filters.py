@@ -59,7 +59,18 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.obs_valid[i][invalid_obs] = False
         self.res.update_obs_valid(self.obs_valid)
         assert set(self.res.table.columns) == set(
-            ["x", "y", "vx", "vy", "likelihood", "flux", "obs_count", "obs_valid", "uuid"]
+            [
+                "x",
+                "y",
+                "vx",
+                "vy",
+                "likelihood",
+                "flux",
+                "obs_count",
+                "obs_valid",
+                "uuid",
+                "obs_invalid_reason",
+            ]
         )
 
         # Use the results' trajectories to generate a set of known objects that intersect our generated results in various
