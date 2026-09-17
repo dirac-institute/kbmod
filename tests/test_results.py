@@ -4,10 +4,8 @@ import os
 import tempfile
 import unittest
 
-import astropy
 import pyarrow.parquet as pq
 from astropy.table import Table
-from packaging import version
 from pathlib import Path
 
 from kbmod.results import Results, write_results_to_files_destructive
