@@ -97,7 +97,6 @@ extern "C" void *allocate_gpu_block(uint64_t memory_size) {
         cuda_print_stats();
         throw std::runtime_error("Unable to allocate GPU memory (" + std::to_string(memory_size) +
                                  " bytes). Error code = " + std::to_string(res));
-        gpu_ptr = nullptr;
     }
     return gpu_ptr;
 }
