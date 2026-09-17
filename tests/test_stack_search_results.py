@@ -72,7 +72,7 @@ class test_search(unittest.TestCase):
         self.search.clear_results()
         self.assertEqual(len(self.search.get_all_results()), 0)
 
-    def test_get_pixel_validity(self):    
+    def test_get_pixel_validity(self):
         # The test trajectories should be all valid.
         invalid_reason = self.search.get_pixel_invalidity_reason(self.fake_trjs)
         self.assertEqual(invalid_reason.shape[0], self.num_objs)
@@ -110,7 +110,6 @@ class test_search(unittest.TestCase):
         assert np.all(invalid_reason[:, :3] == InvalidPixelReason.VALID)
         assert np.all(invalid_reason[:, 3] == InvalidPixelReason.INVALID_MASK)
         assert np.all(invalid_reason[:, 4:] == InvalidPixelReason.VALID)
-
 
     def test_psi_phi_curves(self):
         psi_phi_curves = self.search.get_all_psi_phi_curves(self.fake_trjs)
