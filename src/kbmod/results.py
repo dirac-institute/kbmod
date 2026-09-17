@@ -721,6 +721,11 @@ class Results:
         Raises a ValueError if the input array is not the same size as the table
         or a given pair of rows in the arrays are not the same length.
         """
+        # Extract the numeric value if the reason is an InvalidPixelReason instance.
+        if isinstance(reason, InvalidPixelReason):
+            reason = int(reason.value)
+
+        # Check the size of the input array against the table.
         if len(obs_valid) != len(self.table):
             raise ValueError(
                 f"Wrong number of obs_valid arrays provided. Expected {len(self.table)} rows"
@@ -740,12 +745,12 @@ class Results:
         if "obs_invalid_reason" not in self.colnames:
             self.table["obs_invalid_reason"] = np.where(
                 prev_obs_valid,
-                InvalidPixelReason.VALID,
-                InvalidPixelReason.INVALID_UNKNOWN,
+                int(InvalidPixelReason.VALID.value),
+                int(InvalidPixelReason.INVALID_UNKNOWN.value),
             )
 
-        if np.isscalar(reason) or isinstance(reason, InvalidPixelReason):
-            reason = np.full_like(obs_valid, reason, dtype=int)
+        if np.isscalar(reason):
+            reason = np.full_like(obs_valid, int(reason), dtype=int)
         else:
             if reason.shape != obs_valid.shape:
                 raise ValueError(
