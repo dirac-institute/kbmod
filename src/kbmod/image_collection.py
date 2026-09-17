@@ -14,7 +14,6 @@ import warnings
 from astropy.table import Table, Column, vstack
 from astropy.io import fits as fitsio
 from astropy.wcs import WCS
-from astropy.utils import isiterable
 from astropy.coordinates import EarthLocation
 import astropy.units as u
 
@@ -242,7 +241,7 @@ class ImageCollection:
             #  a.fits     ...2
             #  a.fits     ...3
             unravelColumns = [
-                key for key, val in stdMeta.items() if isiterable(val) and not isinstance(val, str)
+                key for key, val in stdMeta.items() if np.iterable(val) and not isinstance(val, str)
             ]
             for j, ext in enumerate(std.processable):
                 row = {}
