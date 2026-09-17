@@ -9,7 +9,7 @@ from astropy.table import Table
 from pathlib import Path
 
 from kbmod.results import Results, write_results_to_files_destructive
-from kbmod.search import Trajectory
+from kbmod.search import InvalidPixelReason, Trajectory
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 
 
@@ -288,6 +288,18 @@ class test_results(unittest.TestCase):
         self.assertEqual(len(table), 3)
         self.assertEqual(table.get_num_times(), 4)
         assert np.array_equal(table["obs_valid"], obs_valid)
+        assert np.array_equal(table["obs_invalid_reason"], obs_invalid_reason)
+
+        enum_reasons = np.array(
+            [
+                [InvalidPixelReason.VALID] * 4,
+                [InvalidPixelReason.INVALID_MASK] * 4,
+                [InvalidPixelReason.INVALID_SIGMA_G] * 4,
+            ],
+            dtype=object,
+        )
+        table.update_obs_valid(obs_valid, drop_empty_rows=False, reason=enum_reasons)
+        assert np.issubdtype(table["obs_invalid_reason"].dtype, np.integer)
         assert np.array_equal(table["obs_invalid_reason"], obs_invalid_reason)
 
         exp_lh = [2.3, 2.020725, 0.0]

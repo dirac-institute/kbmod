@@ -721,7 +721,7 @@ class Results:
         Raises a ValueError if the input array is not the same size as the table
         or a given pair of rows in the arrays are not the same length.
         """
-        # Extract the numeric value if the reason is an InvalidPixelReason instance.
+        # Normalize both Python enums and object arrays returned by Pybind11 to integers.
         if isinstance(reason, InvalidPixelReason):
             reason = int(reason.value)
 
@@ -752,11 +752,21 @@ class Results:
         if np.isscalar(reason):
             reason = np.full_like(obs_valid, int(reason), dtype=int)
         else:
+            reason = np.asarray(reason)
             if reason.shape != obs_valid.shape:
                 raise ValueError(
                     f"Wrong shape for reason array. Expected {obs_valid.shape}, got {reason.shape}"
                 )
-            reason = reason.astype(int)
+            if reason.dtype.kind == "O":
+                reason = np.asarray(
+                    [
+                        int(value.value) if isinstance(value, InvalidPixelReason) else int(value)
+                        for value in reason.flat
+                    ],
+                    dtype=int,
+                ).reshape(reason.shape)
+            else:
+                reason = reason.astype(int, copy=False)
 
         new_reason = np.where(
             prev_obs_valid & ~obs_valid,
