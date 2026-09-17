@@ -85,6 +85,7 @@ void PsiPhiArray::move_to_gpu() {
 
     // Only put the data on the GPU if there is a GPU.
     if (has_gpu()) {
+        data_on_gpu = true;  // Indicate there could be data on GPU to clean up.
         logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
 
         // Copy the Psi/Phi. We need to use #ifdef HAVE_CUDA to avoid trying to link .cu code
@@ -104,8 +105,6 @@ void PsiPhiArray::move_to_gpu() {
         logger->debug("Allocating times on GPU: " + gpu_time_array.stats_string());
         gpu_time_array.copy_vector_to_gpu(cpu_time_array);
         logger->debug(stat_gpu_memory_mb());
-
-        data_on_gpu = true;
     } else {
         throw std::runtime_error("No GPU onto which to move the PsiPhi array.");
     }
