@@ -729,7 +729,7 @@ class Results:
 
         # Flip the marking of newly invalid observations.
         if "obs_valid" in self.colnames:
-            prev_obs_valid = self.table["obs_valid"]
+            prev_obs_valid = np.array(self.table["obs_valid"], copy=True)
             self.table["obs_valid"] &= obs_valid
         else:
             prev_obs_valid = np.full_like(obs_valid, True, dtype=bool)

@@ -31,7 +31,7 @@ std::vector<float> extract_joint_psi_phi_curve(const PsiPhiArray& psi_phi, const
 }
 
 
-// A helper function to extact information about whether a pixel is valid.
+// A helper function to extract information about whether a pixel is valid.
 std::vector<int> extract_pixel_validity(const PsiPhiArray& psi_phi, const Trajectory& trj) {
     const unsigned int num_times = psi_phi.get_num_times();
     std::vector<int> result(num_times, InvalidPixelReason::VALID);
