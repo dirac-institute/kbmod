@@ -836,9 +836,20 @@ class test_results(unittest.TestCase):
             self.assertTrue(Path(dir_name, "results_coadd_median.fits").is_file())
             self.assertTrue(Path(dir_name, "results_psi_curve.parquet").is_file())
 
+            # Read the main table file only and confirm that the auxiliary columns
+            # are not included.
+            table_main_only = Results.read_table(main_file_path, load_aux_files=False)
+            self.assertEqual(len(table_main_only), self.num_entries)
+            self.assertEqual(
+                set(table_main_only.colnames),
+                set(["x", "y", "vx", "vy", "flux", "likelihood", "obs_count", "uuid"]),
+            )
+
             # Read the table and confirm that we have the expected columns.
             table2 = Results.read_table(main_file_path, load_aux_files=True)
             self.assertEqual(len(table2), self.num_entries)
+            for col in ["x", "y", "vx", "vy", "flux", "likelihood", "obs_count", "uuid"]:
+                self.assertTrue(col in table2.colnames)
             self.assertTrue("all_stamps" in table2.colnames)
             self.assertTrue("coadd_mean" in table2.colnames)
             self.assertTrue("coadd_median" in table2.colnames)

@@ -1319,6 +1319,12 @@ def write_results_to_files_destructive(
         A list of column names that contain image-like data. These columns will be saved
         as FITS files when written separately. If None, auto-detection is used.
     """
+    if drop_columns is None:
+        drop_columns = []
+    if extra_meta is None:
+        extra_meta = {}
+
+    # Check the file name is provided and valid.
     if not filename:
         raise ValueError("No filename provided for outputting results.")
     filepath = Path(filename)
@@ -1327,52 +1333,47 @@ def write_results_to_files_destructive(
 
     # Capture image column shapes BEFORE removing any columns.
     # This ensures the metadata is preserved even after columns are written to aux files.
+    # Store the image column shapes in the extra metadata.
     image_col_shapes = results._detect_image_columns(image_columns)
-
-    # Write out the auxiliary columns to their own files and drop them from the main table.
-    if separate_col_files is not None:
-        # Treat the separate_col_files as a list of regex and find all matching columns.
-        all_separate_cols = []
-        for pattern in separate_col_files:
-            regex = re.compile(pattern)
-            matching_cols = [col for col in results.colnames if regex.fullmatch(col)]
-            all_separate_cols.extend(matching_cols)
-        separate_col_files = all_separate_cols
-
-        # For each column that matched, write it out to its own file and drop it from the main table.
-        for col in separate_col_files:
-            # If the column is an image-like data type, save it as a FITS file. Otherwise, save
-            # it using the same extension as the main file.
-            is_image = col in image_col_shapes
-            if is_image:
-                # If the column is an image, save it as a FITS file.
-                col_file = filepath.with_name(filepath.stem + f"_{col}.fits")
-            else:
-                col_file = filepath.with_name(filepath.stem + f"_{col}" + filepath.suffix)
-
-            logger.info(f"Saving column {col} to {col_file}")
-            results.write_column(col, col_file, overwrite=overwrite, is_image=is_image)
-            results.remove_column(col)
-
-    # Drop any other columns specified.
-    if drop_columns is not None:
-        for col in drop_columns:
-            if col not in results.colnames:
-                logger.debug(f"Column {col} not found in results. Skipping.")
-            else:
-                results.remove_column(col)
-
-    # Add the dropped column information to the meta data.
-    if extra_meta is None:
-        extra_meta = {}
-    extra_meta["separate_col_files"] = separate_col_files
-    extra_meta["dropped_columns"] = drop_columns
-
-    # Preserve the image_column_shapes captured before columns were removed.
-    # This allows the shapes to be stored in metadata even for columns now in aux files.
     if image_col_shapes:
         extra_meta["image_column_shapes"] = {col: list(shape) for col, shape in image_col_shapes.items()}
 
-    # Write the remaining data from the results to the main file.
+    # Find the auxiliary files that we want to write separately, save them to a dictionary
+    # (of column name -> column object) so we can easily write them out separately later.
+    # Drop them from the table.
+    all_separate_cols = {}
+    if separate_col_files is not None:
+        for pattern in separate_col_files:
+            regex = re.compile(pattern)
+            for col in results.colnames:
+                if regex.fullmatch(col):
+                    all_separate_cols[col] = results[col]
+                    results.remove_column(col)
+    extra_meta["separate_col_files"] = list(all_separate_cols.keys())
+
+    # Drop any other columns specified. We do this after breaking out the separate columns to
+    # ensure they are not accidentally removed from the main table.
+    for col in drop_columns:
+        if col not in results.colnames:
+            logger.debug(f"Column {col} not found in results. Skipping.")
+        else:
+            results.remove_column(col)
+    extra_meta["dropped_columns"] = drop_columns
+
+    # Write the remaining data from the results to the main file. We do this BEFORE writing
+    # out the auxiliary columns to guard against job pre-emption, ensuring the main table is
+    # completed first.
     logger.info(f"Saving results table to {filepath}")
     results.write_table(filepath, overwrite=overwrite, extra_meta=extra_meta)
+
+    # Write out the auxiliary columns to their own files after the main table has been saved.
+    # Note these columns have already been removed from the main table.
+    for col_name, col_data in all_separate_cols.items():
+        is_image = col_name in image_col_shapes
+        if is_image:
+            col_file = filepath.with_name(filepath.stem + f"_{col_name}.fits")
+        else:
+            col_file = filepath.with_name(filepath.stem + f"_{col_name}" + filepath.suffix)
+
+        logger.info(f"Saving column {col_name} to {col_file}")
+        results.write_column(col_data, col_file, overwrite=overwrite, is_image=is_image)
