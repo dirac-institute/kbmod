@@ -5,15 +5,17 @@ import time
 import astropy.units as u
 import numpy as np
 import psutil
-from astropy.coordinates import EarthLocation, SkyCoord
+from astropy.coordinates import SkyCoord
 
 import kbmod.search as kb
+
 
 from .filters.clustering_filters import apply_clustering
 from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import SigmaGClipping, apply_clipped_sigma_g
 from .filters.sns_filters import peak_offset_filter, predictive_line_cluster
 from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
+from .search import InvalidPixelReason
 from .reprojection_utils import invert_correct_parallax_vectorized
 from .results import Results, write_results_to_files_destructive
 from .trajectory_generator import create_trajectory_generator, generate_all_trajectories
@@ -320,6 +322,16 @@ class SearchRunner:
             batch = result_trjs[batch_start:batch_end]
             batch_results = Results.from_trajectories(batch, track_filtered=config["track_filtered"])
 
+            # Always extract a "valid reason" to mark which points on each trajectory are
+            # off the chip or masked.
+            invalidity_reasons = search.get_pixel_invalidity_reason(batch)
+            batch_results.update_obs_valid(
+                invalidity_reasons == InvalidPixelReason.VALID,
+                reason=invalidity_reasons,
+                drop_empty_rows=False,
+            )
+
+            # Generate psi and phi curves for the batch if requested.
             if config["generate_psi_phi"]:
                 psi_phi_batch = search.get_all_psi_phi_curves(batch)
                 batch_results.add_psi_phi_data(psi_phi_batch[:, :num_times], psi_phi_batch[:, num_times:])
