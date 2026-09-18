@@ -39,6 +39,9 @@ static const auto DOC_StackSearch_search = R"doc(
   starting pixel in the image.  The results are stored in the ``StackSearch`` object
   and can be accessed with get_results().
 
+  GPU searches support up to 448 images, inclusive. Larger stacks raise a
+  ``RuntimeError``. CPU searches do not have this fixed image-count limit.
+
   Parameters
   ----------
   search_list : `list`

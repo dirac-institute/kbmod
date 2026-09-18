@@ -157,7 +157,7 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
     // Basic data checking. We don't use assert here because assert does not work in __device__ functions.
     // So we ignore the error and return so we do not access invalid memory.
     if ((psi_phi_vect == nullptr) || (image_times == nullptr) || (candidate == nullptr)) return;
-    if (psi_phi_meta.num_times >= MAX_NUM_IMAGES) return;
+    if (psi_phi_meta.num_times > MAX_NUM_IMAGES) return;
 
     // Data structures used for filtering. We fill in only what we need.
     float psi_array[MAX_NUM_IMAGES];
@@ -260,9 +260,11 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     // copy their time before progressing. We need to do this before pruning on
     // (x, y) in order to correctly handle blocks at the edge of the image.
     __shared__ double shared_times[MAX_NUM_IMAGES];
-    int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
-    if ((time_idx < psi_phi_meta.num_times) && (time_idx < MAX_NUM_IMAGES)) {
-        shared_times[time_idx] = image_times[time_idx];
+    const int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
+    const int block_threads = blockDim.x * blockDim.y;
+    // Each thread loads multiple times when the stack is larger than the block.
+    for (int t = time_idx; (t < psi_phi_meta.num_times) && (t < MAX_NUM_IMAGES); t += block_threads) {
+        shared_times[t] = image_times[t];
     }
     __syncthreads();  // Block until all are done loading.
 
@@ -337,9 +339,6 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     uint64_t num_images = psi_phi_array.get_num_times();
     if (num_images > MAX_NUM_IMAGES) {
         throw std::runtime_error("Number of images exceeds GPU maximum " + std::to_string(MAX_NUM_IMAGES));
-    }
-    if (THREAD_DIM_X * THREAD_DIM_Y < MAX_NUM_IMAGES) {
-        throw std::runtime_error("Insufficient threads to load all the times.");
     }
 
     // Check that the device vectors have already been allocated.
