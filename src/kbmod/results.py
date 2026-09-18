@@ -818,47 +818,6 @@ class Results:
                 result[idx] = True
         return result
 
-    def is_image_like(self, colname, max_rows=10):
-        """Check whether the column contains image-like data (numpy arrays
-        with at least 2 dimensions).
-
-        This method first checks the table metadata for stored image column
-        shape information (which preserves shape info through parquet round-trips).
-        If not found in metadata, it inspects the actual data.
-
-        Parameters
-        ----------
-        colname : `str`
-            The name of the column to check.
-        max_row : `int`
-            The maximum number of rows to check before concluding
-            that the column is not image-like. Default: 10.
-        Returns
-        -------
-        result : `bool`
-            True if the column contains image-like data.
-        """
-        if colname not in self.table.colnames:
-            raise KeyError(f"Querying unknown column {colname}")
-
-        # First check if we have metadata about image column shapes (from a previous save)
-        if "image_column_shapes" in self.table.meta:
-            if colname in self.table.meta["image_column_shapes"]:
-                return True
-
-        # Otherwise, check the actual data for 2D+ arrays
-        max_rows = len(self.table) if max_rows is None else min(max_rows, len(self.table))
-
-        # If no rows to check, we can't determine it's image-like
-        if max_rows < 1:
-            return False
-
-        for idx in range(max_rows):
-            entry = self.table[colname][idx]
-            if isinstance(entry, np.ndarray) and entry.ndim >= 2:
-                return True
-        return False
-
     def filter_rows(self, rows, label=""):
         """Filter the rows in the `Results` to only include those indices
         that are provided in a list of row indices (integers) or marked
@@ -1127,7 +1086,7 @@ class Results:
         # Write out the table.
         self.table.write(filename, overwrite=overwrite, **kwargs)
 
-    def write_column(self, colname, filename, overwrite=True, is_image=None):
+    def write_column(self, column, filename, overwrite=True, is_image=False):
         """Save a single column's data as its own data file. The file
         type is inferred from the filename suffix. Supported formats include
         numpy (.npy), ecsv (.ecsv), parquet (.parq or .parquet), or
@@ -1135,73 +1094,74 @@ class Results:
 
         Parameters
         ----------
-        colname : `str`
-           The name of the column to save.
+        column : `astropy.table.column.Column` or `str`
+           The column of data to save. If a string is provided, it should be the name of the column
+            in the table.
         filename : `str` or `Path`
             The file name for the ouput file. Must have a suffix matching one of ".npy",
             ".ecsv", ".parquet", ".parq", or ".fits".
         overwrite : `bool`
             Overwrite the file if it already exists.
             Default: True
-        is_image : `bool`, optional
+        is_image : `bool`
             Explicitly specify whether this column contains image-like data.
-            If None, auto-detection via `is_image_like()` is used.
+            Default: False
 
         Raises
         ------
         Raises a KeyError if the column is not in the data.
         """
-        logger.info(f"Writing {colname} column data to {filename}")
-        if colname not in self.table.colnames:
-            raise KeyError(f"Column {colname} missing from data.")
+        # Load the column if given a string.
+        if isinstance(column, str):
+            if column not in self.table.colnames:
+                raise KeyError(f"Column {column} missing from data.")  # pragma: no cover
+            column = self.table[column]
+        if len(column) != len(self.table):
+            raise ValueError(f"Column {column.name} length does not match table length.")  # pragma: no cover
+        logger.info(f"Writing {column.name} column data to {filename}")
 
+        # Check whether there is a file name collision.
         filename = Path(filename)
         if filename.exists() and not overwrite:
             raise FileExistsError(f"File {filename} arleady exists.")
 
+        # Write the column differently depending on the file type.
         if filename.suffix == ".npy":
             # Extract and save the column.
-            data = np.asarray(self.table[colname])
+            data = np.asarray(column.data)
             np.save(filename, data, allow_pickle=False)
         elif filename.suffix in [".ecsv", ".parq", ".parquet"]:
             # Create a table with just this column.
-            single_table = Table({colname: self.table[colname].data})
+            single_table = Table({column.name: column.data})
 
             # Parquet might fail on some output types, so we
             # try to convert it into a string in that case.
             try:
                 single_table.write(filename, overwrite=overwrite)
             except Exception as e:
-                logger.debug(f"Failed to write {colname}. Retrying as a string: {e}")
-                data = [str(x) for x in single_table[colname].data]
-                single_table = Table({colname: data})
+                logger.debug(f"Failed to write {column.name}. Retrying as a string: {e}")
+                data = [str(x) for x in column.data]
+                single_table = Table({column.name: data})
                 single_table.write(filename, overwrite=overwrite)
         elif filename.suffix == ".fits":
-            # Check if this the data is looks like images.
-            # Use explicit parameter if provided, otherwise auto-detect.
-            if is_image is not None:
-                is_img = is_image
-            else:
-                is_img = self.is_image_like(colname)
-
             # Create a HDU List and primary header with basic meta data.
             hdul = fits.HDUList()
             pri = fits.PrimaryHDU()
             pri.header["NUMRES"] = len(self.table)
-            pri.header["ISIMG"] = is_img
-            pri.header["COLNAME"] = colname
+            pri.header["ISIMG"] = is_image
+            pri.header["COLNAME"] = column.name
             hdul.append(pri)
 
-            if is_img:
+            if is_image:
                 # Create a separate HDU for each entry.
                 for idx in range(len(self.table)):
                     img_hdu = fits.CompImageHDU(
-                        self.table[colname][idx],
+                        column[idx],
                         compression_type="RICE_1",
                         quantize_level=-0.01,
                     )
 
-                    # If we have the UUID, save that as the meta data.
+                    # If we have the UUID in the main table, save that to the meta data.
                     if "uuid" in self.table.colnames:
                         img_hdu.header["uuid"] = self.table["uuid"][idx]
 
@@ -1209,7 +1169,7 @@ class Results:
                     hdul.append(img_hdu)
             else:
                 # Create one bin table for the data.
-                single_table = Table({colname: self.table[colname].data})
+                single_table = Table({column.name: column.data})
                 data_hdu = fits.BinTableHDU(single_table)
                 data_hdu.name = "DATA"
                 hdul.append(data_hdu)
@@ -1357,8 +1317,7 @@ def write_results_to_files_destructive(
         Defaults to True.
     image_columns : `list` of `str`, optional
         A list of column names that contain image-like data. These columns will be saved
-        as FITS files when written separately. If None, auto-detection via `is_image_like()`
-        is used.
+        as FITS files when written separately. If None, auto-detection is used.
     """
     if not filename:
         raise ValueError("No filename provided for outputting results.")
