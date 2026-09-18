@@ -686,20 +686,22 @@ class test_results(unittest.TestCase):
         table.table["codd_mean"] = [np.zeros((51, 51)) + i / 100.0 for i in range(self.num_entries)]
 
         # Try outputting the Results
-        with tempfile.TemporaryDirectory() as dir_name:
-            for col in ["all_stamps", "codd_mean"]:
-                with self.subTest(col_written=col):
-                    file_path = os.path.join(dir_name, f"{col}.fits")
-                    table.write_column(col, file_path)
+        for n in [1, 4]:
+            with self.subTest(num_workers=n):
+                with tempfile.TemporaryDirectory() as dir_name:
+                    for col in ["all_stamps", "codd_mean"]:
+                        with self.subTest(col_written=col):
+                            file_path = os.path.join(dir_name, f"{col}.fits")
+                            table.write_column(col, file_path, num_workers=n)
 
-                    # Load the results into a new data structure and confirm they match.
-                    table2 = Results.from_trajectories(self.trj_list)
-                    self.assertFalse(col in table2.colnames)
+                            # Load the results into a new data structure and confirm they match.
+                            table2 = Results.from_trajectories(self.trj_list)
+                            self.assertFalse(col in table2.colnames)
 
-                    table2.load_column(file_path, col)
-                    self.assertTrue(col in table.colnames)
-                    for i in range(self.num_entries):
-                        self.assertTrue(np.allclose(table.table[col][i], table2.table[col][i]))
+                            table2.load_column(file_path, col)
+                            self.assertTrue(col in table.colnames)
+                            for i in range(self.num_entries):
+                                self.assertTrue(np.allclose(table.table[col][i], table2.table[col][i]))
 
     def test_read_write_aux_columns(self):
         # Create a table with an extra column of all stamps with 21 x 21 stamps
@@ -774,38 +776,41 @@ class test_results(unittest.TestCase):
         table.table["phi_curve"] = [np.zeros(10) + i for i in range(self.num_entries)]
 
         # Test writing the results to files.
-        with tempfile.TemporaryDirectory() as dir_name:
-            main_file_path = Path(dir_name) / "results.parquet"
-            write_results_to_files_destructive(
-                main_file_path,
-                table,
-                extra_meta={"test_meta": "value"},
-                separate_col_files=["all_stamps", "coadd_.*", "psi_curve"],
-                drop_columns=["phi_curve"],
-            )
-            self.assertTrue(main_file_path.is_file())
-            self.assertTrue(Path(dir_name, "results_all_stamps.fits").is_file())
-            self.assertTrue(Path(dir_name, "results_coadd_mean.fits").is_file())
-            self.assertTrue(Path(dir_name, "results_coadd_median.fits").is_file())
-            self.assertTrue(Path(dir_name, "results_psi_curve.parquet").is_file())
+        for n in [1, 4]:
+            with self.subTest(num_workers=n):
+                with tempfile.TemporaryDirectory() as dir_name:
+                    main_file_path = Path(dir_name) / "results.parquet"
+                    write_results_to_files_destructive(
+                        main_file_path,
+                        table,
+                        extra_meta={"test_meta": "value"},
+                        separate_col_files=["all_stamps", "coadd_.*", "psi_curve"],
+                        drop_columns=["phi_curve"],
+                        num_workers=n,
+                    )
+                    self.assertTrue(main_file_path.is_file())
+                    self.assertTrue(Path(dir_name, "results_all_stamps.fits").is_file())
+                    self.assertTrue(Path(dir_name, "results_coadd_mean.fits").is_file())
+                    self.assertTrue(Path(dir_name, "results_coadd_median.fits").is_file())
+                    self.assertTrue(Path(dir_name, "results_psi_curve.parquet").is_file())
 
-            # Read the table and confirm that we have the expected columns.
-            table2 = Results.read_table(main_file_path, load_aux_files=True)
-            self.assertEqual(len(table2), self.num_entries)
-            self.assertTrue("all_stamps" in table2.colnames)
-            self.assertTrue("coadd_mean" in table2.colnames)
-            self.assertTrue("coadd_median" in table2.colnames)
-            self.assertTrue("psi_curve" in table2.colnames)
-            self.assertFalse("phi_curve" in table2.colnames)
+                    # Read the table and confirm that we have the expected columns.
+                    table2 = Results.read_table(main_file_path, load_aux_files=True)
+                    self.assertEqual(len(table2), self.num_entries)
+                    self.assertTrue("all_stamps" in table2.colnames)
+                    self.assertTrue("coadd_mean" in table2.colnames)
+                    self.assertTrue("coadd_median" in table2.colnames)
+                    self.assertTrue("psi_curve" in table2.colnames)
+                    self.assertFalse("phi_curve" in table2.colnames)
 
-            # Check the metadata in the main file. The separate columns list should
-            # be the list of actual saved columns (not the regex patterns).
-            self.assertEqual(table2.table.meta["test_meta"], "value")
-            self.assertEqual(table2.table.meta["dropped_columns"], ["phi_curve"])
-            self.assertEqual(
-                table2.table.meta["separate_col_files"],
-                ["all_stamps", "coadd_mean", "coadd_median", "psi_curve"],
-            )
+                    # Check the metadata in the main file. The separate columns list should
+                    # be the list of actual saved columns (not the regex patterns).
+                    self.assertEqual(table2.table.meta["test_meta"], "value")
+                    self.assertEqual(table2.table.meta["dropped_columns"], ["phi_curve"])
+                    self.assertEqual(
+                        table2.table.meta["separate_col_files"],
+                        ["all_stamps", "coadd_mean", "coadd_median", "psi_curve"],
+                    )
 
     def test_read_table_chunks(self):
         """Test the chunked reading of a parquet file."""
