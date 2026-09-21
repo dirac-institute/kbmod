@@ -126,6 +126,22 @@ class TestImageCollection(unittest.TestCase):
         self.assertEqual(ic.meta["n_stds"], n_targets - 1)
         self.assertEqual(len(ic._standardizers), n_targets - 1)
 
+    def test_invalid_first_standardizer_has_compact_index(self):
+        """Test a failed standardizer does not leave a gap in std_idx."""
+        fits = self.fitsFactory.get_n(2)
+        del fits[0]["PRIMARY"].header["DATE-AVG"]
+
+        logging.disable(logging.WARNING)
+        try:
+            ic = ImageCollection.fromTargets(fits, fail_on_error=False)
+        finally:
+            logging.disable(logging.NOTSET)
+
+        self.assertEqual(len(ic), 1)
+        self.assertEqual(list(ic.data["std_idx"]), [0])
+        self.assertEqual(ic.meta["n_stds"], 1)
+        self.assertIsInstance(ic.get_standardizer(0)["std"], Standardizer)
+
     def test_write_read_unreachable(self):
         """Test ImageCollection can write itself to disk, and read the written
         table without raising errors when original data is unreachable.
