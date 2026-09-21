@@ -197,6 +197,16 @@ class TestImageCollection(unittest.TestCase):
         test = ImageCollection.fromBinTableHDU(tbl)
         self.assertEqual(ic2, test)
 
+    def test_vstack_with_standardizer_cache_enabled(self):
+        """Test vstack works when standardizer caching is enabled."""
+        ic = ImageCollection.fromTargets(self.fits)
+        self.assertIsInstance(ic._standardizers, np.ndarray)
+
+        ic.vstack([ic])
+        self.assertEqual(len(ic), 6)
+        self.assertEqual(ic.meta["n_stds"], 6)
+        self.assertEqual(len(ic._standardizers), 6)
+
     def test_workunit(self):
         """Tests imagecollection exports a work unit without error."""
         # not too sure how to validate, so just call to make sure

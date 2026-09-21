@@ -1118,9 +1118,9 @@ class ImageCollection:
             data.append(stack_data)
             if self._standardizers is not None:
                 if ic._standardizers is not None:
-                    self._standardizers.extend(ic._standardizers)
+                    self._standardizers = np.concatenate((self._standardizers, ic._standardizers))
                 else:
-                    self._standardizers.extend([None] * n_stds)
+                    self._standardizers = np.concatenate((self._standardizers, np.full((n_stds,), None)))
             std_offset += n_stds
 
         self.data = vstack([self.data, *data], metadata_conflicts="silent")
