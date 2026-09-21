@@ -201,7 +201,11 @@ class TestImageCollection(unittest.TestCase):
         """Test vstack works when standardizer caching is enabled."""
         ic = ImageCollection.fromTargets(self.fits)
         self.assertIsInstance(ic._standardizers, np.ndarray)
+        self.assertEqual(len(ic), 3)
+        self.assertEqual(ic.meta["n_stds"], 3)
+        self.assertEqual(len(ic._standardizers), 3)
 
+        # Add another 3 standardizers by stacking the collection with itself.
         ic.vstack([ic])
         self.assertEqual(len(ic), 6)
         self.assertEqual(ic.meta["n_stds"], 6)
@@ -210,11 +214,13 @@ class TestImageCollection(unittest.TestCase):
     def test_vstack_with_uncached_collection(self):
         """Test vstack pads cached standardizers when stacking uncached data."""
         cached = ImageCollection.fromTargets(self.fits)
-        uncached = ImageCollection(cached.data.copy(), enable_std_caching=False)
-
         self.assertIsInstance(cached._standardizers, np.ndarray)
+
+        uncached = ImageCollection(cached.data.copy(), enable_std_caching=False)
         self.assertIsNone(uncached._standardizers)
 
+        # Add the uncached collection to the cached one. This should add a None entry
+        # to the cached standardizers array (for each uncached standardizer).
         cached.vstack([uncached])
         self.assertEqual(len(cached), 6)
         self.assertEqual(cached.meta["n_stds"], 6)
