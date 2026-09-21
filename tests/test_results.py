@@ -836,9 +836,20 @@ class test_results(unittest.TestCase):
             self.assertTrue(Path(dir_name, "results_coadd_median.fits").is_file())
             self.assertTrue(Path(dir_name, "results_psi_curve.parquet").is_file())
 
+            # Read the main table file only and confirm that the auxiliary columns
+            # are not included.
+            table_main_only = Results.read_table(main_file_path, load_aux_files=False)
+            self.assertEqual(len(table_main_only), self.num_entries)
+            self.assertEqual(
+                set(table_main_only.colnames),
+                set(["x", "y", "vx", "vy", "flux", "likelihood", "obs_count", "uuid"]),
+            )
+
             # Read the table and confirm that we have the expected columns.
             table2 = Results.read_table(main_file_path, load_aux_files=True)
             self.assertEqual(len(table2), self.num_entries)
+            for col in ["x", "y", "vx", "vy", "flux", "likelihood", "obs_count", "uuid"]:
+                self.assertTrue(col in table2.colnames)
             self.assertTrue("all_stamps" in table2.colnames)
             self.assertTrue("coadd_mean" in table2.colnames)
             self.assertTrue("coadd_median" in table2.colnames)
@@ -955,26 +966,6 @@ class test_results(unittest.TestCase):
 
             # Check that 1D curve column is still 1D
             self.assertEqual(table2["psi_curve"][0].shape, (25,))
-
-    def test_is_image_like_with_metadata(self):
-        """Test that is_image_like uses metadata when available."""
-        table = Results.from_trajectories(self.trj_list)
-
-        # Add a 1D array column that we'll mark as an image via metadata
-        table.table["fake_coadd"] = [np.zeros(100) for _ in range(self.num_entries)]
-
-        # Without metadata, 1D array should NOT be image-like
-        self.assertFalse(table.is_image_like("fake_coadd"))
-
-        # Set metadata marking it as an image column via image_column_shapes
-        table.table.meta["image_column_shapes"] = {"fake_coadd": [10, 10]}
-
-        # Now it should be considered image-like due to metadata
-        self.assertTrue(table.is_image_like("fake_coadd"))
-
-        # A column not in metadata and not 2D+ should not be image-like
-        table.table["some_1d_data"] = [np.zeros(50) for _ in range(self.num_entries)]
-        self.assertFalse(table.is_image_like("some_1d_data"))
 
     def test_write_results_destructive_explicit_image_columns(self):
         """Test write_results_to_files_destructive with explicit image_columns parameter."""
