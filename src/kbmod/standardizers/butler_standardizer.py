@@ -639,7 +639,7 @@ class ButlerStandardizer(Standardizer):
         # Return empty masks if no masking is done. We only return a single
         # mask corresponding to the current image size.
         if not self.config["do_mask"]:
-            return [np.zeros((self._naxis1, self._naxis2))]
+            return [np.zeros((self._naxis2, self._naxis1))]
 
         # Otherwise load the mask extension and process it
         mask = self.exp.mask.array.astype(int)
