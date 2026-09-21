@@ -982,7 +982,8 @@ class test_work_unit(unittest.TestCase):
                 npt.assert_allclose(
                     [v.to_value("m") for v in loaded.observatory.to_geocentric()],
                     [v.to_value("m") for v in custom_obs.to_geocentric()],
-                    rtol=0, atol=1e-6,
+                    rtol=0,
+                    atol=1e-6,
                 )
 
     def test_observatory_fits_roundtrip(self):
