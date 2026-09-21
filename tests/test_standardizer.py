@@ -56,6 +56,35 @@ class MyStd(KBMODV1):
         return metadata
 
 
+class TrackingResource:
+    """Resource used to verify resolver resource ownership."""
+
+    def __init__(self):
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+class ResourceStandardizer(KBMODV1):
+    """Minimal standardizer whose resolver returns a tracked resource."""
+
+    name = None
+    priority = 0
+    resource = None
+    fail_init = False
+
+    @classmethod
+    def resolveTarget(cls, tgt):
+        return True, {"resource": cls.resource}
+
+    def __init__(self, location, resource=None, **kwargs):
+        if self.fail_init:
+            raise RuntimeError("construction failed")
+        self.location = location
+        self.resource = resource
+
+
 class TestStandardizer(unittest.TestCase):
     """Test Standardizer class."""
 
@@ -70,6 +99,47 @@ class TestStandardizer(unittest.TestCase):
         MyStd.resolveTarget = MyStd.noStandardize
         MyStd.priority = 3
         warnings.resetwarnings()
+
+    def test_resolution_closes_resources_from_rejected_standardizers(self):
+        """Resources from non-selected resolver results are released."""
+        selected_resource = TrackingResource()
+        rejected_resource = TrackingResource()
+
+        class SelectedStandardizer(ResourceStandardizer):
+            name = "SelectedResourceStandardizer"
+            priority = 2
+            resource = selected_resource
+
+        class RejectedStandardizer(ResourceStandardizer):
+            name = "RejectedResourceStandardizer"
+            priority = 1
+            resource = rejected_resource
+
+        try:
+            standardizer = Standardizer.get("target")
+            self.assertIsInstance(standardizer, SelectedStandardizer)
+            self.assertFalse(selected_resource.closed)
+            self.assertTrue(rejected_resource.closed)
+        finally:
+            Standardizer.registry.pop("SelectedResourceStandardizer", None)
+            Standardizer.registry.pop("RejectedResourceStandardizer", None)
+
+    def test_resolution_closes_resources_when_construction_fails(self):
+        """Resources are released if constructing the selected standardizer fails."""
+        resource = TrackingResource()
+
+        class FailingStandardizer(ResourceStandardizer):
+            name = "FailingResourceStandardizer"
+            fail_init = True
+
+        FailingStandardizer.resource = resource
+
+        try:
+            with self.assertRaisesRegex(RuntimeError, "construction failed"):
+                Standardizer.get("target")
+            self.assertTrue(resource.closed)
+        finally:
+            Standardizer.registry.pop("FailingResourceStandardizer", None)
 
     def test_kwargs_to_init(self):
         """Test kwargs are correctly passed from top-level Standardizer to the
