@@ -207,6 +207,20 @@ class TestImageCollection(unittest.TestCase):
         self.assertEqual(ic.meta["n_stds"], 6)
         self.assertEqual(len(ic._standardizers), 6)
 
+    def test_vstack_with_uncached_collection(self):
+        """Test vstack pads cached standardizers when stacking uncached data."""
+        cached = ImageCollection.fromTargets(self.fits)
+        uncached = ImageCollection(cached.data.copy(), enable_std_caching=False)
+
+        self.assertIsInstance(cached._standardizers, np.ndarray)
+        self.assertIsNone(uncached._standardizers)
+
+        cached.vstack([uncached])
+        self.assertEqual(len(cached), 6)
+        self.assertEqual(cached.meta["n_stds"], 6)
+        self.assertEqual(len(cached._standardizers), 6)
+        self.assertTrue(all(std is None for std in cached._standardizers[3:]))
+
     def test_workunit(self):
         """Tests imagecollection exports a work unit without error."""
         # not too sure how to validate, so just call to make sure
