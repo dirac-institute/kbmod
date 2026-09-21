@@ -64,6 +64,11 @@ class TestImageCollection(unittest.TestCase):
         self.assertEqual(len(ic["location"]), 3)
         self.assertIsInstance(ic["mjd_mid", "location"], atbl.Table)
 
+        # Test that get_zero_shifted_times returns the correct number of entries.
+        self.assertEqual(len(ic.get_zero_shifted_times()), 3)
+        self.assertEqual(len(ic2.get_zero_shifted_times()), 3)
+        self.assertEqual(len(ic3.get_zero_shifted_times()), 5)
+
         # This is kind of a thing of the standardizers themselves, but to
         # ensure the standardization results are becoming columns we test for
         # content, knowing KBMODV1 is the standardizer in question.
