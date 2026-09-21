@@ -559,7 +559,6 @@ def reproject_lazy_work_unit(
     new_work_unit._per_image_indices = unique_obstimes_indices
     new_work_unit.wcs = common_wcs
     new_work_unit.reprojected = True
-    new_work_unit.reprojecton = frame
 
     hdul = new_work_unit.metadata_to_hdul()
     hdul.writeto(os.path.join(directory, filename))
@@ -600,8 +599,9 @@ def _validate_original_wcs(work_unit, indices, frame="original"):
 
     if len(original_wcs) == 0:
         raise ValueError(f"No WCS found for frame {frame}")
-    if np.any(original_wcs) is None:
-        # find indices where the wcs is None
+    if np.any(original_wcs == None):
+        # Find indices where the wcs is None. We need to use ==
+        # because original_wcs is a list.
         bad_indices = np.where(original_wcs == None)
         # get values from `indices` where original_wcs is None
         work_unit_indices = [indices[i] for i in bad_indices]
