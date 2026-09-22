@@ -134,6 +134,14 @@ class test_configuration(unittest.TestCase):
         config.set("y_pixel_bounds", [10, 20])
         self.assertTrue(config.validate())
 
+        # A null stamp_type disables the legacy stamp column.
+        config.set("stamp_type", None)
+        self.assertTrue(config.validate())
+        config.set("stamp_type", "invalid")
+        self.assertFalse(config.validate())
+        config.set("stamp_type", "sum")
+        self.assertTrue(config.validate())
+
         # Re-enable warnings.
         logging.disable(logging.NOTSET)
 
@@ -143,6 +151,7 @@ class test_configuration(unittest.TestCase):
             "num_obs": 5,
             "cluster_type": None,
             "do_clustering": False,
+            "stamp_type": None,
             "generator_config": {"name": "test_gen", "p1": [1.0, 2.0], "p2": 2.0},
         }
         config = SearchConfiguration.from_dict(d)
@@ -152,6 +161,7 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(yaml_dict["result_filename"], "Here2")
         self.assertEqual(yaml_dict["num_obs"], 5)
         self.assertEqual(yaml_dict["cluster_type"], None)
+        self.assertIsNone(yaml_dict["stamp_type"])
         self.assertEqual(yaml_dict["generator_config"]["name"], "test_gen")
         self.assertEqual(yaml_dict["generator_config"]["p1"], [1.0, 2.0])
         self.assertEqual(yaml_dict["generator_config"]["p2"], 2.0)

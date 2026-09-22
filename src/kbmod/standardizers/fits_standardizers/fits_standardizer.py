@@ -11,7 +11,6 @@ import abc
 from os.path import isfile
 from pathlib import Path
 
-from astropy.utils import isiterable
 import astropy.io.fits as fits
 from astropy.wcs import WCS
 import numpy as np
@@ -374,7 +373,7 @@ class FitsStandardizer(Standardizer):
 
     def standardizePSF(self):
         stds = self.config["psf_std"]
-        if isiterable(stds):
+        if np.iterable(stds):
             if len(stds) != len(self.processable):
                 raise ConfigurationError(
                     "Number of PSF STDs does not match the "

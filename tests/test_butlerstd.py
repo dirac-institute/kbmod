@@ -7,7 +7,7 @@ from astropy.time import Time
 import numpy as np
 
 from utils import DECamImdiffFactory, MockButler, MockFailedButler, DatasetRef, DatasetId, dafButler
-from kbmod import Standardizer, StandardizerConfig
+from kbmod import ImageCollection, Standardizer, StandardizerConfig
 from kbmod.core.psf import PSF
 from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
 
@@ -371,12 +371,71 @@ class TestButlerStandardizer(unittest.TestCase):
         self.assertFalse(mask[:, -1].all())
 
     def test_psf(self):
-        """Test PSFs are created as expected. Test instance config overrides."""
+        """Test the PSF kernel is built from the measured psfSigma."""
+        # psf_sigma differs from the psf_std default (1) so that a kernel built
+        # from the fallback is distinguishable from the measured one.
+        butler = MockButler("/far/far/away", psf_sigma=2.8)
+        std = Standardizer.get(DatasetId(11), butler=butler)
+
+        # No other standardize call has run, so _metadata is still unpopulated.
+        # standardizePSF has to fetch it rather than fall back to psf_std.
+        self.assertIsNone(std._metadata)
+
+        expected_psf = PSF.make_gaussian_kernel(2.8)
+        psf = std.standardizePSF()[0]
+        self.assertEqual(psf.shape, expected_psf.shape)
+        self.assertTrue(np.allclose(psf, expected_psf))
+
+        # And the same once the metadata has been loaded the usual way.
+        std.standardizeMetadata()
+        psf = std.standardizePSF()[0]
+        self.assertTrue(np.allclose(psf, expected_psf))
+
+        # The measured width is what actually made the difference here.
+        self.assertFalse(np.array_equal(psf, PSF.make_gaussian_kernel(std.config["psf_std"])))
+
+    def test_psf_from_reconstructed_standardizer(self):
+        """A standardizer rebuilt from a serialized ImageCollection row starts
+        with no cached metadata, and must still build the measured kernel."""
+        butler = MockButler("/far/far/away", psf_sigma=2.8)
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=butler)
+        ic = ImageCollection.fromStandardizers([std])
+
+        # Drop the cached standardizers so get_standardizer has to rebuild one
+        # from the table row, the way ImageCollection.read does.
+        ic._standardizers = np.full((ic.meta["n_stds"],), None)
+        recovered = ic.get_standardizer(0, butler=butler)["std"]
+        self.assertIsNone(recovered._metadata)
+
+        psf = recovered.standardizePSF()[0]
+        self.assertTrue(np.allclose(psf, PSF.make_gaussian_kernel(2.8)))
+
+    def test_psf_falls_back_on_unusable_sigma(self):
+        """psf_std is used whenever the measured psfSigma is unusable."""
+        expected_psf = PSF.make_gaussian_kernel(ButlerStandardizerConfig.psf_std)
+
+        for sigma in (None, np.nan, np.inf, 0.0, -1.0, "not-a-number"):
+            with self.subTest("Failed to fall back to psf_std.", psfSigma=sigma):
+                butler = MockButler("/far/far/away", psf_sigma=sigma)
+                std = Standardizer.get(DatasetId(11), butler=butler)
+                self.assertTrue(np.allclose(std.standardizePSF()[0], expected_psf))
+
+        # Same when psfSigma is absent from the metadata altogether.
         std = Standardizer.get(DatasetId(11), butler=self.butler)
+        std.standardizeMetadata()
+        del std._metadata["psfSigma"]
+        self.assertTrue(np.allclose(std.standardizePSF()[0], expected_psf))
+
+    def test_psf_std_from_summary_disabled(self):
+        """Disabling psf_std_from_summary restores the fixed-width kernel."""
+        butler = MockButler("/far/far/away", psf_sigma=2.8)
+        conf = StandardizerConfig(psf_std_from_summary=False, psf_std=1.5)
+        std = Standardizer.get(DatasetId(11), butler=butler, config=conf)
 
         psf = std.standardizePSF()[0]
-        expected_psf = PSF.make_gaussian_kernel(std.config["psf_std"])
-        self.assertTrue(np.allclose(psf, expected_psf))
+        self.assertTrue(np.allclose(psf, PSF.make_gaussian_kernel(1.5)))
+        # The fixed kernel is returned without paying for a metadata fetch.
+        self.assertIsNone(std._metadata)
 
     def test_to_layered_image(self):
         """Test ButlerStandardizer can create a LayeredImagePy."""

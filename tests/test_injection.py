@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 import numpy as np
 from astropy.table import Table
@@ -306,6 +307,149 @@ class TestInjectSources(unittest.TestCase):
         actual_ratio = flux_bright / flux_faint
         self.assertAlmostEqual(actual_ratio, expected_ratio, places=5)
         self.assertGreater(flux_bright, flux_faint)
+
+
+class TestEmptyBackgroundInjection(unittest.TestCase):
+    """Check zero-background output for successful, absent, and failed injections."""
+
+    def run_mixed_injections(self, in_place=True, read_only_variance=False, **kwargs):
+        ic = mock.MagicMock()
+        ic.__len__.return_value = 3
+        ic.data = Table({"dataId": [0, 1, 2], "mjd_mid": [59000.0, 59001.0, 59002.0]})
+        ic.get_standardizers.return_value = [{"std": SimpleNamespace()} for _ in range(3)]
+
+        def make_exposure():
+            exposure = SimpleNamespace(
+                image=SimpleNamespace(array=np.full((2, 2), 10.0, dtype=np.float32)),
+                variance=SimpleNamespace(array=np.full((2, 2), 100.0, dtype=np.float32)),
+                mask=SimpleNamespace(array=np.ones((2, 2), dtype=np.int32)),
+                psf=None,
+                photoCalib=None,
+                wcs=None,
+            )
+            if read_only_variance:
+                exposure.variance.array.setflags(write=False)
+            return exposure
+
+        butler = mock.Mock()
+        butler.get_dataset.side_effect = lambda did, **kwargs: did
+        butler.get.side_effect = lambda ref: make_exposure()
+        # The three exposures cover success, no catalog rows, and a rendering failure.
+        catalog = Table({"injection_id": [0, 1], "obstime": [59000.0, 59002.0]})
+
+        def inject(injection_catalogs, input_exposure, **kwargs):
+            # Gain inference must still receive the real image and unscaled variance.
+            np.testing.assert_array_equal(input_exposure.image.array, 10.0)
+            np.testing.assert_array_equal(input_exposure.variance.array, 100.0)
+            if injection_catalogs["obstime"][0] == 59002.0:
+                raise RuntimeError("No sources were injected within bounds.")
+            exposure = input_exposure if in_place else make_exposure()
+            exposure.image.array[0, 0] += 2.0
+            return SimpleNamespace(output_exposure=exposure, output_catalog=injection_catalogs)
+
+        with (
+            mock.patch("kbmod.injection.HAS_LSST", True),
+            mock.patch("kbmod.injection.DatasetId", side_effect=int, create=True),
+            mock.patch("kbmod.injection.VisitInjectConfig", MockVisitInjectConfig, create=True),
+            mock.patch("kbmod.injection.VisitInjectTask", create=True) as task,
+            mock.patch.object(ImageCollection, "fromStandardizers", side_effect=lambda stds: stds),
+        ):
+            task.return_value.run.side_effect = inject
+            with self.assertWarnsRegex(UserWarning, "had no objects successfully rendered"):
+                standardizers, injected_catalog = inject_sources_into_ic(ic, catalog, butler, **kwargs)
+
+        self.assertEqual(task.return_value.run.call_count, 2)
+        self.assertEqual([std.ref for std in standardizers], [0, 1, 2])
+        self.assertEqual(list(injected_catalog["injection_id"]), [0])
+        # Every variance mode must preserve the original pixel masks.
+        for std in standardizers:
+            np.testing.assert_array_equal(std.exp.mask.array, 1)
+        return [std.exp for std in standardizers]
+
+    def test_no_render_exposure_has_empty_background(self):
+        exposures = self.run_mixed_injections(zero_background=True)
+        np.testing.assert_array_equal(exposures[0].image.array, [[2.0, 0.0], [0.0, 0.0]])
+        np.testing.assert_array_equal(exposures[1].image.array, 0.0)
+        np.testing.assert_array_equal(exposures[2].image.array, 0.0)
+        for exposure in exposures:
+            np.testing.assert_array_equal(exposure.variance.array, 100.0)
+
+    def test_variance_scale_applies_to_every_exposure(self):
+        # Support injectors that mutate their input or return a separate exposure.
+        for in_place in [True, False]:
+            with self.subTest(in_place=in_place):
+                exposures = self.run_mixed_injections(
+                    variance_scale=1e-4, zero_background=True, in_place=in_place
+                )
+                for exposure in exposures:
+                    np.testing.assert_allclose(exposure.variance.array, 0.01)
+
+    def test_default_preserves_science_background(self):
+        exposures = self.run_mixed_injections(read_only_variance=True)
+        np.testing.assert_array_equal(exposures[0].image.array, [[12.0, 10.0], [10.0, 10.0]])
+        for exposure in exposures[1:]:
+            np.testing.assert_array_equal(exposure.image.array, 10.0)
+        for exposure in exposures:
+            np.testing.assert_array_equal(exposure.variance.array, 100.0)
+
+    def test_unit_variance_scale_does_not_write_pixels(self):
+        # Read-only arrays catch even an unnecessary in-place multiplication by 1.0.
+        with self.assertLogs("kbmod.injection", level="INFO") as logs:
+            exposures = self.run_mixed_injections(
+                zero_background=True, variance_scale=1.0, read_only_variance=True
+            )
+        for exposure in exposures:
+            np.testing.assert_array_equal(exposure.variance.array, 100.0)
+            self.assertFalse(exposure.variance.array.flags.writeable)
+        self.assertIn("zero_background=True", "\n".join(logs.output))
+        self.assertIn("Skipping variance scaling (variance_scale=1.0)", "\n".join(logs.output))
+
+    def test_logs_applied_variance_scale(self):
+        with self.assertLogs("kbmod.injection", level="INFO") as logs:
+            self.run_mixed_injections(zero_background=True, variance_scale=1e-4)
+        self.assertIn("Applying variance_scale=0.0001 to all 3 returned exposures", "\n".join(logs.output))
+
+    def test_variance_scale_preserves_science_background(self):
+        exposures = self.run_mixed_injections(variance_scale=1e-4)
+        np.testing.assert_array_equal(exposures[0].image.array, [[12.0, 10.0], [10.0, 10.0]])
+        for exposure in exposures[1:]:
+            np.testing.assert_array_equal(exposure.image.array, 10.0)
+        for exposure in exposures:
+            np.testing.assert_allclose(exposure.variance.array, 0.01)
+
+    @mock.patch("kbmod.injection.HAS_LSST", True)
+    def test_constant_variance_rejects_scaling(self):
+        # None inputs ensure the conflict is rejected before accessing exposures.
+        for scale in [1e-4, 2.0]:
+            with self.subTest(variance_scale=scale):
+                with self.assertRaisesRegex(ValueError, "constant_variance cannot be combined"):
+                    inject_sources_into_ic(None, None, None, constant_variance=True, variance_scale=scale)
+
+    def test_constant_variance_applies_after_injection_to_every_exposure(self):
+        for zero_background in [False, True]:
+            for in_place in [False, True]:
+                with self.subTest(zero_background=zero_background, in_place=in_place):
+                    with self.assertLogs("kbmod.injection", level="INFO") as logs:
+                        exposures = self.run_mixed_injections(
+                            constant_variance=True, zero_background=zero_background, in_place=in_place
+                        )
+                    for exposure in exposures:
+                        np.testing.assert_array_equal(exposure.variance.array, 1.0)
+                    # Constant variance must not change the chosen science-background behavior.
+                    background = 0.0 if zero_background else 10.0
+                    expected = np.full((2, 2), background)
+                    expected[0, 0] += 2.0
+                    np.testing.assert_array_equal(exposures[0].image.array, expected)
+                    for exposure in exposures[1:]:
+                        np.testing.assert_array_equal(exposure.image.array, background)
+                    self.assertIn("Setting variance planes to constant 1.0", "\n".join(logs.output))
+
+    @mock.patch("kbmod.injection.HAS_LSST", True)
+    def test_invalid_variance_scale(self):
+        for scale in [0.0, -1.0, np.nan, np.inf, -np.inf]:
+            with self.subTest(variance_scale=scale):
+                with self.assertRaisesRegex(ValueError, "variance_scale must be positive and finite"):
+                    inject_sources_into_ic(None, None, None, variance_scale=scale)
 
 
 class TestMatchInjectionResults(unittest.TestCase):
