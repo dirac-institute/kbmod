@@ -401,10 +401,12 @@ class MockButler:
         hdul = FitsFactory.get_fits(ref % FitsFactory.n_files)
         mocked = mock.Mock(name="SkyWcs")
 
-        mocked_coord = mock.Mock(name="RubinCoord")
         wcs = WCS(hdul[1].header)
 
         def fake_skywcs_transform(*args, degrees=True, **kwargs):
+            # Each conversion must retain its own coordinates, including when
+            # pixelToSkyArray collects several results before reading them.
+            mocked_coord = mock.Mock(name="RubinCoord")
             # Remove 'degrees' from kwargs if present, do not pass to pixel_to_world
             coord = wcs.pixel_to_world(*args, **{k: v for k, v in kwargs.items() if k != "degrees"})
             mocked_angle = mock.Mock(name="RubinAngle")
