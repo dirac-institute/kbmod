@@ -632,9 +632,9 @@ class Standardizer(abc.ABC):
         wcs : `object`
             World coordinate system object
         dimX : `int`
-            Image dimension in x-axis.
+            Image height (number of rows), despite the historical name.
         dimY : `int`
-            Image dimension in y-axis.
+            Image width (number of columns), despite the historical name.
 
         Returns
         -------
@@ -645,16 +645,17 @@ class Standardizer(abc.ABC):
 
         Notes
         -----
-        The center point is assumed to be at the (dimX/2, dimY/2) pixel
-        coordinates, rounded down.
+        Arguments retain the historical (height, width) order. WCS pixel
+        coordinates use (x, y), so the center is (dimY/2, dimX/2), rounded down.
         Bottom left corner is taken to be the (0,0)-th pixel and image lies
         in the first quadrant of a unit circle to match Astropy's convention.
         """
-        center = wcs.pixel_to_world(int(dimY // 2), int(dimX // 2))
+        height, width = dimX, dimY
+        center = wcs.pixel_to_world(int(width // 2), int(height // 2))
         botleft = wcs.pixel_to_world(0, 0)
-        topleft = wcs.pixel_to_world(0, dimX)
-        topright = wcs.pixel_to_world(dimY, dimX)
-        botright = wcs.pixel_to_world(dimY, 0)
+        topleft = wcs.pixel_to_world(0, height)
+        topright = wcs.pixel_to_world(width, height)
+        botright = wcs.pixel_to_world(width, 0)
 
         pts = np.array(
             [
@@ -716,9 +717,9 @@ class Standardizer(abc.ABC):
         wcs : `object`
             World coordinate system object, must support standard WCS API.
         dimX : `int`
-            Image dimension in x-axis.
+            Image height (number of rows), despite the historical name.
         dimY : `int`
-            Image dimension in y-axis.
+            Image width (number of columns), despite the historical name.
         return_type : `str`, optional
             A 'dict' or an 'array', the type the result is returned as.
 
@@ -735,8 +736,8 @@ class Standardizer(abc.ABC):
 
         Notes
         -----
-        The center point is assumed to be at the (dimX/2, dimY/2) pixel
-        coordinates, rounded down.
+        Arguments retain the historical (height, width) order. WCS pixel
+        coordinates use (x, y), so the center is (dimY/2, dimX/2), rounded down.
         Bottom left corner is taken to be the (0,0)-th pixel and image lies
         in the first quadrant of a unit circle to match Astropy's convention.
         """

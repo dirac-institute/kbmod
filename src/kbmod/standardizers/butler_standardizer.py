@@ -310,9 +310,9 @@ class ButlerStandardizer(Standardizer):
         wcs : `SkyWCS`
             Rubin SkyWCS object.
         naxis1: `int`
-            naxis1 matching the dimensions of the SkyWCS BBOX
+            Detector width in pixels (FITS NAXIS1, the WCS x-axis).
         naxis2: `int`
-            naxis2 matching the dimensions of the SkyWCS BBOX
+            Detector height in pixels (FITS NAXIS2, the WCS y-axis).
         n_rand_pts : `int`
             Number of random points to sample across the detector.
         sip_degree : `int` or `None`, optional
@@ -361,7 +361,8 @@ class ButlerStandardizer(Standardizer):
             (rand_x, rand_y), world_coords, detector_center_coord, sip_degree=sip_degree
         )
         # fit_wcs_from_points sets pixel_shape from the sampled points' bounding
-        # box, which extends beyond the chip; pin it to the true dimensions
+        # box, which extends beyond the chip; pin it to the true (width, height).
+        # Astropy's array_shape is the reverse: (height, width).
         fitted_wcs.pixel_shape = (naxis1, naxis2)
         return fitted_wcs
 
@@ -387,9 +388,9 @@ class ButlerStandardizer(Standardizer):
         wcs : `object`
             World coordinate system object, must support standard WCS API.
         dimX : `int`
-            Maximal index in the NumPy convention x-axis, a "height".
+            Image height (number of rows), despite the historical name.
         dimY : `int`
-            Maximal index in the NumPy convention y-axis, a "width"
+            Image width (number of columns), despite the historical name.
         return_type : `str`, optional
             A 'dict' or an 'array', the type the result is returned as.
 
@@ -406,16 +407,17 @@ class ButlerStandardizer(Standardizer):
 
         Notes
         -----
-        The center point is assumed to be at the (dimX/2, dimY/2) pixel
-        coordinates, rounded down.
+        Arguments retain the historical (height, width) order. WCS pixel
+        coordinates use (x, y), so the center is (dimY/2, dimX/2), rounded down.
         Bottom left corner is taken to be the (0,0)-th pixel and image lies
         in the first quadrant of a unit circle to match Astropy's convention.
         """
-        center = wcs.pixelToSky(int(dimY // 2), int(dimX // 2))
+        height, width = dimX, dimY
+        center = wcs.pixelToSky(int(width // 2), int(height // 2))
         botleft = wcs.pixelToSky(0, 0)
-        topleft = wcs.pixelToSky(0, dimX)
-        topright = wcs.pixelToSky(dimY, dimX)
-        botright = wcs.pixelToSky(dimY, 0)
+        topleft = wcs.pixelToSky(0, height)
+        topright = wcs.pixelToSky(width, height)
+        botright = wcs.pixelToSky(width, 0)
 
         pts = np.array(
             [
@@ -525,6 +527,7 @@ class ButlerStandardizer(Standardizer):
         # calculate the WCS "error" (max on-sky separation between edge
         # coordinates from Rubin's more powerful SkyWCS and Astropy's
         # Fits-WCS), in degrees
+        # Both bbox helpers take (height, width), unlike WCS.pixel_shape.
         skyBBox = self._computeSkyBBox(wcs, self._naxis2, self._naxis1)
         apyBBox = self._computeBBoxArray(self._wcs, self._naxis2, self._naxis1)
         self._metadata["wcs_err"] = max_sky_separation(skyBBox, apyBBox)
@@ -639,7 +642,7 @@ class ButlerStandardizer(Standardizer):
             self._fetch_meta()
 
         # Return empty masks if no masking is done. We only return a single
-        # mask corresponding to the current image size.
+        # mask with NumPy shape (height, width), the reverse of WCS.pixel_shape.
         if not self.config["do_mask"]:
             return [np.zeros((self._naxis2, self._naxis1))]
 

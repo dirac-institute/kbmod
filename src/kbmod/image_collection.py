@@ -262,9 +262,10 @@ class ImageCollection:
                 row["config"] = json.dumps(std.config.toDict(), separators=(",", ":"))
 
                 header = std.wcs[j].to_header(relax=True)
-                h, w = std.wcs[j].pixel_shape
-                header["NAXIS1"] = h
-                header["NAXIS2"] = w
+                # pixel_shape follows FITS (width, height), unlike NumPy array shapes.
+                naxis1, naxis2 = std.wcs[j].pixel_shape
+                header["NAXIS1"] = naxis1
+                header["NAXIS2"] = naxis2
                 header_dict = {k: v for k, v in header.items()}
                 row["wcs"] = json.dumps(header_dict, separators=(",", ":"))
                 unravelledStdMetadata.append(row)
