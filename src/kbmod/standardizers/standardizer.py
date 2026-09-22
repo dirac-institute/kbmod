@@ -741,9 +741,8 @@ class Standardizer(abc.ABC):
         Bottom left corner is taken to be the (0,0)-th pixel and image lies
         in the first quadrant of a unit circle to match Astropy's convention.
         """
-        # TODO: this is now a bit of a relic that can be removed if
-        # Fits_standardizer is updated. Realistically, I think we need
-        # a BBox object to encapsulate all this in and then move it
-        # out of here.
+        # FitsStandardizer still calls this wrapper, including through KBMODV1
+        # and KBMODV0_5. Preserve its (height, width) interface until those callers
+        # are migrated to a replacement bbox abstraction.
         bboxArr = self._computeBBoxArray(wcs, dimX, dimY)
         return self._bboxArrayToDict(bboxArr)
