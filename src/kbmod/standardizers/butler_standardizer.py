@@ -82,7 +82,7 @@ class ButlerStandardizerConfig(StandardizerConfig):
     grow_mask = True
     """Grow mask footprint by ``grow_kernel_shape``"""
 
-    brightness_treshold = 10
+    brightness_threshold = 10
     """Pixels with value greater than this threshold will be masked."""
 
     grow_kernel_shape = (10, 10)
@@ -638,9 +638,10 @@ class ButlerStandardizer(Standardizer):
         if self._naxis1 is None or self._naxis2 is None:
             self._fetch_meta()
 
-        # Return empty masks if no masking is done
+        # Return empty masks if no masking is done. We only return a single
+        # mask corresponding to the current image size.
         if not self.config["do_mask"]:
-            return (np.zeros((self._naxis1, self._naxis2)) for size in sizes)
+            return [np.zeros((self._naxis2, self._naxis1))]
 
         # Otherwise load the mask extension and process it
         mask = self.exp.mask.array.astype(int)

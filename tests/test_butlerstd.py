@@ -407,6 +407,15 @@ class TestButlerStandardizer(unittest.TestCase):
         """
         mockedexp.mask.array[2, 2] = KBMODV1Config.bit_flag_map["BAD"]
 
+    def test_skip_do_mask(self):
+        """Test that we skip masking when appropriate."""
+        butler = MockButler("/far/far/away", mock_images_f=self.mock_kbmodv1like_growmask)
+
+        conf = StandardizerConfig({"do_mask": False})
+        std = Standardizer.get(DatasetId(11), butler=butler, config=conf)
+        mask = std.standardizeMaskImage()[0]
+        assert np.all(mask == 0)
+
     def test_grow_mask(self):
         """Test mask grows as expected."""
         butler = MockButler("/far/far/away", mock_images_f=self.mock_kbmodv1like_growmask)
