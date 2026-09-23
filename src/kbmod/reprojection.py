@@ -599,13 +599,11 @@ def _validate_original_wcs(work_unit, indices, frame="original"):
 
     if len(original_wcs) == 0:
         raise ValueError(f"No WCS found for frame {frame}")
-    if np.any(original_wcs == None):
-        # Find indices where the wcs is None. We need to use ==
-        # because original_wcs is a list.
-        bad_indices = np.where(original_wcs == None)
-        # get values from `indices` where original_wcs is None
-        work_unit_indices = [indices[i] for i in bad_indices]
-        raise ValueError(f"No WCS provided for work_unit index(s) {work_unit_indices}")
+    # Check each entry explicitly: comparing a Python list to None is scalar.
+    # Report work-unit indices, including when the selection is non-contiguous.
+    missing_indices = [int(index) for index, wcs in zip(indices, original_wcs) if wcs is None]
+    if missing_indices:
+        raise ValueError(f"No WCS provided for work_unit index(s) {missing_indices}")
 
     return original_wcs
 

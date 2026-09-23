@@ -253,6 +253,54 @@ class test_reprojection(unittest.TestCase):
         _wcs = _validate_original_wcs(self.test_wunit, [0])
         assert np.all(wcs.pixel_scale_matrix == _wcs[0].pixel_scale_matrix)
 
+    def test_validate_wcs_missing_indices(self):
+        """Report actual image indices, not positions within the selected subset."""
+        valid_wcs = [self.test_wunit.get_wcs(i) for i in range(self.num_org_images)]
+        self.test_wunit.wcs = None
+        for frame, column in (("original", "per_image_wcs"), ("ebd", "ebd_wcs")):
+            for missing in ([3], [3, 2], [3, 0, 2]):
+                for indices in ([3, 0, 2], np.array([3, 0, 2])):
+                    with self.subTest(frame=frame, missing=missing, indices_type=type(indices)):
+                        wcses = valid_wcs.copy()
+                        for index in missing:
+                            wcses[index] = None
+                        self.test_wunit.org_img_meta[column] = wcses
+                        with self.assertRaises(ValueError) as context:
+                            _validate_original_wcs(self.test_wunit, indices, frame)
+                        self.assertEqual(
+                            str(context.exception), f"No WCS provided for work_unit index(s) {missing}"
+                        )
+
+    def test_validate_wcs_preserves_selection(self):
+        """Return selected objects in order and ignore missing WCS outside the selection."""
+        wcses = [self.test_wunit.get_wcs(i).deepcopy() for i in range(self.num_org_images)]
+        wcses[1] = None
+        self.test_wunit.wcs = None
+        for frame, column in (("original", "per_image_wcs"), ("ebd", "ebd_wcs")):
+            with self.subTest(frame=frame):
+                self.test_wunit.org_img_meta[column] = wcses
+                result = _validate_original_wcs(self.test_wunit, [3, 0, 2], frame)
+                self.assertEqual(len(result), 3)
+                for actual, index in zip(result, [3, 0, 2]):
+                    self.assertIs(actual, wcses[index])
+
+    def test_validate_wcs_global_fallback(self):
+        """Original-frame validation still honors WorkUnit's global WCS."""
+        self.test_wunit.wcs = self.common_wcs
+        self.test_wunit.org_img_meta["per_image_wcs"] = [None] * self.num_org_images
+        result = _validate_original_wcs(self.test_wunit, [3, 0, 2])
+        self.assertEqual(len(result), 3)
+        for wcs in result:
+            self.assertIs(wcs, self.common_wcs)
+
+    def test_validate_wcs_empty_or_invalid_frame(self):
+        for frame in ("original", "ebd"):
+            with self.subTest(frame=frame):
+                with self.assertRaisesRegex(ValueError, f"No WCS found for frame {frame}"):
+                    _validate_original_wcs(self.test_wunit, [], frame)
+        with self.assertRaisesRegex(ValueError, "Invalid projection frame provided"):
+            _validate_original_wcs(self.test_wunit, [0], "invalid")
+
 
 if __name__ == "__main__":
     unittest.main()
