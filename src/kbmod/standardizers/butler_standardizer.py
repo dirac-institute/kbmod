@@ -366,31 +366,31 @@ class ButlerStandardizer(Standardizer):
         fitted_wcs.pixel_shape = (naxis1, naxis2)
         return fitted_wcs
 
-    def _computeSkyBBox(self, wcs, dimX, dimY):
+    def _computeSkyBBox(self, wcs, height, width):
         """Given an Rubin SkyWCS object and the dimensions of an image
         calculates the values of world coordinates image center and
         image corners.
 
         The corners are given by the following indices:
 
-             topleft                 topright
-            (0, dimX) ----------  (dimY, dimX)
-              |                        |
-              |           x            |
-              |    (dimY/2, dimX/2)    |
-              |         center         |
-              |                        |
-            (0, 0)    ----------  (dimY, 0)
-            botleft               botright
+              topleft                    topright
+            (0, height) ------------- (width, height)
+                 |                         |
+                 |            x            |
+                 |   (width/2, height/2)    |
+                 |          center         |
+                 |                         |
+              (0, 0) ----------------- (width, 0)
+              botleft                    botright
 
         Parameters
         ----------
         wcs : `object`
             World coordinate system object, must support standard WCS API.
-        dimX : `int`
-            Image height (number of rows), despite the historical name.
-        dimY : `int`
-            Image width (number of columns), despite the historical name.
+        height : `int`
+            Image height (number of rows).
+        width : `int`
+            Image width (number of columns).
         return_type : `str`, optional
             A 'dict' or an 'array', the type the result is returned as.
 
@@ -407,12 +407,11 @@ class ButlerStandardizer(Standardizer):
 
         Notes
         -----
-        Arguments retain the historical (height, width) order. WCS pixel
-        coordinates use (x, y), so the center is (dimY/2, dimX/2), rounded down.
+        Dimensions are passed in (height, width) order. WCS pixel
+        coordinates use (x, y), so the center is (width/2, height/2), rounded down.
         Bottom left corner is taken to be the (0,0)-th pixel and image lies
         in the first quadrant of a unit circle to match Astropy's convention.
         """
-        height, width = dimX, dimY
         center = wcs.pixelToSky(int(width // 2), int(height // 2))
         botleft = wcs.pixelToSky(0, 0)
         topleft = wcs.pixelToSky(0, height)

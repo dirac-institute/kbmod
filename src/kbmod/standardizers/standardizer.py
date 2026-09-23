@@ -467,7 +467,7 @@ class Standardizer(abc.ABC):
 
         Notes
         -----
-        Center can be assumed to be at the (dimX/2, dimY/2) pixel coordinates,
+        Center can be assumed to be at the (width/2, height/2) pixel coordinates,
         rounded down. Corner is taken to be the (0,0)-th pixel.
         """
         raise NotImplementedError()
@@ -610,31 +610,31 @@ class Standardizer(abc.ABC):
 
         return std
 
-    def _computeBBoxArray(self, wcs, dimX, dimY):
+    def _computeBBoxArray(self, wcs, height, width):
         """Given an Astropy WCS object and the dimensions of an image
         calculates the values of world coordinates image center and
         image corners.
 
         The corners are given by the following indices:
 
-             topleft                 topright
-            (0, dimX) ----------  (dimY, dimX)
-              |                        |
-              |           x            |
-              |    (dimY/2, dimX/2)    |
-              |         center         |
-              |                        |
-            (0, 0)    ----------  (dimY, 0)
-            botleft               botright
+              topleft                    topright
+            (0, height) ------------- (width, height)
+                 |                         |
+                 |            x            |
+                 |   (width/2, height/2)    |
+                 |          center         |
+                 |                         |
+              (0, 0) ----------------- (width, 0)
+              botleft                    botright
 
         Parameters
         ----------
         wcs : `object`
             World coordinate system object
-        dimX : `int`
-            Image height (number of rows), despite the historical name.
-        dimY : `int`
-            Image width (number of columns), despite the historical name.
+        height : `int`
+            Image height (number of rows).
+        width : `int`
+            Image width (number of columns).
 
         Returns
         -------
@@ -645,12 +645,11 @@ class Standardizer(abc.ABC):
 
         Notes
         -----
-        Arguments retain the historical (height, width) order. WCS pixel
-        coordinates use (x, y), so the center is (dimY/2, dimX/2), rounded down.
+        Dimensions are passed in (height, width) order. WCS pixel
+        coordinates use (x, y), so the center is (width/2, height/2), rounded down.
         Bottom left corner is taken to be the (0,0)-th pixel and image lies
         in the first quadrant of a unit circle to match Astropy's convention.
         """
-        height, width = dimX, dimY
         center = wcs.pixel_to_world(int(width // 2), int(height // 2))
         botleft = wcs.pixel_to_world(0, 0)
         topleft = wcs.pixel_to_world(0, height)
@@ -708,7 +707,7 @@ class Standardizer(abc.ABC):
 
         return standardizedBBox
 
-    def _computeBBox(self, wcs, dimX, dimY, return_type="dict"):
+    def _computeBBox(self, wcs, height, width, return_type="dict"):
         """Given an WCS and the dimensions of an image calculates the values of
         world coordinates at image corner and image center.
 
@@ -716,10 +715,10 @@ class Standardizer(abc.ABC):
         ----------
         wcs : `object`
             World coordinate system object, must support standard WCS API.
-        dimX : `int`
-            Image height (number of rows), despite the historical name.
-        dimY : `int`
-            Image width (number of columns), despite the historical name.
+        height : `int`
+            Image height (number of rows).
+        width : `int`
+            Image width (number of columns).
         return_type : `str`, optional
             A 'dict' or an 'array', the type the result is returned as.
 
@@ -736,13 +735,13 @@ class Standardizer(abc.ABC):
 
         Notes
         -----
-        Arguments retain the historical (height, width) order. WCS pixel
-        coordinates use (x, y), so the center is (dimY/2, dimX/2), rounded down.
+        Dimensions are passed in (height, width) order. WCS pixel
+        coordinates use (x, y), so the center is (width/2, height/2), rounded down.
         Bottom left corner is taken to be the (0,0)-th pixel and image lies
         in the first quadrant of a unit circle to match Astropy's convention.
         """
         # FitsStandardizer still calls this wrapper, including through KBMODV1
         # and KBMODV0_5. Preserve its (height, width) interface until those callers
         # are migrated to a replacement bbox abstraction.
-        bboxArr = self._computeBBoxArray(wcs, dimX, dimY)
+        bboxArr = self._computeBBoxArray(wcs, height, width)
         return self._bboxArrayToDict(bboxArr)

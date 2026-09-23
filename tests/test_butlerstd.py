@@ -159,20 +159,20 @@ class TestButlerStandardizer(unittest.TestCase):
         (regression test for issue #1150)."""
         true_bbox = ButlerStandardizer._computeSkyBBox
 
-        def corrupted_bbox_array(std_self, wcs, dimX, dimY):
+        def corrupted_bbox_array(std_self, wcs, height, width):
             # Reuse the SkyWCS-derived corners as ground truth, then
             # perturb: bottom-left dec by +10 deg (a signed difference
             # of -10) and top-right RA by -0.001 arcsec (a signed
             # difference of +0.001"). The buggy max() picked the tiny
             # positive value; on-sky separation must report ~10 deg.
-            pts = true_bbox(std_self, std_self._test_sky_wcs, dimX, dimY).copy()
+            pts = true_bbox(std_self, std_self._test_sky_wcs, height, width).copy()
             pts[1, 1] += 10.0
             pts[3, 0] -= 0.001 / 3600.0
             return pts
 
-        def spying_sky_bbox(std_self, wcs, dimX, dimY):
+        def spying_sky_bbox(std_self, wcs, height, width):
             std_self._test_sky_wcs = wcs
-            return true_bbox(std_self, wcs, dimX, dimY)
+            return true_bbox(std_self, wcs, height, width)
 
         with (
             mock.patch.object(ButlerStandardizer, "_computeSkyBBox", spying_sky_bbox),
