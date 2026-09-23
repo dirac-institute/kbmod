@@ -4,6 +4,7 @@ import unittest
 from unittest import mock
 
 from astropy.time import Time
+from astropy.wcs import WCS
 import numpy as np
 
 from utils import DECamImdiffFactory, MockButler, MockFailedButler, DatasetRef, DatasetId, dafButler
@@ -103,6 +104,85 @@ class TestButlerStandardizer(unittest.TestCase):
                 DatasetId(7, fill_metadata=True), butler=[self.failed_butler, self.failed_butler]
             )
 
+    def test_mock_sky_wcs_matches_fits_transform(self):
+        """Scalar results remain independent and vector results retain every pixel."""
+        sky_wcs = self.butler.mock_wcs(0)
+        reference = WCS(FitsFactory.get_fits(0)[1].header)
+        x, y = np.array([0, 100, 500]), np.array([0, 200, 700])
+        expected = reference.pixel_to_world(x, y)
+
+        # Read the coordinates only after all calls, to catch shared mutable results.
+        coords = [sky_wcs.pixelToSky(xi, yi) for xi, yi in zip(x, y)]
+        np.testing.assert_allclose([c.getRa().asDegrees() for c in coords], expected.ra.deg)
+        np.testing.assert_allclose([c.getDec().asDegrees() for c in coords], expected.dec.deg)
+        for degrees in (True, False):
+            with self.subTest(degrees=degrees):
+                ra, dec = sky_wcs.pixelToSkyArray(x, y, degrees=degrees)
+                np.testing.assert_allclose(ra, expected.ra.deg if degrees else expected.ra.rad)
+                np.testing.assert_allclose(dec, expected.dec.deg if degrees else expected.dec.rad)
+
+    def test_fitted_wcs_accuracy(self):
+        """Fit distorted, rectangular detectors and validate on a held-out grid."""
+        for idx in (0, 7):
+            with self.subTest(detector=idx):
+                reference = WCS(FitsFactory.get_fits(idx)[1].header)
+                self.assertIsNotNone(reference.sip)
+                width, height = reference.pixel_shape
+                self.assertNotEqual(width, height)
+                sky_wcs = self.butler.mock_wcs(idx)
+                rng = np.random.default_rng(42)
+                # Keep sampling reproducible without changing global RNG state.
+                with (
+                    mock.patch.object(self.butler, "mock_wcs", return_value=sky_wcs),
+                    mock.patch(
+                        "kbmod.standardizers.butler_standardizer.np.random.rand",
+                        side_effect=lambda *shape: rng.random(shape),
+                    ),
+                ):
+                    std = ButlerStandardizer(DatasetId(idx, fill_metadata=True), butler=self.butler)
+                    metadata = std.standardizeMetadata()
+
+                sky_wcs.getFitsMetadata.assert_not_called()
+                self.assertEqual(std._wcs.pixel_shape, (width, height))
+                x, y = np.meshgrid(np.linspace(0, width - 1, 17), np.linspace(0, height - 1, 19))
+                expected = reference.pixel_to_world(x, y)
+                residual = expected.separation(std._wcs.pixel_to_world(x, y)).arcsec
+                self.assertTrue(np.all(np.isfinite(residual)))
+                self.assertLess(residual.max(), 0.01)
+                self.assertTrue(np.isfinite(metadata["wcs_err"]))
+                self.assertGreaterEqual(metadata["wcs_err"], 0.0)
+                self.assertLess(metadata["wcs_err"] * 3600, 0.01)
+
+    def test_wcs_err_is_on_sky_separation(self):
+        """Test wcs_err is the max on-sky separation between the SkyWCS
+        and Astropy WCS bounding boxes, not a signed coordinate difference
+        (regression test for issue #1150)."""
+        true_bbox = ButlerStandardizer._computeSkyBBox
+
+        def corrupted_bbox_array(std_self, wcs, height, width):
+            # Reuse the SkyWCS-derived corners as ground truth, then
+            # perturb: bottom-left dec by +10 deg (a signed difference
+            # of -10) and top-right RA by -0.001 arcsec (a signed
+            # difference of +0.001"). The buggy max() picked the tiny
+            # positive value; on-sky separation must report ~10 deg.
+            pts = true_bbox(std_self, std_self._test_sky_wcs, height, width).copy()
+            pts[1, 1] += 10.0
+            pts[3, 0] -= 0.001 / 3600.0
+            return pts
+
+        def spying_sky_bbox(std_self, wcs, height, width):
+            std_self._test_sky_wcs = wcs
+            return true_bbox(std_self, wcs, height, width)
+
+        with (
+            mock.patch.object(ButlerStandardizer, "_computeSkyBBox", spying_sky_bbox),
+            mock.patch.object(ButlerStandardizer, "_computeBBoxArray", corrupted_bbox_array),
+        ):
+            std = ButlerStandardizer(uuid.uuid1(), butler=self.butler)
+            meta = std.standardizeMetadata()
+
+        self.assertAlmostEqual(meta["wcs_err"], 10.0, places=3)
+
     def test_standardize_missing_wcs(self):
         """Test ButlerStandardizer instantiates and standardizes as expected een when fits appoximation of the WCS failed."""
         missing_wcs_butler = MockButler("/far/far/away", failed_fits_appoximation=True)
@@ -123,6 +203,9 @@ class TestButlerStandardizer(unittest.TestCase):
 
         # Validate that getFitsMetadata raises an error forcing us to use a fallback WCS
         std._wcs is not None
+        # The fallback-fitted WCS must carry the true chip dimensions, not the
+        # sampled points' bounding box
+        self.assertEqual(std._wcs.pixel_shape, (std._naxis1, std._naxis2))
         wcs_ref = std.ref.makeComponentRef("wcs")
         wcs = missing_wcs_butler.get(wcs_ref)
         with self.assertRaises(Exception):
