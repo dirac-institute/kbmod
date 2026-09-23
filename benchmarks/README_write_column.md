@@ -1,44 +1,46 @@
-# FITS stamp-column benchmark — 2026-09-23
+# FITS stamp-column benchmark — 2026-09-23, after correctness fixes
 
-Measured source: PR #1134 after merging main, commit `627be6198c28e50f6f0ea15215807561a2156944`.
-Baseline: main `04cfc13a5aea04026bb774f754f3b64fd2a71789`.
+Measured writer and benchmark: `d77b8aa6cf7ac708f3884f008c9b590c0b4aa713`.
+Baseline: main `04cfc13a5aea04026bb774f754f3b64fd2a71789`, remeasured in this run.
 
-| Machine / source | Workers | Median (s) | Range (s) | Stamps/s | Speedup vs integrated serial |
+| Machine / source | Workers | Median (s) | Range (s) | Stamps/s | Speedup vs fixed serial |
 |---|---:|---:|---:|---:|---:|
-| Arnor / main | 1 | 31.96 | 31.91–32.08 | 156.5 | — |
-| Arnor / integrated PR | 1 | 31.98 | 31.92–32.05 | 156.4 | 1.00× |
-| Arnor / integrated PR | 2 | 16.20 | 16.01–16.24 | 308.6 | 1.97× |
-| Arnor / integrated PR | 4 | 8.08 | 8.06–8.09 | 618.7 | 3.96× |
-| Arnor / integrated PR | 8 | 4.12 | 4.12–4.13 | 1212.3 | 7.75× |
-| Apple M5 (forced fork) / main | 1 | 19.70 | 18.01–19.97 | 253.8 | — |
-| Apple M5 (forced fork) / integrated PR | 1 | 18.11 | 17.93–18.29 | 276.0 | 1.00× |
-| Apple M5 (forced fork) / integrated PR | 2 | 9.46 | 9.36–9.50 | 528.6 | 1.92× |
-| Apple M5 (forced fork) / integrated PR | 4 | 5.05 | 4.94–5.12 | 991.0 | 3.59× |
-| Apple M5 (forced fork) / integrated PR | 8 | 3.87 | 3.77–3.99 | 1291.9 | 4.68× |
+| Arnor / main | 1 | 31.66 | 31.64–31.68 | 157.9 | — |
+| Arnor / fixed PR | 1 | 31.74 | 31.73–31.75 | 157.5 | 1.00× |
+| Arnor / fixed PR | 2 | 16.03 | 15.98–16.07 | 312.0 | 1.98× |
+| Arnor / fixed PR | 4 | 8.11 | 8.11–8.13 | 616.5 | 3.91× |
+| Arnor / fixed PR | 8 | 4.23 | 4.21–4.24 | 1181.3 | 7.50× |
+| Apple M5, default spawn / main | 1 | 19.26 | 19.24–19.27 | 259.6 | — |
+| Apple M5, default spawn / fixed PR | 1 | 19.24 | 18.48–20.59 | 259.8 | 1.00× |
+| Apple M5, default spawn / fixed PR | 2 | 13.47 | 13.25–13.80 | 371.1 | 1.43× |
+| Apple M5, default spawn / fixed PR | 4 | 10.08 | 9.27–10.80 | 495.8 | 1.91× |
+| Apple M5, default spawn / fixed PR | 8 | 9.80 | 9.06–10.04 | 510.2 | 1.96× |
 
-Each entry is the median of three complete writes of 5,000 seeded Gaussian float32 stamps, 100 × 100 pixels (seed 1134, standard deviation 10). Worker-count trial order was shuffled deterministically; main was measured separately. Times include pool startup, compression, scratch files, and concatenation, and exclude input generation, full readback verification, and deletion. No fsync or cache eviction was used. These are application write timings on local storage, not durable I/O latency or full-search timings. Hosts were shared, not reserved.
+Each entry is the median of three complete writes of 5,000 seeded Gaussian float32 stamps, 100 × 100 pixels (seed 1134, standard deviation 10). Worker-count trial order is deterministically shuffled; main is measured separately. Times include pool startup, argument transfer, compression, scratch files, concatenation, and publishing the staged output. They exclude input generation, verification, and deletion. There is no fsync or cache eviction. These are application write timings on local storage; the shared hosts were not reserved.
 
-Arnor: two AMD EPYC 9555 64-core processors, 256 logical CPUs, Linux, Python 3.12.14, NumPy 2.5.3, Astropy 8.0.1, PyArrow 25.0.1; default fork; worker scratch and destination on local `/tmp`. The exact results source was loaded using an existing KBMOD environment/native extension. This benchmark exercises Python/Astropy I/O, not a rebuilt CUDA environment.
+Arnor: dual AMD EPYC 9555 (128 physical/256 logical CPUs), Linux, Python 3.12.14, NumPy 2.5.3, Astropy 8.0.1, PyArrow 25.0.1, default fork. Output and staging use local `/tmp`. The exact results source is loaded into an existing KBMOD environment; no new CUDA build is involved.
 
-Laptop: Apple M5, 10 logical CPUs, 32 GiB RAM, macOS 26.3.1, Python 3.12.13, NumPy 2.5.2, Astropy 8.0.1, PyArrow 25.0.1; local workspace storage and rebuilt native CPU extension. **Laptop parallel numbers explicitly force fork. The current PR fails with the default spawn method and with forkserver because workers do not inherit its stamp-data globals.**
+Laptop: Apple M5 (10 logical CPUs), 32 GiB RAM, macOS 26.3.1, Python 3.12.13, NumPy 2.5.2, Astropy 8.0.1, PyArrow 25.0.1, local workspace storage. **These measurements use the default spawn method.** The earlier pre-fix laptop table forced fork because spawn was broken; those numbers are not a comparison under identical process settings.
 
-All 30 full-file readbacks (15 per host) verified every pixel against the input within the existing 0.01 quantization step, plus shape, dtype, UUID, extension ordering, and primary metadata. Main and every worker count produced the same decoded pixel SHA-256, `b5ce66d41a494f2a2196026eb745f3ab4f1865a245153ecd8a0649426cea9845`, and 129,602,880-byte FITS files. Maximum observed quantization error was 0.005001068115234375; this quantization is pre-existing. No new numerical discrepancy was observed. Byte-for-byte file identity was not asserted.
+At eight workers, the corrected writer scales 7.50× on arnor and 1.96× on the laptop. The prior arnor eight-worker median was 4.12 s; the corrected median is 4.23 s on the same workload and environment. Passing chunks explicitly retains the useful Linux speedup, so shared-memory machinery has not been added. Spawn startup and data transfer have visible costs on the laptop. These numbers apply to this workload; small columns and network filesystems can behave differently. The serial default is unchanged.
 
-The 8-worker improvement is 7.75× on arnor and 4.68× on the laptop relative to each integrated serial median. Sequential differences from main are small on arnor and variable on the laptop; do not interpret them as a serial optimization. These results apply to this workload and local storage. Small columns, different stamp dimensions, and network filesystems can scale differently. The ordinary `run_search` call remains serial unless a future change exposes the setting there.
+Every one of the 30 full-file readbacks verifies all decoded pixels, shape, dtype, UUIDs, extension ordering, and primary metadata. Main and every worker count on both hosts produce the same decoded SHA-256, `b5ce66d41a494f2a2196026eb745f3ab4f1865a245153ecd8a0649426cea9845`, also matching the pre-fix runs. All files contain 129,602,880 bytes. Maximum observed quantization error is 0.005001068115234375 under the unchanged `quantize_level=-0.01` policy. Each timed write is followed by an assertion that input pixel bytes are unchanged. Byte-for-byte FITS-file identity is not asserted.
 
-Correctness remains open: portable worker data transfer, scratch cleanup on every exception (including allocation), and staging the complete output before replacing the destination. Successful throughput does not resolve these defects.
+## Correctness and file handling
 
-## Run
+The focused results suite passes 49 tests, including spawn/fork/forkserver equivalence, concurrent calls, nonfinite/integer data, migration, failure cleanup, output preservation, and a no-overwrite publication race. The writer uses explicit worker inputs and one temporary directory beside the destination. It publishes only the complete staged image-column file. `overwrite=False` publication uses a same-filesystem hard link and requires hard-link support; this is verified on the tested hosts. Per-column publication does not make multi-file Results output transactional, and it does not add an fsync guarantee. Current main's detached-column API and main-table-first ordering are preserved.
 
-Use a scientific Python environment that can import KBMOD. From the repository root:
+## Reproduce
+
+From the checkout with a scientific Python environment that can import KBMOD:
 
 ```sh
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=src \
   python benchmarks/bench_write_column.py --source src/kbmod/results.py \
   --rows 5000 --shape 100 100 --workers 1 2 4 8 --repeats 3 \
-  --directory /tmp --output integrated.json
+  --directory /tmp --output fixed.json
 ```
 
-For the laptop diagnostic only, add `--start-method fork`. The benchmark deliberately refuses parallel spawn/forkserver runs until the library's portability bug is fixed; it does not select fork silently. The library default remains unchanged.
+The script honors the platform default; use `--start-method spawn`, `fork`, or `forkserver` to choose another available context. Spawn/forkserver workers load the same pinned source file as the parent. Library callers using spawn need the usual `if __name__ == "__main__"` guard.
 
-Extract the baseline with `git show 04cfc13a5aea04026bb774f754f3b64fd2a71789:src/kbmod/results.py > /tmp/main_results.py`, then repeat with `--source /tmp/main_results.py --workers 1 --output main.json`. The script records source and native-extension hashes, input and decoded hashes, dependency versions, filesystem location, trial order, per-trial times and load averages. Keep those JSON files with any future comparison.
+Extract the baseline with `git show 04cfc13a5aea04026bb774f754f3b64fd2a71789:src/kbmod/results.py > /tmp/main_results.py`, then repeat with `--source /tmp/main_results.py --workers 1 --output main.json`. JSON outputs record source/native hashes, input/decoded hashes, dependency versions, trial order, times, file sizes, and load averages. Keep them with any future comparison. Run the focused tests with `PYTHONPATH=src python -m unittest discover -s tests -p 'test_results*.py'`.
