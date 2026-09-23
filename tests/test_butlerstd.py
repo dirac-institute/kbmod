@@ -1,12 +1,14 @@
+import copy
 import uuid
 import unittest
 from unittest import mock
 
 from astropy.time import Time
+from astropy.wcs import WCS
 import numpy as np
 
 from utils import DECamImdiffFactory, MockButler, MockFailedButler, DatasetRef, DatasetId, dafButler
-from kbmod import Standardizer, StandardizerConfig
+from kbmod import ImageCollection, Standardizer, StandardizerConfig
 from kbmod.core.psf import PSF
 from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
 
@@ -102,6 +104,85 @@ class TestButlerStandardizer(unittest.TestCase):
                 DatasetId(7, fill_metadata=True), butler=[self.failed_butler, self.failed_butler]
             )
 
+    def test_mock_sky_wcs_matches_fits_transform(self):
+        """Scalar results remain independent and vector results retain every pixel."""
+        sky_wcs = self.butler.mock_wcs(0)
+        reference = WCS(FitsFactory.get_fits(0)[1].header)
+        x, y = np.array([0, 100, 500]), np.array([0, 200, 700])
+        expected = reference.pixel_to_world(x, y)
+
+        # Read the coordinates only after all calls, to catch shared mutable results.
+        coords = [sky_wcs.pixelToSky(xi, yi) for xi, yi in zip(x, y)]
+        np.testing.assert_allclose([c.getRa().asDegrees() for c in coords], expected.ra.deg)
+        np.testing.assert_allclose([c.getDec().asDegrees() for c in coords], expected.dec.deg)
+        for degrees in (True, False):
+            with self.subTest(degrees=degrees):
+                ra, dec = sky_wcs.pixelToSkyArray(x, y, degrees=degrees)
+                np.testing.assert_allclose(ra, expected.ra.deg if degrees else expected.ra.rad)
+                np.testing.assert_allclose(dec, expected.dec.deg if degrees else expected.dec.rad)
+
+    def test_fitted_wcs_accuracy(self):
+        """Fit distorted, rectangular detectors and validate on a held-out grid."""
+        for idx in (0, 7):
+            with self.subTest(detector=idx):
+                reference = WCS(FitsFactory.get_fits(idx)[1].header)
+                self.assertIsNotNone(reference.sip)
+                width, height = reference.pixel_shape
+                self.assertNotEqual(width, height)
+                sky_wcs = self.butler.mock_wcs(idx)
+                rng = np.random.default_rng(42)
+                # Keep sampling reproducible without changing global RNG state.
+                with (
+                    mock.patch.object(self.butler, "mock_wcs", return_value=sky_wcs),
+                    mock.patch(
+                        "kbmod.standardizers.butler_standardizer.np.random.rand",
+                        side_effect=lambda *shape: rng.random(shape),
+                    ),
+                ):
+                    std = ButlerStandardizer(DatasetId(idx, fill_metadata=True), butler=self.butler)
+                    metadata = std.standardizeMetadata()
+
+                sky_wcs.getFitsMetadata.assert_not_called()
+                self.assertEqual(std._wcs.pixel_shape, (width, height))
+                x, y = np.meshgrid(np.linspace(0, width - 1, 17), np.linspace(0, height - 1, 19))
+                expected = reference.pixel_to_world(x, y)
+                residual = expected.separation(std._wcs.pixel_to_world(x, y)).arcsec
+                self.assertTrue(np.all(np.isfinite(residual)))
+                self.assertLess(residual.max(), 0.01)
+                self.assertTrue(np.isfinite(metadata["wcs_err"]))
+                self.assertGreaterEqual(metadata["wcs_err"], 0.0)
+                self.assertLess(metadata["wcs_err"] * 3600, 0.01)
+
+    def test_wcs_err_is_on_sky_separation(self):
+        """Test wcs_err is the max on-sky separation between the SkyWCS
+        and Astropy WCS bounding boxes, not a signed coordinate difference
+        (regression test for issue #1150)."""
+        true_bbox = ButlerStandardizer._computeSkyBBox
+
+        def corrupted_bbox_array(std_self, wcs, height, width):
+            # Reuse the SkyWCS-derived corners as ground truth, then
+            # perturb: bottom-left dec by +10 deg (a signed difference
+            # of -10) and top-right RA by -0.001 arcsec (a signed
+            # difference of +0.001"). The buggy max() picked the tiny
+            # positive value; on-sky separation must report ~10 deg.
+            pts = true_bbox(std_self, std_self._test_sky_wcs, height, width).copy()
+            pts[1, 1] += 10.0
+            pts[3, 0] -= 0.001 / 3600.0
+            return pts
+
+        def spying_sky_bbox(std_self, wcs, height, width):
+            std_self._test_sky_wcs = wcs
+            return true_bbox(std_self, wcs, height, width)
+
+        with (
+            mock.patch.object(ButlerStandardizer, "_computeSkyBBox", spying_sky_bbox),
+            mock.patch.object(ButlerStandardizer, "_computeBBoxArray", corrupted_bbox_array),
+        ):
+            std = ButlerStandardizer(uuid.uuid1(), butler=self.butler)
+            meta = std.standardizeMetadata()
+
+        self.assertAlmostEqual(meta["wcs_err"], 10.0, places=3)
+
     def test_standardize_missing_wcs(self):
         """Test ButlerStandardizer instantiates and standardizes as expected een when fits appoximation of the WCS failed."""
         missing_wcs_butler = MockButler("/far/far/away", failed_fits_appoximation=True)
@@ -122,6 +203,9 @@ class TestButlerStandardizer(unittest.TestCase):
 
         # Validate that getFitsMetadata raises an error forcing us to use a fallback WCS
         std._wcs is not None
+        # The fallback-fitted WCS must carry the true chip dimensions, not the
+        # sampled points' bounding box
+        self.assertEqual(std._wcs.pixel_shape, (std._naxis1, std._naxis2))
         wcs_ref = std.ref.makeComponentRef("wcs")
         wcs = missing_wcs_butler.get(wcs_ref)
         with self.assertRaises(Exception):
@@ -323,6 +407,15 @@ class TestButlerStandardizer(unittest.TestCase):
         """
         mockedexp.mask.array[2, 2] = KBMODV1Config.bit_flag_map["BAD"]
 
+    def test_skip_do_mask(self):
+        """Test that we skip masking when appropriate."""
+        butler = MockButler("/far/far/away", mock_images_f=self.mock_kbmodv1like_growmask)
+
+        conf = StandardizerConfig({"do_mask": False})
+        std = Standardizer.get(DatasetId(11), butler=butler, config=conf)
+        mask = std.standardizeMaskImage()[0]
+        assert np.all(mask == 0)
+
     def test_grow_mask(self):
         """Test mask grows as expected."""
         butler = MockButler("/far/far/away", mock_images_f=self.mock_kbmodv1like_growmask)
@@ -338,12 +431,71 @@ class TestButlerStandardizer(unittest.TestCase):
         self.assertFalse(mask[:, -1].all())
 
     def test_psf(self):
-        """Test PSFs are created as expected. Test instance config overrides."""
+        """Test the PSF kernel is built from the measured psfSigma."""
+        # psf_sigma differs from the psf_std default (1) so that a kernel built
+        # from the fallback is distinguishable from the measured one.
+        butler = MockButler("/far/far/away", psf_sigma=2.8)
+        std = Standardizer.get(DatasetId(11), butler=butler)
+
+        # No other standardize call has run, so _metadata is still unpopulated.
+        # standardizePSF has to fetch it rather than fall back to psf_std.
+        self.assertIsNone(std._metadata)
+
+        expected_psf = PSF.make_gaussian_kernel(2.8)
+        psf = std.standardizePSF()[0]
+        self.assertEqual(psf.shape, expected_psf.shape)
+        self.assertTrue(np.allclose(psf, expected_psf))
+
+        # And the same once the metadata has been loaded the usual way.
+        std.standardizeMetadata()
+        psf = std.standardizePSF()[0]
+        self.assertTrue(np.allclose(psf, expected_psf))
+
+        # The measured width is what actually made the difference here.
+        self.assertFalse(np.array_equal(psf, PSF.make_gaussian_kernel(std.config["psf_std"])))
+
+    def test_psf_from_reconstructed_standardizer(self):
+        """A standardizer rebuilt from a serialized ImageCollection row starts
+        with no cached metadata, and must still build the measured kernel."""
+        butler = MockButler("/far/far/away", psf_sigma=2.8)
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=butler)
+        ic = ImageCollection.fromStandardizers([std])
+
+        # Drop the cached standardizers so get_standardizer has to rebuild one
+        # from the table row, the way ImageCollection.read does.
+        ic._standardizers = np.full((ic.meta["n_stds"],), None)
+        recovered = ic.get_standardizer(0, butler=butler)["std"]
+        self.assertIsNone(recovered._metadata)
+
+        psf = recovered.standardizePSF()[0]
+        self.assertTrue(np.allclose(psf, PSF.make_gaussian_kernel(2.8)))
+
+    def test_psf_falls_back_on_unusable_sigma(self):
+        """psf_std is used whenever the measured psfSigma is unusable."""
+        expected_psf = PSF.make_gaussian_kernel(ButlerStandardizerConfig.psf_std)
+
+        for sigma in (None, np.nan, np.inf, 0.0, -1.0, "not-a-number"):
+            with self.subTest("Failed to fall back to psf_std.", psfSigma=sigma):
+                butler = MockButler("/far/far/away", psf_sigma=sigma)
+                std = Standardizer.get(DatasetId(11), butler=butler)
+                self.assertTrue(np.allclose(std.standardizePSF()[0], expected_psf))
+
+        # Same when psfSigma is absent from the metadata altogether.
         std = Standardizer.get(DatasetId(11), butler=self.butler)
+        std.standardizeMetadata()
+        del std._metadata["psfSigma"]
+        self.assertTrue(np.allclose(std.standardizePSF()[0], expected_psf))
+
+    def test_psf_std_from_summary_disabled(self):
+        """Disabling psf_std_from_summary restores the fixed-width kernel."""
+        butler = MockButler("/far/far/away", psf_sigma=2.8)
+        conf = StandardizerConfig(psf_std_from_summary=False, psf_std=1.5)
+        std = Standardizer.get(DatasetId(11), butler=butler, config=conf)
 
         psf = std.standardizePSF()[0]
-        expected_psf = PSF.make_gaussian_kernel(std.config["psf_std"])
-        self.assertTrue(np.allclose(psf, expected_psf))
+        self.assertTrue(np.allclose(psf, PSF.make_gaussian_kernel(1.5)))
+        # The fixed kernel is returned without paying for a metadata fetch.
+        self.assertIsNone(std._metadata)
 
     def test_to_layered_image(self):
         """Test ButlerStandardizer can create a LayeredImagePy."""
@@ -385,6 +537,21 @@ class TestButlerStandardizer(unittest.TestCase):
             mjd = 60828.91666667 + hour / 24.0
             obs_day = ButlerStandardizer._mjd_to_obs_day(mjd)
             self.assertEqual(obs_day, 20250602)
+
+    def test_deepcopy(self):
+        """Deep-copying a ButlerStandardizer yields an independent object
+        whose butler attribute is the same instance as the original's."""
+        std = ButlerStandardizer(DatasetId(7, fill_metadata=True), butler=self.butler)
+        std._metadata = {"k": "v"}
+
+        new_std = copy.deepcopy(std)
+
+        self.assertIsNot(new_std, std)
+        self.assertIs(new_std.butler, std.butler)
+        # Other state is independent: mutating the copy's dict does not affect the original.
+        self.assertIsNot(new_std._metadata, std._metadata)
+        new_std._metadata["k"] = "mutated"
+        self.assertEqual(std._metadata["k"], "v")
 
 
 if __name__ == "__main__":

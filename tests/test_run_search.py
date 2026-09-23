@@ -3,6 +3,7 @@
 import logging
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 from astropy.coordinates import EarthLocation
@@ -15,6 +16,7 @@ from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.results import Results
 from kbmod.run_search import (
     SearchRunner,
+    _get_coadd_types,
     append_positions_to_results,
     configure_kb_search_stack,
 )
@@ -25,6 +27,59 @@ from kbmod.work_unit import WorkUnit
 
 
 class test_run_search(unittest.TestCase):
+    def test_required_coadd_types(self):
+        config = SearchConfiguration()
+        self.assertEqual(_get_coadd_types(config), {"sum"})
+
+        config.set("stamp_type", None)
+        self.assertEqual(_get_coadd_types(config), set())
+
+        config.set("coadds", ["median"])
+        self.assertEqual(_get_coadd_types(config), {"median"})
+
+        config.set("peak_offset_max", 2)
+        self.assertEqual(_get_coadd_types(config), {"mean", "median"})
+
+        config.set("cnn_filter", True)
+        config.set("cnn_coadd_type", "sum")
+        self.assertEqual(_get_coadd_types(config), {"mean", "median", "sum"})
+
+    def test_optional_result_stamp_columns(self):
+        fake_ds = FakeDataSet(15, 10, create_fake_times(3, t0=60676.0))
+        trj = Trajectory(x=7, y=5, vx=0.0, vy=0.0, obs_count=3, lh=100.0)
+
+        def run_with(config):
+            runner = SearchRunner()
+            with patch.object(
+                runner,
+                "do_core_search",
+                return_value=Results.from_trajectories([trj]),
+            ):
+                return runner.run_search(config, fake_ds.stack_py)
+
+        config = SearchConfiguration({"do_clustering": False})
+        results = run_with(config)
+        self.assertIn("stamp", results.colnames)
+        self.assertIn("coadd_sum", results.colnames)
+
+        config = SearchConfiguration({"do_clustering": False, "stamp_type": None})
+        with patch("kbmod.run_search.append_coadds") as append:
+            results = run_with(config)
+        append.assert_not_called()
+        self.assertNotIn("stamp", results.colnames)
+        self.assertFalse(any(col.startswith("coadd_") for col in results.colnames))
+
+        config = SearchConfiguration({"do_clustering": False, "stamp_type": None, "coadds": ["mean"]})
+        results = run_with(config)
+        self.assertNotIn("stamp", results.colnames)
+        self.assertIn("coadd_mean", results.colnames)
+
+        config = SearchConfiguration({"do_clustering": False, "stamp_type": None, "save_all_stamps": True})
+        results = run_with(config)
+        self.assertNotIn("stamp", results.colnames)
+        self.assertFalse(any(col.startswith("coadd_") for col in results.colnames))
+        self.assertIn("all_stamps", results.colnames)
+
     @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_run_search_bad_config(self):
         """Test cases where the search configuration is bad."""
@@ -346,6 +401,41 @@ class test_run_search(unittest.TestCase):
         self.assertEqual(keep["y"][0], 12)
         self.assertAlmostEqual(keep["vx"][0], 21.0)
         self.assertAlmostEqual(keep["vy"][0], 16.0)
+
+    def test_core_search_dedup(self):
+        # Create a very small fake data set.
+        num_times = 20
+        width = 50
+        height = 60
+        fake_times = [59000.0 + float(i) / num_times for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        # Create a Trajectory for the object and insert it into the image stack.
+        trj = Trajectory(x=17, y=12, vx=21.0, vy=15.0, flux=250.0)
+        fake_ds.insert_object(trj)
+
+        # Use a small grid of search trajectories around the true velocity. With de-duplication,
+        # we should only evaluate 3 trajectory per pixel (vx=19, 21, and 23).
+        trj_gen = VelocityGridSearch(21, 19.0, 23.5, 21, 14.0, 16.0)
+        config = SearchConfiguration()
+        config.set("cpu_only", True)
+        config.set("candidate_dup_px", 2)
+        config.set("lh_level", 0.0)  # No LH filter.
+        config.set("results_per_pixel", 1000)  # No per pixel filtering.
+        config.set("near_dup_thresh", 0)  # No post duplicate filtering.
+        config.set("num_obs", 1)  # No num_obs_filtering
+        config.set("sigmaG_filter", False)  # No sigmaG filtering.
+
+        # Only search a 3 x 3 region of pixels.
+        config.set("x_pixel_bounds", [16, 19])
+        config.set("y_pixel_bounds", [11, 14])
+
+        # Run the core search algorithm and confirm that we get fewer than 100 results per pixel.
+        # Without de-duplication, we would have 21*21=441 trajectories per pixel.
+        runner = SearchRunner()
+        keep = runner.do_core_search(config, fake_ds.stack_py, trj_gen)
+        self.assertGreater(len(keep), 18)  # More than 2 results per pixel
+        self.assertLess(len(keep), 90)  # Less than 10 results per pixel
 
     @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_core_search_gpu(self):

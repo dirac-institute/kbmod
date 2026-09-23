@@ -842,6 +842,14 @@ class WorkUnit:
 
             # Misc. reprojection metadata
             reprojected = primary[0].header["REPRJCTD"]
+            if "OBS_LAT" in primary[0].header:
+                observatory = EarthLocation(
+                    lat=primary[0].header["OBS_LAT"] * u.deg,
+                    lon=primary[0].header["OBS_LON"] * u.deg,
+                    height=primary[0].header["OBS_ELEV"] * u.m,
+                )
+            else:
+                observatory = None  # Legacy files retain the constructor default.
             if "BARY" in primary[0].header:
                 barycentric_distance = primary[0].header["BARY"]
             else:
@@ -893,6 +901,7 @@ class WorkUnit:
             file_paths=file_paths,
             obstimes=obstimes,
             org_image_meta=org_image_meta,
+            observatory=observatory,
         )
         return result
 

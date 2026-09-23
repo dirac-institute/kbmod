@@ -29,6 +29,7 @@ from kbmod.search import (
     extract_all_trajectory_vy,
     extract_all_trajectory_x,
     extract_all_trajectory_y,
+    InvalidPixelReason,
     Trajectory,
 )
 from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
@@ -316,7 +317,7 @@ class Results:
         # Reshape image columns if we have stored shape metadata
         # (parquet flattens multi-dimensional arrays to 1D)
         # This must happen after loading aux files since they may contain image columns.
-        results._reshape_image_columns(data.meta.get("image_column_shapes"))
+        results._reshape_image_columns(image_column_shapes)
 
         return results
 
@@ -731,28 +732,32 @@ class Results:
         self.table["phi_curve"] = np.asanyarray(phi_array, dtype=np.float32)
 
         if obs_valid is not None:
-            # Make the data to match.
-            if len(obs_valid) != len(self.table):
-                raise ValueError(
-                    f"Wrong number of obs_valid provided. Expected {len(self.table)} rows."
-                    f" Found {len(obs_valid)} rows."
-                )
-            self.table["obs_valid"] = obs_valid
+            self.update_obs_valid(
+                obs_valid,
+                reason=InvalidPixelReason.INVALID_UNKNOWN,
+                drop_empty_rows=False,
+            )
 
         # Update the track likelihoods given this new information.
         self._update_likelihood()
 
         return self
 
-    def update_obs_valid(self, obs_valid, drop_empty_rows=True):
-        """Updates or appends the 'obs_valid' column.
+    def update_obs_valid(self, obs_valid, *, reason=-1, drop_empty_rows=True):
+        """Updates (or appends) the 'obs_valid' column. This method can only
+        be used to mark observations as invalid. Users cannot switch an observation
+        back to valid.
 
         Parameters
         ----------
         obs_valid : `numpy.ndarray`
             An array with one row per results and one column per timestamp
             with Booleans indicating whether the corresponding observation
-            is valid.
+            is valid. If some observations have already been marked as invalid
+            this will take the logical AND with the existing 'obs_valid' array.
+        reason : `int`, `InvalidPixelReason`, or `numpy.ndarray`, optional
+            The reason new values are marked as invalid. If a value is already
+            marked as invalid, this reason will not overwrite the existing one.
         drop_empty_rows : `bool`
             Filter the rows without any valid observations.
 
@@ -766,12 +771,59 @@ class Results:
         Raises a ValueError if the input array is not the same size as the table
         or a given pair of rows in the arrays are not the same length.
         """
+        # Normalize both Python enums and object arrays returned by Pybind11 to integers.
+        if isinstance(reason, InvalidPixelReason):
+            reason = int(reason.value)
+
+        # Check the size of the input array against the table.
         if len(obs_valid) != len(self.table):
             raise ValueError(
-                f"Wrong number of obs_valid lists provided. Expected {len(self.table)} rows"
+                f"Wrong number of obs_valid arrays provided. Expected {len(self.table)} rows"
                 f" Found {len(obs_valid)} rows"
             )
-        self.table["obs_valid"] = obs_valid
+
+        # Flip the marking of newly invalid observations.
+        if "obs_valid" in self.colnames:
+            prev_obs_valid = np.array(self.table["obs_valid"], copy=True)
+            self.table["obs_valid"] &= obs_valid
+        else:
+            prev_obs_valid = np.full_like(obs_valid, True, dtype=bool)
+            self.table["obs_valid"] = obs_valid
+
+        # If a reason is given, update the 'obs_invalid_reason' column for any entries that
+        # have changed. But preserve existing reasons for entries that are already invalid.
+        if "obs_invalid_reason" not in self.colnames:
+            self.table["obs_invalid_reason"] = np.where(
+                prev_obs_valid,
+                int(InvalidPixelReason.VALID.value),
+                int(InvalidPixelReason.INVALID_UNKNOWN.value),
+            )
+
+        if np.isscalar(reason):
+            reason = np.full_like(obs_valid, int(reason), dtype=int)
+        else:
+            reason = np.asarray(reason)
+            if reason.shape != obs_valid.shape:
+                raise ValueError(
+                    f"Wrong shape for reason array. Expected {obs_valid.shape}, got {reason.shape}"
+                )
+            if reason.dtype.kind == "O":
+                reason = np.asarray(
+                    [
+                        int(value.value) if isinstance(value, InvalidPixelReason) else int(value)
+                        for value in reason.flat
+                    ],
+                    dtype=int,
+                ).reshape(reason.shape)
+            else:
+                reason = reason.astype(int, copy=False)
+
+        new_reason = np.where(
+            prev_obs_valid & ~obs_valid,
+            reason,
+            self.table["obs_invalid_reason"],
+        )
+        self.table["obs_invalid_reason"] = new_reason
 
         # Update the count of valid observations and filter any rows without valid observations.
         self.table["obs_count"] = self.table["obs_valid"].sum(axis=1)
@@ -815,47 +867,6 @@ class Results:
             elif hasattr(val, "__len__") and len(val) == 0:
                 result[idx] = True
         return result
-
-    def is_image_like(self, colname, max_rows=10):
-        """Check whether the column contains image-like data (numpy arrays
-        with at least 2 dimensions).
-
-        This method first checks the table metadata for stored image column
-        shape information (which preserves shape info through parquet round-trips).
-        If not found in metadata, it inspects the actual data.
-
-        Parameters
-        ----------
-        colname : `str`
-            The name of the column to check.
-        max_row : `int`
-            The maximum number of rows to check before concluding
-            that the column is not image-like. Default: 10.
-        Returns
-        -------
-        result : `bool`
-            True if the column contains image-like data.
-        """
-        if colname not in self.table.colnames:
-            raise KeyError(f"Querying unknown column {colname}")
-
-        # First check if we have metadata about image column shapes (from a previous save)
-        if "image_column_shapes" in self.table.meta:
-            if colname in self.table.meta["image_column_shapes"]:
-                return True
-
-        # Otherwise, check the actual data for 2D+ arrays
-        max_rows = len(self.table) if max_rows is None else min(max_rows, len(self.table))
-
-        # If no rows to check, we can't determine it's image-like
-        if max_rows < 1:
-            return False
-
-        for idx in range(max_rows):
-            entry = self.table[colname][idx]
-            if isinstance(entry, np.ndarray) and entry.ndim >= 2:
-                return True
-        return False
 
     def filter_rows(self, rows, label=""):
         """Filter the rows in the `Results` to only include those indices
@@ -1125,7 +1136,7 @@ class Results:
         # Write out the table.
         self.table.write(filename, overwrite=overwrite, **kwargs)
 
-    def write_column(self, colname, filename, overwrite=True, is_image=None, num_workers=1):
+    def write_column(self, column, filename, overwrite=True, is_image=False, num_workers=1):
         """Save a single column's data as its own data file. The file
         type is inferred from the filename suffix. Supported formats include
         numpy (.npy), ecsv (.ecsv), parquet (.parq or .parquet), or
@@ -1133,71 +1144,69 @@ class Results:
 
         Parameters
         ----------
-        colname : `str`
-           The name of the column to save.
+        column : `astropy.table.column.Column` or `str`
+           The column of data to save. If a string is provided, it should be the name of the column
+            in the table.
         filename : `str` or `Path`
             The file name for the ouput file. Must have a suffix matching one of ".npy",
             ".ecsv", ".parquet", ".parq", or ".fits".
         overwrite : `bool`
             Overwrite the file if it already exists.
             Default: True
-        is_image : `bool`, optional
+        is_image : `bool`
             Explicitly specify whether this column contains image-like data.
-            If None, auto-detection via `is_image_like()` is used.
+            Default: False
         num_workers : `int`, optional
-            Number of worker processes to use when creating compressed image
-            HDUs. Values > 1 enable parallel HDU creation via multiprocessing.
-            Only applies to FITS image column writes.
-            Default: 1 (sequential).
+            Number of processes for FITS image compression. Default: 1 (sequential).
 
         Raises
         ------
         Raises a KeyError if the column is not in the data.
         """
-        logger.info(f"Writing {colname} column data to {filename}")
-        if colname not in self.table.colnames:
-            raise KeyError(f"Column {colname} missing from data.")
+        # Load the column if given a string.
+        if isinstance(column, str):
+            if column not in self.table.colnames:
+                raise KeyError(f"Column {column} missing from data.")  # pragma: no cover
+            column = self.table[column]
+        if len(column) != len(self.table):
+            raise ValueError(f"Column {column.name} length does not match table length.")  # pragma: no cover
+        logger.info(f"Writing {column.name} column data to {filename}")
 
+        # Check whether there is a file name collision.
         filename = Path(filename)
         if filename.exists() and not overwrite:
             raise FileExistsError(f"File {filename} arleady exists.")
 
+        # Write the column differently depending on the file type.
         if filename.suffix == ".npy":
             # Extract and save the column.
-            data = np.asarray(self.table[colname])
+            data = np.asarray(column.data)
             np.save(filename, data, allow_pickle=False)
         elif filename.suffix in [".ecsv", ".parq", ".parquet"]:
             # Create a table with just this column.
-            single_table = Table({colname: self.table[colname].data})
+            single_table = Table({column.name: column.data})
 
             # Parquet might fail on some output types, so we
             # try to convert it into a string in that case.
             try:
                 single_table.write(filename, overwrite=overwrite)
             except Exception as e:
-                logger.debug(f"Failed to write {colname}. Retrying as a string: {e}")
-                data = [str(x) for x in single_table[colname].data]
-                single_table = Table({colname: data})
+                logger.debug(f"Failed to write {column.name}. Retrying as a string: {e}")
+                data = [str(x) for x in column.data]
+                single_table = Table({column.name: data})
                 single_table.write(filename, overwrite=overwrite)
         elif filename.suffix == ".fits":
-            # Check if this the data is looks like images.
-            # Use explicit parameter if provided, otherwise auto-detect.
-            if is_image is not None:
-                is_img = is_image
-            else:
-                is_img = self.is_image_like(colname)
-
             # Create a HDU List and primary header with basic meta data.
             hdul = fits.HDUList()
             pri = fits.PrimaryHDU()
             pri.header["NUMRES"] = len(self.table)
-            pri.header["ISIMG"] = is_img
-            pri.header["COLNAME"] = colname
+            pri.header["ISIMG"] = is_image
+            pri.header["COLNAME"] = column.name
             hdul.append(pri)
 
-            if is_img:
+            if is_image:
                 has_uuid = "uuid" in self.table.colnames
-                data_col = self.table[colname]
+                data_col = column
                 uuid_col = self.table["uuid"] if has_uuid else None
 
                 if num_workers > 1:
@@ -1275,7 +1284,7 @@ class Results:
                         hdul.append(img_hdu)
             else:
                 # Create one bin table for the data.
-                single_table = Table({colname: self.table[colname].data})
+                single_table = Table({column.name: column.data})
                 data_hdu = fits.BinTableHDU(single_table)
                 data_hdu.name = "DATA"
                 hdul.append(data_hdu)
@@ -1425,12 +1434,16 @@ def write_results_to_files_destructive(
         Defaults to True.
     image_columns : `list` of `str`, optional
         A list of column names that contain image-like data. These columns will be saved
-        as FITS files when written separately. If None, auto-detection via `is_image_like()`
-        is used.
+        as FITS files when written separately. If None, auto-detection is used.
     num_workers : `int`, optional
-        Number of worker processes for parallel FITS image HDU creation.
-        Values > 1 enable multiprocessing compression. Default: 1 (sequential).
+        Number of processes for FITS image compression. Default: 1 (sequential).
     """
+    if drop_columns is None:
+        drop_columns = []
+    if extra_meta is None:
+        extra_meta = {}
+
+    # Check the file name is provided and valid.
     if not filename:
         raise ValueError("No filename provided for outputting results.")
     filepath = Path(filename)
@@ -1439,54 +1452,49 @@ def write_results_to_files_destructive(
 
     # Capture image column shapes BEFORE removing any columns.
     # This ensures the metadata is preserved even after columns are written to aux files.
+    # Store the image column shapes in the extra metadata.
     image_col_shapes = results._detect_image_columns(image_columns)
-
-    # Write out the auxiliary columns to their own files and drop them from the main table.
-    if separate_col_files is not None:
-        # Treat the separate_col_files as a list of regex and find all matching columns.
-        all_separate_cols = []
-        for pattern in separate_col_files:
-            regex = re.compile(pattern)
-            matching_cols = [col for col in results.colnames if regex.fullmatch(col)]
-            all_separate_cols.extend(matching_cols)
-        separate_col_files = all_separate_cols
-
-        # For each column that matched, write it out to its own file and drop it from the main table.
-        for col in separate_col_files:
-            # If the column is an image-like data type, save it as a FITS file. Otherwise, save
-            # it using the same extension as the main file.
-            is_image = col in image_col_shapes
-            if is_image:
-                # If the column is an image, save it as a FITS file.
-                col_file = filepath.with_name(filepath.stem + f"_{col}.fits")
-            else:
-                col_file = filepath.with_name(filepath.stem + f"_{col}" + filepath.suffix)
-
-            logger.info(f"Saving column {col} to {col_file}")
-            results.write_column(
-                col, col_file, overwrite=overwrite, is_image=is_image, num_workers=num_workers
-            )
-            results.remove_column(col)
-
-    # Drop any other columns specified.
-    if drop_columns is not None:
-        for col in drop_columns:
-            if col not in results.colnames:
-                logger.debug(f"Column {col} not found in results. Skipping.")
-            else:
-                results.remove_column(col)
-
-    # Add the dropped column information to the meta data.
-    if extra_meta is None:
-        extra_meta = {}
-    extra_meta["separate_col_files"] = separate_col_files
-    extra_meta["dropped_columns"] = drop_columns
-
-    # Preserve the image_column_shapes captured before columns were removed.
-    # This allows the shapes to be stored in metadata even for columns now in aux files.
     if image_col_shapes:
         extra_meta["image_column_shapes"] = {col: list(shape) for col, shape in image_col_shapes.items()}
 
-    # Write the remaining data from the results to the main file.
+    # Find the auxiliary files that we want to write separately, save them to a dictionary
+    # (of column name -> column object) so we can easily write them out separately later.
+    # Drop them from the table.
+    all_separate_cols = {}
+    if separate_col_files is not None:
+        for pattern in separate_col_files:
+            regex = re.compile(pattern)
+            for col in results.colnames:
+                if regex.fullmatch(col):
+                    all_separate_cols[col] = results[col]
+                    results.remove_column(col)
+    extra_meta["separate_col_files"] = list(all_separate_cols.keys())
+
+    # Drop any other columns specified. We do this after breaking out the separate columns to
+    # ensure they are not accidentally removed from the main table.
+    for col in drop_columns:
+        if col not in results.colnames:
+            logger.debug(f"Column {col} not found in results. Skipping.")
+        else:
+            results.remove_column(col)
+    extra_meta["dropped_columns"] = drop_columns
+
+    # Write the remaining data from the results to the main file. We do this BEFORE writing
+    # out the auxiliary columns to guard against job pre-emption, ensuring the main table is
+    # completed first.
     logger.info(f"Saving results table to {filepath}")
     results.write_table(filepath, overwrite=overwrite, extra_meta=extra_meta)
+
+    # Write out the auxiliary columns to their own files after the main table has been saved.
+    # Note these columns have already been removed from the main table.
+    for col_name, col_data in all_separate_cols.items():
+        is_image = col_name in image_col_shapes
+        if is_image:
+            col_file = filepath.with_name(filepath.stem + f"_{col_name}.fits")
+        else:
+            col_file = filepath.with_name(filepath.stem + f"_{col_name}" + filepath.suffix)
+
+        logger.info(f"Saving column {col_name} to {col_file}")
+        results.write_column(
+            col_data, col_file, overwrite=overwrite, is_image=is_image, num_workers=num_workers
+        )

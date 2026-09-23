@@ -129,6 +129,34 @@ class TrajectoryClusterGrid:
 
         self.total_count += len(trj_list)
 
+    def check_nearby(self, trj, idx=None):
+        """Check if a trajectory is near any existing trajectories in the table.
+
+        Parameters
+        ----------
+        trj : `Trajectory`
+            The trajectory result to check.
+        idx : `int`, optional
+            The index of the result in the original list of results.
+            Used for filtering.
+
+        Returns
+        -------
+        `bool`
+            True if the trajectory is near any existing trajectories in the table, False otherwise.
+        """
+        if idx is None:
+            idx = self.total_count
+
+        # Compute the spatial bin.
+        xs_bin = int(trj.x / self.bin_width)
+        ys_bin = int(trj.y / self.bin_width)
+        xe_bin = int((trj.x + self.max_time * trj.vx) / self.bin_width)
+        ye_bin = int((trj.y + self.max_time * trj.vy) / self.bin_width)
+
+        bin_key = (xs_bin, ys_bin, xe_bin, ye_bin)
+        return bin_key in self.table
+
     def get_trajectories(self):
         """Get all of the best trajectories from each bin.
 

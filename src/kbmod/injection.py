@@ -201,7 +201,15 @@ def generate_injection_catalog(
     return Table(catalog_dict)
 
 
-def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
+def inject_sources_into_ic(
+    ic,
+    catalog,
+    butler,
+    inject_config=None,
+    variance_scale=1.0,
+    zero_background=False,
+    constant_variance=False,
+):
     """
     Inject simulated moving objects directly into the exposures specified by an ImageCollection
     utilizing LSST pipelines. Note that this currently only works for `ButlerStandardizer` backed
@@ -224,6 +232,20 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
         Butler to use for retrieving exposures.
     inject_config : `VisitInjectConfig`, optional
         Configuration for VisitInjectTask.
+    variance_scale : `float`, optional
+        Positive, finite multiplier for the variance plane of every returned exposure,
+        including exposures with no rendered sources. Applied after injection so gain
+        inference uses the original variance. Default 1.0 skips scaling.
+    zero_background : `bool`, optional
+        If True, subtract the original science image after injection to retain only the
+        injected sources, and zero exposures with no rendered sources. Injection still
+        runs on the original image so gain inference remains well defined. Mask planes
+        and any noise added by the injector are retained. Default False preserves the
+        original science background.
+    constant_variance : `bool`, optional
+        If True, set every returned variance plane to 1.0 after injection, preserving
+        masks and science pixels. Default False. Cannot be combined with a
+        ``variance_scale`` other than 1.0.
 
     Returns
     -------
@@ -235,6 +257,11 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
     if not HAS_LSST:
         raise ImportError("LSST Science Pipelines must be installed to inject sources.")
 
+    if not np.isfinite(variance_scale) or variance_scale <= 0:
+        raise ValueError("variance_scale must be positive and finite.")
+    if constant_variance and variance_scale != 1.0:
+        raise ValueError("constant_variance cannot be combined with variance_scale != 1.0.")
+
     # Validate that the ImageCollection has the required columns for Butler-backed injection
     required_cols = ["dataId", "mjd_mid"]
     missing_cols = [col for col in required_cols if col not in ic.data.colnames]
@@ -243,6 +270,10 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
             f"inject_sources_into_ic requires a Butler-backed ImageCollection with columns: "
             f"{required_cols}. Missing: {missing_cols}"
         )
+
+    logger.info("Injecting sources into %d exposures (zero_background=%s).", len(ic), zero_background)
+    if zero_background:
+        logger.info("Removing original science backgrounds after injection; retaining injector-added noise.")
 
     if inject_config is None:
         inject_config = VisitInjectConfig()
@@ -268,12 +299,17 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
 
         if len(srccat) == 0:
             # If no sources are found for this timestep, append the original exposure and an empty catalog
+            if zero_background:
+                imdiff.image.array[:] = 0.0
             exposures.append(imdiff)
             injected_cats.append(
                 Table(names=catalog.colnames, dtype=[catalog[c].dtype for c in catalog.colnames])
             )
             references.append(ref)
             continue
+
+        # Preserve the real image for gain inference, even when removing its background.
+        original_image = np.array(imdiff.image.array, copy=True) if zero_background else None
 
         try:
             # Run the injection task on the current exposure
@@ -284,6 +320,8 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
                 photo_calib=imdiff.photoCalib,
                 wcs=imdiff.wcs,
             )
+            if zero_background:
+                result.output_exposure.image.array[:] -= original_image
             exposures.append(result.output_exposure)
             injected_cats.append(result.output_catalog)
             injected_exposure_cnt += 1
@@ -292,11 +330,29 @@ def inject_sources_into_ic(ic, catalog, butler, inject_config=None):
             warnings.warn(
                 f"Exposure {i}/{len(ic)} ({dataId}) had no objects successfully rendered within bounds."
             )
+            if zero_background:
+                imdiff.image.array[:] = 0.0
             exposures.append(imdiff)
             injected_cats.append(
                 Table(names=catalog.colnames, dtype=[catalog[c].dtype for c in catalog.colnames])
             )
         references.append(ref)
+
+    # Apply the same variance mode to successful, empty-catalog, and no-render exposures.
+    if constant_variance:
+        logger.info("Setting variance planes to constant 1.0 for all %d returned exposures.", len(exposures))
+        for exposure in exposures:
+            exposure.variance.array[:] = 1.0
+    elif variance_scale != 1.0:
+        logger.info(
+            "Applying variance_scale=%g to all %d returned exposures.", variance_scale, len(exposures)
+        )
+        for exposure in exposures:
+            exposure.variance.array[:] *= variance_scale
+    else:
+        logger.info(
+            "Skipping variance scaling (variance_scale=1.0); leaving injector output variance untouched."
+        )
 
     if injected_exposure_cnt == 0:
         warnings.warn("No objects were successfully rendered within bounds.")

@@ -4,14 +4,12 @@ import os
 import tempfile
 import unittest
 
-import astropy
 import pyarrow.parquet as pq
 from astropy.table import Table
-from packaging import version
 from pathlib import Path
 
 from kbmod.results import Results, write_results_to_files_destructive
-from kbmod.search import Trajectory
+from kbmod.search import InvalidPixelReason, Trajectory
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 
 
@@ -249,7 +247,7 @@ class test_results(unittest.TestCase):
 
         # With obs_valid: Check the the data has been inserted and the
         # statistics have been updated.
-        table.add_psi_phi_data(psi_array, phi_array, obs_valid)
+        table.update_obs_valid(obs_valid, drop_empty_rows=False)
         for i in range(num_to_use):
             self.assertEqual(len(table["psi_curve"][i]), 4)
             self.assertEqual(len(table["phi_curve"][i]), 4)
@@ -279,9 +277,30 @@ class test_results(unittest.TestCase):
                 [False, False, False, False],
             ]
         )
-        table.update_obs_valid(obs_valid, drop_empty_rows=False)
+        obs_invalid_reason = np.array(
+            [
+                [0, 0, 0, 0],
+                [0, 1, 0, 0],
+                [3, 3, 3, 3],
+            ]
+        )
+        table.update_obs_valid(obs_valid, drop_empty_rows=False, reason=obs_invalid_reason)
         self.assertEqual(len(table), 3)
         self.assertEqual(table.get_num_times(), 4)
+        assert np.array_equal(table["obs_valid"], obs_valid)
+        assert np.array_equal(table["obs_invalid_reason"], obs_invalid_reason)
+
+        enum_reasons = np.array(
+            [
+                [InvalidPixelReason.VALID] * 4,
+                [InvalidPixelReason.INVALID_MASK] * 4,
+                [InvalidPixelReason.INVALID_SIGMA_G] * 4,
+            ],
+            dtype=object,
+        )
+        table.update_obs_valid(obs_valid, drop_empty_rows=False, reason=enum_reasons)
+        assert np.issubdtype(table["obs_invalid_reason"].dtype, np.integer)
+        assert np.array_equal(table["obs_invalid_reason"], obs_invalid_reason)
 
         exp_lh = [2.3, 2.020725, 0.0]
         exp_flux = [1.15, 1.1666667, 0.0]
@@ -295,6 +314,34 @@ class test_results(unittest.TestCase):
         # Check that when drop_empty_rows is set, we filter the rows with no observations.
         table.update_obs_valid(obs_valid, drop_empty_rows=True)
         self.assertEqual(len(table), 2)
+
+        # Check that if we load a table with obs_valid but NOT a reason, we create
+        # an unknown reason when we try to update the table. Also check that we
+        # NEVER flip an observation back to valid.
+        table2 = Results.from_trajectories(self.trj_list[0:num_to_use])
+        table2.table["obs_valid"] = obs_valid
+        assert "obs_invalid_reason" not in table2.colnames
+
+        everything_valid = np.ones_like(obs_valid, dtype=bool)
+        table2.update_obs_valid(everything_valid, drop_empty_rows=False, reason=100)
+        assert np.array_equal(table2["obs_valid"], obs_valid)  # Nothing flipped.
+        assert "obs_invalid_reason" in table2.colnames
+        assert np.array_equal(table2["obs_invalid_reason"], np.where(obs_valid, 0, -1))
+
+        # Check that if we overwrite the obs_valid array with a new one, the existing
+        # invalid reasons are preserved.
+        new_obs_valid = np.array(
+            [
+                [False, True, True, True],
+                [True, True, False, True],
+                [False, True, True, True],
+            ]
+        )
+        table2.update_obs_valid(new_obs_valid, drop_empty_rows=False, reason=2)
+        assert np.array_equal(table2["obs_valid"], obs_valid & new_obs_valid)
+
+        expected_reasons = np.array([[2, 0, 0, 0], [0, -1, 2, 0], [-1, -1, -1, -1]])
+        assert np.array_equal(table2["obs_invalid_reason"], expected_reasons)
 
     def test_compute_likelihood_curves(self):
         num_to_use = 3
@@ -321,7 +368,7 @@ class test_results(unittest.TestCase):
                 [True, True, False, True],
             ]
         )
-        table.add_psi_phi_data(psi_array, phi_array, obs_valid)
+        table.add_psi_phi_data(psi_array, phi_array, obs_valid=obs_valid)
 
         expected1 = np.array([[1.0, 1.1, 0.5, 0.0], [1.0, 0.0, 0.0, 0.0], [0.2, 1.0, 5.0, 0.25]])
         lh_mat1 = table.compute_likelihood_curves(filter_obs=False)
@@ -692,7 +739,7 @@ class test_results(unittest.TestCase):
                     for col in ["all_stamps", "codd_mean"]:
                         with self.subTest(col_written=col):
                             file_path = os.path.join(dir_name, f"{col}.fits")
-                            table.write_column(col, file_path, num_workers=n)
+                            table.write_column(col, file_path, is_image=True, num_workers=n)
 
                             # Load the results into a new data structure and confirm they match.
                             table2 = Results.from_trajectories(self.trj_list)
@@ -782,7 +829,7 @@ class test_results(unittest.TestCase):
                     main_file_path = Path(dir_name) / "results.parquet"
                     write_results_to_files_destructive(
                         main_file_path,
-                        table,
+                        table.copy(),
                         extra_meta={"test_meta": "value"},
                         separate_col_files=["all_stamps", "coadd_.*", "psi_curve"],
                         drop_columns=["phi_curve"],
@@ -794,9 +841,20 @@ class test_results(unittest.TestCase):
                     self.assertTrue(Path(dir_name, "results_coadd_median.fits").is_file())
                     self.assertTrue(Path(dir_name, "results_psi_curve.parquet").is_file())
 
+                    # Read the main table file only and confirm that the auxiliary columns
+                    # are not included.
+                    table_main_only = Results.read_table(main_file_path, load_aux_files=False)
+                    self.assertEqual(len(table_main_only), self.num_entries)
+                    self.assertEqual(
+                        set(table_main_only.colnames),
+                        set(["x", "y", "vx", "vy", "flux", "likelihood", "obs_count", "uuid"]),
+                    )
+
                     # Read the table and confirm that we have the expected columns.
                     table2 = Results.read_table(main_file_path, load_aux_files=True)
                     self.assertEqual(len(table2), self.num_entries)
+                    for col in ["x", "y", "vx", "vy", "flux", "likelihood", "obs_count", "uuid"]:
+                        self.assertTrue(col in table2.colnames)
                     self.assertTrue("all_stamps" in table2.colnames)
                     self.assertTrue("coadd_mean" in table2.colnames)
                     self.assertTrue("coadd_median" in table2.colnames)
@@ -913,26 +971,6 @@ class test_results(unittest.TestCase):
 
             # Check that 1D curve column is still 1D
             self.assertEqual(table2["psi_curve"][0].shape, (25,))
-
-    def test_is_image_like_with_metadata(self):
-        """Test that is_image_like uses metadata when available."""
-        table = Results.from_trajectories(self.trj_list)
-
-        # Add a 1D array column that we'll mark as an image via metadata
-        table.table["fake_coadd"] = [np.zeros(100) for _ in range(self.num_entries)]
-
-        # Without metadata, 1D array should NOT be image-like
-        self.assertFalse(table.is_image_like("fake_coadd"))
-
-        # Set metadata marking it as an image column via image_column_shapes
-        table.table.meta["image_column_shapes"] = {"fake_coadd": [10, 10]}
-
-        # Now it should be considered image-like due to metadata
-        self.assertTrue(table.is_image_like("fake_coadd"))
-
-        # A column not in metadata and not 2D+ should not be image-like
-        table.table["some_1d_data"] = [np.zeros(50) for _ in range(self.num_entries)]
-        self.assertFalse(table.is_image_like("some_1d_data"))
 
     def test_write_results_destructive_explicit_image_columns(self):
         """Test write_results_to_files_destructive with explicit image_columns parameter."""

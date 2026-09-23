@@ -5,6 +5,7 @@ import os
 
 from astropy.io import fits as fitsio
 from astropy.time import Time
+from astropy.wcs import WCS
 import numpy as np
 
 from utils import DECamImdiffFactory
@@ -13,6 +14,7 @@ from kbmod.core.psf import PSF
 from kbmod.standardizers import (
     KBMODV1,
     KBMODV1Config,
+    KBMODV0_5,
 )
 
 # Use a shared factory to skip having to untar the archive
@@ -139,6 +141,61 @@ class TestStandardizer(unittest.TestCase):
 
         # clean up resources
         os.unlink(tmpf.name)
+
+
+class TestFitsDimensions(unittest.TestCase):
+    """Exercise both FITS callers with a non-square detector."""
+
+    def make_rectangular_hdus(self):
+        wcs = WCS(naxis=2)
+        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+        wcs.wcs.crpix = [6.0, 3.0]
+        wcs.wcs.crval = [31.0, -12.0]
+        wcs.wcs.cdelt = [-0.001, 0.002]
+        hdus = fitsio.HDUList(
+            [
+                fitsio.PrimaryHDU(),
+                fitsio.ImageHDU(np.zeros((5, 11)), header=wcs.to_header(), name="IMAGE"),
+                fitsio.ImageHDU(np.ones((5, 11)), name="VARIANCE"),
+                fitsio.ImageHDU(np.zeros((5, 11), dtype=np.int32), name="MASK"),
+            ]
+        )
+        self.addCleanup(hdus.close)
+        return hdus, wcs
+
+    def test_rectangular_bbox_coordinates(self):
+        for std_cls in (KBMODV1, KBMODV0_5):
+            for header_dimensions in (True, False):
+                with self.subTest(standardizer=std_cls.name, header_dimensions=header_dimensions):
+                    hdus, reference = self.make_rectangular_hdus()
+                    std = std_cls(hdulist=hdus)
+                    if not header_dimensions:
+                        del hdus["IMAGE"].header["NAXIS1"]
+                        del hdus["IMAGE"].header["NAXIS2"]
+                    bbox = std.standardizeBBox()
+                    # Preserve the existing outer-edge convention (width/height,
+                    # rather than width-1/height-1), with x=column and y=row.
+                    for suffix, x, y in (
+                        ("", 5, 2),
+                        ("_bl", 0, 0),
+                        ("_tl", 0, 5),
+                        ("_tr", 11, 5),
+                        ("_br", 11, 0),
+                    ):
+                        expected = reference.pixel_to_world(x, y)
+                        self.assertAlmostEqual(bbox["ra" + suffix][0], expected.ra.deg, places=10)
+                        self.assertAlmostEqual(bbox["dec" + suffix][0], expected.dec.deg, places=10)
+
+    def test_rectangular_dimension_fallback(self):
+        for std_cls in (KBMODV1, KBMODV0_5):
+            with self.subTest(standardizer=std_cls.name):
+                hdus, _ = self.make_rectangular_hdus()
+                std = std_cls(hdulist=hdus)
+                self.assertEqual(list(std._bestGuessImageDimensions()), [(11, 5)])
+                del hdus["IMAGE"].header["NAXIS1"]
+                del hdus["IMAGE"].header["NAXIS2"]
+                self.assertEqual(hdus["IMAGE"].data.shape, (5, 11))
+                self.assertEqual(list(std._bestGuessImageDimensions()), [(11, 5)])
 
 
 # This is in test_standardizeer because totest Standardizer because it's easier

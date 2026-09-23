@@ -3,7 +3,7 @@ import numpy as np
 
 from kbmod.analysis.plotting import plot_multiple_images
 from kbmod.core.image_stack_py import ImageStackPy
-from kbmod.core.stamp_utils import create_stamps_from_image_stack
+from kbmod.core.stamp_utils import coadd_sum, create_stamps_from_image_stack
 from kbmod.util_functions import mjd_to_day
 
 
@@ -25,6 +25,7 @@ class Visualizer:
     def __init__(self, im_stack, results):
         if isinstance(im_stack, ImageStackPy):
             self.obstimes = im_stack.times
+        self.im_stack = im_stack
         self.results = results
         self.trajectories = results.make_trajectory_list()
 
@@ -102,8 +103,13 @@ class Visualizer:
                     # Add the stamps together
                     daily_coadds[day] += curr_stamp
 
-        # First we'll plot the full coadd
-        imgs = [self.results.table["stamp"][result_idx]]
+        # Preserve the configured primary stamp when present. Otherwise derive
+        # the full sum from the valid individual stamps.
+        if "stamp" in result_row.colnames:
+            full_coadd = result_row["stamp"]
+        else:
+            full_coadd = coadd_sum(result_row["all_stamps"][result_row["obs_valid"]])
+        imgs = [full_coadd]
         labels = [f"Coadd for result {result_idx}"]
 
         # Add images and labels for each individual day

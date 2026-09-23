@@ -14,6 +14,7 @@
 
 namespace search {
 using Image = search::Image;
+using ImageI = search::ImageI;
 
 class StackSearch {
 public:
@@ -56,6 +57,7 @@ public:
 
     // Getters for the Psi and Phi data.
     Image get_all_psi_phi_curves(const std::vector<Trajectory>& trajectories);
+    ImageI get_pixel_invalidity_reason(const std::vector<Trajectory>& trajectories);
 
     // Helper functions for testing
     void set_results(const std::vector<Trajectory>& new_results);

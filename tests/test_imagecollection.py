@@ -64,6 +64,11 @@ class TestImageCollection(unittest.TestCase):
         self.assertEqual(len(ic["location"]), 3)
         self.assertIsInstance(ic["mjd_mid", "location"], atbl.Table)
 
+        # Test that get_zero_shifted_times returns the correct number of entries.
+        self.assertEqual(len(ic.get_zero_shifted_times()), 3)
+        self.assertEqual(len(ic2.get_zero_shifted_times()), 3)
+        self.assertEqual(len(ic3.get_zero_shifted_times()), 5)
+
         # This is kind of a thing of the standardizers themselves, but to
         # ensure the standardization results are becoming columns we test for
         # content, knowing KBMODV1 is the standardizer in question.
@@ -121,6 +126,22 @@ class TestImageCollection(unittest.TestCase):
         self.assertEqual(ic.meta["n_stds"], n_targets - 1)
         self.assertEqual(len(ic._standardizers), n_targets - 1)
 
+    def test_invalid_first_standardizer_has_compact_index(self):
+        """Test a failed standardizer does not leave a gap in std_idx."""
+        fits = self.fitsFactory.get_n(2)
+        del fits[0]["PRIMARY"].header["DATE-AVG"]
+
+        logging.disable(logging.WARNING)
+        try:
+            ic = ImageCollection.fromTargets(fits, fail_on_error=False)
+        finally:
+            logging.disable(logging.NOTSET)
+
+        self.assertEqual(len(ic), 1)
+        self.assertEqual(list(ic.data["std_idx"]), [0])
+        self.assertEqual(ic.meta["n_stds"], 1)
+        self.assertIsInstance(ic.get_standardizer(0)["std"], Standardizer)
+
     def test_write_read_unreachable(self):
         """Test ImageCollection can write itself to disk, and read the written
         table without raising errors when original data is unreachable.
@@ -164,6 +185,19 @@ class TestImageCollection(unittest.TestCase):
         # cleanup resources
         shutil.rmtree(tmpdir)
 
+    def test_wcs_serialization_roundtrip(self):
+        """Per-image WCS pixel dimensions survive a write/read round-trip."""
+        ic = ImageCollection.fromTargets(self.fits)
+        orig_shapes = [wcs.pixel_shape for wcs in ic.wcs]
+        self.assertTrue(all(shape is not None for shape in orig_shapes))
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fname = os.path.join(tmpdir, "ic.ecsv")
+            ic.write(fname)
+            ic2 = ImageCollection.read(fname)
+
+        self.assertEqual([wcs.pixel_shape for wcs in ic2.wcs], orig_shapes)
+
     def test_bintablehdu(self):
         ic2 = ImageCollection.fromTargets(self.fits)
 
@@ -175,6 +209,36 @@ class TestImageCollection(unittest.TestCase):
         tbl = ic2.toBinTableHDU()
         test = ImageCollection.fromBinTableHDU(tbl)
         self.assertEqual(ic2, test)
+
+    def test_vstack_with_standardizer_cache_enabled(self):
+        """Test vstack works when standardizer caching is enabled."""
+        ic = ImageCollection.fromTargets(self.fits)
+        self.assertIsInstance(ic._standardizers, np.ndarray)
+        self.assertEqual(len(ic), 3)
+        self.assertEqual(ic.meta["n_stds"], 3)
+        self.assertEqual(len(ic._standardizers), 3)
+
+        # Add another 3 standardizers by stacking the collection with itself.
+        ic.vstack([ic])
+        self.assertEqual(len(ic), 6)
+        self.assertEqual(ic.meta["n_stds"], 6)
+        self.assertEqual(len(ic._standardizers), 6)
+
+    def test_vstack_with_uncached_collection(self):
+        """Test vstack pads cached standardizers when stacking uncached data."""
+        cached = ImageCollection.fromTargets(self.fits)
+        self.assertIsInstance(cached._standardizers, np.ndarray)
+
+        uncached = ImageCollection(cached.data.copy(), enable_std_caching=False)
+        self.assertIsNone(uncached._standardizers)
+
+        # Add the uncached collection to the cached one. This should add a None entry
+        # to the cached standardizers array (for each uncached standardizer).
+        cached.vstack([uncached])
+        self.assertEqual(len(cached), 6)
+        self.assertEqual(cached.meta["n_stds"], 6)
+        self.assertEqual(len(cached._standardizers), 6)
+        self.assertTrue(all(std is None for std in cached._standardizers[3:]))
 
     def test_workunit(self):
         """Tests imagecollection exports a work unit without error."""
