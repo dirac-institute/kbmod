@@ -304,6 +304,7 @@ def _reproject_work_unit(
             reprojection_frame=frame,
             barycentric_distance=work_unit.barycentric_distance,
             org_image_meta=work_unit.org_img_meta,
+            observatory=work_unit.observatory,
         )
 
         return new_wunit
@@ -462,6 +463,7 @@ def _reproject_work_unit_in_parallel(
             reprojection_frame=frame,
             barycentric_distance=work_unit.barycentric_distance,
             org_image_meta=work_unit.org_img_meta,
+            observatory=work_unit.observatory,
         )
 
         return new_wunit

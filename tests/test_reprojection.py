@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from utils.utils_for_tests import get_absolute_data_path
 import tempfile
+from astropy.coordinates import EarthLocation
 
 from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.reprojection import (
@@ -17,6 +18,7 @@ class test_reprojection(unittest.TestCase):
     def setUp(self):
         self.data_path = get_absolute_data_path("shifted_wcs_diff_dimms_tiled.fits")
         self.test_wunit = WorkUnit.from_fits(self.data_path, show_progress=False)
+        self.test_wunit.observatory = EarthLocation.from_geodetic(-70.81489, -30.16606, 2215.0)
         self.common_wcs = self.test_wunit.get_wcs(0)
 
         # Set the data_loc metadata to make sure it propagates correctly.
@@ -81,6 +83,10 @@ class test_reprojection(unittest.TestCase):
                     )
 
                 assert reprojected_wunit.wcs != None
+                np.testing.assert_allclose(
+                    [v.value for v in reprojected_wunit.observatory.to_geocentric()],
+                    [v.value for v in self.test_wunit.observatory.to_geocentric()],
+                )
                 assert reprojected_wunit.im_stack.width == 60
                 assert reprojected_wunit.im_stack.height == 50
 
