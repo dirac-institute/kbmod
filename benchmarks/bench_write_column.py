@@ -42,6 +42,12 @@ def load_results(source):
     return module
 
 
+# Spawn/forkserver re-import this script before unpickling worker functions.
+# Load the same pinned source there, including when benchmarking another checkout.
+if os.environ.get("KBMOD_BENCH_SOURCE"):
+    load_results(Path(os.environ["KBMOD_BENCH_SOURCE"]))
+
+
 def fixture(cls, rows, shape, seed):
     data = {key: np.zeros(rows) for key in ("x", "y", "vx", "vy", "flux", "likelihood", "obs_count")}
     data["uuid"] = [f"row-{idx:08d}" for idx in range(rows)]
@@ -88,12 +94,11 @@ def main():
     args = parser.parse_args()
     if args.start_method:
         mp.set_start_method(args.start_method)
+    os.environ["KBMOD_BENCH_SOURCE"] = str(args.source.resolve())
     module = load_results(args.source.resolve())
     supported = "num_workers" in inspect.signature(module.Results.write_column).parameters
     if not supported and args.workers != [1]:
         parser.error("This source supports serial writing only; specify --workers 1")
-    if mp.get_start_method() != "fork" and any(n > 1 for n in args.workers):
-        parser.error("PR #1134 currently requires fork; test other contexts with the review probes")
     native = Path(kbmod.search.__file__)
     report = {
         "source": str(args.source.resolve()),
@@ -122,8 +127,7 @@ def main():
     random.Random(args.seed).shuffle(order)
     expected_digest = None
     with tempfile.TemporaryDirectory(prefix="kbmod-pr1134-bench-", dir=args.directory) as tmp:
-        # Put worker scratch and final output on the same measured filesystem.
-        tempfile.tempdir = tmp
+        # The writer stages beside its destination on the measured filesystem.
         path = Path(tmp) / "stamp.fits"
         for workers in order:
             started = time.perf_counter()
@@ -132,6 +136,7 @@ def main():
             )
             seconds = time.perf_counter() - started
             digest, max_error = verify(path, results)
+            assert hashlib.sha256(results["stamp"].data.tobytes()).hexdigest() == report["input_sha256"]
             if expected_digest is None:
                 expected_digest = digest
             assert digest == expected_digest, "Worker counts produced different pixel values"

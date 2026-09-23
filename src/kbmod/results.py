@@ -5,7 +5,7 @@ and helper functions for filtering and maintaining consistency between different
 import copy
 import csv
 import logging
-import math
+import operator
 from multiprocessing import Pool
 import numpy as np
 import os
@@ -37,49 +37,83 @@ from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
 logger = logging.getLogger(__name__)
 
 
-# Module-level globals for fork-based multiprocessing.
-# On Linux (default start method = 'fork'), child processes inherit
-# the parent's memory via copy-on-write, so these are accessible
-# in workers without any pickling / serialization cost.
-_stamp_write_data = None
-_stamp_write_uuids = None
+def _validate_num_workers(num_workers):
+    """Require a positive integer before any files or result columns are changed."""
+    try:
+        num_workers = operator.index(num_workers)
+    except TypeError:
+        raise ValueError("num_workers must be a positive integer.") from None
+    if num_workers < 1:
+        raise ValueError("num_workers must be a positive integer.")
+    return num_workers
+
+
+def _make_stamp_hdu(data, index, stamp_uuid):
+    """Use the same compression and metadata for serial and parallel writes."""
+    hdu = fits.CompImageHDU(data, compression_type="RICE_1", quantize_level=-0.01)
+    if stamp_uuid is not None:
+        hdu.header["uuid"] = stamp_uuid
+    hdu.name = f"IMG_{index}"
+    return hdu
 
 
 def _write_stamp_chunk_to_file(args):
-    """Write a chunk of stamps to a temporary FITS file.
+    """Compress an explicit (data, UUIDs, first row, path) chunk in a worker."""
+    data, uuids, start, path = args
+    with fits.HDUList([fits.PrimaryHDU()]) as hdul:
+        for offset, stamp in enumerate(data):
+            stamp_uuid = None if uuids is None else uuids[offset]
+            hdul.append(_make_stamp_hdu(stamp, start + offset, stamp_uuid))
+        hdul.writeto(path)
+    return path
 
-    This is a module-level function so it can be pickled by
-    ``multiprocessing.Pool``.  It reads stamp data from the
-    fork-inherited module globals ``_stamp_write_data`` and
-    ``_stamp_write_uuids`` to avoid serializing large arrays.
 
-    Parameters
-    ----------
-    args : `tuple`
-        Tuple of (chunk_indices, temp_path) where chunk_indices is
-        a list of global row indices and temp_path is the file to write.
+def _write_image_column(column, uuids, primary, filename, overwrite, num_workers):
+    """Stage a complete image column beside its destination before publishing it.
 
-    Returns
-    -------
-    temp_path : `str`
-        Path to the written temp file.
+    Explicit chunk inputs support every multiprocessing start method. Temporary
+    storage belongs to this call and is removed even if compression or copying fails.
     """
-    chunk_indices, temp_path = args
-    hdul = fits.HDUList()
-    pri = fits.PrimaryHDU()
-    hdul.append(pri)
-    for idx in chunk_indices:
-        img_hdu = fits.CompImageHDU(
-            np.asarray(_stamp_write_data[idx]),
-            compression_type="RICE_1",
-            quantize_level=-0.01,
-        )
-        if _stamp_write_uuids is not None:
-            img_hdu.header["uuid"] = str(_stamp_write_uuids[idx])
-        img_hdu.name = f"IMG_{idx}"
-        hdul.append(img_hdu)
-    hdul.writeto(temp_path, overwrite=True)
-    return temp_path
+    with tempfile.TemporaryDirectory(prefix=".kbmod-stamps-", dir=filename.parent) as temp_dir:
+        staged = Path(temp_dir) / "column.fits"
+        workers = min(num_workers, len(column))
+        if workers <= 1:
+            with fits.HDUList([primary]) as hdul:
+                for index, stamp in enumerate(column):
+                    stamp_uuid = None if uuids is None else uuids[index]
+                    hdul.append(_make_stamp_hdu(stamp, index, stamp_uuid))
+                hdul.writeto(staged)
+        else:
+            chunk_size = (len(column) + workers - 1) // workers
+            chunks = [
+                (
+                    column[start : start + chunk_size],
+                    None if uuids is None else uuids[start : start + chunk_size],
+                    start,
+                    Path(temp_dir) / f"chunk-{start}.fits",
+                )
+                for start in range(0, len(column), chunk_size)
+            ]
+            with Pool(len(chunks)) as pool:
+                paths = pool.map(_write_stamp_chunk_to_file, chunks)
+
+            primary.header["EXTEND"] = True
+            primary.writeto(staged)
+            with staged.open("ab") as outfile:
+                for path in paths:
+                    with path.open("rb") as infile:
+                        # Workers write an empty primary HDU. Skip its header,
+                        # then copy compressed extensions without decoding them.
+                        fits.Header.fromfile(infile)
+                        shutil.copyfileobj(infile, outfile)
+                    path.unlink()
+
+        if overwrite:
+            os.replace(staged, filename)
+        else:
+            # Unlike replace(), a hard link fails if a concurrent writer has
+            # created the destination. Both paths are on the same filesystem.
+            os.link(staged, filename)
 
 
 class Results:
@@ -1157,12 +1191,16 @@ class Results:
             Explicitly specify whether this column contains image-like data.
             Default: False
         num_workers : `int`, optional
-            Number of processes for FITS image compression. Default: 1 (sequential).
+            Positive number of processes for FITS image compression. Default: 1 (sequential).
+            Uses the application's multiprocessing start method; spawned workers
+            require the usual ``if __name__ == "__main__"`` guard.
 
         Raises
         ------
         Raises a KeyError if the column is not in the data.
         """
+        num_workers = _validate_num_workers(num_workers)
+
         # Load the column if given a string.
         if isinstance(column, str):
             if column not in self.table.colnames:
@@ -1175,7 +1213,7 @@ class Results:
         # Check whether there is a file name collision.
         filename = Path(filename)
         if filename.exists() and not overwrite:
-            raise FileExistsError(f"File {filename} arleady exists.")
+            raise FileExistsError(f"File {filename} already exists.")
 
         # Write the column differently depending on the file type.
         if filename.suffix == ".npy":
@@ -1196,101 +1234,20 @@ class Results:
                 single_table = Table({column.name: data})
                 single_table.write(filename, overwrite=overwrite)
         elif filename.suffix == ".fits":
-            # Create a HDU List and primary header with basic meta data.
-            hdul = fits.HDUList()
             pri = fits.PrimaryHDU()
             pri.header["NUMRES"] = len(self.table)
             pri.header["ISIMG"] = is_image
             pri.header["COLNAME"] = column.name
-            hdul.append(pri)
 
             if is_image:
-                has_uuid = "uuid" in self.table.colnames
-                data_col = column
-                uuid_col = self.table["uuid"] if has_uuid else None
-
-                if num_workers > 1:
-                    # Parallel creation using multiprocessing with temp files.
-                    # On Linux, Pool uses fork, so child processes inherit
-                    # module-level globals via copy-on-write — no data
-                    # serialization needed.
-                    global _stamp_write_data, _stamp_write_uuids
-                    n = len(self.table)
-                    chunk_size = max(1, math.ceil(n / num_workers))
-                    logger.debug(
-                        f"Using {num_workers} workers for CompImageHDU creation "
-                        f"({n} stamps, chunk_size={chunk_size})"
-                    )
-
-                    # Set module globals BEFORE creating the Pool so that
-                    # forked workers inherit them via copy-on-write.
-                    _stamp_write_data = data_col
-                    _stamp_write_uuids = uuid_col if has_uuid else None
-
-                    # Build chunk args with only indices and temp paths.
-                    chunk_args = []
-                    for start in range(0, n, chunk_size):
-                        end = min(start + chunk_size, n)
-                        indices = list(range(start, end))
-                        tmp = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
-                        tmp.close()
-                        chunk_args.append((indices, tmp.name))
-
-                    try:
-                        # Run compression in parallel worker processes.
-                        # Each worker creates CompImageHDUs and writes them
-                        # to a temp file — compression happens there.
-                        with Pool(num_workers) as pool:
-                            temp_paths = pool.map(_write_stamp_chunk_to_file, chunk_args)
-
-                        # Ensure EXTEND is set so the primary HDU is valid
-                        # before extensions are binary-concatenated.
-                        pri.header["EXTEND"] = True
-
-                        # Write primary-only HDUList to the output file.
-                        hdul.writeto(filename, overwrite=overwrite)
-
-                        # Binary-concatenate extensions from temp files.
-                        # Each temp file starts with a minimal PrimaryHDU
-                        # (no data, ≤36 keywords → exactly one 2880-byte
-                        # FITS header block) followed by CompImageHDU
-                        # extensions.  We skip the primary and raw-copy the
-                        # extension bytes — zero decompression.
-                        _FITS_BLOCK = 2880  # FITS header/data block size
-                        with open(filename, "ab") as outfile:
-                            for temp_path in temp_paths:
-                                with open(temp_path, "rb") as infile:
-                                    infile.seek(_FITS_BLOCK)
-                                    shutil.copyfileobj(infile, outfile)
-                                os.unlink(temp_path)
-
-                        # Skip the normal writeto below — already written.
-                        hdul = None
-                    finally:
-                        # Always clean up globals.
-                        _stamp_write_data = None
-                        _stamp_write_uuids = None
-                else:
-                    # Sequential creation (original behaviour).
-                    for idx in range(len(self.table)):
-                        img_hdu = fits.CompImageHDU(
-                            data_col[idx],
-                            compression_type="RICE_1",
-                            quantize_level=-0.01,
-                        )
-                        if has_uuid:
-                            img_hdu.header["uuid"] = uuid_col[idx]
-                        img_hdu.name = f"IMG_{idx}"
-                        hdul.append(img_hdu)
+                uuids = self.table["uuid"] if "uuid" in self.table.colnames else None
+                _write_image_column(column, uuids, pri, filename, overwrite, num_workers)
             else:
-                # Create one bin table for the data.
                 single_table = Table({column.name: column.data})
                 data_hdu = fits.BinTableHDU(single_table)
                 data_hdu.name = "DATA"
-                hdul.append(data_hdu)
-
-            if hdul is not None:
-                hdul.writeto(filename, overwrite=overwrite)
+                with fits.HDUList([pri, data_hdu]) as hdul:
+                    hdul.writeto(filename, overwrite=overwrite)
         else:
             raise ValueError(f"Unsupported suffix {filename.suffix}")
 
@@ -1438,6 +1395,8 @@ def write_results_to_files_destructive(
     num_workers : `int`, optional
         Number of processes for FITS image compression. Default: 1 (sequential).
     """
+    num_workers = _validate_num_workers(num_workers)
+
     if drop_columns is None:
         drop_columns = []
     if extra_meta is None:
