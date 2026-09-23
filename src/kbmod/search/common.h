@@ -27,9 +27,8 @@ constexpr unsigned short CONV_THREAD_DIM = 32;
 constexpr unsigned short THREAD_DIM_X = 128;
 constexpr unsigned short THREAD_DIM_Y = 2;
 
-// Inclusive limits for the GPU specific functions.
+// Inclusive image-count limit for GPU searches. CPU searches have no fixed limit.
 constexpr unsigned int MAX_NUM_IMAGES = 448;
-constexpr unsigned int MAX_STAMP_IMAGES = 448;
 
 // The NO_DATA flag indicates masked values in the image.
 constexpr float NO_DATA = NAN;

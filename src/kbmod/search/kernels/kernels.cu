@@ -80,7 +80,7 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
                                                             int *max_keep_idx) {
     // Basic data checking. We don't use assert here because assert does not work in __device__ functions.
     // So we ignore the error and return so we do not access invalid memory.
-    if ((idx_array == nullptr) || (min_keep_idx == nullptr) && (max_keep_idx == nullptr)) {
+    if ((idx_array == nullptr) || (min_keep_idx == nullptr) || (max_keep_idx == nullptr)) {
         return;
     }
     if (num_values == 0) {

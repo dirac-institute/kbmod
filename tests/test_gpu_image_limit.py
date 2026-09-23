@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 
-from kbmod.search import StackSearch, Trajectory, kb_has_gpu
+from kbmod.search import MAX_NUM_IMAGES, StackSearch, Trajectory, kb_has_gpu
 
 # Include the old limit, the number of threads per block, and the new limit.
 IMAGE_COUNTS = (199, 200, 255, 256, 257, 383, 384, 385, 447, 448)
@@ -38,6 +38,11 @@ def candidate():
 
 
 class TestImageLimitCPU(unittest.TestCase):
+    def test_exported_gpu_limit(self):
+        # Keep the intended cap explicit so a build with the wrong value fails.
+        self.assertIsInstance(MAX_NUM_IMAGES, int)
+        self.assertEqual(MAX_NUM_IMAGES, 448)
+
     def test_unfiltered_reference(self):
         for n in (*IMAGE_COUNTS, 449):
             with self.subTest(num_images=n):
@@ -78,6 +83,8 @@ class TestImageLimitGPU(unittest.TestCase):
         self.assertEqual(len(results), 1)
         for result in (single, results[0]):
             self.assertEqual((result.x, result.y, result.vx, result.vy), (1, 1, 2.0, 0.25))
+            # Sigma-G changes flux and likelihood, but obs_count intentionally
+            # remains the count before clipping (after excluding masked pixels).
             self.assertEqual(result.obs_count, n - int(masked))
             np.testing.assert_allclose(result.flux, expected_flux, rtol=1e-4)
             np.testing.assert_allclose(result.lh, expected_lh, rtol=1e-4)
