@@ -32,6 +32,10 @@ static const auto DOC_StackSearch = R"doc(
       to set the encoding level for the data copied to the GPU. The
       default value is -1, which means no encoding is done.
       The other options are 1 (uint8), 2 (uint16), and 4 (float).
+  allow_gpu : `bool`
+      Use the GPU to build the psi and phi images when one is available.
+      This controls preparation only; a `False` value does not prevent
+      later searches from running on the GPU. The default is `True`.
   )doc";
 
 static const auto DOC_StackSearch_search = R"doc(

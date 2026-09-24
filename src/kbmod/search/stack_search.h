@@ -18,8 +18,10 @@ using ImageI = search::ImageI;
 
 class StackSearch {
 public:
+    // allow_gpu=false builds psi/phi with the CPU convolution even when a GPU is present.
+    // The search itself is unaffected; this only controls fixture construction cost.
     StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs, std::vector<Image>& psf_kernels,
-                std::vector<double>& zeroed_times, int num_bytes = -1);
+                std::vector<double>& zeroed_times, int num_bytes = -1, bool allow_gpu = true);
 
     // Getters
     uint64_t compute_max_results();

@@ -389,7 +389,7 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
 void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_bytes,
                                           std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
                                           std::vector<Image>& psf_kernels,
-                                          std::vector<double>& zeroed_times) {
+                                          std::vector<double>& zeroed_times, bool allow_gpu) {
     const uint64_t num_images = sci_imgs.size();
     if (num_images == 0) {
         throw std::runtime_error("Trying to fill PsiPhi from empty vectors.");
@@ -421,8 +421,8 @@ void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_byte
         Image& var = var_imgs[i];
         Image& psf = psf_kernels[i];
 
-        psi_images.push_back(generate_psi(sci, var, psf));
-        phi_images.push_back(generate_phi(var, psf));
+        psi_images.push_back(generate_psi(sci, var, psf, allow_gpu));
+        phi_images.push_back(generate_phi(var, psf, allow_gpu));
     }
 
     // Convert these into an array form. Needs the full psi and phi computed first so the
@@ -483,6 +483,8 @@ static void psi_phi_array_binding(py::module& m) {
     m.def("encode_uint_scalar", &search::encode_uint_scalar);
     m.def("fill_psi_phi_array", &search::fill_psi_phi_array, pydocs::DOC_PsiPhiArray_fill_psi_phi_array);
     m.def("fill_psi_phi_array_from_image_arrays", &search::fill_psi_phi_array_from_image_arrays,
+          py::arg("result_data"), py::arg("num_bytes"), py::arg("sci_imgs"), py::arg("var_imgs"),
+          py::arg("psf_kernels"), py::arg("zeroed_times"), py::arg("allow_gpu") = true,
           pydocs::DOC_PsiPhiArray_fill_psi_phi_array_from_image_arrays);
 }
 #endif
