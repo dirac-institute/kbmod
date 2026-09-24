@@ -195,9 +195,13 @@ void StackSearch::evaluate_single_trajectory(Trajectory& trj, bool use_kernel) {
         evaluate_trajectory_cpu(psi_phi_array, trj);
     } else {
         if (!has_gpu()) throw std::runtime_error("GPU is not available for kernel evaluation.");
-        if (psi_phi_array.get_num_times() > MAX_NUM_IMAGES) {
+        if (params.do_sigmag_filter && (psi_phi_array.get_num_times() > MAX_NUM_IMAGES)) {
             throw std::runtime_error("Too many images to evaluate on GPU. Max = " +
                                      std::to_string(MAX_NUM_IMAGES));
+        }
+        if (!params.do_sigmag_filter && (psi_phi_array.get_num_times() > MAX_NUM_IMAGE_TIMES)) {
+            throw std::runtime_error("Too many images to evaluate on GPU. Max = " +
+                                     std::to_string(MAX_NUM_IMAGE_TIMES));
         }
 #ifdef HAVE_CUDA
         evaluateTrajectory(psi_phi_array.get_meta_data(), psi_phi_array.get_cpu_array_ptr(),

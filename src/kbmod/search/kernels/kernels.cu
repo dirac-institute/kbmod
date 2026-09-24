@@ -159,8 +159,7 @@ extern "C" __device__ __host__ void evaluateTrajectoryLite(PsiPhiArrayMeta psi_p
     // Basic data checking. We don't use assert here because assert does not work in __device__ functions.
     // So we ignore the error and return so we do not access invalid memory.
     if ((psi_phi_vect == nullptr) || (image_times == nullptr) || (candidate == nullptr)) return;
-    if (psi_phi_meta.num_times > MAX_NUM_IMAGES) return;
-
+    if (psi_phi_meta.num_times > MAX_NUM_IMAGE_TIMES) return;
     // Reset the statistics for the candidate.
     float psi_sum = 0.0;
     float phi_sum = 0.0;
@@ -305,11 +304,11 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     // Copy the times to faster shared memory for the block. Make sure all threads
     // copy their time before progressing. We need to do this before pruning on
     // (x, y) in order to correctly handle blocks at the edge of the image.
-    __shared__ double shared_times[MAX_NUM_IMAGES];
+    __shared__ double shared_times[MAX_NUM_IMAGE_TIMES];
     const int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
     const int block_threads = blockDim.x * blockDim.y;
     // Each thread loads multiple times when the stack is larger than the block.
-    for (int t = time_idx; (t < psi_phi_meta.num_times) && (t < MAX_NUM_IMAGES); t += block_threads) {
+    for (int t = time_idx; (t < psi_phi_meta.num_times) && (t < MAX_NUM_IMAGE_TIMES); t += block_threads) {
         shared_times[t] = image_times[t];
     }
     __syncthreads();  // Block until all are done loading.
@@ -386,8 +385,9 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
                                    TrajectoryList &trj_to_search, TrajectoryList &results) {
     // Check the hard coded maximum number of images against the num_images.
     uint64_t num_images = psi_phi_array.get_num_times();
-    if (num_images > MAX_NUM_IMAGES) {
-        throw std::runtime_error("Number of images exceeds GPU maximum " + std::to_string(MAX_NUM_IMAGES));
+    unsigned int max_num_images = (params.do_sigmag_filter) ? MAX_NUM_IMAGES : MAX_NUM_IMAGE_TIMES;
+    if (params.do_sigmag_filter && num_images > max_num_images) {
+        throw std::runtime_error("Number of images exceeds GPU maximum " + std::to_string(max_num_images));
     }
 
     // Check that the device vectors have already been allocated.

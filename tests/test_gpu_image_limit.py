@@ -4,7 +4,13 @@ import unittest
 
 import numpy as np
 
-from kbmod.search import MAX_NUM_IMAGES, StackSearch, Trajectory, kb_has_gpu
+from kbmod.search import (
+    MAX_NUM_IMAGES,
+    MAX_NUM_IMAGE_TIMES,
+    StackSearch,
+    Trajectory,
+    kb_has_gpu,
+)
 
 # Include the old limit, the number of threads per block, and the new limit.
 IMAGE_COUNTS = (199, 200, 255, 256, 257, 383, 384, 385, 447, 448)
@@ -113,6 +119,18 @@ class TestImageLimitGPU(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Too many images to evaluate on GPU. Max = 448"):
             search.evaluate_single_trajectory(candidate(), True)
         with self.assertRaisesRegex(RuntimeError, "Number of images exceeds GPU maximum 448"):
+            search.search_all([candidate()], True)
+
+    def test_over_limit_no_gpu(self):
+        # We can ignore the NUM_IMAGES limit since if we shut off GPU filtering.
+        search = make_search(MAX_NUM_IMAGES + 10)
+        search.search_all([candidate()], True)
+        results = search.get_results(0, 1)
+        self.assertEqual(len(results), 1)
+
+        # We still fail if we exceed the MAX_NUM_IMAGE_TIMES limit on the GPU.
+        search = make_search(MAX_NUM_IMAGE_TIMES + 1)
+        with self.assertRaisesRegex(RuntimeError):
             search.search_all([candidate()], True)
 
 
