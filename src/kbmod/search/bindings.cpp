@@ -21,6 +21,7 @@ PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
     m.attr("HAS_CUDA") = pybind11::bool_(search::HAVE_CUDA_LIB);
     m.attr("HAS_OMP") = pybind11::bool_(search::HAVE_OMP);
+    m.attr("MAX_NUM_IMAGES") = pybind11::int_(search::MAX_NUM_IMAGES);
     py::enum_<search::StampType>(m, "StampType")
             .value("STAMP_SUM", search::StampType::STAMP_SUM)
             .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
