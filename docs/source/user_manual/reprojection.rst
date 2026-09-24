@@ -52,38 +52,32 @@ Here's a diagram describing this process:
 
 .. image:: ../_static/brute_force_wcs_fitting.png
 
+The simplest way to do this is with ``reproject_work_unit_to_distance``, which fits the EBD WCS for each image at a guess distance (using the ``WorkUnit``'s ``observatory``) and then reprojects in the ``ebd`` frame. If no ``common_wcs`` is given, the middle image's EBD WCS is used.
+
 .. code-block:: python
     from astropy.coordinates import EarthLocation
-    from astropy.time import Time
-    from kbmod.reprojection_utils import transform_wcses_to_ebd
-
-    # get the list of WCSes for each image
-    wcs_list = work_unit.org_img_meta["per_image_wcs"]
+    from kbmod.reprojection import reproject_work_unit_to_distance
 
     # observation point on Earth, Cerro Tololo in this case
-    obs_point = EarthLocation.of_site("ctio")
+    work_unit.observatory = EarthLocation.of_site("ctio")
 
-    # convert the obstimes into astropy Time objects
-    times = [Time(o, format="mjd") for o in work_unit.get_all_obstimes()]
-
-    # returns the new EBD WCSes, plus the geocentric distances.
-    reprojected_wcs_list, geo_dists = transform_wcses_to_ebd(
-        wcs_list=wcs_list,
-        width=100,
-        height=100,
-        barycentric_distance=40., # in AU
-        obstimes=times,
-        point_on_earth=obs_point,
+    ebd_repr_work_unit = reproject_work_unit_to_distance(
+        work_unit, barycentric_distance=40.0  # in AU
     )
 
-    # add the newly generated metadata to the work unit
-    work_unit.org_img_meta["ebd_wcs"] = reprojected_wcs_list
-    work_unit.org_img_meta["geocentric_distance"] = geo_dists
+The two steps can also be run separately. ``WorkUnit.compute_ebd_wcs`` fits the EBD WCSes and stores them (and the geocentric distances) in the ``WorkUnit``'s metadata, after which reprojection with the ``ebd`` frame is enabled:
+
+.. code-block:: python
+    from kbmod.reprojection import reproject_work_unit
+
+    # returns the new EBD WCSes and adds them to the WorkUnit's metadata.
+    ebd_wcs_list = work_unit.compute_ebd_wcs(40.0, npoints=10, seed=None)
 
     # get a new common WCS in EBD space
-    common_wcs = reprojected_wcs_list[0]
+    common_wcs = ebd_wcs_list[0]
 
-    # reprojection with the parallax corrected 'ebd' frame is now enabled!
     ebd_repr_work_unit = reproject_work_unit(
         work_unit, common_wcs, frame="ebd"
     )
+
+For lower level control, ``kbmod.reprojection_utils.transform_wcses_to_ebd`` performs the fit on a list of WCSes directly.

@@ -474,6 +474,55 @@ class test_work_unit(unittest.TestCase):
             self.assertIsNone(work2.compute_ecliptic_angle())
         logging.disable(logging.NOTSET)
 
+    def test_compute_ebd_wcs(self):
+        """Test that we can fit and store the EBD WCS for each image."""
+        # Give one image different dimensions so each image is fit with its own size.
+        per_image_wcs = [
+            make_fake_wcs(200.6145 + 0.01 * i, -7.7888, self.height, self.width, 0.00027)
+            for i in range(self.num_images)
+        ]
+        per_image_wcs[1].array_shape = (100, 150)
+        obs = EarthLocation.of_site("ctio")
+        work = WorkUnit(self.im_stack_py, self.config, per_image_wcs=per_image_wcs, observatory=obs)
+
+        ebd_wcses = work.compute_ebd_wcs(41.0, npoints=5, seed=101)
+        self.assertEqual(len(ebd_wcses), self.num_images)
+        self.assertEqual(work.barycentric_distance, 41.0)
+        self.assertEqual(len(work.org_img_meta["ebd_wcs"]), self.num_images)
+        self.assertEqual(len(work.org_img_meta["geocentric_distance"]), self.num_images)
+
+        # Each image matches a direct fit with its own dimensions and time.
+        for i in range(self.num_images):
+            height, width = per_image_wcs[i].array_shape
+            expected_wcs, expected_dist = fit_barycentric_wcs(
+                per_image_wcs[i],
+                width,
+                height,
+                41.0,
+                Time(self.times[i], format="mjd"),
+                obs,
+                npoints=5,
+                seed=101,
+            )
+            self.assertTrue(wcs_fits_equal(ebd_wcses[i], expected_wcs))
+            self.assertTrue(wcs_fits_equal(work.org_img_meta["ebd_wcs"][i], expected_wcs))
+            self.assertAlmostEqual(work.org_img_meta["geocentric_distance"][i], expected_dist)
+
+    def test_compute_ebd_wcs_invalid(self):
+        """Test that we cannot compute EBD WCSes from invalid inputs."""
+        work = WorkUnit(self.im_stack_py, self.config, per_image_wcs=self.diff_wcs)
+        for distance in [np.nan, np.inf, 0.5, 1.02]:
+            with self.subTest(distance=distance):
+                self.assertRaises(ValueError, work.compute_ebd_wcs, distance)
+
+        work.reprojected = True
+        self.assertRaises(ValueError, work.compute_ebd_wcs, 41.0)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            work_no_wcs = WorkUnit(self.im_stack_py, self.config)
+        self.assertRaises(ValueError, work_no_wcs.compute_ebd_wcs, 41.0)
+
     def test_image_positions_to_original_icrs_invalid_format(self):
         work = WorkUnit(
             im_stack=self.im_stack_py,

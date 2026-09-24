@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+import numpy.testing as npt
 from utils.utils_for_tests import get_absolute_data_path
 import tempfile
 from astropy.coordinates import EarthLocation
@@ -260,36 +261,18 @@ class test_reprojection(unittest.TestCase):
         _wcs = _validate_original_wcs(self.test_wunit, [0])
         assert np.all(wcs.pixel_scale_matrix == _wcs[0].pixel_scale_matrix)
 
-    def test_compute_ebd_wcs(self):
-        # Images of different sizes are fit with their own dimensions.
-        self.test_wunit.get_wcs(1).pixel_shape = (40, 30)
-
-        ebd_wcses = self.test_wunit.compute_ebd_wcs(40.0, npoints=5, seed=101)
-        assert len(ebd_wcses) == self.num_org_images
-        assert all(a is b for a, b in zip(self.test_wunit.org_img_meta["ebd_wcs"], ebd_wcses))
-        assert len(self.test_wunit.org_img_meta["geocentric_distance"]) == self.num_org_images
-        assert self.test_wunit.barycentric_distance == 40.0
-
-        # The fit is reproducible with a fixed seed.
-        repeat = self.test_wunit.compute_ebd_wcs(40.0, npoints=5, seed=101)
-        for a, b in zip(ebd_wcses, repeat):
-            assert np.allclose(a.wcs.crval, b.wcs.crval)
-
-        for bad_dist in [np.nan, np.inf, 1.0]:
-            with self.assertRaises(ValueError):
-                self.test_wunit.compute_ebd_wcs(bad_dist)
-
     def test_reproject_work_unit_to_distance(self):
-        # With no distance, reproject in the original frame onto the middle image's WCS.
-        wu = reproject_work_unit_to_distance(self.test_wunit, parallelize=False, show_progress=False)
-        assert wu.reprojection_frame == "original"
-        assert wu.barycentric_distance is None
-        mid_wcs = self.test_wunit.get_wcs(self.num_org_images // 2)
-        assert np.allclose(wu.wcs.wcs.crval, mid_wcs.wcs.crval)
-        assert wu.wcs.array_shape == mid_wcs.array_shape
+        """Test reprojecting with and without a guess distance."""
+        # Without a distance, reproject in the original frame onto the middle image's WCS.
+        wunit = reproject_work_unit_to_distance(self.test_wunit, parallelize=False, show_progress=False)
+        middle_wcs = self.test_wunit.get_wcs(self.num_org_images // 2)
+        self.assertEqual(wunit.reprojection_frame, "original")
+        self.assertIsNone(wunit.barycentric_distance)
+        self.assertEqual(wunit.wcs.array_shape, middle_wcs.array_shape)
+        npt.assert_allclose(wunit.wcs.wcs.crval, middle_wcs.wcs.crval)
 
         # With a distance, fit the EBD WCSes and reproject in the EBD frame.
-        wu = reproject_work_unit_to_distance(
+        wunit = reproject_work_unit_to_distance(
             self.test_wunit,
             40.0,
             common_wcs=self.common_wcs,
@@ -298,9 +281,27 @@ class test_reprojection(unittest.TestCase):
             parallelize=False,
             show_progress=False,
         )
-        assert wu.reprojection_frame == "ebd"
-        assert wu.barycentric_distance == 40.0
-        assert len(self.test_wunit.org_img_meta["ebd_wcs"]) == self.num_org_images
+        self.assertEqual(wunit.reprojection_frame, "ebd")
+        self.assertEqual(wunit.barycentric_distance, 40.0)
+        self.assertEqual(len(self.test_wunit.org_img_meta["ebd_wcs"]), self.num_org_images)
+
+        # Lazy WorkUnits can be reprojected when an output location is given.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self.test_wunit.to_sharded_fits("test_wunit.fits", tmpdir)
+            lazy_wunit = WorkUnit.from_sharded_fits("test_wunit.fits", tmpdir, lazy=True)
+            reproject_work_unit_to_distance(
+                lazy_wunit,
+                40.0,
+                common_wcs=self.common_wcs,
+                npoints=5,
+                seed=101,
+                directory=tmpdir,
+                filename="repr_wunit.fits",
+                show_progress=False,
+            )
+            reprojected = WorkUnit.from_sharded_fits("repr_wunit.fits", tmpdir)
+            self.assertEqual(reprojected.reprojection_frame, "ebd")
+            self.assertEqual(reprojected.barycentric_distance, 40.0)
 
 
 if __name__ == "__main__":

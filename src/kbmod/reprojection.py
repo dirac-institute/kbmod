@@ -164,43 +164,48 @@ def reproject_work_unit_to_distance(
     seed=None,
     **kwargs,
 ):
-    """Reproject a WorkUnit to a common WCS, optionally correcting for parallax
-    at a guessed barycentric distance.
+    """Reproject a WorkUnit into a common WCS, correcting for parallax if a guess
+    distance is given.
+
+    If ``barycentric_distance`` is provided, this fits the per-image EBD WCSes with
+    `kbmod.work_unit.WorkUnit.compute_ebd_wcs` and reprojects in the 'ebd' frame.
+    Otherwise it reprojects in the 'original' frame.
 
     Parameters
     ----------
     work_unit : `kbmod.WorkUnit`
         The WorkUnit to be reprojected.
     barycentric_distance : `float`, optional
-        The guessed distance from the solar system's barycenter, in AU. If provided,
-        fits the per-image EBD WCSes (see `WorkUnit.compute_ebd_wcs`) and reprojects
-        in the "ebd" frame. If None, reprojects in the "original" frame.
+        The guessed distance of the object from the solar system's barycenter, in AU.
+        If None, no parallax correction is applied. Default is None.
     common_wcs : `astropy.wcs.WCS`, optional
-        The WCS to reproject all the images into. If None, uses a copy of the
-        middle image's WCS in the selected frame.
+        The WCS to reproject all the images into. If None, a copy of the middle
+        image's WCS (in the chosen frame) is used. Default is None.
     npoints : `int`
         The number of randomly sampled points to use when fitting each EBD WCS.
+        Only used if ``barycentric_distance`` is provided. Default is 10.
     seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}
         The seed used when fitting the EBD WCSes.
     **kwargs
-        Passed through to `reproject_work_unit` (e.g. ``parallelize``,
-        ``max_parallel_processes``, ``write_output``, ``directory``, ``filename``).
+        Additional arguments passed to `reproject_work_unit`, such as ``parallelize``,
+        ``max_parallel_processes``, ``write_output``, ``directory``, and ``filename``.
 
     Returns
     -------
-    The result of `reproject_work_unit`.
+    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
+    where the output is written to disk.
     """
     if barycentric_distance is None:
         frame = "original"
-        wcses = [work_unit.get_wcs(i) for i in range(len(work_unit))]
+        wcses = [work_unit.get_wcs(i) for i in range(work_unit.n_constituents)]
     else:
         frame = "ebd"
         wcses = work_unit.compute_ebd_wcs(barycentric_distance, npoints=npoints, seed=seed)
 
     if common_wcs is None:
-        mid = len(wcses) // 2
-        common_wcs = wcses[mid].deepcopy()
-        common_wcs.array_shape = work_unit.get_wcs(mid).array_shape
+        middle = len(wcses) // 2
+        common_wcs = wcses[middle].deepcopy()
+        common_wcs.array_shape = work_unit.get_wcs(middle).array_shape
 
     return reproject_work_unit(work_unit, common_wcs, frame=frame, **kwargs)
 
@@ -610,6 +615,7 @@ def reproject_lazy_work_unit(
     new_work_unit._per_image_indices = unique_obstimes_indices
     new_work_unit.wcs = common_wcs
     new_work_unit.reprojected = True
+    new_work_unit.reprojection_frame = frame
 
     hdul = new_work_unit.metadata_to_hdul()
     hdul.writeto(os.path.join(directory, filename))

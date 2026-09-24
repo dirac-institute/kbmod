@@ -334,42 +334,48 @@ class WorkUnit:
         return calc_ecliptic_angle(wcs, center_pixel)
 
     def compute_ebd_wcs(self, barycentric_distance, npoints=10, seed=None):
-        """Fit an "Explicit Barycentric Distance" (EBD) WCS for each image and store it,
-        along with the fitted geocentric distances, in the `WorkUnit`'s metadata.
+        """Fit an "Explicit Barycentric Distance" (EBD) WCS for each image at a
+        guessed barycentric distance and store the results in the `WorkUnit`.
 
-        Each image is fit using its own dimensions, so the images do not need to be the
-        same size. The fit uses the `WorkUnit`'s ``observatory``.
+        Sets ``org_img_meta["ebd_wcs"]``, ``org_img_meta["geocentric_distance"]``,
+        and ``barycentric_distance``. The fit uses the `WorkUnit`'s ``observatory``,
+        and each image is fit with its own dimensions.
 
         Parameters
         ----------
         barycentric_distance : `float`
-            The distance of the object from the solar system's barycenter, in AU.
-            Must be finite and greater than 1.02 AU (Earth's aphelion).
+            The guessed distance of the object from the solar system's barycenter, in AU.
+            Must be greater than 1.02 AU (Earth's aphelion).
         npoints : `int`
-            The number of randomly sampled points (in addition to the four corners)
-            to use when fitting each WCS.
+            The number of randomly sampled points to use when fitting each WCS, in
+            addition to the four corners of the image. Default is 10.
         seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}
             The seed that `numpy.random.default_rng` will use.
 
         Returns
         -------
         ebd_wcses : `list` of `astropy.wcs.WCS`
-            The per-image EBD WCSes (also stored in ``org_img_meta["ebd_wcs"]``).
+            The EBD WCS for each image.
+
+        Raises
+        ------
+        ValueError
+            If the `WorkUnit` has already been reprojected, if the distance is not
+            finite or is less than or equal to 1.02 AU, or if an image is missing a WCS.
         """
         if self.reprojected:
             raise ValueError("Unable to compute EBD WCSes for a reprojected WorkUnit.")
         if not np.isfinite(barycentric_distance) or barycentric_distance <= 1.02:
-            raise ValueError(
-                f"Barycentric distance must be finite and greater than 1.02 AU, got {barycentric_distance}."
-            )
+            raise ValueError(f"Invalid barycentric distance {barycentric_distance}. Must be > 1.02 AU.")
 
         obstimes = Time(self.get_all_obstimes(), format="mjd", scale="utc")
         ebd_wcses = []
         geocentric_dists = []
-        for idx in range(len(self)):
+        # Use the number of constituent images, since lazy WorkUnits have not loaded the image stack.
+        for idx in range(self.n_constituents):
             wcs = self.get_wcs(idx)
             if wcs is None or wcs.pixel_shape is None:
-                raise ValueError(f"Image {idx} needs a WCS with a pixel shape to compute an EBD WCS.")
+                raise ValueError(f"No WCS with a pixel shape found for image {idx}.")
             width, height = wcs.pixel_shape
             ebd_wcs, geo_dist = fit_barycentric_wcs(
                 wcs,
