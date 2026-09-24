@@ -100,8 +100,8 @@ Image convolve_image_gpu(Image& img, Image& psf) {
     return result;
 }
 
-Image convolve_image(Image& image, Image& psf) {
-    if (has_gpu()) {
+Image convolve_image(Image& image, Image& psf, bool allow_gpu) {
+    if (allow_gpu && has_gpu()) {
         return convolve_image_gpu(image, psf);
     }
     return convolve_image_cpu(image, psf);
@@ -123,7 +123,7 @@ Image square_psf_values(Image& given_psf) {
 // --- Functions for Psi and Phi Generation --------------
 // -------------------------------------------------------
 
-Image generate_psi(Image& sci, Image& var, Image& psf) {
+Image generate_psi(Image& sci, Image& var, Image& psf, bool allow_gpu) {
     const uint64_t height = sci.rows();
     const uint64_t width = sci.cols();
     const uint64_t num_pixels = height * width;
@@ -149,10 +149,10 @@ Image generate_psi(Image& sci, Image& var, Image& psf) {
     }
 
     // Convolve with the PSF.
-    return convolve_image(result, psf);
+    return convolve_image(result, psf, allow_gpu);
 }
 
-Image generate_phi(Image& var, Image& psf) {
+Image generate_phi(Image& var, Image& psf, bool allow_gpu) {
     const uint64_t height = var.rows();
     const uint64_t width = var.cols();
     const uint64_t num_pixels = height * width;
@@ -173,7 +173,7 @@ Image generate_phi(Image& var, Image& psf) {
 
     // Convolve with the PSF squared.
     Image psfsq = square_psf_values(psf);  // Copy
-    return convolve_image(result, psfsq);
+    return convolve_image(result, psfsq, allow_gpu);
 }
 
 #ifdef Py_PYTHON_H
@@ -183,14 +183,16 @@ static void image_utils_cpp(py::module& m) {
     m.def("convolve_image_gpu", &search::convolve_image_gpu, py::arg("image").noconvert(true),
           py::arg("psf").noconvert(true), pydocs::DOC_image_utils_cpp_convolve_gpu);
     m.def("convolve_image", &search::convolve_image, py::arg("image").noconvert(true),
-          py::arg("psf").noconvert(true), pydocs::DOC_image_utils_cpp_convolve);
+          py::arg("psf").noconvert(true), py::arg("allow_gpu") = true,
+          pydocs::DOC_image_utils_cpp_convolve);
     m.def("square_psf_values", &search::square_psf_values, py::arg("given_psf").noconvert(true),
           pydocs::DOC_image_utils_square_psf_values);
     m.def("generate_psi", &search::generate_psi, py::arg("sci").noconvert(true),
           py::arg("var").noconvert(true), py::arg("psf").noconvert(true),
-          pydocs::DOC_image_utils_generate_psi);
+          py::arg("allow_gpu") = true, pydocs::DOC_image_utils_generate_psi);
     m.def("generate_phi", &search::generate_phi, py::arg("var").noconvert(true),
-          py::arg("psf").noconvert(true), pydocs::DOC_image_utils_generate_phi);
+          py::arg("psf").noconvert(true), py::arg("allow_gpu") = true,
+          pydocs::DOC_image_utils_generate_phi);
 }
 #endif /* Py_PYTHON_H */
 

@@ -30,7 +30,8 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
 
 void fill_psi_phi_array_from_image_arrays(PsiPhiArray& result_data, int num_bytes,
                                           std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
-                                          std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times);
+                                          std::vector<Image>& psf_kernels,
+                                          std::vector<double>& zeroed_times, bool allow_gpu = true);
 
 } /* namespace search */
 
