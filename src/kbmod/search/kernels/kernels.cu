@@ -148,6 +148,51 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
 
 /*
  * Evaluate the likelihood score (as computed with from the psi and phi values) for a single
+ * given candidate trajectory without performing sigma-G filtering. Modifies the trajectory
+ * in place to update the number of observations, likelihood, and flux.
+ */
+extern "C" __device__ __host__ void evaluateTrajectoryLite(PsiPhiArrayMeta psi_phi_meta,
+                                                           void *psi_phi_vect,
+                                                           double *image_times,
+                                                           SearchParameters params,
+                                                           Trajectory *candidate) {
+    // Basic data checking. We don't use assert here because assert does not work in __device__ functions.
+    // So we ignore the error and return so we do not access invalid memory.
+    if ((psi_phi_vect == nullptr) || (image_times == nullptr) || (candidate == nullptr)) return;
+    if (psi_phi_meta.num_times > MAX_NUM_IMAGES) return;
+
+    // Reset the statistics for the candidate.
+    float psi_sum = 0.0;
+    float phi_sum = 0.0;
+    candidate->obs_count = 0;
+    candidate->lh = -1.0;
+    candidate->flux = -1.0;
+
+    // Loop over each image and sample the appropriate pixel
+    int num_seen = 0;
+    for (unsigned int i = 0; i < psi_phi_meta.num_times; ++i) {
+        // Predict the trajectory's position.
+        double curr_time = image_times[i];
+        int current_x = predict_index(candidate->x, candidate->vx, curr_time);
+        int current_y = predict_index(candidate->y, candidate->vy, curr_time);
+
+        // Get the Psi and Phi pixel values. Skip invalid values, such as those marked NaN or NO_DATA.
+        PsiPhi pixel_vals = read_encoded_psi_phi(psi_phi_meta, psi_phi_vect, i, current_y, current_x);
+        if (device_pixel_valid(pixel_vals.psi) && device_pixel_valid(pixel_vals.phi)) {
+            psi_sum += pixel_vals.psi;
+            phi_sum += pixel_vals.phi;
+            num_seen += 1;
+        }
+    }
+    // Set stats (avoiding divide by zero of sqrt of negative).
+    candidate->obs_count = num_seen;
+    candidate->lh = (phi_sum > 0) ? (psi_sum / sqrt(phi_sum)) : -1.0;
+    candidate->flux = (phi_sum > 0) ? (psi_sum / phi_sum) : -1.0;
+}
+
+
+/*
+ * Evaluate the likelihood score (as computed with from the psi and phi values) for a single
  * given candidate trajectory. Modifies the trajectory in place to update the number of
  * observations, likelihood, and flux.
  */
@@ -241,6 +286,7 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
     }
 }
 
+
 /*
  * Searches through images (represented as a flat array of floats) looking for most likely
  * trajectories in the given list. Outputs a results image of best trajectories. Returns a
@@ -313,7 +359,10 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
         curr_trj.obs_count = 0;
 
         // Evaluate the trajectory.
-        evaluateTrajectory(psi_phi_meta, psi_phi_vect, shared_times, params, &curr_trj);
+        if (params.do_sigmag_filter)
+            evaluateTrajectory(psi_phi_meta, psi_phi_vect, shared_times, params, &curr_trj);
+        else
+            evaluateTrajectoryLite(psi_phi_meta, psi_phi_vect, shared_times, params, &curr_trj);
 
         // If we do not have enough observations or a good enough LH score,
         // do not bother inserting it into the sorted list of results.
