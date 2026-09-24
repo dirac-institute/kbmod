@@ -18,7 +18,7 @@ from tqdm import tqdm
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.image_stack_py import ImageStackPy, LayeredImagePy
-from kbmod.reprojection_utils import image_positions_to_original_icrs
+from kbmod.reprojection_utils import fit_barycentric_wcs, image_positions_to_original_icrs
 from kbmod.search import Logging
 from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
@@ -332,6 +332,62 @@ class WorkUnit:
             return None
         center_pixel = (self.im_stack.width / 2, self.im_stack.height / 2)
         return calc_ecliptic_angle(wcs, center_pixel)
+
+    def compute_ebd_wcs(self, barycentric_distance, npoints=10, seed=None):
+        """Fit an "Explicit Barycentric Distance" (EBD) WCS for each image and store it,
+        along with the fitted geocentric distances, in the `WorkUnit`'s metadata.
+
+        Each image is fit using its own dimensions, so the images do not need to be the
+        same size. The fit uses the `WorkUnit`'s ``observatory``.
+
+        Parameters
+        ----------
+        barycentric_distance : `float`
+            The distance of the object from the solar system's barycenter, in AU.
+            Must be finite and greater than 1.02 AU (Earth's aphelion).
+        npoints : `int`
+            The number of randomly sampled points (in addition to the four corners)
+            to use when fitting each WCS.
+        seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}
+            The seed that `numpy.random.default_rng` will use.
+
+        Returns
+        -------
+        ebd_wcses : `list` of `astropy.wcs.WCS`
+            The per-image EBD WCSes (also stored in ``org_img_meta["ebd_wcs"]``).
+        """
+        if self.reprojected:
+            raise ValueError("Unable to compute EBD WCSes for a reprojected WorkUnit.")
+        if not np.isfinite(barycentric_distance) or barycentric_distance <= 1.02:
+            raise ValueError(
+                f"Barycentric distance must be finite and greater than 1.02 AU, got {barycentric_distance}."
+            )
+
+        obstimes = Time(self.get_all_obstimes(), format="mjd", scale="utc")
+        ebd_wcses = []
+        geocentric_dists = []
+        for idx in range(len(self)):
+            wcs = self.get_wcs(idx)
+            if wcs is None or wcs.pixel_shape is None:
+                raise ValueError(f"Image {idx} needs a WCS with a pixel shape to compute an EBD WCS.")
+            width, height = wcs.pixel_shape
+            ebd_wcs, geo_dist = fit_barycentric_wcs(
+                wcs,
+                width,
+                height,
+                barycentric_distance,
+                obstimes[idx],
+                self.observatory,
+                npoints=npoints,
+                seed=seed,
+            )
+            ebd_wcses.append(ebd_wcs)
+            geocentric_dists.append(geo_dist)
+
+        self.org_img_meta["ebd_wcs"] = ebd_wcses
+        self.org_img_meta["geocentric_distance"] = geocentric_dists
+        self.barycentric_distance = barycentric_distance
+        return ebd_wcses
 
     def get_all_obstimes(self):
         """Return a list of the observation times in MJD.

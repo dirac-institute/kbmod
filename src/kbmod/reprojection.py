@@ -156,6 +156,55 @@ def reproject_work_unit(
         )
 
 
+def reproject_work_unit_to_distance(
+    work_unit,
+    barycentric_distance=None,
+    common_wcs=None,
+    npoints=10,
+    seed=None,
+    **kwargs,
+):
+    """Reproject a WorkUnit to a common WCS, optionally correcting for parallax
+    at a guessed barycentric distance.
+
+    Parameters
+    ----------
+    work_unit : `kbmod.WorkUnit`
+        The WorkUnit to be reprojected.
+    barycentric_distance : `float`, optional
+        The guessed distance from the solar system's barycenter, in AU. If provided,
+        fits the per-image EBD WCSes (see `WorkUnit.compute_ebd_wcs`) and reprojects
+        in the "ebd" frame. If None, reprojects in the "original" frame.
+    common_wcs : `astropy.wcs.WCS`, optional
+        The WCS to reproject all the images into. If None, uses a copy of the
+        middle image's WCS in the selected frame.
+    npoints : `int`
+        The number of randomly sampled points to use when fitting each EBD WCS.
+    seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}
+        The seed used when fitting the EBD WCSes.
+    **kwargs
+        Passed through to `reproject_work_unit` (e.g. ``parallelize``,
+        ``max_parallel_processes``, ``write_output``, ``directory``, ``filename``).
+
+    Returns
+    -------
+    The result of `reproject_work_unit`.
+    """
+    if barycentric_distance is None:
+        frame = "original"
+        wcses = [work_unit.get_wcs(i) for i in range(len(work_unit))]
+    else:
+        frame = "ebd"
+        wcses = work_unit.compute_ebd_wcs(barycentric_distance, npoints=npoints, seed=seed)
+
+    if common_wcs is None:
+        mid = len(wcses) // 2
+        common_wcs = wcses[mid].deepcopy()
+        common_wcs.array_shape = work_unit.get_wcs(mid).array_shape
+
+    return reproject_work_unit(work_unit, common_wcs, frame=frame, **kwargs)
+
+
 def _reproject_work_unit(
     work_unit,
     common_wcs,

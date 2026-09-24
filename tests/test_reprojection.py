@@ -7,6 +7,7 @@ from astropy.coordinates import EarthLocation
 from kbmod.core.image_stack_py import ImageStackPy
 from kbmod.reprojection import (
     reproject_work_unit,
+    reproject_work_unit_to_distance,
     _get_first_psf_at_time,
     _validate_original_wcs,
 )
@@ -258,6 +259,48 @@ class test_reprojection(unittest.TestCase):
         wcs = self.test_wunit.get_wcs(0)
         _wcs = _validate_original_wcs(self.test_wunit, [0])
         assert np.all(wcs.pixel_scale_matrix == _wcs[0].pixel_scale_matrix)
+
+    def test_compute_ebd_wcs(self):
+        # Images of different sizes are fit with their own dimensions.
+        self.test_wunit.get_wcs(1).pixel_shape = (40, 30)
+
+        ebd_wcses = self.test_wunit.compute_ebd_wcs(40.0, npoints=5, seed=101)
+        assert len(ebd_wcses) == self.num_org_images
+        assert all(a is b for a, b in zip(self.test_wunit.org_img_meta["ebd_wcs"], ebd_wcses))
+        assert len(self.test_wunit.org_img_meta["geocentric_distance"]) == self.num_org_images
+        assert self.test_wunit.barycentric_distance == 40.0
+
+        # The fit is reproducible with a fixed seed.
+        repeat = self.test_wunit.compute_ebd_wcs(40.0, npoints=5, seed=101)
+        for a, b in zip(ebd_wcses, repeat):
+            assert np.allclose(a.wcs.crval, b.wcs.crval)
+
+        for bad_dist in [np.nan, np.inf, 1.0]:
+            with self.assertRaises(ValueError):
+                self.test_wunit.compute_ebd_wcs(bad_dist)
+
+    def test_reproject_work_unit_to_distance(self):
+        # With no distance, reproject in the original frame onto the middle image's WCS.
+        wu = reproject_work_unit_to_distance(self.test_wunit, parallelize=False, show_progress=False)
+        assert wu.reprojection_frame == "original"
+        assert wu.barycentric_distance is None
+        mid_wcs = self.test_wunit.get_wcs(self.num_org_images // 2)
+        assert np.allclose(wu.wcs.wcs.crval, mid_wcs.wcs.crval)
+        assert wu.wcs.array_shape == mid_wcs.array_shape
+
+        # With a distance, fit the EBD WCSes and reproject in the EBD frame.
+        wu = reproject_work_unit_to_distance(
+            self.test_wunit,
+            40.0,
+            common_wcs=self.common_wcs,
+            npoints=5,
+            seed=101,
+            parallelize=False,
+            show_progress=False,
+        )
+        assert wu.reprojection_frame == "ebd"
+        assert wu.barycentric_distance == 40.0
+        assert len(self.test_wunit.org_img_meta["ebd_wcs"]) == self.num_org_images
 
 
 if __name__ == "__main__":
