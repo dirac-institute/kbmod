@@ -13,11 +13,17 @@ from kbmod.search import (
 )
 
 # Include the old limit, the number of threads per block, and the new limit.
-IMAGE_COUNTS = (199, 200, 255, 256, 257, 383, 384, 385, 447, 448)
+IMAGE_COUNTS = (150, 200, 256, 385, 447, 448)
 
 
 def make_search(num_images, num_bytes=4, masked=True):
     times = np.arange(num_images, dtype=float) / 64.0
+
+    # Scale the times so the trajectories stay on the images. This is needed for
+    # for the MAX_NUM_IMAGE_TIMES + 1 test.
+    while np.max(times) > 10:
+        times /= 10.0
+
     sci = np.zeros((num_images, 5, 17), dtype=np.float32)
     var = np.ones_like(sci)
     psfs = np.ones((num_images, 1, 1), dtype=np.float32)
@@ -48,6 +54,8 @@ class TestImageLimitCPU(unittest.TestCase):
         # Keep the intended cap explicit so a build with the wrong value fails.
         self.assertIsInstance(MAX_NUM_IMAGES, int)
         self.assertEqual(MAX_NUM_IMAGES, 448)
+        self.assertIsInstance(MAX_NUM_IMAGE_TIMES, int)
+        self.assertEqual(MAX_NUM_IMAGE_TIMES, 2000)
 
     def test_unfiltered_reference(self):
         for n in (*IMAGE_COUNTS, 449):
@@ -116,6 +124,7 @@ class TestImageLimitGPU(unittest.TestCase):
 
     def test_reject_over_limit(self):
         search = make_search(449)
+        search.enable_gpu_sigmag_filter([0.25, 0.75], 0.7413, 0.0)
         with self.assertRaisesRegex(RuntimeError, "Too many images to evaluate on GPU. Max = 448"):
             search.evaluate_single_trajectory(candidate(), True)
         with self.assertRaisesRegex(RuntimeError, "Number of images exceeds GPU maximum 448"):
@@ -130,7 +139,7 @@ class TestImageLimitGPU(unittest.TestCase):
 
         # We still fail if we exceed the MAX_NUM_IMAGE_TIMES limit on the GPU.
         search = make_search(MAX_NUM_IMAGE_TIMES + 1)
-        with self.assertRaisesRegex(RuntimeError):
+        with self.assertRaisesRegex(RuntimeError, "Number of images exceeds GPU maximum 2000"):
             search.search_all([candidate()], True)
 
 

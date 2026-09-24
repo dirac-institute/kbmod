@@ -386,7 +386,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     // Check the hard coded maximum number of images against the num_images.
     uint64_t num_images = psi_phi_array.get_num_times();
     unsigned int max_num_images = (params.do_sigmag_filter) ? MAX_NUM_IMAGES : MAX_NUM_IMAGE_TIMES;
-    if (params.do_sigmag_filter && num_images > max_num_images) {
+    if (num_images > max_num_images) {
         throw std::runtime_error("Number of images exceeds GPU maximum " + std::to_string(max_num_images));
     }
 
