@@ -329,7 +329,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     const int y = y_i + params.y_start_min;
 
     // Create an initial set of best results with likelihood -1.0 and default
-    // values for everything so that we do not propogate uninitialized values.
+    // values for everything so that we do not propagate uninitialized values.
     const uint64_t base_index = (y_i * search_width + x_i) * params.results_per_pixel;
     if (base_index + params.results_per_pixel > params.total_results) {
         // Unfortunately we cannot raise an error in a kernel, so we print to stdout and exit.
@@ -437,10 +437,15 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     dim3 blocks(search_width / THREAD_DIM_X + 1, search_height / THREAD_DIM_Y + 1);
     dim3 threads(THREAD_DIM_X, THREAD_DIM_Y);
 
-    // Launch Search
+    // Launch Search.
     searchFilterImages<<<blocks, threads>>>(psi_phi_array.get_meta_data(), psi_phi_array.get_gpu_array_ptr(),
                                             psi_phi_array.get_gpu_time_array_ptr(), params, num_trajectories,
                                             device_tests, device_results);
+    cudaError_t launch_status = cudaGetLastError();
+    if (launch_status != cudaSuccess) {
+        throw std::runtime_error("GPU search kernel launch failed. Error code = " +
+                                 std::to_string(launch_status));
+    }
     cudaDeviceSynchronize();
 }
 

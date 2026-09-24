@@ -196,6 +196,26 @@ static const auto DOC_StackSearch_get_all_psi_phi_curves = R"doc(
      values and the second T columns contain the phi columns.
   )doc";
 
+
+static const auto DOC_StackSearch_get_pixel_invalidity_reason = R"doc(
+  Return a single matrix with the invalidity reason (if any) of the pixels for
+  each trajectory. Each row corresponds to a single trajectory and the columns hold
+  the invalidity reasons (as an integer) for each time step.
+
+  Parameters
+  ----------
+  trj : `list` of `kb.Trajectory`
+      The input trajectories.
+
+  Returns
+  -------
+  result : `np.ndarray`
+     A shape (R, T) matrix where R is the number of trajectories and
+     T is the number of time steps. Each element contains the invalidity
+     reason (as an integer) for the corresponding pixel.
+  )doc";
+
+
 static const auto DOC_StackSearch_get_number_total_results = R"doc(
   Get the total number of saved results.
 

@@ -33,6 +33,13 @@ constexpr unsigned int MAX_NUM_IMAGE_TIMES = 2000;
 
 // The NO_DATA flag indicates masked values in the image.
 constexpr float NO_DATA = NAN;
+enum InvalidPixelReason {
+    VALID = 0,
+    INVALID_BOUNDS = 1,
+    INVALID_MASK = 2,
+    INVALID_SIGMA_G = 3,
+    INVALID_UNKNOWN = -1,
+};
 
 enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN, STAMP_VAR_WEIGHTED };
 

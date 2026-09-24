@@ -11,7 +11,6 @@ import abc
 from os.path import isfile
 from pathlib import Path
 
-from astropy.utils import isiterable
 import astropy.io.fits as fits
 from astropy.wcs import WCS
 import numpy as np
@@ -277,9 +276,9 @@ class FitsStandardizer(Standardizer):
 
         Returns
         -------
-        sizes : `list`
-            List of tuples ``(dimx, dimy)`` of the best guess sizes of the
-            extensions.
+        sizes : `generator`
+            Tuples ``(width, height)`` in FITS ``(NAXIS1, NAXIS2)`` order
+            for the best guess sizes of the extensions.
         """
         # We perhaps do more work than neccessary here, but I don't have a good
         # example of a FITS file without NAXIS1 and NAXIS2 keys in at least
@@ -294,7 +293,8 @@ class FitsStandardizer(Standardizer):
 
         # NAXIS kwargs don't exist in primary or first extension
         if guessNaxis1 is None or guessNaxis2 is None:
-            guessNaxis1, guessNaxis2 = self.processable[0].data.shape
+            # NumPy uses (height, width), the reverse of FITS axis order.
+            guessNaxis2, guessNaxis1 = self.processable[0].data.shape
 
         return (
             (e.header.get("NAXIS1", None) or guessNaxis1, e.header.get("NAXIS2", None) or guessNaxis2)
@@ -309,8 +309,8 @@ class FitsStandardizer(Standardizer):
     def standardizeBBox(self):
         sizes = self._bestGuessImageDimensions()
 
-        # TODO: fix this once you have a BBox abstraction
-        bboxes = (self._computeBBox(wcs, size[0], size[1]) for wcs, size in zip(self.wcs, sizes))
+        # The dimension helper returns FITS order; the bbox wrapper takes array order.
+        bboxes = (self._computeBBox(wcs, height, width) for wcs, (width, height) in zip(self.wcs, sizes))
         standardizedBboxes = {
             "ra": [],
             "dec": [],
@@ -374,7 +374,7 @@ class FitsStandardizer(Standardizer):
 
     def standardizePSF(self):
         stds = self.config["psf_std"]
-        if isiterable(stds):
+        if np.iterable(stds):
             if len(stds) != len(self.processable):
                 raise ConfigurationError(
                     "Number of PSF STDs does not match the "

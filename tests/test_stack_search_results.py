@@ -5,7 +5,7 @@ import numpy as np
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.run_search import SearchRunner
-from kbmod.search import StackSearch, Trajectory, kb_has_gpu
+from kbmod.search import InvalidPixelReason, StackSearch, Trajectory, kb_has_gpu
 
 
 class test_search(unittest.TestCase):
@@ -71,6 +71,45 @@ class test_search(unittest.TestCase):
         # Check that we can clear the results.
         self.search.clear_results()
         self.assertEqual(len(self.search.get_all_results()), 0)
+
+    def test_get_pixel_validity(self):
+        # The test trajectories should be all valid.
+        invalid_reason = self.search.get_pixel_invalidity_reason(self.fake_trjs)
+        self.assertEqual(invalid_reason.shape[0], self.num_objs)
+        self.assertEqual(invalid_reason.shape[1], self.num_times)
+        self.assertTrue(np.all(invalid_reason == InvalidPixelReason.VALID))
+
+        # First three times are out of bounds (the first three indices are all
+        # closely spaced on the first night).
+        trj1 = Trajectory(-1, -2, 5.0, 5.0)
+        invalid_reason = self.search.get_pixel_invalidity_reason([trj1])
+        assert np.all(invalid_reason[:, :3] == InvalidPixelReason.INVALID_BOUNDS)
+        assert np.all(invalid_reason[:, 3:] == InvalidPixelReason.VALID)
+
+        # First three times and last time are out of bounds.
+        trj2 = Trajectory(-1, 242, 1.0, 5.0)
+        invalid_reason = self.search.get_pixel_invalidity_reason([trj2])
+        assert np.all(invalid_reason[:, :3] == InvalidPixelReason.INVALID_BOUNDS)
+        assert np.all(invalid_reason[:, -1] == InvalidPixelReason.INVALID_BOUNDS)
+        assert np.all(invalid_reason[:, 3:-1] == InvalidPixelReason.VALID)
+
+        # The fourth time (first observation on the second night) is masked.
+        sci_copy = self.fake_ds.stack_py.sci.copy()
+        var_copy = self.fake_ds.stack_py.var.copy()
+        sci_copy[3][1, 1] = np.nan
+        var_copy[3][1, 1] = np.nan
+        search_masked = StackSearch(
+            sci_copy,
+            var_copy,
+            self.fake_ds.stack_py.psfs,
+            self.fake_ds.stack_py.zeroed_times,
+        )
+
+        trj3 = Trajectory(0, 0, 1.0, 1.0)
+        invalid_reason = search_masked.get_pixel_invalidity_reason([trj3])
+        assert np.all(invalid_reason[:, :3] == InvalidPixelReason.VALID)
+        assert np.all(invalid_reason[:, 3] == InvalidPixelReason.INVALID_MASK)
+        assert np.all(invalid_reason[:, 4:] == InvalidPixelReason.VALID)
 
     def test_psi_phi_curves(self):
         psi_phi_curves = self.search.get_all_psi_phi_curves(self.fake_trjs)
