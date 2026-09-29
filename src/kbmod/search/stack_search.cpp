@@ -62,7 +62,8 @@ std::vector<int> extract_pixel_validity(const PsiPhiArray& psi_phi, const Trajec
 // --------------------------------------------
 
 StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
-                         std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times, int num_bytes)
+                         std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times, int num_bytes,
+                         bool allow_gpu)
         : results(0), zeroed_times(zeroed_times) {
     // Get the logger for this module.
     rs_logger = logging::getLogger("kbmod.search.run_search");
@@ -96,7 +97,7 @@ StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_i
     // Compute the psi/phi array.
     DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
     fill_psi_phi_array_from_image_arrays(psi_phi_array, num_bytes, sci_imgs, var_imgs, psf_kernels,
-                                         zeroed_times);
+                                         zeroed_times, allow_gpu);
     psi_phi_preloaded = false;
     timer.stop();
 }
@@ -392,8 +393,9 @@ static void stack_search_bindings(py::module& m) {
     using ks = search::StackSearch;
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
-            .def(py::init<iv&, iv&, iv&, dv&, int>(), py::arg("sci_imgs"), py::arg("var_imgs"),
-                 py::arg("psf_kernels"), py::arg("zeroed_times"), py::arg("num_bytes") = -1)
+            .def(py::init<iv&, iv&, iv&, dv&, int, bool>(), py::arg("sci_imgs"), py::arg("var_imgs"),
+                 py::arg("psf_kernels"), py::arg("zeroed_times"), py::arg("num_bytes") = -1,
+                 py::arg("allow_gpu") = true)
             .def_property_readonly("num_images", &ks::num_images)
             .def_property_readonly("height", &ks::get_image_height)
             .def_property_readonly("width", &ks::get_image_width)

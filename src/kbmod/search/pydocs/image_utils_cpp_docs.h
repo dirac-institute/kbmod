@@ -36,8 +36,8 @@ static const auto DOC_image_utils_cpp_convolve_gpu = R"doc(
   )doc";
 
 static const auto DOC_image_utils_cpp_convolve = R"doc(
-  Convolves the image (in place) with a PSF using a CPU if one is
-  available and a GPU otherwise.
+  Convolves the image (in place) with a PSF using a GPU if one is
+  available and a CPU otherwise.
 
   Parameters
   ----------
@@ -45,6 +45,10 @@ static const auto DOC_image_utils_cpp_convolve = R"doc(
       The image data as a two dimensional array.
   psf : `numpy.ndarray`
       The kernel of the Point Spread Function as a two dimensional array.
+  allow_gpu : `bool`
+      Use the GPU when one is available. If `False`, always use the CPU.
+      The GPU costs a full device round trip per call, so the CPU is
+      faster for small images. The default is `True`.
 
   Returns
   -------
@@ -80,7 +84,9 @@ static const auto DOC_image_utils_generate_psi = R"doc(
       The variance data as a H x W dimensional array.
   psf : `numpy.ndarray`
       The kernel of the Point Spread Function as a two dimensional array.
-      
+  allow_gpu : `bool`
+      Use the GPU for the convolution when one is available. The default is `True`.
+
   Returns
   -------
   result : `numpy.ndarray`
@@ -99,7 +105,9 @@ static const auto DOC_image_utils_generate_phi = R"doc(
       The variance data as a H x W dimensional array.
   psf : `numpy.ndarray`
       The kernel of the Point Spread Function as a two dimensional array.
-      
+  allow_gpu : `bool`
+      Use the GPU for the convolution when one is available. The default is `True`.
+
   Returns
   -------
   result : `numpy.ndarray`
