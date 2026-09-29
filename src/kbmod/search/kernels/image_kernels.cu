@@ -61,7 +61,7 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
         result_img[result_index] = (psf_portion != 0.0) ? (sum * psf_sum) / psf_portion : 0.0;
     } else {
         // Leave masked and NaN pixels alone (these could be replaced here with zero)
-        result_img[result_index] = center;  // 0.0
+        result_img[result_index] = center;  // NaN
     }
 }
 
