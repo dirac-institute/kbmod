@@ -299,6 +299,7 @@ class test_search(unittest.TestCase):
             image_stack_py.psfs,
             image_stack_py.zeroed_times,
         )
+        search.enable_gpu_sigmag_filter([0.25, 0.75], 0.7413, 0.0)
         test_trj = Trajectory(x=0, y=0, vx=0.0, vy=0.0)
         self.assertRaises(RuntimeError, search.search_all, [test_trj], True)
         self.assertRaises(RuntimeError, search.evaluate_single_trajectory, test_trj, True)
