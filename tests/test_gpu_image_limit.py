@@ -83,7 +83,7 @@ class TestConvolutionEquivalence(unittest.TestCase):
     def test_fixtures_match_across_devices(self):
         # Four images cover an ordinary value, a mask, and the flux outlier. The
         # search matrix above already covers the larger stacks.
-        cpu = make_search(4)
+        cpu = make_search(4, allow_gpu=False)
         gpu = make_search(4, allow_gpu=True)
         np.testing.assert_array_equal(
             np.asarray(cpu.get_all_psi_phi_curves([candidate()])),
