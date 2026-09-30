@@ -317,6 +317,7 @@ class Results:
             # Convert pyarrow batch to Astropy Table
             # Converting to pandas first is often more robust for astropy conversion
             batch_table = Table.from_pandas(batch.to_pandas())
+            batch_table.meta = copy.deepcopy(meta_dict)
 
             # Create a mini-Results object
             # Note: We don't use track_filtered for chunks usually as it's for streaming analysis

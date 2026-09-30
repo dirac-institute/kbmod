@@ -1,6 +1,7 @@
 """Test some of the functions needed for running the search."""
 
 import logging
+from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -27,6 +28,84 @@ from kbmod.work_unit import WorkUnit
 
 
 class test_run_search(unittest.TestCase):
+    def test_image_selection_provenance(self):
+        # Duplicate epochs cannot identify input images on their own.
+        times = [60676.0, 60677.0, 60677.0, 60678.0]
+        for with_workunit in [False, True]:
+            for threshold, indices in [(0.5, [0, 2, 3]), (1.0, [0, 1, 2, 3])]:
+                with self.subTest(workunit=with_workunit, threshold=threshold):
+                    with tempfile.TemporaryDirectory() as tmp:
+                        stack = FakeDataSet(10, 6, times).stack_py
+                        stack.sci[1][:] = np.nan
+                        stack.sci[2][:3] = np.nan  # Exactly at the inclusive threshold.
+                        path = Path(tmp) / "results.parquet"
+                        config = SearchConfiguration(
+                            {
+                                "max_masked_pixels": threshold,
+                                "stamp_type": None,
+                                "do_clustering": False,
+                                "compute_ra_dec": False,
+                                "save_config": False,
+                                "result_filename": str(path),
+                            }
+                        )
+                        work = None
+                        if with_workunit:
+                            # Existing WorkUnit format: no new provenance field needed.
+                            work = WorkUnit(stack, config)
+                            work.to_sharded_fits("legacy.fits", tmp)
+                            work = WorkUnit.from_sharded_fits("legacy.fits", tmp)
+                            stack = work.im_stack
+                        runner = SearchRunner()
+                        rows = Results.from_trajectories([Trajectory(x=1, y=1)])
+                        rows.table["obs_valid"] = [[False] + [True] * (len(indices) - 1)]
+                        with patch.object(runner, "do_core_search", return_value=rows):
+                            result = runner.run_search(
+                                config,
+                                stack,
+                                trj_generator=[],
+                                workunit=work,
+                                extra_meta={"image_selection": "stale caller metadata"},
+                            )
+                        expected = {
+                            "version": 1,
+                            "stage": "max_masked_pixels",
+                            "threshold": threshold,
+                            "input_mjd_utc_mid": times,
+                            "masked_fractions": [0.0, 1.0, 0.5, 0.0],
+                            "kept_indices": indices,
+                        }
+                        loaded = Results.read_table(path)
+                        chunk = next(Results.read_table_chunks(path, chunk_size=1))
+                        for res in [result, loaded, chunk]:
+                            self.assertEqual(res.table.meta["image_selection"], expected)
+                            np.testing.assert_array_equal(res.mjd_mid, np.asarray(times)[indices])
+                            self.assertFalse(res["obs_valid"][0][0])
+                        # Older results have no record; both readers must still load them.
+                        del loaded.table.meta["image_selection"]
+                        loaded.write_table(path)
+                        self.assertIsNone(Results.read_table(path).table.meta.get("image_selection"))
+                        self.assertIsNone(
+                            next(Results.read_table_chunks(path)).table.meta.get("image_selection")
+                        )
+
+    def test_image_selection_empty_results(self):
+        stack = FakeDataSet(10, 6, [60676.0, 60677.0]).stack_py
+        runner = SearchRunner()
+        config = SearchConfiguration({"stamp_type": None, "do_clustering": False})
+        with patch.object(runner, "do_core_search", return_value=Results()):
+            results = runner.run_search(config, stack, trj_generator=[])
+        self.assertEqual(len(results), 0)
+        self.assertEqual(results.table.meta["image_selection"]["kept_indices"], [0, 1])
+        with tempfile.TemporaryDirectory() as tmp:
+            for suffix in ["parquet", "ecsv"]:
+                path = Path(tmp) / f"empty.{suffix}"
+                results.write_table(path)
+                self.assertEqual(
+                    Results.read_table(path).table.meta["image_selection"],
+                    results.table.meta["image_selection"],
+                )
+
     def test_required_coadd_types(self):
         config = SearchConfiguration()
         self.assertEqual(_get_coadd_types(config), {"sum"})

@@ -6,6 +6,34 @@ The output files contain the set of all trajectories discovered by KBMOD. Many o
 The user can also define custom filters and apply additional filters. For more details see :ref:`Custom Filtering`.
 
 
+Input Image Selection
+---------------------
+
+Before searching, ``max_masked_pixels`` can remove whole images. New searches
+record this decision in ``results.table.meta["image_selection"]``, including
+when no images are removed or no trajectories are found. The record contains:
+
+* ``version``: schema version (currently 1).
+* ``stage`` and ``threshold``: ``max_masked_pixels`` and its configured limit.
+  A limit of 1.0 or greater disables this filter; otherwise images at the limit
+  are retained.
+* ``input_mjd_utc_mid`` and ``masked_fractions``: measurements for every input
+  image, including removed images, in the order received by ``run_search``.
+* ``kept_indices``: zero-based input indices in result-epoch order. Indices
+  absent from this list were removed by this filter.
+
+For example, ``kept_indices=[0, 2, 3]`` means result epoch 1 came from input
+image 2. These indices refer to the stack entering this search, not necessarily
+original FITS shard numbers if the caller previously filtered or reordered it.
+This record does not reconstruct earlier processing or per-trajectory
+``obs_valid`` decisions.
+
+The record persists in saved results and is available through both full and
+chunked readers. WorkUnit files require no changes. Older result files load
+normally; use ``results.table.meta.get("image_selection")`` and treat ``None``
+as unknown history, not evidence that no images were removed.
+
+
 Likelihood and Obs_count Filtering
 ----------------------------------
 
