@@ -5,8 +5,13 @@ and helper functions for filtering and maintaining consistency between different
 import copy
 import csv
 import logging
+import operator
+from multiprocessing import Pool
 import numpy as np
+import os
 import re
+import shutil
+import tempfile
 import uuid
 
 from astropy.io import fits
@@ -30,6 +35,85 @@ from kbmod.search import (
 from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_num_workers(num_workers):
+    """Require a positive integer before any files or result columns are changed."""
+    try:
+        num_workers = operator.index(num_workers)
+    except TypeError:
+        raise ValueError("num_workers must be a positive integer.") from None
+    if num_workers < 1:
+        raise ValueError("num_workers must be a positive integer.")
+    return num_workers
+
+
+def _make_stamp_hdu(data, index, stamp_uuid):
+    """Use the same compression and metadata for serial and parallel writes."""
+    hdu = fits.CompImageHDU(data, compression_type="RICE_1", quantize_level=-0.01)
+    if stamp_uuid is not None:
+        hdu.header["uuid"] = stamp_uuid
+    hdu.name = f"IMG_{index}"
+    return hdu
+
+
+def _write_stamp_chunk_to_file(args):
+    """Compress an explicit (data, UUIDs, first row, path) chunk in a worker."""
+    data, uuids, start, path = args
+    with fits.HDUList([fits.PrimaryHDU()]) as hdul:
+        for offset, stamp in enumerate(data):
+            stamp_uuid = None if uuids is None else uuids[offset]
+            hdul.append(_make_stamp_hdu(stamp, start + offset, stamp_uuid))
+        hdul.writeto(path)
+    return path
+
+
+def _write_image_column(column, uuids, primary, filename, overwrite, num_workers):
+    """Stage a complete image column beside its destination before publishing it.
+
+    Explicit chunk inputs support every multiprocessing start method. Temporary
+    storage belongs to this call and is removed even if compression or copying fails.
+    """
+    with tempfile.TemporaryDirectory(prefix=".kbmod-stamps-", dir=filename.parent) as temp_dir:
+        staged = Path(temp_dir) / "column.fits"
+        workers = min(num_workers, len(column))
+        if workers <= 1:
+            with fits.HDUList([primary]) as hdul:
+                for index, stamp in enumerate(column):
+                    stamp_uuid = None if uuids is None else uuids[index]
+                    hdul.append(_make_stamp_hdu(stamp, index, stamp_uuid))
+                hdul.writeto(staged)
+        else:
+            chunk_size = (len(column) + workers - 1) // workers
+            chunks = [
+                (
+                    column[start : start + chunk_size],
+                    None if uuids is None else uuids[start : start + chunk_size],
+                    start,
+                    Path(temp_dir) / f"chunk-{start}.fits",
+                )
+                for start in range(0, len(column), chunk_size)
+            ]
+            with Pool(len(chunks)) as pool:
+                paths = pool.map(_write_stamp_chunk_to_file, chunks)
+
+            primary.header["EXTEND"] = True
+            primary.writeto(staged)
+            with staged.open("ab") as outfile:
+                for path in paths:
+                    with path.open("rb") as infile:
+                        # Workers write an empty primary HDU. Skip its header,
+                        # then copy compressed extensions without decoding them.
+                        fits.Header.fromfile(infile)
+                        shutil.copyfileobj(infile, outfile)
+                    path.unlink()
+
+        if overwrite:
+            os.replace(staged, filename)
+        else:
+            # Unlike replace(), a hard link fails if a concurrent writer has
+            # created the destination. Both paths are on the same filesystem.
+            os.link(staged, filename)
 
 
 class Results:
@@ -1086,7 +1170,7 @@ class Results:
         # Write out the table.
         self.table.write(filename, overwrite=overwrite, **kwargs)
 
-    def write_column(self, column, filename, overwrite=True, is_image=False):
+    def write_column(self, column, filename, overwrite=True, is_image=False, num_workers=1):
         """Save a single column's data as its own data file. The file
         type is inferred from the filename suffix. Supported formats include
         numpy (.npy), ecsv (.ecsv), parquet (.parq or .parquet), or
@@ -1106,11 +1190,17 @@ class Results:
         is_image : `bool`
             Explicitly specify whether this column contains image-like data.
             Default: False
+        num_workers : `int`, optional
+            Positive number of processes for FITS image compression. Default: 1 (sequential).
+            Uses the application's multiprocessing start method; spawned workers
+            require the usual ``if __name__ == "__main__"`` guard.
 
         Raises
         ------
         Raises a KeyError if the column is not in the data.
         """
+        num_workers = _validate_num_workers(num_workers)
+
         # Load the column if given a string.
         if isinstance(column, str):
             if column not in self.table.colnames:
@@ -1123,7 +1213,7 @@ class Results:
         # Check whether there is a file name collision.
         filename = Path(filename)
         if filename.exists() and not overwrite:
-            raise FileExistsError(f"File {filename} arleady exists.")
+            raise FileExistsError(f"File {filename} already exists.")
 
         # Write the column differently depending on the file type.
         if filename.suffix == ".npy":
@@ -1144,37 +1234,20 @@ class Results:
                 single_table = Table({column.name: data})
                 single_table.write(filename, overwrite=overwrite)
         elif filename.suffix == ".fits":
-            # Create a HDU List and primary header with basic meta data.
-            hdul = fits.HDUList()
             pri = fits.PrimaryHDU()
             pri.header["NUMRES"] = len(self.table)
             pri.header["ISIMG"] = is_image
             pri.header["COLNAME"] = column.name
-            hdul.append(pri)
 
             if is_image:
-                # Create a separate HDU for each entry.
-                for idx in range(len(self.table)):
-                    img_hdu = fits.CompImageHDU(
-                        column[idx],
-                        compression_type="RICE_1",
-                        quantize_level=-0.01,
-                    )
-
-                    # If we have the UUID in the main table, save that to the meta data.
-                    if "uuid" in self.table.colnames:
-                        img_hdu.header["uuid"] = self.table["uuid"][idx]
-
-                    img_hdu.name = f"IMG_{idx}"
-                    hdul.append(img_hdu)
+                uuids = self.table["uuid"] if "uuid" in self.table.colnames else None
+                _write_image_column(column, uuids, pri, filename, overwrite, num_workers)
             else:
-                # Create one bin table for the data.
                 single_table = Table({column.name: column.data})
                 data_hdu = fits.BinTableHDU(single_table)
                 data_hdu.name = "DATA"
-                hdul.append(data_hdu)
-
-            hdul.writeto(filename, overwrite=overwrite)
+                with fits.HDUList([pri, data_hdu]) as hdul:
+                    hdul.writeto(filename, overwrite=overwrite)
         else:
             raise ValueError(f"Unsupported suffix {filename.suffix}")
 
@@ -1288,6 +1361,7 @@ def write_results_to_files_destructive(
     drop_columns=None,
     overwrite=True,
     image_columns=None,
+    num_workers=1,
 ):
     """Write the results to one or more files.
 
@@ -1318,7 +1392,11 @@ def write_results_to_files_destructive(
     image_columns : `list` of `str`, optional
         A list of column names that contain image-like data. These columns will be saved
         as FITS files when written separately. If None, auto-detection is used.
+    num_workers : `int`, optional
+        Number of processes for FITS image compression. Default: 1 (sequential).
     """
+    num_workers = _validate_num_workers(num_workers)
+
     if drop_columns is None:
         drop_columns = []
     if extra_meta is None:
@@ -1376,4 +1454,6 @@ def write_results_to_files_destructive(
             col_file = filepath.with_name(filepath.stem + f"_{col_name}" + filepath.suffix)
 
         logger.info(f"Saving column {col_name} to {col_file}")
-        results.write_column(col_data, col_file, overwrite=overwrite, is_image=is_image)
+        results.write_column(
+            col_data, col_file, overwrite=overwrite, is_image=is_image, num_workers=num_workers
+        )
