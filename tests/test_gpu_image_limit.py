@@ -4,13 +4,20 @@ import unittest
 
 import numpy as np
 
-from kbmod.search import MAX_NUM_IMAGES, StackSearch, Trajectory, kb_has_gpu
+from kbmod.search import (
+    MAX_NUM_IMAGES,
+    StackSearch,
+    Trajectory,
+    convolve_image_cpu,
+    convolve_image_gpu,
+    kb_has_gpu,
+)
 
 # Include the old limit, the number of threads per block, and the new limit.
 IMAGE_COUNTS = (199, 200, 255, 256, 257, 383, 384, 385, 447, 448)
 
 
-def make_search(num_images, num_bytes=4, masked=True):
+def make_search(num_images, num_bytes=4, masked=True, allow_gpu=False):
     times = np.arange(num_images, dtype=float) / 64.0
     sci = np.zeros((num_images, 5, 17), dtype=np.float32)
     var = np.ones_like(sci)
@@ -23,7 +30,9 @@ def make_search(num_images, num_bytes=4, masked=True):
             sci[i, y, x] = np.nan
             var[i, y, x] = np.nan
 
-    search = StackSearch(sci, var, psfs, times, num_bytes)
+    # Build psi and phi on the CPU. The GPU path costs a device round trip per image,
+    # which would otherwise dominate these tests. The searches below still use the GPU.
+    search = StackSearch(sci, var, psfs, times, num_bytes, allow_gpu=allow_gpu)
     # Only one thread searches a pixel. All threads must still load times and
     # synchronize before returning for out-of-bounds search positions.
     search.set_start_bounds_x(1, 2)
@@ -54,6 +63,32 @@ class TestImageLimitCPU(unittest.TestCase):
                 self.assertEqual(result.obs_count, n - 1)
                 self.assertAlmostEqual(result.flux, (10.0 * (n - 2) + 100.0) / (n - 1), places=4)
                 self.assertAlmostEqual(result.lh, (10.0 * (n - 2) + 100.0) / np.sqrt(n - 1), places=3)
+
+
+@unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
+class TestConvolutionEquivalence(unittest.TestCase):
+    """The fixtures above build psi and phi on the CPU, so check that the GPU path agrees."""
+
+    def test_cpu_and_gpu_convolution_agree(self):
+        rng = np.random.default_rng(0)
+        for shape in ((5, 17), (13, 13)):
+            for psf_dim in (1, 3):
+                with self.subTest(shape=shape, psf_dim=psf_dim):
+                    img = rng.random(shape, dtype=np.float32)
+                    psf = rng.random((psf_dim, psf_dim)).astype(np.float32)
+                    np.testing.assert_allclose(
+                        convolve_image_gpu(img, psf), convolve_image_cpu(img, psf), rtol=1e-6, atol=1e-6
+                    )
+
+    def test_fixtures_match_across_devices(self):
+        # Four images cover an ordinary value, a mask, and the flux outlier. The
+        # search matrix above already covers the larger stacks.
+        cpu = make_search(4, allow_gpu=False)
+        gpu = make_search(4, allow_gpu=True)
+        np.testing.assert_array_equal(
+            np.asarray(cpu.get_all_psi_phi_curves([candidate()])),
+            np.asarray(gpu.get_all_psi_phi_curves([candidate()])),
+        )
 
 
 @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
