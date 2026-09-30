@@ -55,7 +55,7 @@ void cuda_print_stats() {
 
 size_t gpu_total_memory() {
     size_t free_mem, total_mem;
-    unsigned int resp_code = static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem)
+    unsigned int resp_code = static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem));
     if (resp_code != 0) {
         std::cout << "Unable to query CUDA memory. Error code = " << resp_code << "\n";
         return 0;
@@ -119,6 +119,9 @@ extern "C" void free_gpu_block(void *gpu_ptr) {
     unsigned int res = static_cast<unsigned int>(cudaFree(gpu_ptr));
     if (res != 0) {
         cuda_print_stats();
+
+        // Print an error message instead of throwing an exception, since we are
+        // often calling this from a destructor.
         std::cout << "Unable to free GPU memory. Error code = " << std::to_string(res) << "\n";
     }
 }

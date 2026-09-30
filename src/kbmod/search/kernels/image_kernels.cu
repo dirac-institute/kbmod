@@ -29,10 +29,10 @@ __host__ __device__ bool device_pixel_valid(float value);
 __global__ void convolve_psf(int width, int height, float *source_img, float *result_img, float *psf,
                              int psf_radius, int psf_dim, float psf_sum) {
     // Find bounds of convolution area
-    const int64_t x = static_cast<int64_t>(blockIdx.x) * CONV_THREAD_DIM + threadIdx.x;
-    const int64_t y = static_cast<int64_t>(blockIdx.y) * CONV_THREAD_DIM + threadIdx.y;
+    const int x = blockIdx.x * CONV_THREAD_DIM + threadIdx.x;
+    const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;
     if (x < 0 || x > width - 1 || y < 0 || y > height - 1) return;
-    const int64_t result_index = y * static_cast<int64_t>(width) + x;
+    const int64_t result_index = static_cast<int64_t>(y) * static_cast<int64_t>(width) + static_cast<int64_t>(x);
     const int64_t total_img_pixels = static_cast<int64_t>(height) * static_cast<int64_t>(width);
     if (result_index >= total_img_pixels) {
         // This is an error condition that should never happen.
@@ -47,10 +47,8 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
         for (int j = -psf_radius; j <= psf_radius; j++) {
             // #pragma unroll
             for (int i = -psf_radius; i <= psf_radius; i++) {
-                const int64_t neighbor_x = static_cast<int64_t>(x) + i;
-                const int64_t neighbor_y = static_cast<int64_t>(y) + j;
-                if ((neighbor_x >= 0) && (neighbor_x < width) && (neighbor_y >= 0) && (neighbor_y < height)) {
-                    const int64_t neighbor_index = static_cast<int64_t>(neighbor_y) * static_cast<int64_t>(width) + neighbor_x;
+                if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
+                    const int64_t neighbor_index = static_cast<int64_t>(y + j) * static_cast<int64_t>(width) + (x + i);
                     float current_pix = source_img[neighbor_index];
                     if (device_pixel_valid(current_pix)) {
                         float current_psf = psf[(j + psf_radius) * psf_dim + (i + psf_radius)];
