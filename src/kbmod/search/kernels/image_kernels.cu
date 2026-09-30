@@ -32,8 +32,8 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
     const int x = blockIdx.x * CONV_THREAD_DIM + threadIdx.x;
     const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;
     if (x < 0 || x > width - 1 || y < 0 || y > height - 1) return;
-    const int64_t result_index = static_cast<int64_t>(y) * static_cast<int64_t>(width) + static_cast<int64_t>(x);
-    const int64_t total_img_pixels = static_cast<int64_t>(height) * static_cast<int64_t>(width);
+    const uint64_t result_index = static_cast<uint64_t>(y) * static_cast<uint64_t>(width) + static_cast<uint64_t>(x);
+    const uint64_t total_img_pixels = static_cast<uint64_t>(height) * static_cast<uint64_t>(width);
     if (result_index >= total_img_pixels) {
         // This is an error condition that should never happen.
         return;
