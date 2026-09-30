@@ -8,9 +8,9 @@
 #ifndef KERNELS_MEMORY_H_
 #define KERNELS_MEMORY_H_
 
-#include <string.h>
+#include <cstddef>
+#include <cstdint>
 #include <stdexcept>
-#include <stdint.h>
 
 namespace search {
 
