@@ -278,6 +278,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     if ((x_i < 0) || (y_i < 0) || (x_i >= search_width) || (y_i >= search_height)) {
         return;
     }
+    const uint64_t pixel_index = static_cast<uint64_t>(y_i) * static_cast<uint64_t>(search_width) + static_cast<uint64_t>(x_i);
 
     // Get origin pixel for the trajectories in pixel space.
     const int x = x_i + params.x_start_min;
@@ -285,14 +286,14 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
 
     // Create an initial set of best results with likelihood -1.0 and default
     // values for everything so that we do not propagate uninitialized values.
-    const uint64_t base_index = (y_i * search_width + x_i) * params.results_per_pixel;
+    const uint64_t base_index = pixel_index * static_cast<uint64_t>(params.results_per_pixel);
     if (base_index + params.results_per_pixel > params.total_results) {
         // Unfortunately we cannot raise an error in a kernel, so we print to stdout and exit.
         printf("ERROR: base_index=%llu out of bounds in searchFilterImages kernel.\n", base_index);
         return;
     }
 
-    for (int r = 0; r < params.results_per_pixel; ++r) {
+    for (unsigned int r = 0; r < params.results_per_pixel; ++r) {
         results[base_index + r].x = x;
         results[base_index + r].y = y;
         results[base_index + r].vx = 0.0f;
@@ -366,18 +367,19 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     // Compute the range of starting pixels to use when setting the blocks and threads.
     // We use the width and height of the search space (as opposed to the image width
     // and height), meaning the blocks/threads will be indexed relative to the search space.
-    int search_width = params.x_start_max - params.x_start_min;
-    int search_height = params.y_start_max - params.y_start_min;
+    int64_t search_width = params.x_start_max - params.x_start_min;
+    int64_t search_height = params.y_start_max - params.y_start_min;
     if ((search_width <= 0) || (search_height <= 0))
         throw std::runtime_error("Invalid search bounds x=[" + std::to_string(params.x_start_min) + ", " +
                                  std::to_string(params.x_start_max) + "] y=[" +
                                  std::to_string(params.y_start_min) + ", " +
                                  std::to_string(params.y_start_max) + "]");
+    uint64_t search_pixels = static_cast<uint64_t>(search_width) * static_cast<uint64_t>(search_height);
                                  
     // Check that we have enough result space allocated. num_results is the number of spaces
     // we have in the results vector and expected_results is the number we are going to
     // generate. So we need num_results >= expected_results to have enough storage space.
-    uint64_t expected_results = params.results_per_pixel * search_width * search_height;
+    uint64_t expected_results = static_cast<uint64_t>(params.results_per_pixel) * search_pixels;
     params.total_results = expected_results;
     if (num_results < expected_results) {
         throw std::runtime_error("Not enough space allocated for results. Requires: " +

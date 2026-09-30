@@ -29,14 +29,12 @@ void cuda_print_stats() {
     int device_num, device_count;
     unsigned int query_status_res = static_cast<unsigned int>(cudaGetDevice(&device_num));
     if (query_status_res != 0) {
-        std::cout << "Unable to get current CUDA device: " << query_status_res << " -> " 
-                  << cudaGetErrorName(query_status_res) << ": " << cudaGetErrorString(query_status_res) << "\n";
+        std::cout << "Unable to get current CUDA device: " << query_status_res << "\n";
         return;
     }
     query_status_res = static_cast<unsigned int>(cudaGetDeviceCount(&device_count));
     if (query_status_res != 0) {
-        std::cout << "Unable to get CUDA device count: " << query_status_res << " -> " 
-                  << cudaGetErrorName(query_status_res) << ": " << cudaGetErrorString(query_status_res) << "\n";
+        std::cout << "Unable to get CUDA device count: " << query_status_res << "\n";
         return;
     }
     std::cout << "Device: " << device_num << " [" << device_count << " devices available]\n";
@@ -59,8 +57,7 @@ size_t gpu_total_memory() {
     size_t free_mem, total_mem;
     unsigned int resp_code = static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem)
     if (resp_code != 0) {
-        std::cout << "Unable to query CUDA memory. Error code = " << resp_code << " -> " 
-                  << cudaGetErrorName(resp_code) << ": " << cudaGetErrorString(resp_code) << "\n";
+        std::cout << "Unable to query CUDA memory. Error code = " << resp_code << "\n";
         return 0;
     }
     return total_mem;
@@ -70,8 +67,7 @@ size_t gpu_free_memory() {
     size_t free_mem, total_mem;
     unsigned int resp_code = static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem));
     if (resp_code != 0) {
-        std::cout << "Unable to query CUDA memory. Error code = " << resp_code << " -> " 
-                  << cudaGetErrorName(resp_code) << ": " << cudaGetErrorString(resp_code) << "\n";
+        std::cout << "Unable to query CUDA memory. Error code = " << resp_code << "\n";
         return 0;
     }
     return free_mem;
@@ -83,8 +79,7 @@ bool cuda_check_gpu(size_t req_memory) {
     int device_num;
     unsigned int res = static_cast<unsigned int>(cudaGetDevice(&device_num));
     if (res != 0) {
-        std::cout << "Unable to find GPU device. Error code = " << res << " -> " 
-                  << cudaGetErrorName(res) << ": " << cudaGetErrorString(res) << "\n";
+        std::cout << "Unable to find GPU device. Error code = " << res << "\n";
         return false;
     }
 
@@ -92,8 +87,7 @@ bool cuda_check_gpu(size_t req_memory) {
     size_t free_mem, total_mem;
     res = static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem));
     if (res != 0) {
-        std::cout << "Unable to query GPU available memory. Error code = " << res << " -> " 
-                  << cudaGetErrorName(res) << ": " << cudaGetErrorString(res) << "\n";
+        std::cout << "Unable to query GPU available memory. Error code = " << res << "\n";
         return false;
     }
     if (free_mem < req_memory) {
@@ -115,8 +109,7 @@ extern "C" void *allocate_gpu_block(uint64_t memory_size) {
     if ((res != 0) || (gpu_ptr == nullptr)) {
         cuda_print_stats();
         throw std::runtime_error("Unable to allocate GPU memory (" + std::to_string(memory_size) +
-                                 " bytes). Error = " + std::to_string(res) + " -> " +
-                                 cudaGetErrorName(res) + ": " + cudaGetErrorString(res));
+                                 " bytes). Error code = " + std::to_string(res));
     }
     return gpu_ptr;
 }
@@ -126,8 +119,7 @@ extern "C" void free_gpu_block(void *gpu_ptr) {
     unsigned int res = static_cast<unsigned int>(cudaFree(gpu_ptr));
     if (res != 0) {
         cuda_print_stats();
-        std::cout << "Unable to free GPU memory. Error code = " << std::to_string(res) << " -> " 
-                  << cudaGetErrorName(res) << ": " << cudaGetErrorString(res) << "\n";
+        std::cout << "Unable to free GPU memory. Error code = " << std::to_string(res) << "\n";
     }
 }
 
