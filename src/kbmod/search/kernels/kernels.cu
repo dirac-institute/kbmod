@@ -397,7 +397,11 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
         throw std::runtime_error("GPU search kernel launch failed. Error code = " +
                                  std::to_string(launch_status));
     }
-    cudaDeviceSynchronize();
+    cudaError_t res_code = cudaDeviceSynchronize();
+    if (res_code != cudaSuccess) {
+        throw std::runtime_error("GPU search failed. Error code = " +
+                                 std::to_string(res_code));
+    }
 }
 
 } /* namespace search */

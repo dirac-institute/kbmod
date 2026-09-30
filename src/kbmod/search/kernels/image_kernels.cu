@@ -118,6 +118,12 @@ extern "C" void deviceConvolve(float *source_img, float *result_img, int width, 
         throw std::runtime_error("Kernel launch failed in deviceConvolve. Error code = " +
                                  std::to_string(res_code));
     }
+    res_code = cudaDeviceSynchronize();
+    if (res_code != cudaSuccess) {
+        cudaFree(device_kernel);
+        throw std::runtime_error("Kernel execution failed in deviceConvolve. Error code = " +
+                                 std::to_string(res_code));
+    }
 
     // Copy the result image off the GPU.
     deviceresult_img.copy_subset_of_gpu_into_array(result_img, 0, n_pixels);
