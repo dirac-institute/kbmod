@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 import astropy.table as atbl
 from astropy.coordinates import EarthLocation, SkyCoord
@@ -239,6 +240,36 @@ class TestImageCollection(unittest.TestCase):
         self.assertEqual(cached.meta["n_stds"], 6)
         self.assertEqual(len(cached._standardizers), 6)
         self.assertTrue(all(std is None for std in cached._standardizers[3:]))
+
+    def test_workunit_timestamp_validation(self):
+        """Allow rounding but reject real offsets and invalid epochs in either input."""
+        ic = ImageCollection.fromTargets(self.fitsFactory.get_n(2, spoof_data=True))
+        original = np.asarray(ic.data["mjd_mid"]).copy()
+        images = [entry["std"].toLayeredImage()[0] for entry in ic.get_standardizers()]
+        # Reuse real fixture images to exercise the WorkUnit boundary without
+        # regenerating pixel arrays for every invalid timestamp.
+        with mock.patch.object(ic, "get_standardizers", return_value=[{"std": mock.Mock()}]) as get_stds:
+            get_stds.return_value[0]["std"].toLayeredImage.return_value = images
+            for side in ("collection", "image"):
+                for offset_s in (0.0001, 0.01, -0.01, 60.5, np.nan, np.inf):
+                    with self.subTest(side=side, offset_s=offset_s):
+                        ic.data["mjd_mid"] = original.copy()
+                        images[1].time = original[1]
+                        value = original[1] + offset_s / 86400
+                        if side == "collection":
+                            ic.data["mjd_mid"][1] = value
+                        else:
+                            images[1].time = value
+                        if offset_s == 0.0001:
+                            work = ic.toWorkUnit()
+                            self.assertEqual(len(work), 2)
+                        else:
+                            with self.assertRaisesRegex(ValueError, "timestamp mismatch.*row 1"):
+                                ic.toWorkUnit()
+            # A missing image cannot be hidden by broadcasting a scalar epoch.
+            get_stds.return_value[0]["std"].toLayeredImage.return_value = images[:1]
+            with self.assertRaisesRegex(ValueError, "1 images for 2 ImageCollection rows"):
+                ic.toWorkUnit()
 
     def test_workunit(self):
         """Tests imagecollection exports a work unit without error."""
