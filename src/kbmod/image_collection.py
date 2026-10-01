@@ -33,6 +33,9 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+# Shared by WorkUnit construction and Butler-backed injection preflight.
+MIDPOINT_TOLERANCE_SECONDS = 0.001
+
 
 def pack_table(data):
     """Given a `Table`, find columns containing the same values and pack them
@@ -1206,7 +1209,7 @@ class ImageCollection:
         consistent = (
             np.isfinite(image_times)
             & np.isfinite(collection_times)
-            & np.isclose(image_times, collection_times, rtol=0, atol=0.001 / 86400.0)
+            & np.isclose(image_times, collection_times, rtol=0, atol=MIDPOINT_TOLERANCE_SECONDS / 86400.0)
         )
         if not np.all(consistent):
             index = int(np.flatnonzero(~consistent)[0])
@@ -1219,7 +1222,9 @@ class ImageCollection:
                 f"Cannot build WorkUnit: timestamp mismatch at ImageCollection row {index} ({identity}). "
                 f"Image UTC MJD={image_times[index]:.12f}, "
                 f"collection mjd_mid={collection_times[index]:.12f}; "
-                f"image minus collection={difference_s:.6f} seconds (tolerance 0.001 seconds). "
+                f"image minus collection={difference_s:.6f} seconds "
+                f"(tolerance {MIDPOINT_TOLERANCE_SECONDS} seconds). "
+                "Check the collection's row-to-image mapping as well as its timing convention. "
                 "Rebuild the ImageCollection from its source data with the current standardizer "
                 "before rebuilding dependent WorkUnits. Preserve the original artifacts and "
                 "standardizer configuration; do not relabel stored timestamps."

@@ -13,6 +13,7 @@ import astropy.units as u
 import numpy as np
 
 from kbmod import ImageCollection, Standardizer
+from kbmod.core.image_stack_py import LayeredImagePy
 from utils import DECamImdiffFactory
 
 
@@ -270,6 +271,31 @@ class TestImageCollection(unittest.TestCase):
             get_stds.return_value[0]["std"].toLayeredImage.return_value = images[:1]
             with self.assertRaisesRegex(ValueError, "1 images for 2 ImageCollection rows"):
                 ic.toWorkUnit()
+
+    def test_workunit_masked_timestamp(self):
+        ic = ImageCollection.fromTargets(self.fitsFactory.get_n(1, spoof_data=True))
+        ic.data.replace_column("mjd_mid", atbl.MaskedColumn(ic.data["mjd_mid"], mask=[True]))
+        with self.assertRaisesRegex(ValueError, "timestamp mismatch"):
+            ic.toWorkUnit()
+        self.assertTrue(ic.data["mjd_mid"].mask[0])
+
+    def test_workunit_multi_extension_mapping_error(self):
+        # get_standardizers currently uses standardizer indices as row indices:
+        # [0, 0, 1, 1] therefore reconstructs standardizer 0 twice. Until that
+        # independent mapping bug is fixed, the error must mention that cause.
+        metadata = ImageCollection.fromTargets(self.fits[:2]).data[[0, 0, 1, 1]].copy()
+        metadata["std_idx"] = [0, 0, 1, 1]
+        metadata["ext_idx"] = [0, 1, 0, 1]
+        metadata["mjd_mid"] = [60000.0, 60000.0, 60001.0, 60001.0]
+        stds = []
+        for time in (60000.0, 60001.0):
+            image = LayeredImagePy(np.zeros((2, 2)), np.ones((2, 2)), time=time)
+            std = mock.Mock()
+            std.toLayeredImage.return_value = [image, image]
+            stds.append(std)
+        ic = ImageCollection(metadata, standardizers=stds)
+        with self.assertRaisesRegex(ValueError, "row-to-image mapping"):
+            ic.toWorkUnit()
 
     def test_workunit(self):
         """Tests imagecollection exports a work unit without error."""

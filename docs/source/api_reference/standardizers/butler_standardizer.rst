@@ -18,10 +18,10 @@ Why the native date is the midpoint
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Rubin's `VisitInfo API contract
-<https://github.com/lsst/afw/blob/main/include/lsst/afw/image/VisitInfo.h>`_
+<https://github.com/lsst/afw/blob/41b6eb56439ac6a47191309589c181fbfa4659e0/include/lsst/afw/image/VisitInfo.h>`_
 defines its date as the exposure midpoint in TAI. The `DateTime.toAstropy()
 implementation
-<https://github.com/lsst/daf_base/blob/main/python/lsst/daf/base/dateTime/dateTimeContinued.py>`_
+<https://github.com/lsst/daf_base/blob/8ea07a8fe4ad399a23e32cd9cfd14d3c70f5cef5/python/lsst/daf/base/dateTime/dateTimeContinued.py>`_
 returns an Astropy ``Time`` constructed from TAI MJD with ``scale="tai"``.
 Consequently, ``butler.get(visit_ref).date.toAstropy()`` already carries both
 the midpoint and its time scale. Calling ``.utc.mjd`` converts that same instant
@@ -78,6 +78,16 @@ identifying the row, available visit/detector identifiers, both epochs, and the
 difference in seconds. Historical collections remain readable; the check neither
 migrates nor relabels them. Agreement is an internal consistency check, not proof
 that two matching legacy timestamps are scientifically correct.
+
+Butler injection performs a separate preflight against fresh ``VisitInfo`` dates
+before loading pixels, and checks that rebuilding the injected collection does
+not change its epochs. Each nonempty catalog epoch must match exactly one
+distinct collection epoch within 1 ms; multiple detectors at the same epoch are
+supported. Subset precomputed catalogs to the intended collection before use.
+Unmatched or ambiguous catalog epochs raise an error. Empty catalogs and
+individual exposures without catalog sources remain valid. This tolerance
+accommodates rounding only: catalog coordinates and timestamps are preserved,
+not propagated or relabeled.
 
 Retain original products and their software revisions for historical
 reproduction. Use rebuilt products for corrected analyses; there is no option
