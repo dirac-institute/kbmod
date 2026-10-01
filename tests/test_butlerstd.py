@@ -60,8 +60,7 @@ class TestButlerStandardizer(unittest.TestCase):
             "GAINA": hdr["GAINA"],
             "GAINB": hdr["GAINB"],
             "DTNSANAM": hdr["DTNSANAM"],
-            "mjd_mid": Time(hdr["DATE-AVG"], format="isot", scale="tai").utc.mjd
-            + (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0,
+            "mjd_mid": Time(hdr["DATE-AVG"], format="isot", scale="tai").utc.mjd,
             "filter": hdr["FILTER"],
         }
         expected["obs_day"] = ButlerStandardizer._mjd_to_obs_day(expected["mjd_mid"])
@@ -69,7 +68,7 @@ class TestButlerStandardizer(unittest.TestCase):
         for k, v in expected.items():
             with self.subTest("Value not standardized as expected.", key=k):
                 if k == "mjd_mid":
-                    self.assertAlmostEqual(v, standardized["meta"][k], 4)
+                    self.assertAlmostEqual(v, standardized["meta"][k], 10)
                 else:
                     self.assertEqual(v, standardized["meta"][k])
 
@@ -243,8 +242,7 @@ class TestButlerStandardizer(unittest.TestCase):
             "detector": hdr["CCDNUM"],
             "exposureTime": hdr["EXPREQ"],
             "OBSID": hdr["OBSID"],
-            "mjd_mid": Time(hdr["DATE-AVG"], format="isot", scale="tai").utc.mjd
-            + (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0,
+            "mjd_mid": Time(hdr["DATE-AVG"], format="isot", scale="tai").utc.mjd,
             "filter": hdr["FILTER"],
         }
 
@@ -255,7 +253,7 @@ class TestButlerStandardizer(unittest.TestCase):
         for k, v in expected.items():
             with self.subTest("Value not standardized as expected.", key=k):
                 if k == "mjd_mid":
-                    self.assertAlmostEqual(v, standardized["meta"][k], 4)
+                    self.assertAlmostEqual(v, standardized["meta"][k], 10)
                 else:
                     self.assertEqual(v, standardized["meta"][k])
 
@@ -505,7 +503,7 @@ class TestButlerStandardizer(unittest.TestCase):
         # Get the expected FITS files and extract the MJD from the header
         fits = FitsFactory.get_fits(8, spoof_data=True)
         hdr = fits["PRIMARY"].header
-        expected_mjd = Time(hdr["DATE-AVG"]).mjd + 120 / 24.0 / 60.0 / 60.0
+        expected_mjd = Time(hdr["DATE-AVG"], format="isot", scale="tai").utc.mjd
 
         # Get list of layered images froom the standardizer
         butler_imgs = std.toLayeredImage()
@@ -517,10 +515,37 @@ class TestButlerStandardizer(unittest.TestCase):
         np.testing.assert_equal(fits["VARIANCE"].data, img.var)
         np.testing.assert_equal(fits["MASK"].data, img.mask)
 
-        # Test that we correctly set metadata
-        # times can only be compred approximately, because sometimes we
-        # calculate the time in the middle of the exposure
-        self.assertAlmostEqual(expected_mjd, img.time, 2)
+        # The layered image must carry the same native midpoint in UTC.
+        self.assertAlmostEqual(expected_mjd, img.time, 10)
+
+    def test_visitinfo_date_is_already_midpoint(self):
+        """A fractional exposure duration must not advance the native timestamp."""
+        visit = self.butler.mock_visitinfo(8)
+        visit.date.toAstropy.return_value = Time("2025-05-02T01:02:21.750", scale="tai")
+        visit.exposureTime = 30.5
+        with mock.patch.object(self.butler, "mock_visitinfo", return_value=visit):
+            std = ButlerStandardizer(DatasetId(8), butler=self.butler)
+            metadata = std.standardizeMetadata()
+            # Independent literal UTC instants: TAI minus 37 s, then half duration.
+            self.assertAlmostEqual(
+                metadata["mjd_mid"], Time("2025-05-02T01:01:44.750", scale="utc").mjd, 10
+            )
+            self.assertAlmostEqual(
+                metadata["mjd_start"], Time("2025-05-02T01:01:29.500", scale="utc").mjd, 10
+            )
+            self.assertEqual(metadata["obs_day"], 20250501)
+            self.assertAlmostEqual(std.toLayeredImage()[0].time, metadata["mjd_mid"], 10)
+
+    def test_obs_day_uses_utc_input_at_tai_noon(self):
+        """The observing-day boundary is noon TAI, not noon UTC."""
+        for utc, expected in [
+            ("2025-06-02T11:59:22", 20250601),
+            ("2025-06-02T11:59:24", 20250602),
+        ]:
+            with self.subTest(utc=utc):
+                self.assertEqual(
+                    ButlerStandardizer._mjd_to_obs_day(Time(utc, scale="utc").mjd), expected
+                )
 
     def test_mjd_to_obs_day(self):
         """Test that _mjd_to_obs_day works as expected."""

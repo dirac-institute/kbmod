@@ -437,14 +437,14 @@ class ButlerStandardizer(Standardizer):
         Parameters
         ----------
         mjd_mid : `float`
-            Modified Julian Date at the middle of the exposure.
+            UTC Modified Julian Date at the middle of the exposure.
 
         Returns
         -------
         obs_day : `int`
             Observing day in YYYYMMDD format.
         """
-        observing_date = astropy.time.Time(mjd_mid, format="mjd", scale="tai")
+        observing_date = astropy.time.Time(mjd_mid, format="mjd", scale="utc").tai
         offset = astropy.time.TimeDelta(12 * 3600, format="sec", scale="tai")
         observing_date -= offset
         return int(observing_date.strftime("%Y%m%d"))
@@ -479,16 +479,18 @@ class ButlerStandardizer(Standardizer):
         visit_ref = self.ref.makeComponentRef("visitInfo")
         visit = self.butler.get(visit_ref)
         expt = visit.exposureTime
-        mjd_start = visit.date.toAstropy()
-        half_way = mjd_start + (expt / 2) * u.s + 0.5 * u.s
+        # VisitInfo.date already represents the exposure midpoint, in TAI.
+        # Derive the nominal start from the duration; do not advance the midpoint.
+        midpoint = visit.date.toAstropy()
+        mjd_start = midpoint - (expt / 2) * u.s
         self._metadata["exposureTime"] = expt
 
         # Note the timescales for MJD. The Butler uses TAI, but we convert
         # time stamps to UTC for consistency.
         # Name mjd into mjd_mid - make it obvious it's middle of exposure.
         self._metadata["mjd_start"] = mjd_start.utc.mjd
-        self._metadata["mjd_mid"] = half_way.utc.mjd
-        self._metadata["obs_day"] = ButlerStandardizer._mjd_to_obs_day(half_way.utc.mjd)
+        self._metadata["mjd_mid"] = midpoint.utc.mjd
+        self._metadata["obs_day"] = ButlerStandardizer._mjd_to_obs_day(midpoint.utc.mjd)
 
         self._metadata["object"] = visit.object
         self._metadata["pointing_ra"] = visit.boresightRaDec.getRa().asDegrees()
