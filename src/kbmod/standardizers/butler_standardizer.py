@@ -441,7 +441,10 @@ class ButlerStandardizer(Standardizer):
 
     @staticmethod
     def _mjd_to_obs_day(mjd_mid):
-        """Convert MJD to observing day in YYYYMMDD format.
+        """Convert UTC MJD to observing day in YYYYMMDD format.
+
+        Uses the Rubin/DECam noon-TAI boundary to group an observing night;
+        this is a fixed convention, not a local sunset calculation.
 
         Parameters
         ----------
