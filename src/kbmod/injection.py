@@ -14,8 +14,9 @@ import kbmod.wcs_utils
 import kbmod.reprojection_utils
 
 from kbmod.filters.known_object_filters import KnownObjsMatcher
-from kbmod.image_collection import ImageCollection
+from kbmod.image_collection import ImageCollection, MIDPOINT_TOLERANCE_SECONDS
 from kbmod.results import Results
+from kbmod.standardizers import ButlerStandardizer
 
 try:
     from lsst.daf.butler import DatasetId
@@ -201,6 +202,42 @@ def generate_injection_catalog(
     return Table(catalog_dict)
 
 
+def _align_injection_catalog_epochs(catalog, collection_times):
+    """Map catalog rows to unique collection epochs without relabeling the catalog.
+
+    Duplicate collection times (detectors in one visit) are intentional. Each
+    catalog time must match exactly one distinct epoch within 1 ms. A collection
+    exposure may have no sources; an empty catalog is also allowed.
+    """
+    times = np.ma.asarray(catalog["obstime"], dtype=float).filled(np.nan)
+    if not np.all(np.isfinite(times)):
+        raise ValueError("Injection catalog obstime must contain finite, unmasked UTC MJD values.")
+    if len(times) == 0:
+        return times
+    epochs = np.unique(collection_times)
+    if len(epochs) == 0:
+        raise ValueError("Cannot align a nonempty injection catalog to an empty ImageCollection.")
+
+    # Count every epoch in the tolerance window, including a neighboring visit
+    # when the catalog time exactly equals one of the collection times.
+    tolerance = MIDPOINT_TOLERANCE_SECONDS / 86400.0
+    left = np.searchsorted(epochs, times - tolerance, side="left")
+    right = np.searchsorted(epochs, times + tolerance, side="right")
+    counts = right - left
+    invalid = counts != 1
+    if np.any(invalid):
+        row = int(np.flatnonzero(invalid)[0])
+        reason = "ambiguous" if counts[row] > 1 else "unmatched"
+        raise ValueError(
+            f"Injection catalog row {row} has {reason} obstime={times[row]:.12f}; "
+            f"expected one collection midpoint within {MIDPOINT_TOLERANCE_SECONDS} seconds. "
+            "Rebuild stale catalogs at the corrected exposure midpoints, including their coordinates. "
+            "Subset catalogs to the intended collection before injection; do not widen the tolerance "
+            "or relabel prediction epochs."
+        )
+    return epochs[left]
+
+
 def inject_sources_into_ic(
     ic,
     catalog,
@@ -221,6 +258,11 @@ def inject_sources_into_ic(
     Note that serializing the returned ImageCollection will not serialize the injected sources
     in the image data, instead it should be materialized as a `WorkUnit` via `ic.toWorkUnit()`
     in order to persist the injected sources.
+
+    Collection midpoints must agree with fresh Butler VisitInfo dates within
+    1 ms. Catalog epochs must uniquely align to collection epochs within the
+    same tolerance; their original timestamps and coordinates are preserved.
+    These checks run before loading or modifying exposure pixels.
 
     Parameters
     ----------
@@ -253,6 +295,12 @@ def inject_sources_into_ic(
         Re-built collection with injected sources from the catalog
     injected_cats : `astropy.table.Table`
         Restacked catalog from each call to LSST's VisitInjectTask
+
+    Raises
+    ------
+    ValueError
+        If collection/source midpoints disagree, a catalog epoch is invalid,
+        unmatched or ambiguous, or rebuilding changes the collection epochs.
     """
     if not HAS_LSST:
         raise ImportError("LSST Science Pipelines must be installed to inject sources.")
@@ -271,6 +319,33 @@ def inject_sources_into_ic(
             f"{required_cols}. Missing: {missing_cols}"
         )
 
+    collection_times = np.ma.asarray(ic.data["mjd_mid"], dtype=float).filled(np.nan)
+    if not np.all(np.isfinite(collection_times)):
+        raise ValueError("ImageCollection mjd_mid must contain finite, unmasked UTC MJD values.")
+    if "obstime" not in catalog.colnames:
+        raise ValueError("Injection catalog is missing required obstime column (UTC MJD).")
+    aligned_times = _align_injection_catalog_epochs(catalog, collection_times)
+
+    # Validate every source before any injector can mutate pixels. Do not use
+    # cached standardizer metadata: it may share the collection's legacy epochs.
+    references = []
+    for i, row in enumerate(ic.data):
+        ref = butler.get_dataset(DatasetId(row["dataId"]), dimension_records=True)
+        visit = butler.get(ref.makeComponentRef("visitInfo"))
+        native_midpoint = float(ButlerStandardizer._visit_midpoint_utc(visit).mjd)
+        if not np.isfinite(native_midpoint) or not np.isclose(
+            native_midpoint, collection_times[i], rtol=0, atol=MIDPOINT_TOLERANCE_SECONDS / 86400.0
+        ):
+            raise ValueError(
+                f"Cannot inject: timestamp mismatch at ImageCollection row {i} "
+                f"(dataId={row['dataId']}). Native UTC MJD={native_midpoint:.12f}, "
+                f"collection mjd_mid={collection_times[i]:.12f}; "
+                f"native minus collection={(native_midpoint - collection_times[i]) * 86400:.6f} seconds "
+                f"(tolerance {MIDPOINT_TOLERANCE_SECONDS} seconds). "
+                "Rebuild the ImageCollection and injection catalog at the native midpoints before injection."
+            )
+        references.append(ref)
+
     logger.info("Injecting sources into %d exposures (zero_background=%s).", len(ic), zero_background)
     if zero_background:
         logger.info("Removing original science backgrounds after injection; retaining injector-added noise.")
@@ -279,22 +354,18 @@ def inject_sources_into_ic(
         inject_config = VisitInjectConfig()
     inject_task = VisitInjectTask(config=inject_config)
 
-    catalog = catalog.group_by("obstime")
-
     # Provide robust alignment handling
-    references, exposures, injected_cats = [], [], []
+    exposures, injected_cats = [], []
 
     # Iterate through each exposure in the image collection for injection
     injected_exposure_cnt = 0
-    for i in range(len(ic)):
+    for i, ref in enumerate(references):
         dataId, mjd_mid = ic.data["dataId"][i], ic.data["mjd_mid"][i]
         # Filter for all sources at our current timestep
-        src_mask = catalog["obstime"] == mjd_mid
+        src_mask = aligned_times == mjd_mid
         srccat = catalog[src_mask]
 
-        # Resolve the dataset reference from dataId and load the corresponding exposure.
-        did = DatasetId(dataId)
-        ref = butler.get_dataset(did, dimension_records=True)
+        # References and native midpoint consistency were checked in preflight.
         imdiff = butler.get(ref)
 
         if len(srccat) == 0:
@@ -305,7 +376,6 @@ def inject_sources_into_ic(
             injected_cats.append(
                 Table(names=catalog.colnames, dtype=[catalog[c].dtype for c in catalog.colnames])
             )
-            references.append(ref)
             continue
 
         # Preserve the real image for gain inference, even when removing its background.
@@ -336,7 +406,6 @@ def inject_sources_into_ic(
             injected_cats.append(
                 Table(names=catalog.colnames, dtype=[catalog[c].dtype for c in catalog.colnames])
             )
-        references.append(ref)
 
     # Apply the same variance mode to successful, empty-catalog, and no-render exposures.
     if constant_variance:
@@ -373,6 +442,16 @@ def inject_sources_into_ic(
 
     # Rebuild the ImageCollection from the new standardizers
     new_ic = ImageCollection.fromStandardizers(new_standardizers)
+    rebuilt_times = np.ma.asarray(new_ic.data["mjd_mid"], dtype=float).filled(np.nan)
+    if len(rebuilt_times) != len(collection_times) or not np.all(
+        np.isfinite(rebuilt_times)
+        & np.isclose(rebuilt_times, collection_times, rtol=0, atol=MIDPOINT_TOLERANCE_SECONDS / 86400.0)
+    ):
+        raise ValueError(
+            "Injection changed the ImageCollection midpoints while rebuilding standardizers. "
+            "Check cached metadata and row-to-image mapping; rebuild the collection and catalog "
+            "from consistent native epochs. No consistent injected collection can be returned."
+        )
     return new_ic, injected_cats
 
 

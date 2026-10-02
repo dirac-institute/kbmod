@@ -2,7 +2,8 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 import numpy as np
-from astropy.table import Table
+from astropy.table import Table, MaskedColumn
+from astropy.time import Time
 
 from kbmod import ImageCollection
 from kbmod.configuration import SearchConfiguration
@@ -10,11 +11,19 @@ from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 from kbmod.search import Trajectory
 from kbmod.injection import generate_injection_catalog, inject_sources_into_ic, match_injection_results
 from kbmod.results import Results
+from kbmod.standardizers import ButlerStandardizer
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 
-from utils import DECamImdiffFactory, MockButler, MockVisitInjectConfig, MockVisitInjectTask
+from utils import (
+    DECamImdiffFactory,
+    MockButler,
+    MockVisitInjectConfig,
+    MockVisitInjectTask,
+    DatasetId,
+    dafButler,
+)
 
 
 class TestInjectionCatalog(unittest.TestCase):
@@ -210,16 +219,25 @@ class TestInjectSources(unittest.TestCase):
     """Tests for inject_sources_into_ic using MockVisitInjectTask."""
 
     def setUp(self):
-        self.fitsFactory = DECamImdiffFactory()
-        fits = self.fitsFactory.get_n(3, spoof_data=True)
-        self.ic = ImageCollection.fromTargets(fits)
-        self.ic.data["mjd_mid"] = np.array([59000.0, 59001.0, 59002.0])
-        # Spoof dataId column — inject_sources_into_ic needs it to look up
-        # exposures via butler.get_dataset(DatasetId(idd))
-        self.ic.data["dataId"] = ["0", "1", "2"]
+        modules = mock.patch.dict("sys.modules", {"lsst.daf.butler": dafButler})
+        modules.start()
+        self.addCleanup(modules.stop)
         # Use use_header_dimensions=True so the mock exposure WCS is consistent
         # with the image bounds (RA/Dec -> pixel conversions land within image)
         self.butler = MockButler("/mock/root", use_header_dimensions=True)
+        original_visit = self.butler.mock_visitinfo
+
+        def visit_info(ref):
+            visit = original_visit(ref)
+            visit.date.toAstropy.return_value = Time(59000.0 + ref, format="mjd", scale="utc")
+            return visit
+
+        visits = mock.patch.object(self.butler, "mock_visitinfo", side_effect=visit_info)
+        visits.start()
+        self.addCleanup(visits.stop)
+        self.ic = ImageCollection.fromStandardizers(
+            [ButlerStandardizer(DatasetId(i, fill_metadata=True), butler=self.butler) for i in range(3)]
+        )
 
     # Note that we use `create=True` to ensure that the mocks are created
     # even if LSST is not installed such as in the GitHub Actions environment.
@@ -245,7 +263,7 @@ class TestInjectSources(unittest.TestCase):
                 "guess_distance": [None, None, None],
                 "source_type": ["Star", "Star", "Star"],
                 "obj_ids": [0, 0, 0],
-                "obstime": [59000.0, 59001.0, 59002.0],
+                "obstime": list(self.ic.data["mjd_mid"]),
                 "plot_x": [2.5, 2.5, 2.5],
                 "plot_y": [2.5, 2.5, 2.5],
             }
@@ -309,6 +327,166 @@ class TestInjectSources(unittest.TestCase):
         self.assertGreater(flux_bright, flux_faint)
 
 
+class TestInjectionTiming(unittest.TestCase):
+    """Exercise production orchestration; only Rubin rendering is stubbed."""
+
+    def setUp(self):
+        def patch_context(patcher):
+            value = patcher.start()
+            self.addCleanup(patcher.stop)
+            return value
+
+        patch_context(mock.patch.dict("sys.modules", {"lsst.daf.butler": dafButler}))
+        self.butler = MockButler("/timing/mock")
+        original_visit = self.butler.mock_visitinfo
+
+        def visit_info(ref):
+            visit = original_visit(ref)
+            visit.exposureTime = 120.0
+            visit.date.toAstropy.return_value = Time("2025-05-02T01:00:37", scale="tai") + ref * 300 * u.s
+            return visit
+
+        patch_context(mock.patch.object(self.butler, "mock_visitinfo", side_effect=visit_info))
+        self.ic = ImageCollection.fromStandardizers(
+            [ButlerStandardizer(DatasetId(i, fill_metadata=True), butler=self.butler) for i in range(2)]
+        )
+        self.native = np.asarray(self.ic.data["mjd_mid"]).copy()
+        ra, dec = list(self.ic.wcs)[0].all_pix2world(2, 2, 0)
+        self.catalog = Table(
+            {
+                "injection_id": [0, 1],
+                "obstime": self.native.copy(),
+                "ra": [float(ra)] * 2,
+                "dec": [float(dec)] * 2,
+                "mag": [22.0] * 2,
+                "obj_ids": ["object"] * 2,
+                "source_type": ["Star"] * 2,
+            }
+        )
+        patch_context(mock.patch("kbmod.injection.HAS_LSST", True))
+        patch_context(mock.patch("kbmod.injection.DatasetId", DatasetId, create=True))
+        patch_context(mock.patch("kbmod.injection.VisitInjectConfig", MockVisitInjectConfig, create=True))
+        self.task_factory = patch_context(mock.patch("kbmod.injection.VisitInjectTask", create=True))
+        self.task = self.task_factory.return_value
+        self.task.run.side_effect = lambda injection_catalogs, input_exposure, **kw: SimpleNamespace(
+            output_exposure=input_exposure, output_catalog=injection_catalogs
+        )
+        self.pixel_load = patch_context(
+            mock.patch.object(self.butler, "mock_exposure", wraps=self.butler.mock_exposure)
+        )
+
+    def assert_preflight_failure(self, ic, catalog, message):
+        with self.assertRaisesRegex(ValueError, message):
+            inject_sources_into_ic(ic, catalog, self.butler)
+        self.task_factory.assert_not_called()
+        self.pixel_load.assert_not_called()
+
+    def test_legacy_collection_fails_before_any_pixels(self):
+        for cache in ("warm", "cold"):
+            with self.subTest(cache=cache):
+                # Put the error in the LAST row: no earlier exposure may be mutated.
+                self.ic.data["mjd_mid"][1] = self.native[1] + 60.5 / 86400
+                catalog = self.catalog.copy()
+                catalog["obstime"] = self.ic.data["mjd_mid"].copy()
+                if cache == "warm":
+                    self.ic._standardizers[1]._metadata["mjd_mid"] = catalog["obstime"][1]
+                else:
+                    self.ic._standardizers = np.full((2,), None)
+                stored = np.asarray(self.ic.data["mjd_mid"]).copy()
+                self.assert_preflight_failure(
+                    self.ic, catalog, r"timestamp mismatch.*row 1.*tolerance 0\.001 seconds"
+                )
+                np.testing.assert_array_equal(self.ic.data["mjd_mid"], stored)
+                np.testing.assert_array_equal(catalog["obstime"], stored)
+
+    def test_stale_precomputed_catalog(self):
+        for rows in ([0, 1], [1]):
+            with self.subTest(rows=rows):
+                catalog = self.catalog.copy()
+                catalog["obstime"][rows] += 60.5 / 86400
+                self.assert_preflight_failure(self.ic, catalog, "unmatched obstime")
+
+    def test_invalid_epochs(self):
+        for target in ("collection", "catalog"):
+            for value in (np.nan, np.inf, "masked"):
+                with self.subTest(target=target, value=value):
+                    ic = ImageCollection(self.ic.data.copy(), standardizers=self.ic._standardizers)
+                    catalog = self.catalog.copy()
+                    table, column = (ic.data, "mjd_mid") if target == "collection" else (catalog, "obstime")
+                    if value == "masked":
+                        table.replace_column(column, MaskedColumn(table[column], mask=[False, True]))
+                    else:
+                        table[column][1] = value
+                    self.assert_preflight_failure(ic, catalog, "finite, unmasked")
+
+    def test_ambiguous_catalog_epoch(self):
+        self.ic.data["mjd_mid"][1] = self.native[0] + 0.0005 / 86400
+        self.assert_preflight_failure(self.ic, self.catalog[:1], "ambiguous obstime")
+
+    def test_corrected_catalog_roundoff_preserves_epochs_and_matches(self):
+        # The second exposure intentionally has no catalog sources.
+        catalog = self.catalog[:1].copy()
+        catalog["obstime"] += 0.0001 / 86400
+        stored = np.asarray(catalog["obstime"]).copy()
+        rebuilt, truth = inject_sources_into_ic(self.ic, catalog, self.butler)
+        self.assertEqual(self.task.run.call_count, 1)
+        np.testing.assert_array_equal(rebuilt.data["mjd_mid"], self.native)
+        np.testing.assert_array_equal(truth["obstime"], stored)
+        np.testing.assert_array_equal(catalog["obstime"], stored)
+        # Mock incidental metadata fields are objects, unlike real Butler values.
+        for name in list(rebuilt.data.colnames):
+            if rebuilt.data[name].dtype.kind == "O":
+                rebuilt.data.remove_column(name)
+        work = rebuilt.toWorkUnit(butler=self.butler)
+        np.testing.assert_array_equal(work.get_all_obstimes(), self.native)
+        result = Results(
+            Table(
+                {
+                    "x": [2],
+                    "y": [2],
+                    "vx": [0.0],
+                    "vy": [0.0],
+                    "likelihood": [10.0],
+                    "flux": [1.0],
+                    "obs_count": [1],
+                    "obs_valid": [[True, False]],
+                }
+            ),
+            wcs=list(rebuilt.wcs)[0],
+        )
+        result.set_mjd_utc_mid(work.get_all_obstimes())
+        match_injection_results(truth, result, min_obs=1)
+        self.assertEqual(result.table["injected_sources"][0]["object"], [True, False])
+
+    def test_empty_catalog_is_allowed(self):
+        with self.assertWarnsRegex(UserWarning, "No objects were successfully rendered"):
+            rebuilt, truth = inject_sources_into_ic(self.ic, self.catalog[:0], self.butler)
+        self.task.run.assert_not_called()
+        self.assertEqual(len(truth), 0)
+        np.testing.assert_array_equal(rebuilt.data["mjd_mid"], self.native)
+
+    def test_multiple_detectors_at_one_epoch(self):
+        # Catalog epochs identify visits, so both detector images should receive
+        # the same catalog rows without being treated as an ambiguous match.
+        self.ic.data["mjd_mid"][1] = self.native[0]
+        self.ic._standardizers[1]._metadata["mjd_mid"] = self.native[0]
+        visit = self.butler.mock_visitinfo(0)
+        with mock.patch.object(self.butler, "mock_visitinfo", return_value=visit):
+            rebuilt, truth = inject_sources_into_ic(self.ic, self.catalog[:1], self.butler)
+        self.assertEqual(self.task.run.call_count, 2)
+        self.assertEqual(len(truth), 2)
+        np.testing.assert_array_equal(rebuilt.data["mjd_mid"], [self.native[0]] * 2)
+
+    def test_rebuilt_epoch_drift_is_rejected(self):
+        # Fresh source and collection times agree; a stale cached standardizer
+        # must not be allowed to change the returned collection's convention.
+        self.ic._standardizers[1]._metadata["mjd_mid"] += 60.5 / 86400
+        with self.assertRaisesRegex(ValueError, "Injection changed the ImageCollection midpoints"):
+            inject_sources_into_ic(self.ic, self.catalog, self.butler)
+        self.assertEqual(self.task.run.call_count, 2)
+        np.testing.assert_array_equal(self.ic.data["mjd_mid"], self.native)
+
+
 class TestEmptyBackgroundInjection(unittest.TestCase):
     """Check zero-background output for successful, absent, and failed injections."""
 
@@ -332,8 +510,20 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
             return exposure
 
         butler = mock.Mock()
-        butler.get_dataset.side_effect = lambda did, **kwargs: did
-        butler.get.side_effect = lambda ref: make_exposure()
+        butler.get_dataset.side_effect = lambda did, **kwargs: SimpleNamespace(
+            id=did, makeComponentRef=lambda name: (name, did)
+        )
+
+        def get_dataset(ref):
+            if isinstance(ref, tuple):
+                return SimpleNamespace(
+                    date=SimpleNamespace(
+                        toAstropy=lambda: Time(ic.data["mjd_mid"][ref[1]], format="mjd", scale="utc")
+                    )
+                )
+            return make_exposure()
+
+        butler.get.side_effect = get_dataset
         # The three exposures cover success, no catalog rows, and a rendering failure.
         catalog = Table({"injection_id": [0, 1], "obstime": [59000.0, 59002.0]})
 
@@ -352,14 +542,19 @@ class TestEmptyBackgroundInjection(unittest.TestCase):
             mock.patch("kbmod.injection.DatasetId", side_effect=int, create=True),
             mock.patch("kbmod.injection.VisitInjectConfig", MockVisitInjectConfig, create=True),
             mock.patch("kbmod.injection.VisitInjectTask", create=True) as task,
-            mock.patch.object(ImageCollection, "fromStandardizers", side_effect=lambda stds: stds),
+            mock.patch.object(
+                ImageCollection,
+                "fromStandardizers",
+                side_effect=lambda stds: SimpleNamespace(data=ic.data.copy(), standardizers=stds),
+            ),
         ):
             task.return_value.run.side_effect = inject
             with self.assertWarnsRegex(UserWarning, "had no objects successfully rendered"):
-                standardizers, injected_catalog = inject_sources_into_ic(ic, catalog, butler, **kwargs)
+                rebuilt, injected_catalog = inject_sources_into_ic(ic, catalog, butler, **kwargs)
+                standardizers = rebuilt.standardizers
 
         self.assertEqual(task.return_value.run.call_count, 2)
-        self.assertEqual([std.ref for std in standardizers], [0, 1, 2])
+        self.assertEqual([std.ref.id for std in standardizers], [0, 1, 2])
         self.assertEqual(list(injected_catalog["injection_id"]), [0])
         # Every variance mode must preserve the original pixel masks.
         for std in standardizers:
