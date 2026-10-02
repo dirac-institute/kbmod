@@ -16,6 +16,7 @@ import kbmod.reprojection_utils
 from kbmod.filters.known_object_filters import KnownObjsMatcher
 from kbmod.image_collection import ImageCollection, MIDPOINT_TOLERANCE_SECONDS
 from kbmod.results import Results
+from kbmod.standardizers import ButlerStandardizer
 
 try:
     from lsst.daf.butler import DatasetId
@@ -331,7 +332,7 @@ def inject_sources_into_ic(
     for i, row in enumerate(ic.data):
         ref = butler.get_dataset(DatasetId(row["dataId"]), dimension_records=True)
         visit = butler.get(ref.makeComponentRef("visitInfo"))
-        native_midpoint = float(visit.date.toAstropy().utc.mjd)
+        native_midpoint = float(ButlerStandardizer._visit_midpoint_utc(visit).mjd)
         if not np.isfinite(native_midpoint) or not np.isclose(
             native_midpoint, collection_times[i], rtol=0, atol=MIDPOINT_TOLERANCE_SECONDS / 86400.0
         ):
@@ -339,7 +340,8 @@ def inject_sources_into_ic(
                 f"Cannot inject: timestamp mismatch at ImageCollection row {i} "
                 f"(dataId={row['dataId']}). Native UTC MJD={native_midpoint:.12f}, "
                 f"collection mjd_mid={collection_times[i]:.12f}; "
-                f"native minus collection={(native_midpoint - collection_times[i]) * 86400:.6f} seconds. "
+                f"native minus collection={(native_midpoint - collection_times[i]) * 86400:.6f} seconds "
+                f"(tolerance {MIDPOINT_TOLERANCE_SECONDS} seconds). "
                 "Rebuild the ImageCollection and injection catalog at the native midpoints before injection."
             )
         references.append(ref)

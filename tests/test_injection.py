@@ -393,7 +393,9 @@ class TestInjectionTiming(unittest.TestCase):
                 else:
                     self.ic._standardizers = np.full((2,), None)
                 stored = np.asarray(self.ic.data["mjd_mid"]).copy()
-                self.assert_preflight_failure(self.ic, catalog, "timestamp mismatch.*row 1")
+                self.assert_preflight_failure(
+                    self.ic, catalog, r"timestamp mismatch.*row 1.*tolerance 0\.001 seconds"
+                )
                 np.testing.assert_array_equal(self.ic.data["mjd_mid"], stored)
                 np.testing.assert_array_equal(catalog["obstime"], stored)
 

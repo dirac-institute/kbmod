@@ -431,6 +431,15 @@ class ButlerStandardizer(Standardizer):
         return pts
 
     @staticmethod
+    def _visit_midpoint_utc(visit):
+        """Return the native VisitInfo midpoint as an Astropy UTC Time.
+
+        VisitInfo.date is already the exposure midpoint. Keep the Time object
+        until serialization so nominal-start arithmetic retains its precision.
+        """
+        return visit.date.toAstropy().utc
+
+    @staticmethod
     def _mjd_to_obs_day(mjd_mid):
         """Convert MJD to observing day in YYYYMMDD format.
 
@@ -481,7 +490,7 @@ class ButlerStandardizer(Standardizer):
         expt = visit.exposureTime
         # VisitInfo.date already represents the exposure midpoint, in TAI.
         # Derive the nominal start from the duration; do not advance the midpoint.
-        midpoint = visit.date.toAstropy()
+        midpoint = self._visit_midpoint_utc(visit)
         mjd_start = midpoint - (expt / 2) * u.s
         self._metadata["exposureTime"] = expt
 
@@ -489,8 +498,8 @@ class ButlerStandardizer(Standardizer):
         # time stamps to UTC for consistency.
         # Name mjd into mjd_mid - make it obvious it's middle of exposure.
         self._metadata["mjd_start"] = mjd_start.utc.mjd
-        self._metadata["mjd_mid"] = midpoint.utc.mjd
-        self._metadata["obs_day"] = ButlerStandardizer._mjd_to_obs_day(midpoint.utc.mjd)
+        self._metadata["mjd_mid"] = midpoint.mjd
+        self._metadata["obs_day"] = ButlerStandardizer._mjd_to_obs_day(midpoint.mjd)
 
         self._metadata["object"] = visit.object
         self._metadata["pointing_ra"] = visit.boresightRaDec.getRa().asDegrees()
