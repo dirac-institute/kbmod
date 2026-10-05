@@ -463,8 +463,19 @@ class SearchRunner:
 
         # Filter invalid images if needed. We do this at the WorkUnit level if one is provided
         # so that the metadata is correctly handled. Otherwise we just filter the image stack.
+        masked_fractions = stack.get_masked_fractions()
+        keep_mask = np.ones(stack.num_times, dtype=bool)
         if config["max_masked_pixels"] < 1.0:
-            keep_mask = stack.get_masked_fractions() <= config["max_masked_pixels"]
+            keep_mask = masked_fractions <= config["max_masked_pixels"]
+        image_selection = {
+            "version": 1,
+            "stage": "max_masked_pixels",
+            "threshold": float(config["max_masked_pixels"]),
+            "input_mjd_utc_mid": np.asarray(stack.times).tolist(),
+            "masked_fractions": masked_fractions.tolist(),
+            "kept_indices": np.flatnonzero(keep_mask).tolist(),
+        }
+        if config["max_masked_pixels"] < 1.0:
             logger.debug(f"Filtering images from the stack. Keeping: {keep_mask}")
             if workunit is not None:
                 workunit.filter_images(keep_mask)
@@ -475,7 +486,7 @@ class SearchRunner:
 
         # Determine how many images have at least 10% valid pixels.  Make sure
         # num_obs is no larger than 80% of the valid images.
-        img_count = np.count_nonzero(stack.get_masked_fractions() < 0.9)
+        img_count = np.count_nonzero(masked_fractions[keep_mask] < 0.9)
         if img_count == 0:
             raise ValueError("No valid images in input.")
         if config["num_obs"] == -1 or config["num_obs"] >= img_count:
@@ -587,6 +598,10 @@ class SearchRunner:
             meta_to_save.update(wu_meta)
         meta_to_save["num_img"] = num_img
         meta_to_save["dims"] = stack.width, stack.height
+        # Record even when no output file is requested, including empty results.
+        # Override caller metadata so it cannot replace the measured selection.
+        meta_to_save["image_selection"] = image_selection
+        keep.table.meta["image_selection"] = image_selection
         keep.set_mjd_utc_mid(np.array(stack.times))
 
         if config["result_filename"] is not None:

@@ -876,6 +876,7 @@ class test_results(unittest.TestCase):
         # Create a fake WCS
         fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
         table.wcs = fake_wcs
+        table.table.meta["image_selection"] = {"kept_indices": [0, 2, 4, 6, 8]}
 
         # Test with parquet format only (chunked reading requires parquet)
         with tempfile.TemporaryDirectory() as dir_name:
@@ -894,6 +895,9 @@ class test_results(unittest.TestCase):
             self.assertEqual(len(all_chunks[0]), 5)
             self.assertEqual(len(all_chunks[1]), 5)
             self.assertEqual(len(all_chunks[2]), 5)
+            self.assertEqual(all_chunks[0].table.meta["image_selection"], {"kept_indices": [0, 2, 4, 6, 8]})
+            all_chunks[0].table.meta["image_selection"]["kept_indices"][0] = 99
+            self.assertEqual(all_chunks[1].table.meta["image_selection"]["kept_indices"][0], 0)
 
             # Each chunk should have mjd_mid attached and be np.ndarray type
             for chunk in all_chunks:
