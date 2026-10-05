@@ -33,7 +33,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-# Shared by WorkUnit construction and Butler-backed injection preflight.
+# Tolerance for UTC MJD midpoint agreement when building WorkUnits.
 MIDPOINT_TOLERANCE_SECONDS = 0.001
 
 

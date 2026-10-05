@@ -79,16 +79,6 @@ difference in seconds. Historical collections remain readable; the check neither
 migrates nor relabels them. Agreement is an internal consistency check, not proof
 that two matching legacy timestamps are scientifically correct.
 
-Butler injection performs a separate preflight against fresh ``VisitInfo`` dates
-before loading pixels, and checks that rebuilding the injected collection does
-not change its epochs. Each nonempty catalog epoch must match exactly one
-distinct collection epoch within 1 ms; multiple detectors at the same epoch are
-supported. Subset precomputed catalogs to the intended collection before use.
-Unmatched or ambiguous catalog epochs raise an error. Empty catalogs and
-individual exposures without catalog sources remain valid. This tolerance
-accommodates rounding only: catalog coordinates and timestamps are preserved,
-not propagated or relabeled.
-
 Retain original products and their software revisions for historical
 reproduction. Use rebuilt products for corrected analyses; there is no option
 to restore the erroneous Butler midpoint arithmetic. Audit any manual timestamp

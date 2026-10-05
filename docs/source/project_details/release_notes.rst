@@ -13,11 +13,6 @@ Unreleased
   greater than 1 ms, invalid epochs, and image-count mismatches. This applies to
   all standardizers, including FITS collections with manually edited timestamps.
   Historical files remain readable, but loading does not migrate their epochs.
-* Butler injection validates source and collection epochs before loading pixels.
-  Catalog epochs must uniquely align within 1 ms; stale or ambiguous epochs
-  raise an error instead of silently injecting no sources. Empty catalogs and
-  exposures with no catalog sources remain supported. Catalog coordinates and
-  timestamps are never automatically relabeled.
 * Rebuild affected collections, injection catalogs, dependent WorkUnits and
   reprojections, and time-dependent matches together. Preserve original artifacts
   and audit downstream manual offsets to avoid applying a correction twice.
