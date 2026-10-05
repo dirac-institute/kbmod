@@ -32,34 +32,6 @@ including DEEP data ingested into Butler. It does not establish the meaning of
 arbitrary standalone FITS date keywords. FITS standardizers must interpret each
 supported product's timestamp keyword and time-scale convention separately.
 
-Astropy distinguishes `input time scales
-<https://docs.astropy.org/en/stable/time/index.html#creating-a-time-object>`_
-from `conversion between scales
-<https://docs.astropy.org/en/stable/time/index.html#convert-time-scale>`_. For
-example, for a 30.5-second exposure:
-
-.. code-block:: python
-
-    from astropy.time import Time
-    import astropy.units as u
-
-    midpoint = Time("2025-05-02T01:02:21.750", scale="tai")
-    midpoint.utc.isot  # '2025-05-02T01:01:44.750'
-    (midpoint - 15.25 * u.s).utc.isot  # '2025-05-02T01:01:29.500'
-    mjd_mid = midpoint.utc.mjd
-
-The 37-second TAI/UTC difference in this example is date-dependent; let Astropy
-perform the conversion rather than hard-coding it. Neither converting the scale
-nor obtaining ``.mjd`` requires adding half the exposure duration.
-
-The observing-day fix is separate from the removal of the extra midpoint offset.
-Its input ``mjd_mid`` is a UTC number, so
-``Time(mjd_mid, format="mjd", scale="utc").tai`` preserves the intended instant
-before applying the noon-TAI boundary. Constructing
-``Time(mjd_mid, format="mjd", scale="tai")`` instead interprets the same numeric
-value as TAI and therefore refers to a different instant. The stored KBMOD
-midpoints remain UTC MJD.
-
 Existing products and compatibility
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -81,13 +53,5 @@ that two matching legacy timestamps are scientifically correct.
 
 Retain original products and their software revisions for historical
 reproduction. Use rebuilt products for corrected analyses; there is no option
-to restore the erroneous Butler midpoint arithmetic. Audit any manual timestamp
-offsets in downstream notebooks before using rebuilt inputs to avoid applying
-a correction twice. Do not apply a universal offset to unverified products:
-exposure duration, ingestion path, and source time scale determine the correction.
+to restore the erroneous Butler midpoint arithmetic.
 
-When regenerating synthetic truth, use each ephemeris row's actual epoch and
-record its time scale. Do not infer that epoch from an old collection's
-``mjd_start``, or change timestamps without checking the associated positions.
-Preserve the saved standardizer configuration, including mask policy, when
-rebuilding a matched comparison.
