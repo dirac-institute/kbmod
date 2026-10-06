@@ -519,6 +519,53 @@ class Results:
 
         return self
 
+    def extend_many(self, results_list):
+        """Append several `Results` objects at once.
+
+        Equivalent to calling `extend` on each in order, but every table is stacked with a single
+        `vstack`. Repeated `extend` copies the whole accumulated table each time, which is quadratic
+        in the total number of rows when many batches are appended.
+
+        Parameters
+        ----------
+        results_list : `list` of `Results`
+            The data structures containing the results to add, in order.
+
+        Returns
+        -------
+        self : `Results`
+            Returns a reference to itself to allow chaining.
+
+        Raises
+        ------
+        Raises a ValueError if the columns of the results do not match.
+        """
+        if len(results_list) == 0:
+            return self
+
+        # Every table must match the current one if it is non-empty, otherwise the first one added.
+        reference = set(self.colnames) if len(self) > 0 else set(results_list[0].colnames)
+        for results2 in results_list:
+            if set(results2.colnames) != reference:
+                raise ValueError("Column mismatch when merging results")
+
+        self.table = vstack([self.table] + [results2.table for results2 in results_list])
+
+        # Combine the statistics (even if track_filtered is False) and gather the filtered rows
+        # per key, so each key is also stacked once.
+        pending = {}
+        for results2 in results_list:
+            for key, count in results2.filtered_stats.items():
+                self.filtered_stats[key] = self.filtered_stats.get(key, 0) + count
+            for key, filtered_table in results2.filtered.items():
+                if key not in pending:
+                    pending[key] = [self.filtered[key]] if key in self.filtered else []
+                pending[key].append(filtered_table)
+        for key, tables in pending.items():
+            self.filtered[key] = tables[0] if len(tables) == 1 else vstack(tables)
+
+        return self
+
     def make_trajectory_list(self):
         """Create a list of ``Trajectory`` objects.
 
