@@ -20,6 +20,7 @@ import astropy.units as u
 import numpy as np
 
 from kbmod.core.image_stack_py import ImageStackPy
+from kbmod.wcs_utils import serialize_wcs, deserialize_wcs
 from .standardizers import Standardizer, ButlerStandardizer
 
 
@@ -258,19 +259,11 @@ class ImageCollection:
                     row["ext_idx"] = j
                     row["std_name"] = str(std.name)
 
-                # config and WCS are serialized in a more complicated way
-                # than most literal values. Both are stringified dicts, but
-                # WCS must construct its metadata as a header object before it
-                # can be serialized. Its important to save every character here
+                # Keep the shared versioned codec authoritative for numeric WCS
+                # state; converting through a FITS header here loses precision.
                 row["config"] = json.dumps(std.config.toDict(), separators=(",", ":"))
 
-                header = std.wcs[j].to_header(relax=True)
-                # pixel_shape follows FITS (width, height), unlike NumPy array shapes.
-                naxis1, naxis2 = std.wcs[j].pixel_shape
-                header["NAXIS1"] = naxis1
-                header["NAXIS2"] = naxis2
-                header_dict = {k: v for k, v in header.items()}
-                row["wcs"] = json.dumps(header_dict, separators=(",", ":"))
+                row["wcs"] = serialize_wcs(std.wcs[j])
                 unravelledStdMetadata.append(row)
             valid_standardizers.append(std)
 
@@ -545,7 +538,7 @@ class ImageCollection:
             # the warnings that some keywords might be ignored are expected
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                yield WCS(json.loads(self.data[i]["wcs"]), relax=True)
+                yield deserialize_wcs(self.data[i]["wcs"])
 
     def reflex_correct(self, guess_distance, earth_loc):
         """
@@ -753,8 +746,8 @@ class ImageCollection:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             if isinstance(selected, Column):
-                return [WCS(json.loads(row), relax=True) for row in selected]
-            return WCS(json.loads(selected), relax=True)
+                return [deserialize_wcs(row) for row in selected]
+            return deserialize_wcs(selected)
 
     @property
     def bbox(self):
@@ -1280,17 +1273,25 @@ class ImageCollection:
             wcs_data = self.data["global_wcs"][0]
             try:
                 wcs_data = json.loads(wcs_data)
-            except Exception:
+            except (TypeError, ValueError):
                 pass
-            global_wcs = WCS(wcs_data, relax=True)
+            if isinstance(wcs_data, dict):
+                global_wcs = deserialize_wcs(json.dumps(wcs_data))
+            else:
+                global_wcs = WCS(wcs_data, relax=True)
             if (
                 "global_wcs_pixel_shape_0" in self.data.columns
                 and "global_wcs_pixel_shape_1" in self.data.columns
             ):
-                global_wcs.pixel_shape = (
+                saved_shape = (
                     self.data["global_wcs_pixel_shape_0"][0],
                     self.data["global_wcs_pixel_shape_1"][0],
                 )
+                if isinstance(wcs_data, dict) and "__kbmod_wcs__" in wcs_data:
+                    if global_wcs.pixel_shape != saved_shape:
+                        raise ValueError("Global WCS payload and legacy pixel-shape columns disagree")
+                else:
+                    global_wcs.pixel_shape = saved_shape
             return global_wcs
 
         if auto_fit:

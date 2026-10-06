@@ -282,7 +282,7 @@ class TestRegionSearch(unittest.TestCase):
 
                 # Check that the WCS is valid
                 self.assertEqual(len(set(patch_ic.data["global_wcs"])), 1)
-                wcs = WCS(patch_ic.data["global_wcs"][0])
+                wcs = patch_ic.get_global_wcs()
                 # Check that the WCS is valid
                 self.assertIsInstance(wcs, WCS)
 

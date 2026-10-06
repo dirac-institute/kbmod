@@ -67,6 +67,11 @@ def extract_wcs_from_hdu_header(header):
     curr_wcs : `astropy.wcs.WCS`
         The WCS or None if it does not exist.
     """
+    # KBMOD's numeric payload is authoritative; ordinary FITS cards remain
+    # available to external readers and for legacy files.
+    if "KBWCS" in header:
+        return deserialize_wcs(header["KBWCS"])
+
     # Check that we have (at minimum) the CRVAL and CRPIX keywords.
     # These are necessary (but not sufficient) requirements for the WCS.
     if "CRVAL1" not in header or "CRVAL2" not in header:
@@ -93,7 +98,7 @@ def extract_wcs_from_hdu_header(header):
     return curr_wcs
 
 
-def append_wcs_to_hdu_header(wcs, header):
+def append_wcs_to_hdu_header(wcs, header, *, include_exact=False):
     """Append the WCS fields to an existing HDU header.
 
     Parameters
@@ -102,12 +107,17 @@ def append_wcs_to_hdu_header(wcs, header):
         The WCS to use or a dictionary with the necessary information.
     header : `astropy.io.fits.Header`
         The header to which to append the data.
+    include_exact : `bool`, optional
+        Also write KBMOD's authoritative numeric payload. An existing payload
+        is always refreshed (or removed for a plain header dictionary).
     """
     if wcs is not None:
         if type(wcs) is dict:
             wcs_map = wcs
+            header.pop("KBWCS", None)
         else:
-            wcs_map = wcs.to_header()
+            # Header formatting initializes WCSLIB state; keep caller state intact.
+            wcs_map = wcs.deepcopy().to_header()
 
             # shhh... don't tell astropy we're doing this
             # (astropy will refuse to store a "NAXIS[1/2]" key)
@@ -116,17 +126,23 @@ def append_wcs_to_hdu_header(wcs, header):
                 header["DIMM1"] = naxis1
                 header["DIMM2"] = naxis2
 
+            if include_exact or "KBWCS" in header:
+                header["KBWCS"] = serialize_wcs(wcs)
+
         for key in wcs_map:
             header[key] = wcs_map[key]
 
 
-def serialize_wcs(wcs):
-    """Convert a WCS into a JSON string.
+def serialize_wcs(wcs, *, require_exact=False):
+    """Convert a WCS to versioned JSON, preserving supported numeric state.
 
     Parameters
     ----------
     wcs : `astropy.wcs.WCS` or None
         The WCS to convert.
+    require_exact : `bool`, optional
+        Reject models outside the supported 2D celestial TAN/SIP subset.
+        Otherwise emit an explicitly labeled header-only representation.
 
     Returns
     -------
@@ -136,10 +152,9 @@ def serialize_wcs(wcs):
     if wcs is None:
         return ""
 
-    # Since AstroPy's WCS does not output NAXIS, we need to manually add those.
-    header = wcs.to_header(relax=True)
-    header["NAXIS1"], header["NAXIS2"] = wcs.pixel_shape
-    return json.dumps(dict(header))
+    from kbmod._wcs_serialization import encode_wcs
+
+    return json.dumps(encode_wcs(wcs, require_exact=require_exact), separators=(",", ":"))
 
 
 def deserialize_wcs(wcs_str):
@@ -158,10 +173,9 @@ def deserialize_wcs(wcs_str):
     if wcs_str == "" or wcs_str.lower() == "none":
         return None
 
-    wcs_dict = json.loads(wcs_str)
-    wcs = astropy.wcs.WCS(wcs_dict)
-    wcs.pixel_shape = (wcs_dict["NAXIS1"], wcs_dict["NAXIS2"])
-    return wcs
+    from kbmod._wcs_serialization import decode_wcs
+
+    return decode_wcs(json.loads(wcs_str))
 
 
 def make_fake_wcs(center_ra, center_dec, height, width, deg_per_pixel=None):

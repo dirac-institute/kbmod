@@ -931,7 +931,7 @@ class WorkUnit:
 
         # If the global WCS exists, append the corresponding keys to the primary header.
         if self.wcs is not None:
-            append_wcs_to_hdu_header(self.wcs, pri.header)
+            append_wcs_to_hdu_header(self.wcs, pri.header, include_exact=True)
         hdul.append(pri)
 
         # Add the configuration layer.
@@ -1276,7 +1276,7 @@ def image_metadata_table_to_hdu(data, layer_name=None):
             elif np.all(col_data == None):
                 # Skip completely empty columns.
                 logger.debug("Skipping empty metadata column {colname}")
-            elif isinstance(col_data[0], WCS):
+            elif all(entry is None or isinstance(entry, WCS) for entry in col_data):
                 # Serialize WCS objects and use a custom tag so we can unserialize them.
                 values = np.array([serialize_wcs(entry) for entry in data[colname]], dtype=str)
                 save_table[f"_WCSSTR_{colname}"] = values

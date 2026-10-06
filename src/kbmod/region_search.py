@@ -5,6 +5,7 @@ from astropy import units as u
 from astropy.wcs import WCS
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
+from kbmod.wcs_utils import serialize_wcs
 
 from shapely.geometry import Polygon, Point
 
@@ -517,7 +518,7 @@ class RegionSearch:
 
             # Populate the patch information to construct the patch WCS
             patch_wcs = patch.to_wcs()
-            new_ic.data["global_wcs"] = patch_wcs.to_header_string()
+            new_ic.data["global_wcs"] = serialize_wcs(patch_wcs)
             new_ic.data["global_wcs_pixel_shape_0"] = patch_wcs.pixel_shape[0]
             new_ic.data["global_wcs_pixel_shape_1"] = patch_wcs.pixel_shape[1]
 

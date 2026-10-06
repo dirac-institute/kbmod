@@ -167,9 +167,7 @@ def process_results_file(
     if wcs is None:
         # Get the global_wcs string from the first row of the ImageCollection as a WCS object.
         ic = ImageCollection.read(get_ic_from_results_file(results_file))
-        from astropy.wcs import WCS
-
-        wcs = WCS(ic[0]["global_wcs"])
+        wcs = ic.get_global_wcs()
 
     # Carry out initial matching to known objects and populate the matches column.
     known_objs_matcher.match(res, wcs)
