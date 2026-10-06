@@ -33,6 +33,9 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+# Tolerance for UTC MJD midpoint agreement when building WorkUnits.
+MIDPOINT_TOLERANCE_SECONDS = 0.001
+
 
 def pack_table(data):
     """Given a `Table`, find columns containing the same values and pack them
@@ -1170,6 +1173,13 @@ class ImageCollection:
         -------
         work_unit : `~kbmod.WorkUnit`
             A `~kbmod.WorkUnit` object for processing with KBMOD.
+
+        Raises
+        ------
+        ValueError
+            If reconstructed images and collection rows differ in number, or
+            their UTC MJD midpoints are non-finite or disagree by more than
+            1 millisecond (absolute tolerance, no relative tolerance).
         """
         from .work_unit import WorkUnit
 
@@ -1184,6 +1194,42 @@ class ImageCollection:
 
         # Extract all of the relevant metadata from the ImageCollection.
         metadata = Table(self.toBinTableHDU().data)
+        if len(layered_images) != len(metadata):
+            raise ValueError(
+                f"Cannot build WorkUnit: reconstructed {len(layered_images)} images for "
+                f"{len(metadata)} ImageCollection rows. Check the collection's image mapping."
+            )
+
+        # A saved collection can contain epochs from an older standardizer.
+        # Do not combine those rows with images reconstructed using new timing
+        # semantics. 1 ms allows floating-point/serialization roundoff at MJD
+        # precision without hiding scientifically significant timing offsets.
+        image_times = np.asarray([img.time for img in layered_images], dtype=float)
+        collection_times = np.asarray(metadata["mjd_mid"], dtype=float)
+        consistent = (
+            np.isfinite(image_times)
+            & np.isfinite(collection_times)
+            & np.isclose(image_times, collection_times, rtol=0, atol=MIDPOINT_TOLERANCE_SECONDS / 86400.0)
+        )
+        if not np.all(consistent):
+            index = int(np.flatnonzero(~consistent)[0])
+            row = metadata[index]
+            identity = ", ".join(
+                f"{key}={row[key]}" for key in ("visit", "detector", "location") if key in metadata.colnames
+            )
+            difference_s = (image_times[index] - collection_times[index]) * 86400.0
+            raise ValueError(
+                f"Cannot build WorkUnit: timestamp mismatch at ImageCollection row {index} ({identity}). "
+                f"Image UTC MJD={image_times[index]:.12f}, "
+                f"collection mjd_mid={collection_times[index]:.12f}; "
+                f"image minus collection={difference_s:.6f} seconds "
+                f"(tolerance {MIDPOINT_TOLERANCE_SECONDS} seconds). "
+                "Check the collection's row-to-image mapping as well as its timing convention. "
+                "Rebuild the ImageCollection from its source data with the current standardizer "
+                "before rebuilding dependent WorkUnits. Preserve the original artifacts and "
+                "standardizer configuration; do not relabel stored timestamps."
+            )
+
         if None not in self.wcs:
             metadata["per_image_wcs"] = list(self.wcs)
 
