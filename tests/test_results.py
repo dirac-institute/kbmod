@@ -583,6 +583,30 @@ class test_results(unittest.TestCase):
         with self.assertRaises(ValueError):
             Results.from_trajectories(self.trj_list).extend_many([Results(self.input_dict)])
 
+    def test_extend_many_empty_tables_match_extend(self):
+        # Until rows accumulate, extend accepts a table with other columns and keeps the union;
+        # extend_many must accept the same sequence and build the same table.
+        self.input_dict["something_added"] = [i for i in range(self.num_entries)]
+        extra_empty = Results(self.input_dict)
+        extra_empty.filter_rows(np.full(self.num_entries, False))
+        self.assertEqual(len(extra_empty), 0)
+        plain = Results.from_trajectories(self.trj_list)
+
+        sequential = Results()
+        for batch in [extra_empty, plain]:
+            sequential.extend(batch)
+        at_once = Results().extend_many([extra_empty, plain])
+        self.assertEqual(set(at_once.colnames), set(sequential.colnames))
+        self.assertIn("something_added", at_once.colnames)
+        self.assertEqual(len(at_once), self.num_entries)
+        self.assertTrue(np.array_equal(at_once["x"], sequential["x"]))
+
+        # Once rows exist, a later table must match the accumulated columns, as with extend.
+        with self.assertRaises(ValueError):
+            Results().extend(plain).extend(Results(self.input_dict))
+        with self.assertRaises(ValueError):
+            Results().extend_many([plain, Results(self.input_dict)])
+
     def test_extend_many_filtered_stats_untracked(self):
         # The filter counts add up across batches when the filtered rows are not tracked.
         batches = []

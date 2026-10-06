@@ -543,11 +543,17 @@ class Results:
         if len(results_list) == 0:
             return self
 
-        # Every table must match the current one if it is non-empty, otherwise the first one added.
-        reference = set(self.colnames) if len(self) > 0 else set(results_list[0].colnames)
+        # Check columns as repeated `extend` would: once rows have accumulated, each table must
+        # match the accumulated columns, which are the union of every table so far (an empty
+        # table can contribute columns before any rows arrive).
+        reference = set(self.colnames)
+        accumulated_rows = len(self)
         for results2 in results_list:
-            if set(results2.colnames) != reference:
+            incoming = set(results2.colnames)
+            if accumulated_rows > 0 and incoming != reference:
                 raise ValueError("Column mismatch when merging results")
+            reference.update(incoming)
+            accumulated_rows += len(results2)
 
         self.table = vstack([self.table] + [results2.table for results2 in results_list])
 
