@@ -547,6 +547,25 @@ class test_results(unittest.TestCase):
         self.assertEqual(len(table1.get_filtered("filter2")), 3)
         self.assertEqual(len(table1.get_filtered("filter3")), 6)
 
+    def test_extend_filtered_stats_untracked(self):
+        # The filter counts must add up across extends even when the filtered rows are not tracked.
+        table1 = Results.from_trajectories(self.trj_list, track_filtered=False)
+        for i in range(self.num_entries):
+            self.trj_list[i].x += self.num_entries
+        table2 = Results.from_trajectories(self.trj_list, track_filtered=False)
+
+        table1.filter_rows([1, 3, 4, 5, 6, 7, 8, 9], label="filter1")
+        table1.filter_rows([1, 2, 3, 4, 7], label="filter2")
+        table2.filter_rows([1, 3, 4, 5, 6, 7, 8], label="filter1")
+        table2.filter_rows([1], label="filter3")
+
+        table1.extend(table2)
+        self.assertEqual(len(table1), 6)
+        self.assertEqual(table1.filtered_stats["filter1"], 5)
+        self.assertEqual(table1.filtered_stats["filter2"], 3)
+        self.assertEqual(table1.filtered_stats["filter3"], 6)
+        self.assertEqual(len(table1.filtered), 0)
+
     def test_to_from_table_file(self):
         max_save = 5
         table = Results.from_trajectories(self.trj_list[0:max_save], track_filtered=True)
