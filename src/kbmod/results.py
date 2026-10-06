@@ -504,7 +504,7 @@ class Results:
 
         # Combine the statistics (even if track_filtered is False).
         for key in results2.filtered_stats.keys():
-            if key in self.filtered:
+            if key in self.filtered_stats:
                 self.filtered_stats[key] += results2.filtered_stats[key]
             else:
                 self.filtered_stats[key] = results2.filtered_stats[key]
