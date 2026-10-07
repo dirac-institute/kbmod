@@ -603,6 +603,15 @@ class SearchRunner:
         meta_to_save["image_selection"] = image_selection
         keep.table.meta["image_selection"] = image_selection
         keep.set_mjd_utc_mid(np.array(stack.times))
+        from .timing import epoch_digest
+
+        timing = (
+            workunit.timing_provenance
+            if workunit is not None
+            else {"schema_version": 1, "status": "unknown", "epoch_sha256": epoch_digest(stack.times)}
+        )
+        meta_to_save["timing_provenance"] = timing
+        keep.table.meta["timing_provenance"] = timing
 
         if config["result_filename"] is not None:
             write_results_to_files_destructive(

@@ -21,6 +21,7 @@ import numpy as np
 
 from kbmod.core.image_stack_py import ImageStackPy
 from .standardizers import Standardizer, ButlerStandardizer
+from .timing import MIDPOINT_TOLERANCE_SECONDS, timing_summary
 
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
@@ -32,9 +33,6 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
-
-# Tolerance for UTC MJD midpoint agreement when building WorkUnits.
-MIDPOINT_TOLERANCE_SECONDS = 0.001
 
 
 def pack_table(data):
@@ -708,6 +706,11 @@ class ImageCollection:
             return
         mask = ~np.isin(self.data["band"], bands_to_drop)
         self.data = self.data[mask]
+
+    @property
+    def timing_provenance(self):
+        """Recorded timing convention; missing or unsupported provenance is unknown."""
+        return timing_summary(self.data)
 
     def obs_nights_spanned(self):
         """Calculate the number of nights spanned by the observations in the ImageCollection.

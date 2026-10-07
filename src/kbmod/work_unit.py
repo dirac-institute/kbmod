@@ -214,6 +214,31 @@ class WorkUnit:
 
         self.im_stack.print_stats()
 
+    @property
+    def timing_provenance(self):
+        """Constituent timing provenance bound to the current stack's epochs."""
+        from .timing import epoch_digest, MIDPOINT_TOLERANCE_SECONDS, timing_summary
+
+        record = timing_summary(self.org_img_meta)
+        # The cached accessor may predate an in-memory stack edit.
+        times = self.get_all_obstimes() if self.lazy else self.im_stack.times
+        record["epoch_sha256"] = epoch_digest(times)
+        if record["status"] == "current":
+            if len(times) != len(self._per_image_indices) or any(
+                not indices
+                or not np.all(
+                    np.isclose(
+                        self.org_img_meta["mjd_mid"][indices],
+                        time,
+                        rtol=0,
+                        atol=MIDPOINT_TOLERANCE_SECONDS / 86400,
+                    )
+                )
+                for time, indices in zip(times, self._per_image_indices)
+            ):
+                record["status"] = "inconsistent"
+        return record
+
     def get_constituent_meta(self, column):
         """Get the metadata values of a given column or a list of columns
         for all the constituent images.
@@ -982,8 +1007,10 @@ class WorkUnit:
         """
         # input value validation
         if not self.reprojected:
-            raise ValueError("`WorkUnit` not reprojected. This method is purpose built \
-                for handling post reproject coordinate tranformations.")
+            raise ValueError(
+                "`WorkUnit` not reprojected. This method is purpose built \
+                for handling post reproject coordinate tranformations."
+            )
 
         original_wcses = [w for w in self.org_img_meta["per_image_wcs"]]
 

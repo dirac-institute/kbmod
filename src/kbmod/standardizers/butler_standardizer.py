@@ -20,6 +20,7 @@ import numpy as np
 from .standardizer import Standardizer, StandardizerConfig
 
 from kbmod.wcs_utils import max_sky_separation
+from kbmod.timing import butler_timing_metadata
 
 from kbmod.core.psf import PSF
 
@@ -448,18 +449,19 @@ class ButlerStandardizer(Standardizer):
 
         Parameters
         ----------
-        mjd_mid : `float`
+        mjd_mid : `float` or array-like
             UTC Modified Julian Date at the middle of the exposure.
 
         Returns
         -------
-        obs_day : `int`
+        obs_day : `int` or `numpy.ndarray`
             Observing day in YYYYMMDD format.
         """
         observing_date = astropy.time.Time(mjd_mid, format="mjd", scale="utc").tai
         offset = astropy.time.TimeDelta(12 * 3600, format="sec", scale="tai")
         observing_date -= offset
-        return int(observing_date.strftime("%Y%m%d"))
+        days = observing_date.strftime("%Y%m%d")
+        return int(days) if observing_date.isscalar else np.asarray(days, dtype=int)
 
     def _fetch_meta(self):
         """Fetch metadata and any dataset components that do not
@@ -502,6 +504,7 @@ class ButlerStandardizer(Standardizer):
         # Name mjd into mjd_mid - make it obvious it's middle of exposure.
         self._metadata["mjd_start"] = mjd_start.utc.mjd
         self._metadata["mjd_mid"] = midpoint.mjd
+        self._metadata.update(butler_timing_metadata(midpoint.mjd, self.ref.id))
         self._metadata["obs_day"] = ButlerStandardizer._mjd_to_obs_day(midpoint.mjd)
 
         self._metadata["object"] = visit.object

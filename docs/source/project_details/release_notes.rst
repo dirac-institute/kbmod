@@ -6,6 +6,13 @@ Unreleased
 
 **Timestamp correction and compatibility**
 
+* Butler timing metadata now records a versioned convention, scale, standardizer
+  contract version, package version, and source epoch/ID. Provenance flows through
+  WorkUnits into search Results; historical missing records remain unknown.
+* ``kbmod-migrate-imagecollections`` audits ECSV/Parquet collections and can
+  source-verify and write corrected Butler collections without image I/O or
+  overwriting originals. See :doc:`../user_manual/timing_migration`.
+
 * Butler timestamps now use the native ``VisitInfo`` exposure midpoint converted
   to UTC MJD. The previous extra ``exposureTime / 2 + 0.5`` seconds is removed;
   ``mjd_start`` is now the nominal midpoint minus half the exposure duration.

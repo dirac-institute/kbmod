@@ -585,6 +585,7 @@ class TestButlerStandardizer(unittest.TestCase):
                             for i in (7, 8)
                         ]
                         collection = ImageCollection.fromStandardizers(stds)
+                        self.assertEqual(collection.timing_provenance["status"], "current")
                         native = np.asarray(collection.data["mjd_mid"]).copy()
                         if legacy:
                             # The old Butler calculation advanced each native midpoint.
@@ -617,6 +618,7 @@ class TestButlerStandardizer(unittest.TestCase):
                             self.assertIn("image minus collection=", str(error.exception))
                         else:
                             work = target.toWorkUnit(butler=self.butler)
+                            self.assertEqual(work.timing_provenance["status"], "current")
                             np.testing.assert_allclose(work.get_all_obstimes(), native, rtol=0, atol=1e-10)
                             np.testing.assert_array_equal(work.org_img_meta["mjd_mid"], stored)
                         # Validation must not repair or relabel the historical epochs.

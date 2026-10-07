@@ -7,6 +7,7 @@ User Manual
 
    overview
    input_files
+   timing_migration
    search_space
    reprojection
    search_params

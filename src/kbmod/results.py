@@ -155,6 +155,16 @@ class Results:
         self.mjd_mid = times
 
     @property
+    def timing_provenance(self):
+        """Recorded search timing, or unknown for historical/unbound results."""
+        from .timing import epoch_digest
+
+        record = copy.deepcopy(self.table.meta.get("timing_provenance", {"status": "unknown"}))
+        if self.mjd_mid is None or record.get("epoch_sha256") != epoch_digest(self.mjd_mid):
+            record["status"] = "unknown"
+        return record
+
+    @property
     def colnames(self):
         return self.table.colnames
 
@@ -500,7 +510,14 @@ class Results:
         if len(self) > 0 and set(self.colnames) != set(results2.colnames):
             raise ValueError("Column mismatch when merging results")
 
+        # Do not promote mixed legacy/current results to the last table's claim.
+        timing1 = self.timing_provenance if "timing_provenance" in self.table.meta else None
+        timing2 = results2.timing_provenance if "timing_provenance" in results2.table.meta else None
         self.table = vstack([self.table, results2.table])
+        if timing1 is not None or timing2 is not None:
+            self.table.meta["timing_provenance"] = (
+                timing1 if timing1 == timing2 else {"schema_version": 1, "status": "unknown"}
+            )
 
         # Combine the statistics (even if track_filtered is False).
         for key in results2.filtered_stats.keys():
@@ -1083,6 +1100,10 @@ class Results:
             for key, val in extra_meta.items():
                 logger.debug(f"Saving {key} to Results table meta data.")
                 self.table.meta[key] = val
+
+        if "timing_provenance" in self.table.meta:
+            # Do not serialize a current claim for edited/unbound epochs.
+            self.table.meta["timing_provenance"] = self.timing_provenance
 
         # Write out the table.
         self.table.write(filename, overwrite=overwrite, **kwargs)
