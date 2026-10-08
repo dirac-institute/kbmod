@@ -25,10 +25,15 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 import astropy.units as u
+from astropy.time import Time
 
 from .visits import ic_visit_table, sorcha_epoch_from_ic
 
 logger = logging.getLogger(__name__)
+
+# A Sorcha epoch further than this from the layer time it is joined to means a bad
+# visit join or a time-scale mix-up, not a convention offset (those are <= 15.5 s).
+MAX_EPOCH_GAP_S = 60.0
 
 
 def _patch_healpix_cells(global_wcs, nside, pad_factor=1.5):
@@ -115,9 +120,9 @@ def _rates_from_track(mjd, ra, dec):
 def _apply_epoch_correction(obj_ids, mjd_sorcha, ra, dec, dt_days):
     """Propagate positions forward by ``dt_days`` using each object's own rate.
 
-    Sorcha evaluated positions at the exposure start; KBMOD's ``obstime`` is
-    mid-exposure. The gap is half an exposure (~15.5 s), over which motion is linear
-    to far better than the resulting sub-milliarcsecond residual.
+    ``dt_days`` is the measured gap between each row's Sorcha epoch and the layer time
+    (``ic["mjd_mid"]``) it is labelled with: ~15.5 s on pre-kbmod#1179 collections, ~0
+    after it. Motion is linear over that gap to far better than a milliarcsecond.
     """
     ra_out, dec_out = ra.copy(), dec.copy()
     order = np.argsort(obj_ids, kind="stable")
@@ -211,19 +216,33 @@ def select_injections_for_ic(ic, index, config, global_wcs=None, guess_distance=
     s_mag = table["trailedSourceMag"].to_numpy(zero_copy_only=False)
     s_band = np.asarray(table["optFilter"].to_pandas(), dtype=object).astype(str)
 
-    # ---------- 2. epoch: shift start-of-exposure positions to mid-exposure ----------
+    # ---------- 2. epoch: move Sorcha positions to the layer time they are labelled with ----------
     v_order = np.argsort(visits["visit"], kind="stable")
     v_sorted = visits["visit"][v_order]
     pos = np.searchsorted(v_sorted, s_visit)
     pos = np.clip(pos, 0, len(v_sorted) - 1)
     row_of_visit = v_order[pos]
     obstime = visits["mjd_mid"][row_of_visit]
-    exp_time = visits["exposure_time"][row_of_visit]
-    start_time = visits["mjd_start"][row_of_visit]
 
     if config.correct_epoch_to_mid_exposure:
-        sorcha_epoch_utc = sorcha_epoch_from_ic(obstime, exp_time, mjd_start=start_time)
-        dt_days = np.nan_to_num(obstime - sorcha_epoch_utc)
+        # Measure the gap between each row's own Sorcha epoch and the layer time it
+        # will be labelled with, rather than inferring it from mjd_start. It is
+        # ~+15.5 s on pre-kbmod#1179 collections (mjd_mid carries a spurious offset)
+        # and ~0 on post-#1179 ones, whose mjd_mid is the true mid-exposure instant
+        # that fieldMJD_TAI also denotes.
+        dt_days = np.zeros(len(obstime))
+        finite = np.isfinite(obstime) & np.isfinite(s_field_mjd)
+        if finite.any():
+            dt_days[finite] = Time(obstime[finite], format="mjd", scale="utc").tai.mjd - s_field_mjd[finite]
+        worst = np.abs(dt_days).max() * 86400.0 if len(dt_days) else 0.0
+        if worst > MAX_EPOCH_GAP_S:
+            raise ValueError(
+                f"Sorcha epochs differ from the collection's mjd_mid by up to {worst:.1f} s; "
+                "the visit join or the time scale is wrong"
+            )
+        logger.info(
+            "Epoch correction: median %.3f s, max |dt| %.3f s", np.median(dt_days) * 86400.0, worst
+        )
         s_ra, s_dec = _apply_epoch_correction(obj_id, s_field_mjd, s_ra, s_dec, dt_days)
 
     # ---------- 3. spatial: land each row on a real detector, and in the patch ----------

@@ -295,6 +295,28 @@ class TestSelectionAndCatalog(unittest.TestCase):
         self.assertGreater(float(np.max(d)), 0.0)
         self.assertLess(float(np.max(d)), 0.2)
 
+    def test_epoch_correction_is_zero_when_mjd_mid_is_the_sorcha_epoch(self):
+        """Post-kbmod#1179 collections label layers with the instant Sorcha used."""
+        from kbmod.sorcha_injection import generate_injection_catalog_from_sorcha
+
+        ic = FakeIC(global_wcs=_make_wcs())
+        ic.data["mjd_mid"] = ic.data["mjd_start"]  # fieldMJD_TAI == TAI(mjd_start) in the fixture
+        on = generate_injection_catalog_from_sorcha(ic, self.index, self.cfg)
+        cfg_off = SorchaInjectionConfig(
+            index_path=self.index_path, min_obs_per_object=1, correct_epoch_to_mid_exposure=False
+        )
+        off = generate_injection_catalog_from_sorcha(ic, self.index, cfg_off)
+        d = np.hypot(on["ra"] - off["ra"], on["dec"] - off["dec"]) * 3600.0
+        self.assertLess(float(np.max(d)), 1e-6)
+
+    def test_epoch_gap_beyond_guard_raises(self):
+        from kbmod.sorcha_injection import generate_injection_catalog_from_sorcha
+
+        ic = FakeIC(global_wcs=_make_wcs())
+        ic.data["mjd_mid"] = ic.data["mjd_start"] + 300.0 / 86400.0
+        with self.assertRaises(ValueError):
+            generate_injection_catalog_from_sorcha(ic, self.index, self.cfg)
+
     def test_plot_columns_track_the_patch_frame(self):
         from kbmod.sorcha_injection import generate_injection_catalog_from_sorcha
 

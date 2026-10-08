@@ -10,8 +10,9 @@ logger = logging.getLogger(__name__)
 DEFAULT_SORCHA_ROOT = "/astro/store/shire/murtagh/sorcha/dp2__outputs"
 DEFAULT_POINTING_DB = "/astro/store/shire/murtagh/sorcha/surveysetup/exposures_from_rubin_fixed.db"
 
-# Populations present under DEFAULT_SORCHA_ROOT.
-ALL_POPULATIONS = ("cc", "cen", "de", "hc", "re_21", "re_32", "re_52")
+# Populations Joe Murtagh's Sorcha runs produce (DP2 under DEFAULT_SORCHA_ROOT; the
+# 2026-10-07 DP1 run adds sc, re_73 and re_74, the last two with no detections).
+ALL_POPULATIONS = ("cc", "cen", "de", "hc", "sc", "re_21", "re_32", "re_52", "re_73", "re_74")
 
 # Populations that are complete and safe to read. ``re_52`` is excluded by default
 # because it was still being generated as of 2026-08-17; reading a shard mid-write
@@ -63,13 +64,13 @@ class SorchaInjectionConfig:
         corrected). Objects failing this are on a detector but outside the
         searched region, so they would be un-recoverable by construction.
     correct_epoch_to_mid_exposure : `bool`
-        Sorcha evaluated positions at the *start* of each exposure rather than at
-        mid-exposure (see :mod:`kbmod.sorcha_injection.visits`). When True, each
-        row's position is linearly propagated forward by ``visitTime / 2`` using
-        the object's own on-sky rate, so it corresponds to ``ic["mjd_mid"]``.
-        The correction is small -- 0.011" median, 0.023" at the 99th percentile
-        for cold classicals, i.e. about a tenth of an LSSTCam pixel -- but it is
-        free and removes a known systematic.
+        When True, each row's position is linearly propagated, using the object's
+        own on-sky rate, from its ``fieldMJD_TAI`` to the ``ic["mjd_mid"]`` it is
+        labelled with. The gap is measured per row: ~15.5 s on pre-kbmod#1179
+        collections, whose ``mjd_mid`` is late by that much, and ~0 on post-#1179
+        ones. The correction is small -- 0.011" median, 0.023" at the 99th
+        percentile for cold classicals at 15.5 s -- but it is free. A gap over
+        ``selector.MAX_EPOCH_GAP_S`` raises, since it means a broken join.
     healpix_nside : `int`
         NSIDE of the ``healpix`` column stored in the index, used for the cheap
         spatial pre-filter. Must match the value the index was built with.
