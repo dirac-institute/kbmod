@@ -303,8 +303,9 @@ def build_sorcha_index(
         "pointing_db_visits": len(pdb),
         "build_seconds": round(time.time() - t0, 1),
         "epoch_note": (
-            "fieldMJD_TAI is the exposure START in TAI; the KBMOD mid-exposure epoch is "
-            "fieldMJD_TAI - 37s + exposureTime/2 in UTC. See kbmod.sorcha_injection.visits."
+            "fieldMJD_TAI is the pointing DB's observationStartMJD + visitTime/2 (TAI): the true "
+            "mid-exposure instant to within ~0.2 s. Pre-kbmod#1179 collections label layers 15.5 s later; "
+            "the selector measures the gap per row. See kbmod.sorcha_injection.selector."
         ),
     }
     with open(os.path.join(out_path, _META_FILENAME), "w") as fh:
