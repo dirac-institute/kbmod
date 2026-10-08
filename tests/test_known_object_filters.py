@@ -59,7 +59,18 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.obs_valid[i][invalid_obs] = False
         self.res.update_obs_valid(self.obs_valid)
         assert set(self.res.table.columns) == set(
-            ["x", "y", "vx", "vy", "likelihood", "flux", "obs_count", "obs_valid", "uuid"]
+            [
+                "x",
+                "y",
+                "vx",
+                "vy",
+                "likelihood",
+                "flux",
+                "obs_count",
+                "obs_valid",
+                "uuid",
+                "obs_invalid_reason",
+            ]
         )
 
         # Use the results' trajectories to generate a set of known objects that intersect our generated results in various
@@ -308,6 +319,52 @@ class TestKnownObjMatcher(unittest.TestCase):
             if i != 1 and i != 8:
                 self.assertEqual(0, len(matches[i]))
 
+    def test_match_first_obs_invalid(self):
+        """A result whose first observation is invalid must still match a known
+        object sitting exactly on its trajectory.
+
+        `trj.x` / `trj.y` are defined at the stack's first obstime, so predicting
+        over only the valid obstimes has to stay anchored there. Zeroing on the
+        first valid obstime instead displaces every predicted position by
+        |v| * (t_first_valid - t_first), which is far more than `sep_thresh`.
+        """
+        trj = Trajectory(x=6, y=7, vx=0.25, vy=-0.25, flux=500.0)
+
+        # A perfect catalog: the object is exactly on the trajectory at every
+        # obstime, predicted over the full obstime vector (the stack's epoch),
+        # which is the same convention used for the global_ra/global_dec columns.
+        truth = trajectory_predict_skypos(trj, self.wcs, self.obstimes)
+        catalog = Table(
+            {
+                "Name": ["perfect_match"] * len(self.obstimes),
+                "RA": truth.ra.degree,
+                "DEC": truth.dec.degree,
+                "mjd_mid": self.obstimes,
+            }
+        )
+        matcher = KnownObjsMatcher(
+            catalog,
+            self.obstimes,
+            self.matcher_name,
+            self.sep_thresh,
+            self.time_thresh_s,
+        )
+
+        for first_obs_valid in [True, False]:
+            with self.subTest(first_obs_valid=first_obs_valid):
+                res = Results.from_trajectories([trj], track_filtered=True)
+                obs_valid = np.full((1, len(self.obstimes)), True)
+                obs_valid[0][0] = first_obs_valid
+                res.update_obs_valid(obs_valid)
+
+                res = matcher.match(res, self.wcs)
+                matched = res[self.matcher_name][0]
+
+                # Every valid observation should match, whether or not the first
+                # observation of the stack was one of them.
+                self.assertIn("perfect_match", matched)
+                self.assertEqual(int(obs_valid.sum()), sum(matched["perfect_match"]))
+
     def test_match_excessive_spatial_filtering(self):
         # Here we only filter for exact spatial matches and should return no results
         self.sep_thresh = 0.0
@@ -510,14 +567,24 @@ class TestKnownObjMatcher(unittest.TestCase):
     def test_match_obs_ratio(self):
         # Here we test considering a known object recovered based on the ratio of observations
         # in the catalog that were temporally within
+        # `obs_ratio` is a *minimum*: an object is recovered when at least that
+        # fraction of the object's own catalog observations matched. Only two of
+        # the catalog objects match at all here, at these ratios:
+        #   spatial_close_time_close_1: 20 of its 25 observations = 0.8
+        #       (result 1 has 5 invalid observations, which can never match)
+        #   sparse_8:                    2 of its  3 observations = 0.667
         min_obs_ratios = [
-            0.0,
-            1.0,
+            0.0,  # Every matched object clears a zero minimum.
+            0.7,  # Only the denser of the two objects clears this.
+            0.8,  # The comparison is inclusive, so 0.8 still clears it.
+            1.0,  # Neither object matched every one of its observations.
         ]
         # The expected matching objects for each min_obs_ratio parameter chosen.
         expected_matches = [
-            set([]),
             set(["spatial_close_time_close_1", "sparse_8"]),
+            set(["spatial_close_time_close_1"]),
+            set(["spatial_close_time_close_1"]),
+            set([]),
         ]
         orig_res = self.res.table.copy()
         for obs_ratio, expected in zip(min_obs_ratios, expected_matches):

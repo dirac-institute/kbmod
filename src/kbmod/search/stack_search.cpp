@@ -30,12 +30,40 @@ std::vector<float> extract_joint_psi_phi_curve(const PsiPhiArray& psi_phi, const
     return result;
 }
 
+
+// A helper function to extract information about whether a pixel is valid.
+std::vector<int> extract_pixel_validity(const PsiPhiArray& psi_phi, const Trajectory& trj) {
+    const unsigned int num_times = psi_phi.get_num_times();
+    std::vector<int> result(num_times, InvalidPixelReason::VALID);
+
+    for (unsigned int i = 0; i < num_times; ++i) {
+        double time = psi_phi.read_time(i);
+
+        // Check whether the pixel is in bounds.
+        int x = trj.get_x_index(time);
+        int y = trj.get_y_index(time);
+        if (x < 0 || x >= psi_phi.get_width() || y < 0 || y >= psi_phi.get_height()) {
+            result[i] = InvalidPixelReason::INVALID_BOUNDS;
+            continue;
+        }
+
+        // Check whether we can read valid data from the pixel.
+        PsiPhi psi_phi_val = psi_phi.read_psi_phi(i, y, x);
+        if (!pixel_value_valid(psi_phi_val.psi) || !pixel_value_valid(psi_phi_val.phi)) {
+            result[i] = InvalidPixelReason::INVALID_MASK;
+        }
+    }
+    return result;
+}
+
+
 // --------------------------------------------
 // StackSearch
 // --------------------------------------------
 
 StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_imgs,
-                         std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times, int num_bytes)
+                         std::vector<Image>& psf_kernels, std::vector<double>& zeroed_times, int num_bytes,
+                         bool allow_gpu)
         : results(0), zeroed_times(zeroed_times) {
     // Get the logger for this module.
     rs_logger = logging::getLogger("kbmod.search.run_search");
@@ -43,7 +71,7 @@ StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_i
     // Get the image size data.
     num_imgs = sci_imgs.size();
     if (num_imgs == 0) {
-        throw std::runtime_error("No images in the to process.");
+        throw std::runtime_error("No images to process.");
     }
     if (sci_imgs.size() != var_imgs.size()) {
         throw std::runtime_error("The number of science and variance images do not match. Science: " +
@@ -69,7 +97,7 @@ StackSearch::StackSearch(std::vector<Image>& sci_imgs, std::vector<Image>& var_i
     // Compute the psi/phi array.
     DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
     fill_psi_phi_array_from_image_arrays(psi_phi_array, num_bytes, sci_imgs, var_imgs, psf_kernels,
-                                         zeroed_times);
+                                         zeroed_times, allow_gpu);
     psi_phi_preloaded = false;
     timer.stop();
 }
@@ -195,7 +223,7 @@ void StackSearch::evaluate_single_trajectory(Trajectory& trj, bool use_kernel) {
         evaluate_trajectory_cpu(psi_phi_array, trj);
     } else {
         if (!has_gpu()) throw std::runtime_error("GPU is not available for kernel evaluation.");
-        if (psi_phi_array.get_num_times() >= MAX_NUM_IMAGES) {
+        if (psi_phi_array.get_num_times() > MAX_NUM_IMAGES) {
             throw std::runtime_error("Too many images to evaluate on GPU. Max = " +
                                      std::to_string(MAX_NUM_IMAGES));
         }
@@ -299,6 +327,26 @@ uint64_t StackSearch::compute_max_results() {
     return num_search_pixels * params.results_per_pixel;
 }
 
+
+ImageI StackSearch::get_pixel_invalidity_reason(const std::vector<Trajectory>& trajectories) {
+    // Allocate a (num_trj, num_times) image to store the validity reasons.
+    const unsigned int num_trj = trajectories.size();
+    ImageI results = ImageI::Zero(num_trj, num_imgs);
+
+#pragma omp parallel for schedule(dynamic)
+    for (int i = 0; i < num_trj; ++i) {
+        std::vector<int> curve = extract_pixel_validity(psi_phi_array, trajectories[i]);
+
+// Copy the data into the results.
+#pragma omp critical
+        for (int j = 0; j < num_imgs; ++j) {
+            results(i, j) = curve[j];
+        }
+    }
+    return results;
+}
+
+
 Image StackSearch::get_all_psi_phi_curves(const std::vector<Trajectory>& trajectories) {
     // Allocate a (num_trj, 2 * num_times) image to store the curves for all the trajectories.
     const unsigned int num_trj = trajectories.size();
@@ -308,8 +356,8 @@ Image StackSearch::get_all_psi_phi_curves(const std::vector<Trajectory>& traject
     for (int i = 0; i < num_trj; ++i) {
         std::vector<float> curve = extract_joint_psi_phi_curve(psi_phi_array, trajectories[i]);
 
-// Copy the data into the results.
-#pragma omp critical
+        // Copy the data into the results. Each thread writes a distinct row,
+        // so there is no need to serialize access with a critical section.
         for (int j = 0; j < 2 * num_imgs; ++j) {
             results(i, j) = curve[j];
         }
@@ -345,8 +393,9 @@ static void stack_search_bindings(py::module& m) {
     using ks = search::StackSearch;
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
-            .def(py::init<iv&, iv&, iv&, dv&, int>(), py::arg("sci_imgs"), py::arg("var_imgs"),
-                 py::arg("psf_kernels"), py::arg("zeroed_times"), py::arg("num_bytes") = -1)
+            .def(py::init<iv&, iv&, iv&, dv&, int, bool>(), py::arg("sci_imgs"), py::arg("var_imgs"),
+                 py::arg("psf_kernels"), py::arg("zeroed_times"), py::arg("num_bytes") = -1,
+                 py::arg("allow_gpu") = true)
             .def_property_readonly("num_images", &ks::num_images)
             .def_property_readonly("height", &ks::get_image_height)
             .def_property_readonly("width", &ks::get_image_width)
@@ -371,6 +420,8 @@ static void stack_search_bindings(py::module& m) {
             .def("get_image_height", &ks::get_image_height, pydocs::DOC_StackSearch_get_image_height)
             .def("get_all_psi_phi_curves", &ks::get_all_psi_phi_curves,
                  pydocs::DOC_StackSearch_get_all_psi_phi_curves)
+            .def("get_pixel_invalidity_reason", &ks::get_pixel_invalidity_reason,
+                 pydocs::DOC_StackSearch_get_pixel_invalidity_reason)
             .def("preload_psi_phi_array", &ks::preload_psi_phi_array,
                  pydocs::DOC_StackSearch_preload_psi_phi_array)
             .def("unload_psi_phi_array", &ks::unload_psi_phi_array,

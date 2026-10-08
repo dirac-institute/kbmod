@@ -19,8 +19,18 @@ class test_trajectory_cluster_grid(unittest.TestCase):
         self.assertEqual(table.count.get((0, 0, 0, 0)), 1)
         self.assertEqual(table.get_indices(), [0])
 
-        # Add a few more trajectories.  The first two are new bins and the
-        # third overlaps the second.
+        # Check that we find it (and some nearby points)
+        assert table.check_nearby(Trajectory(0, 0, 0.0, 0.0, 1.0, 10.0, 10))
+        assert table.check_nearby(Trajectory(0, 0, 0.0, 0.01, 1.0, 10.0, 10))
+        assert table.check_nearby(Trajectory(0, 1, 0.0, 0.0, 1.0, 10.0, 10))
+        assert table.check_nearby(Trajectory(1, 0, 0.0, 0.01, 1.0, 10.0, 10))
+        assert table.check_nearby(Trajectory(1, 1, 0.0, 0.0, 1.0, 10.0, 10))
+
+        # Check a few query trajectories that are not in the table yet. The first two are
+        # new bins and the third overlaps the second. Then add them (we should only add 2).
+        assert not table.check_nearby(Trajectory(21, 21, 10.0, 10.0, 1.0, 10.0, 10))
+        assert not table.check_nearby(Trajectory(21, 21, 0.0, 0.0, 1.0, 10.0, 10))
+        assert not table.check_nearby(Trajectory(21, 21, 0.0, 0.0, 1.0, 100.0, 9))
         table.add_trajectory(Trajectory(21, 21, 10.0, 10.0, 1.0, 10.0, 10))
         table.add_trajectory(Trajectory(21, 21, 0.0, 0.0, 1.0, 10.0, 10))
         table.add_trajectory(Trajectory(21, 21, 0.0, 0.0, 1.0, 100.0, 9))
@@ -39,6 +49,7 @@ class test_trajectory_cluster_grid(unittest.TestCase):
         self.assertEqual(len(table.get_trajectories()), 3)
 
         # Add a worse trajectory to the (0, 0, 0, 0) bin.
+        self.assertTrue(table.check_nearby(Trajectory(0, 0, 0.0, 0.0, 1.0, 5.0, 5)))
         table.add_trajectory(Trajectory(0, 0, 0.0, 0.0, 1.0, 5.0, 5))
         self.assertEqual(len(table), 3)
         self.assertEqual(table.count[(0, 0, 0, 0)], 2)

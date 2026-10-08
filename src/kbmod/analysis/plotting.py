@@ -535,7 +535,8 @@ def plot_result_row(row, times=None, coadd_col="stamp", figure=None):
         The array of the time stamps. If ``None`` then uses equally
         spaced points. `None` by default.
     coadd_col : `str`
-        The name of the coadd to display.
+        The name of the coadd to display. If the column is absent, use the
+        first available named ``coadd_*`` column.
     figure : `matplotlib.pyplot.Figure` or `None`
         Figure, `None` by default.
     """
@@ -548,6 +549,8 @@ def plot_result_row(row, times=None, coadd_col="stamp", figure=None):
     # In the top subfigure plot the coadded stamp on the left and
     # the light curve on the right.
     ax_stamp, ax_lc = fig_top.subplots(1, 2)
+    if coadd_col not in row.colnames:
+        coadd_col = next((name for name in row.colnames if name.startswith("coadd_")), None)
     if coadd_col in row.colnames and row[coadd_col] is not None:
         plot_image(row[coadd_col], ax=ax_stamp, figure=fig_top, norm=True, title="Coadded Stamp")
     else:

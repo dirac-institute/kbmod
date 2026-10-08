@@ -215,6 +215,9 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array_from_image_arrays = R"doc(
         A list of PSF kernels as numpy arrays.
     zeroed_times : `list`
         A list of floating point times starting at zero.
+    allow_gpu : `bool`
+        Use the GPU for the psi and phi convolutions when one is available.
+        The default is `True`.
 
     Raises
     ------

@@ -21,11 +21,19 @@ PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
     m.attr("HAS_CUDA") = pybind11::bool_(search::HAVE_CUDA_LIB);
     m.attr("HAS_OMP") = pybind11::bool_(search::HAVE_OMP);
+    m.attr("MAX_NUM_IMAGES") = pybind11::int_(search::MAX_NUM_IMAGES);
     py::enum_<search::StampType>(m, "StampType")
             .value("STAMP_SUM", search::StampType::STAMP_SUM)
             .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
             .value("STAMP_MEDIAN", search::StampType::STAMP_MEDIAN)
             .value("STAMP_VAR_WEIGHTED", search::StampType::STAMP_VAR_WEIGHTED)
+            .export_values();
+    py::enum_<search::InvalidPixelReason>(m, "InvalidPixelReason")
+            .value("VALID", search::InvalidPixelReason::VALID)
+            .value("INVALID_BOUNDS", search::InvalidPixelReason::INVALID_BOUNDS)
+            .value("INVALID_MASK", search::InvalidPixelReason::INVALID_MASK)
+            .value("INVALID_SIGMA_G", search::InvalidPixelReason::INVALID_SIGMA_G)
+            .value("INVALID_UNKNOWN", search::InvalidPixelReason::INVALID_UNKNOWN)
             .export_values();
     logging::logging_bindings(m);
     search::cpu_search_algorithms_bindings(m);

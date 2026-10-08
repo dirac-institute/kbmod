@@ -25,9 +25,18 @@ int cuda_device_count() {
 void cuda_print_stats() {
     std::cout << "\n----- CUDA Debugging Log -----\n";
 
+    // Get the device count and number and check for errors.
     int device_num, device_count;
-    cudaGetDevice(&device_num);
-    cudaGetDeviceCount(&device_count);
+    unsigned int query_status_res = static_cast<unsigned int>(cudaGetDevice(&device_num));
+    if (query_status_res != 0) {
+        std::cout << "Unable to get current CUDA device: " << query_status_res << "\n";
+        return;
+    }
+    query_status_res = static_cast<unsigned int>(cudaGetDeviceCount(&device_count));
+    if (query_status_res != 0) {
+        std::cout << "Unable to get CUDA device count: " << query_status_res << "\n";
+        return;
+    }
     std::cout << "Device: " << device_num << " [" << device_count << " devices available]\n";
 
     // Output information about the current memory usage.
@@ -46,18 +55,22 @@ void cuda_print_stats() {
 
 size_t gpu_total_memory() {
     size_t free_mem, total_mem;
-    if (static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem)) == 0) {
-        return total_mem;
+    unsigned int resp_code = static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem));
+    if (resp_code != 0) {
+        std::cout << "Unable to query CUDA memory. Error code = " << resp_code << "\n";
+        return 0;
     }
-    return 0;
+    return total_mem;
 }
 
 size_t gpu_free_memory() {
     size_t free_mem, total_mem;
-    if (static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem)) == 0) {
-        return free_mem;
+    unsigned int resp_code = static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem));
+    if (resp_code != 0) {
+        std::cout << "Unable to query CUDA memory. Error code = " << resp_code << "\n";
+        return 0;
     }
-    return 0;
+    return free_mem;
 }
 
 // Check that we have a working GPU with enough memory.
@@ -66,7 +79,7 @@ bool cuda_check_gpu(size_t req_memory) {
     int device_num;
     unsigned int res = static_cast<unsigned int>(cudaGetDevice(&device_num));
     if (res != 0) {
-        std::cout << "Unable to find GPU device.\n";
+        std::cout << "Unable to find GPU device. Error code = " << res << "\n";
         return false;
     }
 
@@ -74,7 +87,7 @@ bool cuda_check_gpu(size_t req_memory) {
     size_t free_mem, total_mem;
     res = static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem));
     if (res != 0) {
-        std::cout << "Unable to query GPU available memory.\n";
+        std::cout << "Unable to query GPU available memory. Error code = " << res << "\n";
         return false;
     }
     if (free_mem < req_memory) {
@@ -97,17 +110,19 @@ extern "C" void *allocate_gpu_block(uint64_t memory_size) {
         cuda_print_stats();
         throw std::runtime_error("Unable to allocate GPU memory (" + std::to_string(memory_size) +
                                  " bytes). Error code = " + std::to_string(res));
-        gpu_ptr = nullptr;
     }
     return gpu_ptr;
 }
 
 extern "C" void free_gpu_block(void *gpu_ptr) {
-    if (gpu_ptr == nullptr) throw std::runtime_error("Trying to free nullptr.");
+    if (gpu_ptr == nullptr) return;  // Nothing to free if the pointer is null.
     unsigned int res = static_cast<unsigned int>(cudaFree(gpu_ptr));
     if (res != 0) {
         cuda_print_stats();
-        throw std::runtime_error("Unable to free GPU memory. Error code = " + std::to_string(res));
+
+        // Print an error message instead of throwing an exception, since we are
+        // often calling this from a destructor.
+        std::cout << "Unable to free GPU memory. Error code = " << std::to_string(res) << "\n";
     }
 }
 

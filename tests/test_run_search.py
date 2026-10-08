@@ -1,8 +1,10 @@
 """Test some of the functions needed for running the search."""
 
 import logging
+from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 from astropy.coordinates import EarthLocation
@@ -15,6 +17,7 @@ from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.results import Results
 from kbmod.run_search import (
     SearchRunner,
+    _get_coadd_types,
     append_positions_to_results,
     configure_kb_search_stack,
 )
@@ -25,6 +28,137 @@ from kbmod.work_unit import WorkUnit
 
 
 class test_run_search(unittest.TestCase):
+    def test_image_selection_provenance(self):
+        # Duplicate epochs cannot identify input images on their own.
+        times = [60676.0, 60677.0, 60677.0, 60678.0]
+        for with_workunit in [False, True]:
+            for threshold, indices in [(0.5, [0, 2, 3]), (1.0, [0, 1, 2, 3])]:
+                with self.subTest(workunit=with_workunit, threshold=threshold):
+                    with tempfile.TemporaryDirectory() as tmp:
+                        stack = FakeDataSet(10, 6, times).stack_py
+                        stack.sci[1][:] = np.nan
+                        stack.sci[2][:3] = np.nan  # Exactly at the inclusive threshold.
+                        path = Path(tmp) / "results.parquet"
+                        config = SearchConfiguration(
+                            {
+                                "max_masked_pixels": threshold,
+                                "stamp_type": None,
+                                "do_clustering": False,
+                                "compute_ra_dec": False,
+                                "save_config": False,
+                                "result_filename": str(path),
+                            }
+                        )
+                        work = None
+                        if with_workunit:
+                            # Existing WorkUnit format: no new provenance field needed.
+                            work = WorkUnit(stack, config)
+                            work.to_sharded_fits("legacy.fits", tmp)
+                            work = WorkUnit.from_sharded_fits("legacy.fits", tmp)
+                            stack = work.im_stack
+                        runner = SearchRunner()
+                        rows = Results.from_trajectories([Trajectory(x=1, y=1)])
+                        rows.table["obs_valid"] = [[False] + [True] * (len(indices) - 1)]
+                        with patch.object(runner, "do_core_search", return_value=rows):
+                            result = runner.run_search(
+                                config,
+                                stack,
+                                trj_generator=[],
+                                workunit=work,
+                                extra_meta={"image_selection": "stale caller metadata"},
+                            )
+                        expected = {
+                            "version": 1,
+                            "stage": "max_masked_pixels",
+                            "threshold": threshold,
+                            "input_mjd_utc_mid": times,
+                            "masked_fractions": [0.0, 1.0, 0.5, 0.0],
+                            "kept_indices": indices,
+                        }
+                        loaded = Results.read_table(path)
+                        chunk = next(Results.read_table_chunks(path, chunk_size=1))
+                        for res in [result, loaded, chunk]:
+                            self.assertEqual(res.table.meta["image_selection"], expected)
+                            np.testing.assert_array_equal(res.mjd_mid, np.asarray(times)[indices])
+                            self.assertFalse(res["obs_valid"][0][0])
+                        # Older results have no record; both readers must still load them.
+                        del loaded.table.meta["image_selection"]
+                        loaded.write_table(path)
+                        self.assertIsNone(Results.read_table(path).table.meta.get("image_selection"))
+                        self.assertIsNone(
+                            next(Results.read_table_chunks(path)).table.meta.get("image_selection")
+                        )
+
+    def test_image_selection_empty_results(self):
+        stack = FakeDataSet(10, 6, [60676.0, 60677.0]).stack_py
+        runner = SearchRunner()
+        config = SearchConfiguration({"stamp_type": None, "do_clustering": False})
+        with patch.object(runner, "do_core_search", return_value=Results()):
+            results = runner.run_search(config, stack, trj_generator=[])
+        self.assertEqual(len(results), 0)
+        self.assertEqual(results.table.meta["image_selection"]["kept_indices"], [0, 1])
+        with tempfile.TemporaryDirectory() as tmp:
+            for suffix in ["parquet", "ecsv"]:
+                path = Path(tmp) / f"empty.{suffix}"
+                results.write_table(path)
+                self.assertEqual(
+                    Results.read_table(path).table.meta["image_selection"],
+                    results.table.meta["image_selection"],
+                )
+
+    def test_required_coadd_types(self):
+        config = SearchConfiguration()
+        self.assertEqual(_get_coadd_types(config), {"sum"})
+
+        config.set("stamp_type", None)
+        self.assertEqual(_get_coadd_types(config), set())
+
+        config.set("coadds", ["median"])
+        self.assertEqual(_get_coadd_types(config), {"median"})
+
+        config.set("peak_offset_max", 2)
+        self.assertEqual(_get_coadd_types(config), {"mean", "median"})
+
+        config.set("cnn_filter", True)
+        config.set("cnn_coadd_type", "sum")
+        self.assertEqual(_get_coadd_types(config), {"mean", "median", "sum"})
+
+    def test_optional_result_stamp_columns(self):
+        fake_ds = FakeDataSet(15, 10, create_fake_times(3, t0=60676.0))
+        trj = Trajectory(x=7, y=5, vx=0.0, vy=0.0, obs_count=3, lh=100.0)
+
+        def run_with(config):
+            runner = SearchRunner()
+            with patch.object(
+                runner,
+                "do_core_search",
+                return_value=Results.from_trajectories([trj]),
+            ):
+                return runner.run_search(config, fake_ds.stack_py)
+
+        config = SearchConfiguration({"do_clustering": False})
+        results = run_with(config)
+        self.assertIn("stamp", results.colnames)
+        self.assertIn("coadd_sum", results.colnames)
+
+        config = SearchConfiguration({"do_clustering": False, "stamp_type": None})
+        with patch("kbmod.run_search.append_coadds") as append:
+            results = run_with(config)
+        append.assert_not_called()
+        self.assertNotIn("stamp", results.colnames)
+        self.assertFalse(any(col.startswith("coadd_") for col in results.colnames))
+
+        config = SearchConfiguration({"do_clustering": False, "stamp_type": None, "coadds": ["mean"]})
+        results = run_with(config)
+        self.assertNotIn("stamp", results.colnames)
+        self.assertIn("coadd_mean", results.colnames)
+
+        config = SearchConfiguration({"do_clustering": False, "stamp_type": None, "save_all_stamps": True})
+        results = run_with(config)
+        self.assertNotIn("stamp", results.colnames)
+        self.assertFalse(any(col.startswith("coadd_") for col in results.colnames))
+        self.assertIn("all_stamps", results.colnames)
+
     @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_run_search_bad_config(self):
         """Test cases where the search configuration is bad."""
@@ -346,6 +480,41 @@ class test_run_search(unittest.TestCase):
         self.assertEqual(keep["y"][0], 12)
         self.assertAlmostEqual(keep["vx"][0], 21.0)
         self.assertAlmostEqual(keep["vy"][0], 16.0)
+
+    def test_core_search_dedup(self):
+        # Create a very small fake data set.
+        num_times = 20
+        width = 50
+        height = 60
+        fake_times = [59000.0 + float(i) / num_times for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        # Create a Trajectory for the object and insert it into the image stack.
+        trj = Trajectory(x=17, y=12, vx=21.0, vy=15.0, flux=250.0)
+        fake_ds.insert_object(trj)
+
+        # Use a small grid of search trajectories around the true velocity. With de-duplication,
+        # we should only evaluate 3 trajectory per pixel (vx=19, 21, and 23).
+        trj_gen = VelocityGridSearch(21, 19.0, 23.5, 21, 14.0, 16.0)
+        config = SearchConfiguration()
+        config.set("cpu_only", True)
+        config.set("candidate_dup_px", 2)
+        config.set("lh_level", 0.0)  # No LH filter.
+        config.set("results_per_pixel", 1000)  # No per pixel filtering.
+        config.set("near_dup_thresh", 0)  # No post duplicate filtering.
+        config.set("num_obs", 1)  # No num_obs_filtering
+        config.set("sigmaG_filter", False)  # No sigmaG filtering.
+
+        # Only search a 3 x 3 region of pixels.
+        config.set("x_pixel_bounds", [16, 19])
+        config.set("y_pixel_bounds", [11, 14])
+
+        # Run the core search algorithm and confirm that we get fewer than 100 results per pixel.
+        # Without de-duplication, we would have 21*21=441 trajectories per pixel.
+        runner = SearchRunner()
+        keep = runner.do_core_search(config, fake_ds.stack_py, trj_gen)
+        self.assertGreater(len(keep), 18)  # More than 2 results per pixel
+        self.assertLess(len(keep), 90)  # Less than 10 results per pixel
 
     @unittest.skipIf(not kb_has_gpu(), "Skipping test (no GPU detected)")
     def test_core_search_gpu(self):

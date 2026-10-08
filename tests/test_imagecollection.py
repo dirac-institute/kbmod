@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 import astropy.table as atbl
 from astropy.coordinates import EarthLocation, SkyCoord
@@ -12,6 +13,7 @@ import astropy.units as u
 import numpy as np
 
 from kbmod import ImageCollection, Standardizer
+from kbmod.core.image_stack_py import LayeredImagePy
 from utils import DECamImdiffFactory
 
 
@@ -63,6 +65,11 @@ class TestImageCollection(unittest.TestCase):
         self.assertIsInstance(ic["location"], atbl.Column)
         self.assertEqual(len(ic["location"]), 3)
         self.assertIsInstance(ic["mjd_mid", "location"], atbl.Table)
+
+        # Test that get_zero_shifted_times returns the correct number of entries.
+        self.assertEqual(len(ic.get_zero_shifted_times()), 3)
+        self.assertEqual(len(ic2.get_zero_shifted_times()), 3)
+        self.assertEqual(len(ic3.get_zero_shifted_times()), 5)
 
         # This is kind of a thing of the standardizers themselves, but to
         # ensure the standardization results are becoming columns we test for
@@ -121,6 +128,22 @@ class TestImageCollection(unittest.TestCase):
         self.assertEqual(ic.meta["n_stds"], n_targets - 1)
         self.assertEqual(len(ic._standardizers), n_targets - 1)
 
+    def test_invalid_first_standardizer_has_compact_index(self):
+        """Test a failed standardizer does not leave a gap in std_idx."""
+        fits = self.fitsFactory.get_n(2)
+        del fits[0]["PRIMARY"].header["DATE-AVG"]
+
+        logging.disable(logging.WARNING)
+        try:
+            ic = ImageCollection.fromTargets(fits, fail_on_error=False)
+        finally:
+            logging.disable(logging.NOTSET)
+
+        self.assertEqual(len(ic), 1)
+        self.assertEqual(list(ic.data["std_idx"]), [0])
+        self.assertEqual(ic.meta["n_stds"], 1)
+        self.assertIsInstance(ic.get_standardizer(0)["std"], Standardizer)
+
     def test_write_read_unreachable(self):
         """Test ImageCollection can write itself to disk, and read the written
         table without raising errors when original data is unreachable.
@@ -164,6 +187,19 @@ class TestImageCollection(unittest.TestCase):
         # cleanup resources
         shutil.rmtree(tmpdir)
 
+    def test_wcs_serialization_roundtrip(self):
+        """Per-image WCS pixel dimensions survive a write/read round-trip."""
+        ic = ImageCollection.fromTargets(self.fits)
+        orig_shapes = [wcs.pixel_shape for wcs in ic.wcs]
+        self.assertTrue(all(shape is not None for shape in orig_shapes))
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fname = os.path.join(tmpdir, "ic.ecsv")
+            ic.write(fname)
+            ic2 = ImageCollection.read(fname)
+
+        self.assertEqual([wcs.pixel_shape for wcs in ic2.wcs], orig_shapes)
+
     def test_bintablehdu(self):
         ic2 = ImageCollection.fromTargets(self.fits)
 
@@ -175,6 +211,91 @@ class TestImageCollection(unittest.TestCase):
         tbl = ic2.toBinTableHDU()
         test = ImageCollection.fromBinTableHDU(tbl)
         self.assertEqual(ic2, test)
+
+    def test_vstack_with_standardizer_cache_enabled(self):
+        """Test vstack works when standardizer caching is enabled."""
+        ic = ImageCollection.fromTargets(self.fits)
+        self.assertIsInstance(ic._standardizers, np.ndarray)
+        self.assertEqual(len(ic), 3)
+        self.assertEqual(ic.meta["n_stds"], 3)
+        self.assertEqual(len(ic._standardizers), 3)
+
+        # Add another 3 standardizers by stacking the collection with itself.
+        ic.vstack([ic])
+        self.assertEqual(len(ic), 6)
+        self.assertEqual(ic.meta["n_stds"], 6)
+        self.assertEqual(len(ic._standardizers), 6)
+
+    def test_vstack_with_uncached_collection(self):
+        """Test vstack pads cached standardizers when stacking uncached data."""
+        cached = ImageCollection.fromTargets(self.fits)
+        self.assertIsInstance(cached._standardizers, np.ndarray)
+
+        uncached = ImageCollection(cached.data.copy(), enable_std_caching=False)
+        self.assertIsNone(uncached._standardizers)
+
+        # Add the uncached collection to the cached one. This should add a None entry
+        # to the cached standardizers array (for each uncached standardizer).
+        cached.vstack([uncached])
+        self.assertEqual(len(cached), 6)
+        self.assertEqual(cached.meta["n_stds"], 6)
+        self.assertEqual(len(cached._standardizers), 6)
+        self.assertTrue(all(std is None for std in cached._standardizers[3:]))
+
+    def test_workunit_timestamp_validation(self):
+        """Allow rounding but reject real offsets and invalid epochs in either input."""
+        ic = ImageCollection.fromTargets(self.fitsFactory.get_n(2, spoof_data=True))
+        original = np.asarray(ic.data["mjd_mid"]).copy()
+        images = [entry["std"].toLayeredImage()[0] for entry in ic.get_standardizers()]
+        # Reuse real fixture images to exercise the WorkUnit boundary without
+        # regenerating pixel arrays for every invalid timestamp.
+        with mock.patch.object(ic, "get_standardizers", return_value=[{"std": mock.Mock()}]) as get_stds:
+            get_stds.return_value[0]["std"].toLayeredImage.return_value = images
+            for side in ("collection", "image"):
+                for offset_s in (0.0001, 0.01, -0.01, 60.5, np.nan, np.inf):
+                    with self.subTest(side=side, offset_s=offset_s):
+                        ic.data["mjd_mid"] = original.copy()
+                        images[1].time = original[1]
+                        value = original[1] + offset_s / 86400
+                        if side == "collection":
+                            ic.data["mjd_mid"][1] = value
+                        else:
+                            images[1].time = value
+                        if offset_s == 0.0001:
+                            work = ic.toWorkUnit()
+                            self.assertEqual(len(work), 2)
+                        else:
+                            with self.assertRaisesRegex(ValueError, "timestamp mismatch.*row 1"):
+                                ic.toWorkUnit()
+            # A missing image cannot be hidden by broadcasting a scalar epoch.
+            get_stds.return_value[0]["std"].toLayeredImage.return_value = images[:1]
+            with self.assertRaisesRegex(ValueError, "1 images for 2 ImageCollection rows"):
+                ic.toWorkUnit()
+
+    def test_workunit_masked_timestamp(self):
+        ic = ImageCollection.fromTargets(self.fitsFactory.get_n(1, spoof_data=True))
+        ic.data.replace_column("mjd_mid", atbl.MaskedColumn(ic.data["mjd_mid"], mask=[True]))
+        with self.assertRaisesRegex(ValueError, "timestamp mismatch"):
+            ic.toWorkUnit()
+        self.assertTrue(ic.data["mjd_mid"].mask[0])
+
+    def test_workunit_multi_extension_mapping_error(self):
+        # get_standardizers currently uses standardizer indices as row indices:
+        # [0, 0, 1, 1] therefore reconstructs standardizer 0 twice. Until that
+        # independent mapping bug is fixed, the error must mention that cause.
+        metadata = ImageCollection.fromTargets(self.fits[:2]).data[[0, 0, 1, 1]].copy()
+        metadata["std_idx"] = [0, 0, 1, 1]
+        metadata["ext_idx"] = [0, 1, 0, 1]
+        metadata["mjd_mid"] = [60000.0, 60000.0, 60001.0, 60001.0]
+        stds = []
+        for time in (60000.0, 60001.0):
+            image = LayeredImagePy(np.zeros((2, 2)), np.ones((2, 2)), time=time)
+            std = mock.Mock()
+            std.toLayeredImage.return_value = [image, image]
+            stds.append(std)
+        ic = ImageCollection(metadata, standardizers=stds)
+        with self.assertRaisesRegex(ValueError, "row-to-image mapping"):
+            ic.toWorkUnit()
 
     def test_workunit(self):
         """Tests imagecollection exports a work unit without error."""

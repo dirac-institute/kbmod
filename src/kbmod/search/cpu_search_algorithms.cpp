@@ -110,14 +110,12 @@ void search_cpu_only(PsiPhiArray& psi_phi_array, SearchParameters params, Trajec
                     evaluate_single_pixel(y_i + params.y_start_min, x_i + params.x_start_min, psi_phi_array,
                                           trj_to_search, results_per_test);
 
-// We restrict the writing of results to a single thread.  The batch of results
-// is inserted into a specific location within the full results list.
-#pragma omp critical
-            {
-                uint64_t start_ind = (y_i * search_width + x_i) * results_per_test;
-                for (uint64_t i = 0; i < results_per_test; ++i) {
-                    results.set_trajectory(start_ind + i, pixel_res[i]);
-                }
+            // Each (y, x) pair owns a unique slice of the output array, so threads
+            // can write concurrently without a shared critical section.
+            uint64_t start_ind = (static_cast<uint64_t>(y_i) * search_width + static_cast<uint64_t>(x_i)) *
+                                 results_per_test;
+            for (uint64_t i = 0; i < results_per_test; ++i) {
+                results.set_trajectory(start_ind + i, pixel_res[i]);
             }
         }
     }

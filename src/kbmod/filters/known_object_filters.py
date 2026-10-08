@@ -187,7 +187,12 @@ class KnownObjsMatcher:
         for result_idx in range(len(result_data)):
             # Generate (RA, Dec) pairs for all of the valid observations for this result trajectory
             valid_obstimes = self.obstimes[result_data[result_idx]["obs_valid"]]
-            trj_skycoords = trajectory_predict_skypos(trj_list[result_idx], wcs, valid_obstimes)
+            # The trajectory's starting pixel is defined at the stack's first obstime, not at
+            # its first *valid* obstime, so anchor the prediction there. Otherwise every
+            # predicted position is displaced whenever the first observation is invalid.
+            trj_skycoords = trajectory_predict_skypos(
+                trj_list[result_idx], wcs, valid_obstimes, t0=self.obstimes[0]
+            )
 
             # Because we're only matching using the subset of obstimes that were valid for this result, we
             # can use this to later map back to the original index of all observations in the stack.
@@ -368,7 +373,7 @@ class KnownObjsMatcher:
                     raise ValueError(f"Unknown known object {name}")
 
                 curr_obs_ratio = np.count_nonzero(matches[name]) / known_obj_cnts[name]
-                if curr_obs_ratio <= obs_ratio:
+                if curr_obs_ratio >= obs_ratio:
                     matched_objs[-1].add(name)
 
         # Add the matched objects to the results table, converting our de-deduplicated sets

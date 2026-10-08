@@ -80,7 +80,7 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
                                                             int *max_keep_idx) {
     // Basic data checking. We don't use assert here because assert does not work in __device__ functions.
     // So we ignore the error and return so we do not access invalid memory.
-    if ((idx_array == nullptr) || (min_keep_idx == nullptr) && (max_keep_idx == nullptr)) {
+    if ((idx_array == nullptr) || (min_keep_idx == nullptr) || (max_keep_idx == nullptr)) {
         return;
     }
     if (num_values == 0) {
@@ -157,7 +157,7 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
     // Basic data checking. We don't use assert here because assert does not work in __device__ functions.
     // So we ignore the error and return so we do not access invalid memory.
     if ((psi_phi_vect == nullptr) || (image_times == nullptr) || (candidate == nullptr)) return;
-    if (psi_phi_meta.num_times >= MAX_NUM_IMAGES) return;
+    if (psi_phi_meta.num_times > MAX_NUM_IMAGES) return;
 
     // Data structures used for filtering. We fill in only what we need.
     float psi_array[MAX_NUM_IMAGES];
@@ -260,9 +260,11 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     // copy their time before progressing. We need to do this before pruning on
     // (x, y) in order to correctly handle blocks at the edge of the image.
     __shared__ double shared_times[MAX_NUM_IMAGES];
-    int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
-    if ((time_idx < psi_phi_meta.num_times) && (time_idx < MAX_NUM_IMAGES)) {
-        shared_times[time_idx] = image_times[time_idx];
+    const int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
+    const int block_threads = blockDim.x * blockDim.y;
+    // Each thread loads multiple times when the stack is larger than the block.
+    for (int t = time_idx; (t < psi_phi_meta.num_times) && (t < MAX_NUM_IMAGES); t += block_threads) {
+        shared_times[t] = image_times[t];
     }
     __syncthreads();  // Block until all are done loading.
 
@@ -276,21 +278,22 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     if ((x_i < 0) || (y_i < 0) || (x_i >= search_width) || (y_i >= search_height)) {
         return;
     }
+    const uint64_t pixel_index = static_cast<uint64_t>(y_i) * static_cast<uint64_t>(search_width) + static_cast<uint64_t>(x_i);
 
     // Get origin pixel for the trajectories in pixel space.
     const int x = x_i + params.x_start_min;
     const int y = y_i + params.y_start_min;
 
     // Create an initial set of best results with likelihood -1.0 and default
-    // values for everything so that we do not propogate uninitialized values.
-    const uint64_t base_index = (y_i * search_width + x_i) * params.results_per_pixel;
+    // values for everything so that we do not propagate uninitialized values.
+    const uint64_t base_index = pixel_index * static_cast<uint64_t>(params.results_per_pixel);
     if (base_index + params.results_per_pixel > params.total_results) {
         // Unfortunately we cannot raise an error in a kernel, so we print to stdout and exit.
         printf("ERROR: base_index=%llu out of bounds in searchFilterImages kernel.\n", base_index);
         return;
     }
 
-    for (int r = 0; r < params.results_per_pixel; ++r) {
+    for (unsigned int r = 0; r < params.results_per_pixel; ++r) {
         results[base_index + r].x = x;
         results[base_index + r].y = y;
         results[base_index + r].vx = 0.0f;
@@ -338,9 +341,6 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     if (num_images > MAX_NUM_IMAGES) {
         throw std::runtime_error("Number of images exceeds GPU maximum " + std::to_string(MAX_NUM_IMAGES));
     }
-    if (THREAD_DIM_X * THREAD_DIM_Y < MAX_NUM_IMAGES) {
-        throw std::runtime_error("Insufficient threads to load all the times.");
-    }
 
     // Check that the device vectors have already been allocated.
     if (!psi_phi_array.on_gpu()) {
@@ -367,18 +367,19 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     // Compute the range of starting pixels to use when setting the blocks and threads.
     // We use the width and height of the search space (as opposed to the image width
     // and height), meaning the blocks/threads will be indexed relative to the search space.
-    int search_width = params.x_start_max - params.x_start_min;
-    int search_height = params.y_start_max - params.y_start_min;
+    int64_t search_width = params.x_start_max - params.x_start_min;
+    int64_t search_height = params.y_start_max - params.y_start_min;
     if ((search_width <= 0) || (search_height <= 0))
         throw std::runtime_error("Invalid search bounds x=[" + std::to_string(params.x_start_min) + ", " +
                                  std::to_string(params.x_start_max) + "] y=[" +
                                  std::to_string(params.y_start_min) + ", " +
                                  std::to_string(params.y_start_max) + "]");
+    uint64_t search_pixels = static_cast<uint64_t>(search_width) * static_cast<uint64_t>(search_height);
                                  
     // Check that we have enough result space allocated. num_results is the number of spaces
     // we have in the results vector and expected_results is the number we are going to
     // generate. So we need num_results >= expected_results to have enough storage space.
-    uint64_t expected_results = params.results_per_pixel * search_width * search_height;
+    uint64_t expected_results = static_cast<uint64_t>(params.results_per_pixel) * search_pixels;
     params.total_results = expected_results;
     if (num_results < expected_results) {
         throw std::runtime_error("Not enough space allocated for results. Requires: " +
@@ -389,11 +390,20 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     dim3 blocks(search_width / THREAD_DIM_X + 1, search_height / THREAD_DIM_Y + 1);
     dim3 threads(THREAD_DIM_X, THREAD_DIM_Y);
 
-    // Launch Search
+    // Launch Search.
     searchFilterImages<<<blocks, threads>>>(psi_phi_array.get_meta_data(), psi_phi_array.get_gpu_array_ptr(),
                                             psi_phi_array.get_gpu_time_array_ptr(), params, num_trajectories,
                                             device_tests, device_results);
-    cudaDeviceSynchronize();
+    cudaError_t launch_status = cudaGetLastError();
+    if (launch_status != cudaSuccess) {
+        throw std::runtime_error("GPU search kernel launch failed. Error code = " +
+                                 std::to_string(launch_status));
+    }
+    cudaError_t res_code = cudaDeviceSynchronize();
+    if (res_code != cudaSuccess) {
+        throw std::runtime_error("GPU search failed. Error code = " +
+                                 std::to_string(res_code));
+    }
 }
 
 } /* namespace search */

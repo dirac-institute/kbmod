@@ -1,6 +1,5 @@
 import astropy.units as u
 import numpy as np
-from astropy import units as u
 from astropy.coordinates import (
     SkyCoord,
     GCRS,
@@ -63,7 +62,7 @@ def correct_parallax(
         the best method.
     use_bounds : `bool` (optional)
         If True, the minimizer will be bounded barycentric distance +/- 1.02.
-        Default is True.
+        Default is False.
 
     Returns
     ----------
@@ -260,7 +259,7 @@ def correct_parallax_geometrically(coord, obstime, point_on_earth, barycentric_d
 
 
 def correct_parallax_geometrically_vectorized(
-    ra, dec, mjds, barycentric_distance, point_on_earth=None, return_geo_dists=True
+    ra, dec, mjds, barycentric_distance, point_on_earth, return_geo_dists=True
 ):
     """Calculate the parallax corrected postions for a given object at a given time,
     position on Earth, and a hypothetical distance from the Sun.
@@ -282,10 +281,10 @@ def correct_parallax_geometrically_vectorized(
         MJD timestamps of the times the ``ra`` and ``dec`` were recorded.
     barycentric_distance : `float`
         The guess distance to the object from the Sun in AU.
-    point_on_earth : `EarthLocation` or `None`, optional
+    point_on_earth : `EarthLocation`
         Observation is returned from the geocenter by default. Provide an
         EarthLocation if you want to also account for the position of the
-        observatory. If not provided, assumed to be geocenter.
+        observatory.
     return_geo_dists : `bool`, default: `True`
         Return calculated geocentric distances (in AU).
 
@@ -654,7 +653,6 @@ def image_positions_to_original_icrs(
     original_coords = position_reprojected_coords
     if reprojection_frame == "ebd":
         bary_dist = barycentric_distance
-        geo_dists = [geocentric_distances[i] for i in image_indices]
         obstimes = [all_times[i] for i in image_indices]
 
         # transfer into a combined SkyCoord
@@ -684,7 +682,7 @@ def image_positions_to_original_icrs(
                 result_coord = (x, y)
             else:
                 result_coord = coord
-            to_allow = (y >= 0.0 and y <= height and x >= 0 and x <= width) or (not filter_in_frame)
+            to_allow = (y >= 0.0 and y < height and x >= 0 and x < width) or (not filter_in_frame)
             if to_allow:
                 pos.append((result_coord, con_image))
         if len(pos) == 0:

@@ -14,6 +14,7 @@ from kbmod.trajectory_generator import (
     RandomVelocitySearch,
     VelocityGridSearch,
     create_trajectory_generator,
+    generate_all_trajectories,
 )
 from kbmod.work_unit import WorkUnit
 
@@ -52,6 +53,21 @@ class test_trajectory_generator(unittest.TestCase):
         self.assertRaises(ValueError, VelocityGridSearch, 3, 0.0, 2.0, 3, 0.25, -0.25)
         self.assertRaises(ValueError, VelocityGridSearch, 3, 2.0, 0.0, 3, -0.25, 0.25)
 
+        # Check that we can use the generator_all_trajectories utility function to generate
+        # all trajectories and then do so with deduplication.
+        candidates1 = generate_all_trajectories(gen)
+        self.assertEqual(len(candidates1), 9)
+
+        # We should only have one unique trajectory after deduplication.
+        candidates2 = generate_all_trajectories(gen, candidate_dup_px=5, max_dt=2.0)
+        self.assertEqual(len(candidates2), 1)
+
+        # Try a finer grid for deduplication check.
+        gen2 = VelocityGridSearch(11, 0.0, 2.0, 11, -1.0, 1.0)
+        assert len(generate_all_trajectories(gen2)) == 121
+        assert len(generate_all_trajectories(gen2, candidate_dup_px=5, max_dt=2.0)) == 1
+        assert len(generate_all_trajectories(gen2, candidate_dup_px=1, max_dt=1.0)) == 9
+
     def test_PencilSearch(self):
         gen = PencilSearch(
             10.0,
@@ -75,6 +91,14 @@ class test_trajectory_generator(unittest.TestCase):
                 vel = np.sqrt(trj.vx * trj.vx + trj.vy * trj.vy)
                 self.assertAlmostEqual(ang, expected_angs[a_i], delta=1e-5)
                 self.assertAlmostEqual(vel, expected_vels[v_i], delta=1e-5)
+
+        # Test that we can generate all trajectories and then do so with deduplication.
+        candidates1 = generate_all_trajectories(gen)
+        self.assertEqual(len(candidates1), 25)
+
+        # With the given parameters, we expect to have 15 unique trajectories after deduplication.
+        candidates2 = generate_all_trajectories(gen, candidate_dup_px=5, max_dt=2.0)
+        self.assertEqual(len(candidates2), 15)
 
     def test_KBMODV1Search(self):
         # Note that KBMOD v1's legacy search will never include the upper bound of angle or velocity.
@@ -133,6 +157,15 @@ class test_trajectory_generator(unittest.TestCase):
         self.assertRaises(
             ValueError, EclipticCenteredSearch, [3.5, 3.0, 3], [-0.25, 0.25, 2], given_ecliptic=0.0
         )
+
+        # Test that we can use the generator_all_trajectories utility function to generate
+        # all trajectories and then do so with deduplication.
+        candidates1 = generate_all_trajectories(gen)
+        self.assertEqual(len(candidates1), 9)
+
+        # We should have fewer unique trajectories after deduplication.
+        candidates2 = generate_all_trajectories(gen, candidate_dup_px=1, max_dt=1.0)
+        self.assertEqual(len(candidates2), 5)
 
     def test_KBMODV1SearchConfig(self):
         # Note that KBMOD v1's search will never include the upper bound of angle or velocity.

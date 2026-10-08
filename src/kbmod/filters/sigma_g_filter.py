@@ -11,7 +11,7 @@ import torch
 
 from scipy.special import erfinv
 
-from kbmod.search import DebugTimer
+from kbmod.search import DebugTimer, InvalidPixelReason
 
 logger = logging.getLogger(__name__)
 
@@ -186,5 +186,5 @@ def apply_clipped_sigma_g(clipper, result_data):
     filter_timer = DebugTimer("sigma-g filtering", logger)
     lh = result_data.compute_likelihood_curves(filter_obs=True, mask_value=np.nan)
     obs_valid = clipper.compute_clipped_sigma_g_matrix(lh)
-    result_data.update_obs_valid(obs_valid)
+    result_data.update_obs_valid(obs_valid, reason=InvalidPixelReason.INVALID_SIGMA_G)
     filter_timer.stop()

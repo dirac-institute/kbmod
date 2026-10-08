@@ -30,7 +30,7 @@ class KBMODV0_5Config(FitsStandardizerConfig):
     grow_mask = True
     """Grow mask footprint by ``grow_kernel_shape``"""
 
-    brightness_treshold = 10
+    brightness_threshold = 10
     """Pixels with value greater than this threshold will be masked."""
 
     grow_kernel_shape = (10, 10)

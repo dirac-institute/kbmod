@@ -32,8 +32,8 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
     const int x = blockIdx.x * CONV_THREAD_DIM + threadIdx.x;
     const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;
     if (x < 0 || x > width - 1 || y < 0 || y > height - 1) return;
-    const uint64_t result_index = y * width + x;
-    const uint64_t total_img_pixels = height * width;
+    const uint64_t result_index = static_cast<uint64_t>(y) * static_cast<uint64_t>(width) + static_cast<uint64_t>(x);
+    const uint64_t total_img_pixels = static_cast<uint64_t>(height) * static_cast<uint64_t>(width);
     if (result_index >= total_img_pixels) {
         // This is an error condition that should never happen.
         return;
@@ -42,13 +42,14 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
     // Read kernel
     float sum = 0.0;
     float psf_portion = 0.0;
-    float center = source_img[y * width + x];
+    float center = source_img[result_index];
     if (device_pixel_valid(center)) {
         for (int j = -psf_radius; j <= psf_radius; j++) {
             // #pragma unroll
             for (int i = -psf_radius; i <= psf_radius; i++) {
                 if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
-                    float current_pix = source_img[(y + j) * width + (x + i)];
+                    const int64_t neighbor_index = static_cast<int64_t>(y + j) * static_cast<int64_t>(width) + (x + i);
+                    float current_pix = source_img[neighbor_index];
                     if (device_pixel_valid(current_pix)) {
                         float current_psf = psf[(j + psf_radius) * psf_dim + (i + psf_radius)];
                         psf_portion += current_psf;
@@ -58,10 +59,10 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
             }
         }
 
-        result_img[result_index] = (psf_portion != 0.0) ? (sum * psf_sum) / psf_portion : 0.0;
+        result_img[result_index] = (psf_portion != 0.0) ? (sum * psf_sum) / psf_portion : NO_DATA;
     } else {
         // Leave masked and NaN pixels alone (these could be replaced here with zero)
-        result_img[result_index] = center;  // 0.0
+        result_img[result_index] = center;  // NaN
     }
 }
 
@@ -70,11 +71,14 @@ extern "C" void deviceConvolve(float *source_img, float *result_img, int width, 
     if (width <= 0) throw std::runtime_error("Invalid width = " + std::to_string(width));
     if (height <= 0) throw std::runtime_error("Invalid height = " + std::to_string(height));
     if (psf_radius < 0) throw std::runtime_error("Invalid PSF radius = " + std::to_string(psf_radius));
+    if (source_img == nullptr) throw std::runtime_error("Invalid source image pointer.");
+    if (result_img == nullptr) throw std::runtime_error("Invalid result image pointer.");
+    if (psf_kernel == nullptr) throw std::runtime_error("Invalid PSF kernel pointer.");
 
-    uint64_t n_pixels = width * height;
+    uint64_t n_pixels = static_cast<uint64_t>(width) * static_cast<uint64_t>(height);
     int psf_dim = 2 * psf_radius + 1;
     int psf_size = psf_dim * psf_dim;
-    
+
     // Compute the PSF sum.
     float psf_sum = 0.0;
     for (int r = 0; r < psf_dim; ++r) {
@@ -83,26 +87,50 @@ extern "C" void deviceConvolve(float *source_img, float *result_img, int width, 
         }
     }
 
-    // Allocate Device memory
-    float *device_kernel;
-    int res_code = cudaMalloc((void **)&device_kernel, sizeof(float) * psf_size);
+    // Allocate Device memory.
+    float *device_kernel = nullptr;
+    cudaError_t res_code = cudaMalloc((void **)&device_kernel, sizeof(float) * psf_size);
+    if ((res_code != cudaSuccess) || (device_kernel == nullptr)) {
+        throw std::runtime_error("Unable to allocate GPU PSF memory (" + std::to_string(psf_size) +
+                                 " floats). Error code = " + std::to_string(res_code));
+    }
     GPUArray<float> devicesource_img(n_pixels, true);
     GPUArray<float> deviceresult_img(n_pixels, true);
 
     // Copy the source image and the PSF.
     devicesource_img.copy_array_into_subset_of_gpu(source_img, 0, n_pixels);
     res_code = cudaMemcpy(device_kernel, psf_kernel, sizeof(float) * psf_size, cudaMemcpyHostToDevice);
+    if (res_code != cudaSuccess) {
+        cudaFree(device_kernel);
+        throw std::runtime_error("Unable to copy PSF to GPU (" + std::to_string(psf_size) +
+                                 " floats). Error code = " + std::to_string(res_code));
+    }
 
     dim3 blocks(width / CONV_THREAD_DIM + 1, height / CONV_THREAD_DIM + 1);
     dim3 threads(CONV_THREAD_DIM, CONV_THREAD_DIM);
     convolve_psf<<<blocks, threads>>>(width, height, devicesource_img.get_ptr(), deviceresult_img.get_ptr(),
                                       device_kernel, psf_radius, psf_dim, psf_sum);
+    res_code = cudaGetLastError();
+    if (res_code != cudaSuccess) {
+        cudaFree(device_kernel);
+        throw std::runtime_error("Kernel launch failed in deviceConvolve. Error code = " +
+                                 std::to_string(res_code));
+    }
+    res_code = cudaDeviceSynchronize();
+    if (res_code != cudaSuccess) {
+        cudaFree(device_kernel);
+        throw std::runtime_error("Kernel execution failed in deviceConvolve. Error code = " +
+                                 std::to_string(res_code));
+    }
 
     // Copy the result image off the GPU.
     deviceresult_img.copy_subset_of_gpu_into_array(result_img, 0, n_pixels);
 
     // Free all the on-device memory.
     res_code = cudaFree(device_kernel);
+    if (res_code != cudaSuccess) {
+        throw std::runtime_error("Unable to free GPU PSF memory. Error code = " + std::to_string(res_code));
+    }
     devicesource_img.free_gpu_memory();
     deviceresult_img.free_gpu_memory();
 }

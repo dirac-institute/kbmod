@@ -972,6 +972,20 @@ class test_work_unit(unittest.TestCase):
             work.observatory.height.to("m").value, custom_obs.height.to("m").value, places=1
         )
 
+    def test_observatory_sharded_roundtrip(self):
+        custom_obs = EarthLocation.from_geodetic(-70.81489, -30.16606, 2215.0)
+        work = WorkUnit(self.im_stack_py, self.config, wcs=self.wcs, observatory=custom_obs)
+        with tempfile.TemporaryDirectory() as directory:
+            work.to_sharded_fits("observatory.fits", directory)
+            for lazy in (False, True):
+                loaded = WorkUnit.from_sharded_fits("observatory.fits", directory, lazy=lazy)
+                npt.assert_allclose(
+                    [v.to_value("m") for v in loaded.observatory.to_geocentric()],
+                    [v.to_value("m") for v in custom_obs.to_geocentric()],
+                    rtol=0,
+                    atol=1e-6,
+                )
+
     def test_observatory_fits_roundtrip(self):
         """Test that observatory is preserved when saving/loading WorkUnit to FITS."""
         custom_obs = EarthLocation.of_site("ctio")

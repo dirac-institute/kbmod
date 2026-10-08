@@ -14,7 +14,6 @@ import warnings
 from astropy.table import Table, Column, vstack
 from astropy.io import fits as fitsio
 from astropy.wcs import WCS
-from astropy.utils import isiterable
 from astropy.coordinates import EarthLocation
 import astropy.units as u
 
@@ -33,6 +32,9 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
+
+# Tolerance for UTC MJD midpoint agreement when building WorkUnits.
+MIDPOINT_TOLERANCE_SECONDS = 0.001
 
 
 def pack_table(data):
@@ -184,8 +186,8 @@ class ImageCollection:
         else:
             n_stds = metadata.meta.get("n_stds", None)
             if n_stds is None:
-                n_stds = metadata["std_idx"].max()
-                self.data.meta["n_stds"] = n_stds
+                n_stds = metadata["std_idx"].max() + 1
+                metadata.meta["n_stds"] = n_stds
 
             if enable_std_caching:
                 self._standardizers = np.full((n_stds,), None)
@@ -221,7 +223,7 @@ class ImageCollection:
         unravelledStdMetadata = []
         # Standardizers that were successfully processed
         valid_standardizers = []
-        for i, std in enumerate(standardizers):
+        for std in standardizers:
             # needs a "validate standardized" method here or in standardizers
             try:
                 stdMeta = std.standardizeMetadata()
@@ -242,8 +244,9 @@ class ImageCollection:
             #  a.fits     ...2
             #  a.fits     ...3
             unravelColumns = [
-                key for key, val in stdMeta.items() if isiterable(val) and not isinstance(val, str)
+                key for key, val in stdMeta.items() if np.iterable(val) and not isinstance(val, str)
             ]
+            std_idx = len(valid_standardizers)
             for j, ext in enumerate(std.processable):
                 row = {}
                 for key in stdMeta.keys():
@@ -251,7 +254,7 @@ class ImageCollection:
                         row[key] = stdMeta[key][j]
                     else:
                         row[key] = stdMeta[key]
-                    row["std_idx"] = i
+                    row["std_idx"] = std_idx
                     row["ext_idx"] = j
                     row["std_name"] = str(std.name)
 
@@ -262,9 +265,10 @@ class ImageCollection:
                 row["config"] = json.dumps(std.config.toDict(), separators=(",", ":"))
 
                 header = std.wcs[j].to_header(relax=True)
-                h, w = std.wcs[j].pixel_shape
-                header["NAXIS1"] = h
-                header["NAXIS2"] = w
+                # pixel_shape follows FITS (width, height), unlike NumPy array shapes.
+                naxis1, naxis2 = std.wcs[j].pixel_shape
+                header["NAXIS1"] = naxis1
+                header["NAXIS2"] = naxis2
                 header_dict = {k: v for k, v in header.items()}
                 row["wcs"] = json.dumps(header_dict, separators=(",", ":"))
                 unravelledStdMetadata.append(row)
@@ -1108,25 +1112,26 @@ class ImageCollection:
 
         data = []
         for ic in ics:
-            n_stds = ic.data["std_idx"].max()
-            ic.data["std_idx"] += std_offset
-            ic.data.meta = None
-            data.append(ic.data)
+            n_stds = ic.meta.get("n_stds")
+            if n_stds is None:
+                n_stds = 0 if len(ic.data) == 0 else ic.data["std_idx"].max() + 1
+
+            stack_data = ic.data.copy()
+            stack_data["std_idx"] += std_offset
+            stack_data.meta = None
+            data.append(stack_data)
             if self._standardizers is not None:
                 # Convert to list if needed (may be numpy array)
                 if hasattr(self._standardizers, "tolist"):
                     self._standardizers = list(self._standardizers)
                 if ic._standardizers is not None:
-                    ic_stds = (
-                        list(ic._standardizers) if hasattr(ic._standardizers, "tolist") else ic._standardizers
-                    )
-                    self._standardizers.extend(ic_stds)
+                    self._standardizers = np.concatenate((self._standardizers, ic._standardizers))
                 else:
-                    self._standardizers.extend([None] * n_stds)
+                    self._standardizers = np.concatenate((self._standardizers, np.full((n_stds,), None)))
             std_offset += n_stds
 
         self.data = vstack([self.data, *data], metadata_conflicts="silent")
-        self.data.meta["n_stds"] = self.data["std_idx"].max()
+        self.data.meta["n_stds"] = std_offset
 
         self.reset_lazy_loading_indices()
         return self
@@ -1140,7 +1145,7 @@ class ImageCollection:
         List of floats
             A list of zero-shifted times (JD or MJD).
         """
-        return self.data["mjd"] - self.data["mjd"].min()
+        return self.data["mjd_mid"] - self.data["mjd_mid"].min()
 
     def toBinTableHDU(self):
         """Writes the image collection as a `BinTableHDU` object.
@@ -1171,6 +1176,13 @@ class ImageCollection:
         -------
         work_unit : `~kbmod.WorkUnit`
             A `~kbmod.WorkUnit` object for processing with KBMOD.
+
+        Raises
+        ------
+        ValueError
+            If reconstructed images and collection rows differ in number, or
+            their UTC MJD midpoints are non-finite or disagree by more than
+            1 millisecond (absolute tolerance, no relative tolerance).
         """
         from .work_unit import WorkUnit
 
@@ -1185,6 +1197,42 @@ class ImageCollection:
 
         # Extract all of the relevant metadata from the ImageCollection.
         metadata = Table(self.toBinTableHDU().data)
+        if len(layered_images) != len(metadata):
+            raise ValueError(
+                f"Cannot build WorkUnit: reconstructed {len(layered_images)} images for "
+                f"{len(metadata)} ImageCollection rows. Check the collection's image mapping."
+            )
+
+        # A saved collection can contain epochs from an older standardizer.
+        # Do not combine those rows with images reconstructed using new timing
+        # semantics. 1 ms allows floating-point/serialization roundoff at MJD
+        # precision without hiding scientifically significant timing offsets.
+        image_times = np.asarray([img.time for img in layered_images], dtype=float)
+        collection_times = np.asarray(metadata["mjd_mid"], dtype=float)
+        consistent = (
+            np.isfinite(image_times)
+            & np.isfinite(collection_times)
+            & np.isclose(image_times, collection_times, rtol=0, atol=MIDPOINT_TOLERANCE_SECONDS / 86400.0)
+        )
+        if not np.all(consistent):
+            index = int(np.flatnonzero(~consistent)[0])
+            row = metadata[index]
+            identity = ", ".join(
+                f"{key}={row[key]}" for key in ("visit", "detector", "location") if key in metadata.colnames
+            )
+            difference_s = (image_times[index] - collection_times[index]) * 86400.0
+            raise ValueError(
+                f"Cannot build WorkUnit: timestamp mismatch at ImageCollection row {index} ({identity}). "
+                f"Image UTC MJD={image_times[index]:.12f}, "
+                f"collection mjd_mid={collection_times[index]:.12f}; "
+                f"image minus collection={difference_s:.6f} seconds "
+                f"(tolerance {MIDPOINT_TOLERANCE_SECONDS} seconds). "
+                "Check the collection's row-to-image mapping as well as its timing convention. "
+                "Rebuild the ImageCollection from its source data with the current standardizer "
+                "before rebuilding dependent WorkUnits. Preserve the original artifacts and "
+                "standardizer configuration; do not relabel stored timestamps."
+            )
+
         if None not in self.wcs:
             metadata["per_image_wcs"] = list(self.wcs)
 

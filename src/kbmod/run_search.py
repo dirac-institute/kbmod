@@ -5,21 +5,35 @@ import time
 import astropy.units as u
 import numpy as np
 import psutil
-from astropy.coordinates import EarthLocation, SkyCoord
+from astropy.coordinates import SkyCoord
 
 import kbmod.search as kb
+
 
 from .filters.clustering_filters import apply_clustering
 from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import SigmaGClipping, apply_clipped_sigma_g
 from .filters.sns_filters import peak_offset_filter, predictive_line_cluster
 from .filters.stamp_filters import append_all_stamps, append_coadds, filter_stamps_by_cnn
+from .search import InvalidPixelReason
 from .reprojection_utils import invert_correct_parallax_vectorized
 from .results import Results, write_results_to_files_destructive
-from .trajectory_generator import create_trajectory_generator
+from .trajectory_generator import create_trajectory_generator, generate_all_trajectories
 from .trajectory_utils import predict_pixel_locations
 
 logger = kb.Logging.getLogger(__name__)
+
+
+def _get_coadd_types(config):
+    """Return the coadd types needed for output and enabled filters."""
+    coadds = set(config["coadds"])
+    if config["stamp_type"] is not None:
+        coadds.add(config["stamp_type"])
+    if config["peak_offset_max"] is not None:
+        coadds.add("mean")
+    if config["cnn_filter"]:
+        coadds.add(config["cnn_coadd_type"])
+    return coadds
 
 
 def configure_kb_search_stack(search, config):
@@ -308,6 +322,16 @@ class SearchRunner:
             batch = result_trjs[batch_start:batch_end]
             batch_results = Results.from_trajectories(batch, track_filtered=config["track_filtered"])
 
+            # Always extract a "valid reason" to mark which points on each trajectory are
+            # off the chip or masked.
+            invalidity_reasons = search.get_pixel_invalidity_reason(batch)
+            batch_results.update_obs_valid(
+                invalidity_reasons == InvalidPixelReason.VALID,
+                reason=invalidity_reasons,
+                drop_empty_rows=False,
+            )
+
+            # Generate psi and phi curves for the batch if requested.
             if config["generate_psi_phi"]:
                 psi_phi_batch = search.get_all_psi_phi_curves(batch)
                 batch_results.add_psi_phi_data(psi_phi_batch[:, :num_times], psi_phi_batch[:, num_times:])
@@ -369,11 +393,15 @@ class SearchRunner:
         )
         configure_kb_search_stack(search, config)
 
-        # Do the actual search.
+        # Generate the candidates and remove any duplicates (if needed).
         self._start_phase("grid search")
-        logger.debug(f"Trajectory Generator: {trj_generator}")
-        candidates = [trj for trj in trj_generator]
-        logger.debug(f"Using {len(candidates)} candidates per pixel.")
+        candidates = generate_all_trajectories(
+            trj_generator,
+            candidate_dup_px=config["candidate_dup_px"],
+            max_dt=np.max(search.zeroed_times) - np.min(search.zeroed_times),
+        )
+
+        # Do the actual search.
         try:
             search.search_all(candidates, use_gpu)
         except:
@@ -435,8 +463,19 @@ class SearchRunner:
 
         # Filter invalid images if needed. We do this at the WorkUnit level if one is provided
         # so that the metadata is correctly handled. Otherwise we just filter the image stack.
+        masked_fractions = stack.get_masked_fractions()
+        keep_mask = np.ones(stack.num_times, dtype=bool)
         if config["max_masked_pixels"] < 1.0:
-            keep_mask = stack.get_masked_fractions() <= config["max_masked_pixels"]
+            keep_mask = masked_fractions <= config["max_masked_pixels"]
+        image_selection = {
+            "version": 1,
+            "stage": "max_masked_pixels",
+            "threshold": float(config["max_masked_pixels"]),
+            "input_mjd_utc_mid": np.asarray(stack.times).tolist(),
+            "masked_fractions": masked_fractions.tolist(),
+            "kept_indices": np.flatnonzero(keep_mask).tolist(),
+        }
+        if config["max_masked_pixels"] < 1.0:
             logger.debug(f"Filtering images from the stack. Keeping: {keep_mask}")
             if workunit is not None:
                 workunit.filter_images(keep_mask)
@@ -447,7 +486,7 @@ class SearchRunner:
 
         # Determine how many images have at least 10% valid pixels.  Make sure
         # num_obs is no larger than 80% of the valid images.
-        img_count = np.count_nonzero(stack.get_masked_fractions() < 0.9)
+        img_count = np.count_nonzero(masked_fractions[keep_mask] < 0.9)
         if img_count == 0:
             raise ValueError("No valid images in input.")
         if config["num_obs"] == -1 or config["num_obs"] >= img_count:
@@ -486,21 +525,20 @@ class SearchRunner:
             keep.filter_rows(np.arange(config["max_results"]), "max_results")
             self._end_phase("max_results")
 
-        # Generate coadded stamps without filtering -- both the "stamp" column
-        # as well as any additional coadds.
+        # Generate any coadds needed for output or filtering.
         self._start_phase("stamp generation")
         stamp_radius = config["stamp_radius"]
         stamp_type = config["stamp_type"]
-        coadds = set(config["coadds"])
-        coadds.add(stamp_type)
+        coadds = _get_coadd_types(config)
 
-        # Add all the "coadd_*" columns and a "stamp" column. This is only
-        # short term until we stop using the "stamp" column.
-        self._start_phase("appending co-adds")
-        append_coadds(keep, stack, coadds, stamp_radius, nightly=config["nightly_coadds"])
-        if f"coadd_{stamp_type}" in keep.colnames:
+        if coadds:
+            self._start_phase("appending co-adds")
+            append_coadds(keep, stack, coadds, stamp_radius, nightly=config["nightly_coadds"])
+            self._end_phase("appending co-adds")
+
+        # Keep the legacy "stamp" column only when explicitly configured.
+        if stamp_type is not None:
             keep.table["stamp"] = keep.table[f"coadd_{stamp_type}"]
-        self._end_phase("appending co-adds")
 
         # peak_offset_filter is used only if max offset is declared
         if config["peak_offset_max"] is not None:
@@ -560,6 +598,10 @@ class SearchRunner:
             meta_to_save.update(wu_meta)
         meta_to_save["num_img"] = num_img
         meta_to_save["dims"] = stack.width, stack.height
+        # Record even when no output file is requested, including empty results.
+        # Override caller metadata so it cannot replace the measured selection.
+        meta_to_save["image_selection"] = image_selection
+        keep.table.meta["image_selection"] = image_selection
         keep.set_mjd_utc_mid(np.array(stack.times))
 
         if config["result_filename"] is not None:

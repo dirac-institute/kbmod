@@ -1,6 +1,24 @@
 Release Notes
 =============
 
+Unreleased
+----------
+
+**Timestamp correction and compatibility**
+
+* Butler timestamps now use the native ``VisitInfo`` exposure midpoint converted
+  to UTC MJD. The previous extra ``exposureTime / 2 + 0.5`` seconds is removed;
+  ``mjd_start`` is now the nominal midpoint minus half the exposure duration.
+* ``ImageCollection.toWorkUnit()`` now rejects image/metadata epoch disagreement
+  greater than 1 ms, invalid epochs, and image-count mismatches. This applies to
+  all standardizers, including FITS collections with manually edited timestamps.
+  Historical files remain readable, but loading does not migrate their epochs.
+* Rebuild affected collections, injection catalogs, dependent WorkUnits and
+  reprojections, and time-dependent matches together. Preserve original artifacts
+  and audit downstream manual offsets to avoid applying a correction twice.
+  See :doc:`../api_reference/standardizers/butler_standardizer` for the time-scale
+  contract and migration details.
+
 Version 1.1.0 (2023-04-20)
 --------------------------
 

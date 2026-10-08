@@ -86,17 +86,19 @@ std::vector<Trajectory> TrajectoryList::get_batch(uint64_t start, uint64_t count
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
     if (count == 0) throw std::runtime_error("count must be greater than 0");
 
+    // If the start if outside the valid range, then (by definition) we return an
+    // empty array of results.
+    if (start >= max_size) return std::vector<Trajectory>();
+
     // If we are trying to read past the end of the array, just read until the end.
-    if (start + count >= max_size) {
-        return std::vector<Trajectory>(cpu_list.begin() + start, cpu_list.end());
-    }
-    return std::vector<Trajectory>(cpu_list.begin() + start, cpu_list.begin() + start + count);
+    const uint64_t end = std::min(start + count, max_size);
+    return std::vector<Trajectory>(cpu_list.begin() + start, cpu_list.begin() + end);
 }
 
 void TrajectoryList::sort_by_likelihood() {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
 
-        // Sort using __gnu_parallel if it is supported on the system and std::sort otherwise.
+    // Sort using __gnu_parallel if it is supported on the system and std::sort otherwise.
 #ifdef HAVE_OPENMP
     __gnu_parallel::sort(cpu_list.begin(), cpu_list.end(),
                          [](const Trajectory& a, const Trajectory& b) { return b.lh < a.lh; });
