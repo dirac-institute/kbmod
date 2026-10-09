@@ -1,0 +1,147 @@
+{
+  "checked_at_utc": "2026-10-09T03:35:43.525920+00:00",
+  "repository": "/sdf/group/rubin/repo/dp2_prep",
+  "boundary": "Read-only native PhotoCalib, summaryStats and metadata components.",
+  "images": [
+    {
+      "dataset_id": "019d847e-a6f2-78a5-a7b3-147b70153596",
+      "dataset_type": "difference_image",
+      "run": "LSSTCam/runs/DRP/DP2/v30_0_6/DM-53881/stage4/20260413T004123Z",
+      "data_id": {
+        "instrument": "LSSTCam",
+        "detector": 53,
+        "visit": 2025070300640
+      },
+      "bunit": "nJy",
+      "photo_calib_mean": 1.0,
+      "pixel_zero_point": 31.4,
+      "summary_zero_point": 32.224116464399806
+    },
+    {
+      "dataset_id": "019d2814-6789-73b3-8436-ffd51504ecdf",
+      "dataset_type": "visit_image",
+      "run": "LSSTCam/runs/DRP/DP2/v30_0_0/DM-53881/stage4/20260326T015131Z",
+      "data_id": {
+        "instrument": "LSSTCam",
+        "detector": 53,
+        "visit": 2025070300640
+      },
+      "bunit": "nJy",
+      "photo_calib_mean": 1.0,
+      "pixel_zero_point": 31.4,
+      "summary_zero_point": 32.224116464399806
+    },
+    {
+      "dataset_id": "019d847e-cfe9-7930-affd-dd1ee290e36f",
+      "dataset_type": "difference_image",
+      "run": "LSSTCam/runs/DRP/DP2/v30_0_6/DM-53881/stage4/20260413T004123Z",
+      "data_id": {
+        "instrument": "LSSTCam",
+        "detector": 53,
+        "visit": 2025070300688
+      },
+      "bunit": "nJy",
+      "photo_calib_mean": 1.0,
+      "pixel_zero_point": 31.4,
+      "summary_zero_point": 32.09928416466074
+    },
+    {
+      "dataset_id": "019d2814-a403-74cd-acf5-6d0b46f7b295",
+      "dataset_type": "visit_image",
+      "run": "LSSTCam/runs/DRP/DP2/v30_0_0/DM-53881/stage4/20260326T015131Z",
+      "data_id": {
+        "instrument": "LSSTCam",
+        "detector": 53,
+        "visit": 2025070300688
+      },
+      "bunit": "nJy",
+      "photo_calib_mean": 1.0,
+      "pixel_zero_point": 31.4,
+      "summary_zero_point": 32.09928416466074
+    },
+    {
+      "dataset_id": "019d847f-418e-754f-aab1-a41d58416a39",
+      "dataset_type": "difference_image",
+      "run": "LSSTCam/runs/DRP/DP2/v30_0_6/DM-53881/stage4/20260413T004123Z",
+      "data_id": {
+        "instrument": "LSSTCam",
+        "detector": 88,
+        "visit": 2025070100387
+      },
+      "bunit": "nJy",
+      "photo_calib_mean": 1.0,
+      "pixel_zero_point": 31.4,
+      "summary_zero_point": 31.879750538657795
+    },
+    {
+      "dataset_id": "019d2815-15fd-713f-a0cf-a146e13d157a",
+      "dataset_type": "visit_image",
+      "run": "LSSTCam/runs/DRP/DP2/v30_0_0/DM-53881/stage4/20260326T015131Z",
+      "data_id": {
+        "instrument": "LSSTCam",
+        "detector": 88,
+        "visit": 2025070100387
+      },
+      "bunit": "nJy",
+      "photo_calib_mean": 1.0,
+      "pixel_zero_point": 31.4,
+      "summary_zero_point": 31.879750538657795
+    },
+    {
+      "dataset_id": "019d847f-3acd-7262-b64d-e69990fa282a",
+      "dataset_type": "difference_image",
+      "run": "LSSTCam/runs/DRP/DP2/v30_0_6/DM-53881/stage4/20260413T004123Z",
+      "data_id": {
+        "instrument": "LSSTCam",
+        "detector": 104,
+        "visit": 2025070700132
+      },
+      "bunit": "nJy",
+      "photo_calib_mean": 1.0,
+      "pixel_zero_point": 31.4,
+      "summary_zero_point": 31.563940793442157
+    },
+    {
+      "dataset_id": "019d2815-7561-74f2-bae6-605307b9496f",
+      "dataset_type": "visit_image",
+      "run": "LSSTCam/runs/DRP/DP2/v30_0_0/DM-53881/stage4/20260326T015131Z",
+      "data_id": {
+        "instrument": "LSSTCam",
+        "detector": 104,
+        "visit": 2025070700132
+      },
+      "bunit": "nJy",
+      "photo_calib_mean": 1.0,
+      "pixel_zero_point": 31.4,
+      "summary_zero_point": 31.563940793442157
+    },
+    {
+      "dataset_id": "019d847e-9558-758a-9b0c-f95d836f4355",
+      "dataset_type": "difference_image",
+      "run": "LSSTCam/runs/DRP/DP2/v30_0_6/DM-53881/stage4/20260413T004123Z",
+      "data_id": {
+        "instrument": "LSSTCam",
+        "detector": 163,
+        "visit": 2025070400321
+      },
+      "bunit": "nJy",
+      "photo_calib_mean": 1.0,
+      "pixel_zero_point": 31.4,
+      "summary_zero_point": 30.43418183122428
+    },
+    {
+      "dataset_id": "019d2813-e7a0-7981-804d-c24e1cf63d13",
+      "dataset_type": "visit_image",
+      "run": "LSSTCam/runs/DRP/DP2/v30_0_0/DM-53881/stage4/20260326T015131Z",
+      "data_id": {
+        "instrument": "LSSTCam",
+        "detector": 163,
+        "visit": 2025070400321
+      },
+      "bunit": "nJy",
+      "photo_calib_mean": 1.0,
+      "pixel_zero_point": 31.4,
+      "summary_zero_point": 30.43418183122428
+    }
+  ]
+}

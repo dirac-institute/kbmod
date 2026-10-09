@@ -1,0 +1,25 @@
+{
+  "branch": "fix/butler-pixel-photocalib",
+  "commit": "1a64c66ead7a17798e3bd533ffc66e80a95a0186",
+  "base": "aa927b5621b38d223a216ff79e32b9ecf119f306",
+  "source_sha256": "fc977f50d4af0534cc01c3022bfc1012c751a0381350a4c715f40afd8c15282d",
+  "baseline_regression": "6 failing subtests on original science/variance methods; fixed tests pass",
+  "native_cutouts": 10,
+  "native_full_exports": 2,
+  "native_bands": [
+    "g",
+    "r",
+    "i",
+    "z",
+    "y"
+  ],
+  "all_cutout_flux_variance_ratios": 1.0,
+  "targets_tested": [
+    31,
+    31.4
+  ],
+  "input_and_summary_preserved": true,
+  "native_boundary": "Full branch ButlerStandardizer module loaded with existing slacd KBMOD dependencies; real constructor and cold methods on native cutouts, plus unmasked full-image exports for g. No reprojection or search.",
+  "native_evidence_sha256": "1c646fb3b710866c27834a68102bfe348fe51144048780726e1565a3e2264007",
+  "gpu_multinight_search": "NOT_RUN"
+}
