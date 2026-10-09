@@ -124,7 +124,9 @@ class ButlerStandardizerConfig(StandardizerConfig):
     If ``None``, no SIP distortion is fitted."""
 
     zero_point = 31
-    """Photometric zero point to which all the science and variance will be scaled to."""
+    """Target photometric zero point for science and variance. The input
+    calibration comes from the Exposure's attached PhotoCalib, not its summary
+    statistics. This is a unit conversion, not a source-color correction."""
 
     greedy_export = False
     """If True, the standardizer will keep the Exposure object in memory
@@ -551,9 +553,9 @@ class ButlerStandardizer(Standardizer):
         self._bbox = self._bboxArrayToDict(skyBBox)
         self._metadata.update(self._bbox)
 
-        # We need to fetch summary stats for the zero-point, so we
-        # might as well extract the rest out of it, exception is
-        # only the effective metrics, which may not exists for all filters
+        # Preserve the summary statistics as upstream provenance. In particular,
+        # zeroPoint can describe instrumental counts BEFORE Rubin calibrated the
+        # delivered pixels to nJy; it must not be used to scale those pixels.
         summary_ref = self.ref.makeComponentRef("summaryStats")
         summary = self.butler.get(summary_ref)
         self._metadata["psfSigma"] = summary.psfSigma
@@ -635,18 +637,51 @@ class ButlerStandardizer(Standardizer):
             self._fetch_meta()
         return self._metadata
 
-    def standardizeScienceImage(self):
+    def _get_photometric_scale(self):
+        """Return the scalar flux conversion from delivered pixels to our zero point.
+
+        As before, this standardizer uses an exposure-wide calibration; calling
+        PhotoCalib without a position uses its mean calibration. Applying a full
+        spatially varying calibration is outside this scalar conversion.
+        """
         self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
-        zp_correct = 10 ** ((self._metadata["zeroPoint"] - self.config.zero_point) / 2.5)
+        photo_calib = self.exp.photoCalib
+        if photo_calib is None:
+            raise ValueError("Cannot standardize pixels without an attached PhotoCalib.")
+
+        # PhotoCalib describes the pixels we actually have, including already
+        # calibrated visit/difference images. For nJy pixels it is the identity,
+        # and the magnitude of one pixel flux unit is 31.4 AB mag. The older
+        # summary zero point would apply the instrumental calibration AGAIN.
+        input_zero_point = float(photo_calib.instFluxToMagnitude(1.0))
+        # Read the mapping: attribute access would return the class default and
+        # silently ignore a configured target (for example, 31.4 to retain nJy).
+        target_zero_point = float(self.config["zero_point"])
+        if not np.isfinite(input_zero_point) or not np.isfinite(target_zero_point):
+            raise ValueError("Input PhotoCalib and target zero points must be finite.")
+
+        # m = ZP - 2.5 log10(flux). Thus nJy -> ZP 31 multiplies science by
+        # 10**((31 - 31.4)/2.5), and variance by the SQUARE of that factor.
+        # Do not cache this factor: injection can replace self.exp, and callers
+        # can change the target zero point between exports.
+        with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+            scale = np.power(10.0, (target_zero_point - input_zero_point) / 2.5)
+            variance_scale = scale * scale
+        if not np.isfinite(variance_scale) or variance_scale <= 0:
+            raise ValueError("Photometric scale and its square must be finite and positive.")
+        # A Python scalar preserves float32 image dtype under NumPy 2 promotion.
+        return float(scale)
+
+    def standardizeScienceImage(self):
+        scale = self._get_photometric_scale()
         return [
-            self.exp.image.array / zp_correct,
+            self.exp.image.array * scale,
         ]
 
     def standardizeVarianceImage(self):
-        self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
-        zp_correct = 10 ** ((self._metadata["zeroPoint"] - self.config.zero_point) / 2.5)
+        scale = self._get_photometric_scale()
         return [
-            self.exp.variance.array / zp_correct**2,
+            self.exp.variance.array * scale**2,
         ]
 
     def standardizeMaskImage(self):
