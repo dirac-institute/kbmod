@@ -201,13 +201,45 @@ class TestButlerStandardizer(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "attached PhotoCalib"):
                 method()
         std.exp.photoCalib = photo_calib
-        for input_zp, target_zp in ((np.nan, 31), (np.inf, 31), (31.4, np.nan), (31.4, 1000), (31.4, -1000)):
+        for input_zp, target_zp in (
+            (np.nan, 31),
+            (np.inf, 31),
+            (31.4, np.nan),
+            (31.4, 1000),
+            (31.4, -1000),
+            # Scale is finite and positive (1e+/-200), but its square is not.
+            (31.4, 531.4),
+            (31.4, -468.6),
+        ):
             with self.subTest(input_zp=input_zp, target_zp=target_zp):
                 photo_calib.instFluxToMagnitude.return_value = input_zp
                 std.config["zero_point"] = target_zp
                 for method in (std.standardizeScienceImage, std.standardizeVarianceImage):
                     with self.assertRaises(ValueError):
                         method()
+
+    def test_metadata_config_overrides(self):
+        """Config mappings override class defaults for all optional metadata."""
+        for headers, effective, uri in ((True, False, False), (False, True, True)):
+            with self.subTest(headers=headers, effective=effective, uri=uri):
+                std = ButlerStandardizer(
+                    DatasetId(7, fill_metadata=True),
+                    butler=self.butler,
+                    config={
+                        "standardize_metadata": headers,
+                        "standardize_effective_summary_stats": effective,
+                        "standardize_uri": uri,
+                    },
+                )
+                metadata = std.standardizeMetadata()
+                self.assertEqual("OBSID" in metadata, headers)
+                self.assertEqual("GAINA" in metadata, headers)
+                for key in ("effTime", "effTimePsfSigmaScale", "effTimeSkyBgScale", "effTimeZeroPointScale"):
+                    self.assertEqual(key in metadata, effective)
+                if uri:
+                    self.assertEqual(metadata["location"], "file://far/far/away")
+                else:
+                    self.assertEqual(metadata["location"], str(std.ref))
 
     def test_fitted_wcs_accuracy(self):
         """Fit distorted, rectangular detectors and validate on a held-out grid."""
@@ -408,6 +440,31 @@ class TestButlerStandardizer(unittest.TestCase):
         ic._standardizers = np.full((n_stds,), None)
         with self.assertRaises(TypeError):
             ic.get_standardizer(0, butler=self.butler)
+
+    def test_standardized_flux_to_catalog_magnitude(self):
+        """Persist the target through ImageCollection and use it for catalog flux."""
+        from kbmod.results import Results
+        from kbmod.search import Trajectory
+        from kbmod.util_functions import unravel_results
+
+        for target in (31.0, 31.4):
+            with self.subTest(target=target):
+                std = ButlerStandardizer(
+                    DatasetId(7, fill_metadata=True), butler=self.butler, config={"zero_point": target}
+                )
+                std.standardizeMetadata()["zeroPoint"] = 32.2
+                std.exp = self.butler.mock_exposure(7)
+                std.exp.photoCalib.instFluxToMagnitude.return_value = 31.4
+                std.exp.image.array = np.array([[100.0]])  # 100 nJy = 26.4 AB mag.
+                flux = float(std.standardizeScienceImage()[0][0, 0])
+                collection = ImageCollection.fromStandardizers([std])
+                results = Results.from_trajectories([Trajectory(flux=flux, obs_count=1)])
+                results.table.meta["mjd_mid"] = np.asarray(collection["mjd_mid"])
+                results.table["img_ra"] = [[1.0]]
+                results.table["img_dec"] = [[2.0]]
+                output = unravel_results(results, collection)
+                np.testing.assert_allclose(output["magnitude"], [26.4], atol=1e-6, rtol=0)
+                self.assertEqual(collection["zeroPoint"][0], 32.2)
 
     def mock_kbmodv1like_bitmasking(self, mockedexp):
         """Assign each flag that exists to a pixel, standardize, then expect

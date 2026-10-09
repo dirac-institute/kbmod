@@ -1,6 +1,7 @@
 """General purpose utility functions."""
 
 from pathlib import Path
+import json
 
 import numpy as np
 from astropy.io import fits
@@ -157,14 +158,38 @@ def get_magnitude(flux, zero_point):
     return mag
 
 
-def unravel_results(results, image_collection, obscode="X05", batch_id=None, first_and_last=False):
+def _get_output_zero_point(metadata):
+    """Resolve the common flux unit from persisted standardizer configurations."""
+    if "config" not in metadata.colnames or len(metadata) == 0:
+        raise ValueError("Missing output zero point in standardizer config; provide zero_point explicitly.")
+    zero_points = []
+    for idx, config in enumerate(metadata["config"]):
+        try:
+            config = json.loads(config) if isinstance(config, (str, bytes)) else config
+            zero_points.append(float(config["zero_point"]))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Missing or invalid output zero point in standardizer config at row {idx}; "
+                "provide zero_point explicitly if the result flux units are independently known."
+            ) from exc
+    zero_points = np.asarray(zero_points)
+    if not np.all(np.isfinite(zero_points)):
+        raise ValueError("Output zero points must be finite.")
+    if not np.allclose(zero_points, zero_points[0], rtol=0.0, atol=1e-10):
+        raise ValueError("Mixed output zero points: result flux must have a single common calibration.")
+    return float(zero_points[0])
+
+
+def unravel_results(
+    results, image_collection, obscode="X05", batch_id=None, first_and_last=False, *, zero_point=None
+):
     """Take a results file and transform it into a table of individual observations.
 
     Parameters
     ----------
     results : `kbmod.results.Results`
         The results.
-    image_collection : `kbmod.image_collection.ImageCollection`
+    image_collection : `kbmod.image_collection.ImageCollection` or `astropy.table.Table`
         The image collection containing the images used in the results.
     obscode : `str`, optional
         The observatory code to use for the observations.
@@ -176,6 +201,13 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None, fir
     first_and_last : `bool`, optional
         If True, only include the first and last observations for each result.
         Default: False
+    zero_point : `float`, optional
+        Known zero point of the result fluxes. By default, read the common
+        ``zero_point`` from the collection's stored standardizer configurations.
+        Supply this explicitly for inputs without that provenance or with an
+        independently established flux calibration. The summary ``zeroPoint``
+        is never used as a fallback. This does not rescale historical pixels or
+        undo an applied color template.
 
     Returns
     -------
@@ -184,12 +216,22 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None, fir
         - id: The unique identifier for the observation.
         - ra: The right ascension of the observation in degrees.
         - dec: The declination of the observation in degrees.
-        - magnitude: The magnitude of the observation.
+        - magnitude: The fitted common-flux magnitude, repeated for each observation
+          (not independent per-observation photometry).
         - mjd: The modified Julian date of the observation.
         - band: The band of the observation.
         - obscode: The observatory code for the observation.
     """
-    zp = np.mean(image_collection["zeroPoint"])
+    # Import here to avoid the ImageCollection -> WorkUnit -> util_functions cycle.
+    from kbmod.image_collection import ImageCollection, unpack_table
+
+    # Packing moves constant config/band columns into Table.meta. Work on a copy
+    # of the underlying table: config is supporting metadata, hidden by IC indexing.
+    metadata = image_collection.data if isinstance(image_collection, ImageCollection) else image_collection
+    metadata = unpack_table(metadata.copy())
+    zp = _get_output_zero_point(metadata) if zero_point is None else float(zero_point)
+    if not np.isfinite(zp):
+        raise ValueError("Output zero point must be finite.")
 
     ids = []
     ras = []
@@ -201,9 +243,9 @@ def unravel_results(results, image_collection, obscode="X05", batch_id=None, fir
     uuids = []
 
     all_times = results.table.meta["mjd_mid"]
-    all_bands = image_collection["band"]
+    all_bands = metadata["band"]
 
-    _, unique_indices = get_unique_obstimes(image_collection["mjd_mid"])
+    _, unique_indices = get_unique_obstimes(metadata["mjd_mid"])
     first_of_each_frame = np.array([i[0] for i in unique_indices])
 
     for i, row in enumerate(results):

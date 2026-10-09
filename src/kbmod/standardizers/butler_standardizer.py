@@ -574,7 +574,7 @@ class ButlerStandardizer(Standardizer):
         # photometric analysis of the results, while the effective
         # values are too often NaN. The URI location itself is
         # ultimately not very useful, but helpful for data inspection.
-        if self.config.standardize_metadata:
+        if self.config["standardize_metadata"]:
             meta_ref = self.ref.makeComponentRef("metadata")
             meta = self.butler.get(meta_ref)
 
@@ -599,13 +599,13 @@ class ButlerStandardizer(Standardizer):
                 self._metadata["GAINB"] = meta["GAINB"]
 
         # Will be nan for VR filter so it's optional
-        if self.config.standardize_effective_summary_stats:
+        if self.config["standardize_effective_summary_stats"]:
             self._metadata["effTime"] = summary.effTime
             self._metadata["effTimePsfSigmaScale"] = summary.effTimePsfSigmaScale
             self._metadata["effTimeSkyBgScale"] = summary.effTimeSkyBgScale
             self._metadata["effTimeZeroPointScale"] = summary.effTimeZeroPointScale
 
-        if self.config.standardize_uri:
+        if self.config["standardize_uri"]:
             self._metadata["location"] = self.butler.getURI(
                 self.ref,
                 collections=[
@@ -667,6 +667,7 @@ class ButlerStandardizer(Standardizer):
         with np.errstate(over="ignore", under="ignore", invalid="ignore"):
             scale = np.power(10.0, (target_zero_point - input_zero_point) / 2.5)
             variance_scale = scale * scale
+        # A finite, positive flux scale can still overflow/underflow when squared.
         if not np.isfinite(variance_scale) or variance_scale <= 0:
             raise ValueError("Photometric scale and its square must be finite and positive.")
         # A Python scalar preserves float32 image dtype under NumPy 2 promotion.

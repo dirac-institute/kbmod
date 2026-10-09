@@ -1,11 +1,14 @@
 from astropy.table import Table
+import json
 import numpy as np
+import tempfile
 import unittest
 from uuid import uuid4
 
 from pathlib import Path
 
 from kbmod.core.image_stack_py import LayeredImagePy
+from kbmod.image_collection import ImageCollection
 from kbmod.core.psf import PSF
 from kbmod.results import Results
 from kbmod.search import Trajectory
@@ -42,7 +45,9 @@ class test_util_functions(unittest.TestCase):
         ic = Table()
         ic["mjd_mid"] = [60000 + i for i in range(self.num_images)]
         ic["band"] = ["g" for _ in range(self.num_images)]
-        ic["zeroPoint"] = [31.4 for _ in range(self.num_images)]
+        # Upstream instrumental zero points deliberately differ from output units.
+        ic["zeroPoint"] = np.linspace(32.0, 32.4, self.num_images)
+        ic["config"] = [json.dumps({"zero_point": 31.0}) for _ in range(self.num_images)]
 
         res.table.meta["mjd_mid"] = ic["mjd_mid"]
         obs_count = [self.num_images for _ in range(self.num_trjs)]
@@ -81,6 +86,8 @@ class test_util_functions(unittest.TestCase):
     def test_unravel_results(self):
         df = unravel_results(self.res, self.ic)
         self.assertEqual(len(df), (self.num_images * self.num_trjs))
+        expected = np.repeat(31.0 - 2.5 * np.log10(self.res["flux"]), self.num_images)
+        np.testing.assert_allclose(df["magnitude"], expected)
 
         obs_count = self.res.table["obs_count"]
         obs_count[int(self.num_images / 2)] = self.num_images - 1
@@ -95,6 +102,62 @@ class test_util_functions(unittest.TestCase):
 
         df2 = unravel_results(self.res, self.ic, first_and_last=True)
         self.assertEqual(len(df2), self.num_trjs * 2)
+
+    def test_unravel_results_configured_zero_point(self):
+        self.ic["config"] = [json.dumps({"zero_point": 31.4})] * self.num_images
+        self.ic.remove_column("zeroPoint")  # A summary is not needed for calibrated fluxes.
+        df = unravel_results(self.res, self.ic)
+        expected = np.repeat(31.4 - 2.5 * np.log10(self.res["flux"]), self.num_images)
+        np.testing.assert_allclose(df["magnitude"], expected)
+
+    def test_unravel_results_packed_collection_roundtrip(self):
+        metadata = self.ic.copy()
+        metadata["std_idx"] = np.arange(self.num_images)
+        ic = ImageCollection(metadata, validate=False)
+        ic.pack()
+        self.assertNotIn("config", ic.data.colnames)
+        self.assertNotIn("band", ic.data.colnames)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "collection.ecsv"
+            ic.data.write(path, format="ascii.ecsv")
+            restored = ImageCollection(Table.read(path, format="ascii.ecsv"), validate=False)
+            for collection in (ic, restored):
+                columns = list(collection.data.colnames)
+                original_meta = collection.data.meta.copy()
+                df = unravel_results(self.res, collection)
+                expected = np.repeat(31.0 - 2.5 * np.log10(self.res["flux"]), self.num_images)
+                np.testing.assert_allclose(df["magnitude"], expected)
+                self.assertTrue((df["band"] == "g").all())
+                self.assertEqual(collection.data.colnames, columns)
+                self.assertEqual(collection.data.meta, original_meta)
+                self.assertTrue(collection.is_packed)
+
+    def test_unravel_results_rejects_unknown_or_mixed_units(self):
+        for config in (None, "{}", "not-json", '{"zero_point": null}', '{"zero_point": NaN}'):
+            with self.subTest(config=config):
+                metadata = self.ic.copy()
+                if config is None:
+                    metadata.remove_column("config")
+                else:
+                    metadata["config"] = [config] * self.num_images
+                with self.assertRaises(ValueError):
+                    unravel_results(self.res, metadata)
+        self.ic["config"] = [json.dumps({"zero_point": 31.0 + (i % 2)}) for i in range(self.num_images)]
+        with self.assertRaisesRegex(ValueError, "Mixed output zero points"):
+            unravel_results(self.res, self.ic)
+
+    def test_unravel_results_explicit_zero_point(self):
+        self.ic.remove_column("config")
+        # Preserve all historical positional arguments; the calibration override
+        # is keyword-only and comes from known result units, never the summary.
+        df = unravel_results(self.res, self.ic, "500", "test", True, zero_point=31.4)
+        expected = np.repeat(31.4 - 2.5 * np.log10(self.res["flux"]), 2)
+        np.testing.assert_allclose(df["magnitude"], expected)
+        self.assertTrue((df["obscode"] == "500").all())
+        self.assertEqual(df["id"].iloc[0], "test-0-0")
+        for zp in (np.nan, np.inf, -np.inf):
+            with self.subTest(zp=zp), self.assertRaises(ValueError):
+                unravel_results(self.res, self.ic, zero_point=zp)
 
     def test_make_manual_tracklets(self):
         df = unravel_results(self.res, self.ic)
