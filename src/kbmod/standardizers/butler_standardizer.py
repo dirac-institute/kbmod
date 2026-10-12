@@ -2,6 +2,7 @@
 via the Rubin Data Butler.
 """
 
+import contextlib
 import copy
 import importlib
 import logging
@@ -16,6 +17,7 @@ import astropy.units as u
 
 from networkx import center
 import numpy as np
+from threadpoolctl import threadpool_limits
 
 from .standardizer import Standardizer, StandardizerConfig
 
@@ -122,6 +124,12 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """Degree of the SIP distortion to fit when creating a fallback WCS when
     an astropy WCS cannot be constructed from the Rubin SkyWCS metadata.
     If ``None``, no SIP distortion is fitted."""
+
+    wcs_fit_threads = 1
+    """Maximum number of BLAS/OpenMP threads used while fitting the WCS. The
+    fit is small, and letting BLAS start one thread per core in every worker
+    process multiplies CPU use without making the fit faster. ``None`` leaves
+    the process-wide thread settings unchanged."""
 
     zero_point = 31
     """Photometric zero point to which all the science and variance will be scaled to."""
@@ -532,7 +540,9 @@ class ButlerStandardizer(Standardizer):
         # pixel_shape=(naxis1,naxis2), so serialized NAXIS is correct.
         n_rand_pts = self.config["wcs_fallback_points"]
         sip_degree = self.config["wcs_fallback_sips_degree"]
-        self._wcs = self._fitWCSFallback(wcs, self._naxis1, self._naxis2, n_rand_pts, sip_degree)
+        threads = self.config["wcs_fit_threads"]
+        with contextlib.nullcontext() if threads is None else threadpool_limits(limits=threads):
+            self._wcs = self._fitWCSFallback(wcs, self._naxis1, self._naxis2, n_rand_pts, sip_degree)
 
         center_pt = bbox.getCenter()
         self._metadata["pixel_scale"] = wcs.getPixelScale(center_pt).asArcseconds()

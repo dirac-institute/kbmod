@@ -45,6 +45,7 @@ dependencies = [
     "scipy>=1.9.2",
     "scikit_learn>=1.0.0",
     "shapely",
+    "threadpoolctl",
     "torch<=2.7.1",
     "torchvision",
     "tqdm",

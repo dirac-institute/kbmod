@@ -672,6 +672,18 @@ class TestButlerStandardizer(unittest.TestCase):
         mask = sci_default != 0
         np.testing.assert_allclose(sci_rescaled[mask] / sci_default[mask], 10 ** (-6 / 2.5))
 
+    def test_wcs_fit_thread_limit(self):
+        """The WCS fit runs under a BLAS/OpenMP thread limit unless disabled."""
+        target = "kbmod.standardizers.butler_standardizer.threadpool_limits"
+        with mock.patch(target) as limits:
+            Standardizer.get(DatasetId(7), butler=self.butler).standardizeMetadata()
+        limits.assert_called_once_with(limits=1)
+
+        with mock.patch(target) as limits:
+            conf = {"wcs_fit_threads": None}
+            Standardizer.get(DatasetId(7), butler=self.butler, config=conf).standardizeMetadata()
+        limits.assert_not_called()
+
     def test_butler_list_without_datastore_attribute(self):
         """A list of butlers resolves the datastore root from the selected butler."""
         butler = MockButler("/far/far/away")
