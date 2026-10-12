@@ -638,6 +638,47 @@ class TestButlerStandardizer(unittest.TestCase):
             obs_day = ButlerStandardizer._mjd_to_obs_day(mjd)
             self.assertEqual(obs_day, 20250602)
 
+    def requested_components(self, get_mock):
+        """Names of the dataset components requested through a wrapped Butler.get."""
+        names = [c.args[0].datasetType.name for c in get_mock.call_args_list]
+        return [n.split(".")[-1] for n in names if "." in n]
+
+    def test_config_overrides_are_honored(self):
+        """Overrides of the optional-metadata switches and zero_point take effect."""
+        conf = {
+            "standardize_metadata": False,
+            "standardize_effective_summary_stats": True,
+            "standardize_uri": True,
+        }
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=self.butler, config=conf)
+        with mock.patch.object(self.butler, "get", wraps=self.butler.get) as get:
+            meta = std.standardizeMetadata()
+        self.assertNotIn("metadata", self.requested_components(get))
+        self.assertNotIn("OBSID", meta)
+        self.assertIn("effTime", meta)
+        self.assertTrue(meta["location"].startswith("file:/"))
+
+        # Science and variance are scaled to the configured zero point, not the default.
+        default = Standardizer.get(DatasetId(7, fill_metadata=True), butler=self.butler)
+        default.standardizeMetadata()
+        rescaled = Standardizer.get(
+            DatasetId(7, fill_metadata=True), butler=self.butler, config={"zero_point": 25}
+        )
+        rescaled.standardizeMetadata()
+        sci_default, sci_rescaled = (
+            default.standardizeScienceImage()[0],
+            rescaled.standardizeScienceImage()[0],
+        )
+        mask = sci_default != 0
+        np.testing.assert_allclose(sci_rescaled[mask] / sci_default[mask], 10 ** (-6 / 2.5))
+
+    def test_butler_list_without_datastore_attribute(self):
+        """A list of butlers resolves the datastore root from the selected butler."""
+        butler = MockButler("/far/far/away")
+        del butler.datastore
+        std = ButlerStandardizer(DatasetId(7), butler=[butler])
+        self.assertEqual(std.location, "/far/far/away")
+
     def test_deepcopy(self):
         """Deep-copying a ButlerStandardizer yields an independent object
         whose butler attribute is the same instance as the original's."""
