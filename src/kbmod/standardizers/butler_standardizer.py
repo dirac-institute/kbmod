@@ -157,6 +157,11 @@ class ButlerStandardizer(Standardizer):
         to resolve the given target in the given order.
     config : `StandardizerConfig`, `dict` or `None`, optional
         Configuration key-values used when standardizing the file.
+    component_source : `object` or `None`, optional
+        Supplies dataset components (e.g. `VisitSummarySource`) instead of
+        reading them from the target. Its ``get(ref, component)`` returns the
+        component or `None`, in which case the component is read from the
+        target. Used only while fetching metadata; not copied or pickled.
 
     Attributes
     ----------
@@ -234,7 +239,7 @@ class ButlerStandardizer(Standardizer):
 
         return ref, butler
 
-    def __init__(self, dataId, butler, config=None, **kwargs):
+    def __init__(self, dataId, butler, config=None, *, component_source=None, **kwargs):
         deferred_import("lsst.daf.butler", "dafButler")
 
         # Sometimes we find ourselves having to process data that is
@@ -292,6 +297,7 @@ class ButlerStandardizer(Standardizer):
         self._metadata = None
         self._naxis1 = None
         self._naxis2 = None
+        self._component_source = component_source
 
     def __deepcopy__(self, memo):
         # Share self.butler across the copy. DirectButler pickles to a config
@@ -306,9 +312,28 @@ class ButlerStandardizer(Standardizer):
         for k, v in self.__dict__.items():
             if k == "butler":
                 new.butler = v
+            elif k == "_component_source":
+                new._component_source = None
             else:
                 setattr(new, k, copy.deepcopy(v, memo))
         return new
+
+    def __getstate__(self):
+        # The component source may hold a Butler and catalog data, and is only
+        # needed while fetching metadata.
+        state = self.__dict__.copy()
+        state["_component_source"] = None
+        return state
+
+    def _get_component(self, name):
+        """Return a component of the target, from the component source when it
+        supplies one and from the Butler otherwise."""
+        source = getattr(self, "_component_source", None)
+        if source is not None:
+            component = source.get(self.ref, name)
+            if component is not None:
+                return component
+        return self.butler.get(self.ref.makeComponentRef(name))
 
     def _fitWCSFallback(self, wcs, naxis1, naxis2, n_rand_pts, sip_degree, sample_outside_chip=True):
         """Create a simple TAN WCS centered on the detector through sampling random points.
@@ -473,6 +498,18 @@ class ButlerStandardizer(Standardizer):
         """Fetch metadata and any dataset components that do not
         load the image or large amount of data.
 
+        The component source, if any, serves only this fetch and is released
+        afterwards, also on failure.
+        """
+        try:
+            self._fetch_meta_components()
+        finally:
+            self._component_source = None
+
+    def _fetch_meta_components(self):
+        """Fetch metadata and any dataset components that do not
+        load the image or large amount of data.
+
         This resolves the majority of the metadata, temporal and
         spatial information required by KBMOD, which is stored
         in the attributes and then returned in the standardize
@@ -496,8 +533,7 @@ class ButlerStandardizer(Standardizer):
         self._metadata["band"] = self.ref.dataId["band"]
         self._metadata["filter"] = self.ref.dataId["physical_filter"]
 
-        visit_ref = self.ref.makeComponentRef("visitInfo")
-        visit = self.butler.get(visit_ref)
+        visit = self._get_component("visitInfo")
         expt = visit.exposureTime
         # VisitInfo.date already represents the exposure midpoint, in TAI.
         # Derive the nominal start from the duration; do not advance the midpoint.
@@ -525,16 +561,14 @@ class ButlerStandardizer(Standardizer):
         # dimensions of the detector are not easily availible. We get
         # those from BBox (in-pixel bounding box). NAXIS values are
         # required if we reproject, so we must extract them if we can
-        bbox_ref = self.ref.makeComponentRef("bbox")
-        bbox = self.butler.get(bbox_ref)
+        bbox = self._get_component("bbox")
         self._naxis1 = bbox.getWidth()
         self._naxis2 = bbox.getHeight()
 
         # If the standardizer is re-used, many generators will be
         # depleted, returning None as values. Cast to dict to make
         # a copy.
-        wcs_ref = self.ref.makeComponentRef("wcs")
-        wcs = self.butler.get(wcs_ref)
+        wcs = self._get_component("wcs")
         # Always resample the WCS via SIP fit to the Rubin SkyWCS; the lossy
         # getFitsMetadata() TAN-SIP export is not used. _fitWCSFallback sets
         # pixel_shape=(naxis1,naxis2), so serialized NAXIS is correct.
@@ -564,8 +598,7 @@ class ButlerStandardizer(Standardizer):
         # We need to fetch summary stats for the zero-point, so we
         # might as well extract the rest out of it, exception is
         # only the effective metrics, which may not exists for all filters
-        summary_ref = self.ref.makeComponentRef("summaryStats")
-        summary = self.butler.get(summary_ref)
+        summary = self._get_component("summaryStats")
         self._metadata["psfSigma"] = summary.psfSigma
         self._metadata["psfArea"] = summary.psfArea
         self._metadata["nPsfStar"] = summary.nPsfStar
@@ -583,8 +616,7 @@ class ButlerStandardizer(Standardizer):
         # values are too often NaN. The URI location itself is
         # ultimately not very useful, but helpful for data inspection.
         if self.config["standardize_metadata"]:
-            meta_ref = self.ref.makeComponentRef("metadata")
-            meta = self.butler.get(meta_ref)
+            meta = self._get_component("metadata")
 
             # dataId sometimes doesn't have a filter or a band,
             # depending on the way the initial ref is resolved? Why

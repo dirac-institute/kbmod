@@ -706,6 +706,92 @@ class TestButlerStandardizer(unittest.TestCase):
         new_std._metadata["k"] = "mutated"
         self.assertEqual(std._metadata["k"], "v")
 
+    def build_metadata(self, seed=1183, **kwargs):
+        """Standardize the metadata of a fixed target with a seeded WCS fit,
+        recording the components requested from the Butler."""
+        std = ButlerStandardizer(DatasetId(7, fill_metadata=True), butler=self.butler, **kwargs)
+        np.random.seed(seed)
+        with mock.patch.object(self.butler, "get", wraps=self.butler.get) as get:
+            meta = std.standardizeMetadata()
+        # The mocked VisitInfo returns a new Mock for some fields on every
+        # call, and the mocked ref's repr (location) includes its address;
+        # compare the other concrete values.
+        concrete = {
+            k: v for k, v in meta.items() if isinstance(v, (int, float, str, np.number)) and k != "location"
+        }
+        return std, concrete, self.requested_components(get)
+
+    def test_component_source_substitutes_components(self):
+        """Supplied components are not read from the Butler and give the same metadata."""
+        conf = {"standardize_metadata": False}
+        _, expected, _ = self.build_metadata(config=conf)
+
+        source = FakeComponentSource(self.butler, ("visitInfo", "bbox", "wcs", "summaryStats"))
+        std, meta, requested = self.build_metadata(config=conf, component_source=source)
+        self.assertEqual(requested, [])
+        self.assertEqual(sorted(source.served), ["bbox", "summaryStats", "visitInfo", "wcs"])
+        self.assertEqual(meta, expected)
+
+        # Components the source does not supply are read from the Butler.
+        source = FakeComponentSource(self.butler, ("wcs",))
+        _, meta, requested = self.build_metadata(component_source=source)
+        self.assertEqual(sorted(requested), ["bbox", "metadata", "summaryStats", "visitInfo"])
+        self.assertEqual(source.served, ["wcs"])
+        _, expected, _ = self.build_metadata()
+        self.assertEqual(meta, expected)
+
+    def test_component_source_is_released(self):
+        """The component source serves one metadata fetch and is never copied or pickled."""
+        source = FakeComponentSource(self.butler, ("wcs",))
+        std = ButlerStandardizer(
+            DatasetId(7, fill_metadata=True), butler=self.butler, component_source=source
+        )
+        self.assertIsNone(copy.deepcopy(std)._component_source)
+        self.assertIsNone(std.__getstate__()["_component_source"])
+        self.assertIs(std._component_source, source)
+
+        std.standardizeMetadata()
+        self.assertIsNone(std._component_source)
+
+        # Also released when the fetch fails.
+        failing = FakeComponentSource(self.butler, ("wcs",), fail=True)
+        std = ButlerStandardizer(
+            DatasetId(7, fill_metadata=True), butler=self.butler, component_source=failing
+        )
+        with self.assertRaises(RuntimeError):
+            std.standardizeMetadata()
+        self.assertIsNone(std._component_source)
+
+    def test_component_source_through_image_collection(self):
+        """ImageCollection.fromTargets forwards the component source to each standardizer."""
+        source = FakeComponentSource(self.butler, ("visitInfo", "bbox", "wcs", "summaryStats"))
+        targets = [DatasetId(i, fill_metadata=True) for i in (7, 8)]
+        ic = ImageCollection.fromTargets(
+            targets, butler=self.butler, force=ButlerStandardizer, component_source=source
+        )
+        self.assertEqual(len(ic), 2)
+        self.assertEqual(len(source.served), 8)
+
+
+class FakeComponentSource:
+    """Component source serving the given components from a Butler, recording
+    what it served."""
+
+    def __init__(self, butler, components, fail=False):
+        # Bind now so tests that wrap butler.get count only the standardizer's own reads.
+        self.read = butler.get
+        self.components = components
+        self.fail = fail
+        self.served = []
+
+    def get(self, ref, component):
+        if self.fail:
+            raise RuntimeError("source failure")
+        if component not in self.components:
+            return None
+        self.served.append(component)
+        return self.read(ref.makeComponentRef(component))
+
 
 if __name__ == "__main__":
     unittest.main()
