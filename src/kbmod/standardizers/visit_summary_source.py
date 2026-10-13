@@ -19,9 +19,10 @@ class VisitSummarySource:
     image from its visit's ``visit_summary`` catalog.
 
     Pass an instance to `ButlerStandardizer` as ``component_source``. Any
-    component this source cannot supply (no catalog for the visit, a missing or
-    duplicated detector row, an empty value, or any other component) is read
-    from the image as usual.
+    component this source cannot supply (no catalog for the visit, several
+    catalogs for the visit in the collections, a missing or duplicated detector
+    row, an empty value, or any other component) is read from the image as
+    usual.
 
     Only one visit is held in memory. Targets sorted by visit, as
     ``kbmod_build_ic`` sorts them, read each catalog once; unsorted targets are
@@ -57,7 +58,13 @@ class VisitSummarySource:
         self.dataset_type = dataset_type
         self._visit = None
         self._rows = None
-        self.counts = {"catalog_reads": 0, "catalog_failures": 0, "substituted": 0, "not_supplied": 0}
+        self.counts = {
+            "catalog_reads": 0,
+            "catalog_failures": 0,
+            "ambiguous": 0,
+            "substituted": 0,
+            "not_supplied": 0,
+        }
 
     def get(self, ref, component):
         """Return a component of the given image, or `None` if this source
@@ -89,22 +96,37 @@ class VisitSummarySource:
         """Read a visit's catalog and extract its per-detector components.
 
         Returns `None`, which is remembered for the visit, when the catalog
-        cannot be found or read; those images then use their own components.
+        cannot be found or read, or when the collections hold more than one
+        catalog for the visit; those images then use their own components.
         """
         try:
-            ref = self.butler.find_dataset(
-                self.dataset_type, instrument=instrument, visit=visit, collections=self.collections
-            )
-            catalog = None if ref is None else self.butler.get(ref)
+            # Search every collection, not only the first match: a visit can
+            # have catalogs from several processing runs, and the run listed
+            # first is not necessarily the one the images were made from.
+            candidates = {
+                ref.id: ref
+                for ref in self.butler.query_datasets(
+                    self.dataset_type,
+                    collections=self.collections,
+                    find_first=False,
+                    where="instrument = inst AND visit = visit_id",
+                    bind={"inst": instrument, "visit_id": visit},
+                    explain=False,
+                )
+            }
+            if len(candidates) != 1:
+                self.counts["ambiguous" if candidates else "catalog_failures"] += 1
+                logger.warning(
+                    f"Found {len(candidates)} {self.dataset_type} datasets for visit {visit} in "
+                    f"{self.collections}; reading components from the images instead."
+                )
+                return None
+            catalog = self.butler.get(next(iter(candidates.values())))
         except Exception as e:
             # Reading the catalog is only an optimization: any failure falls
             # back to reading each image's components.
             self.counts["catalog_failures"] += 1
             logger.warning(f"Could not read {self.dataset_type} for visit {visit}: {e!r}")
-            return None
-        if catalog is None:
-            self.counts["catalog_failures"] += 1
-            logger.warning(f"No {self.dataset_type} found for visit {visit} in {self.collections}.")
             return None
         self.counts["catalog_reads"] += 1
         return self._extract(catalog)

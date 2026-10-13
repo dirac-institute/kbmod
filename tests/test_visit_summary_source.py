@@ -42,21 +42,28 @@ class FakeCatalog(list):
 
 
 class FakeButler:
-    """Serves one catalog per visit; visits not in `catalogs` are missing."""
+    """Serves the catalogs listed per visit; visits not in `catalogs` have none.
+
+    Each catalog is listed twice by the query, as a chained collection does
+    when a run is reachable through several of its members.
+    """
 
     def __init__(self, catalogs, broken=()):
         self.catalogs = catalogs
         self.broken = broken
         self.reads = []
 
-    def find_dataset(self, dataset_type, instrument, visit, collections):
+    def query_datasets(self, dataset_type, collections, find_first, where, bind, explain):
+        visit = bind["visit_id"]
         if visit in self.broken:
-            raise OSError("datastore unavailable")
-        return visit if visit in self.catalogs else None
+            raise OSError("registry unavailable")
+        refs = [SimpleNamespace(id=(visit, i)) for i in range(len(self.catalogs.get(visit, [])))]
+        return refs + refs
 
     def get(self, ref):
-        self.reads.append(ref)
-        return self.catalogs[ref]
+        visit, i = ref.id
+        self.reads.append(visit)
+        return self.catalogs[visit][i]
 
 
 def ref(visit, detector):
@@ -70,7 +77,10 @@ class TestVisitSummarySource(unittest.TestCase):
         catalog = lambda dets: FakeCatalog(  # noqa: E731
             [FakeRecord(d, {"psfSigma": 2.0 + d, "zeroPoint": 31.5}) for d in dets], names
         )
-        self.butler = FakeButler({1: catalog([10, 11, 99]), 2: catalog([10, 12, 12])}, broken=(4,))
+        self.butler = FakeButler(
+            {1: [catalog([10, 11, 99])], 2: [catalog([10, 12, 12])], 5: [catalog([10]), catalog([10])]},
+            broken=(4,),
+        )
         self.source = VisitSummarySource(self.butler, ["coll"])
 
     def test_supplies_components_per_detector(self):
@@ -110,6 +120,13 @@ class TestVisitSummarySource(unittest.TestCase):
             self.assertIsNone(self.source.get(ref(4, 10), "wcs"))
         self.assertEqual(self.source.counts["catalog_failures"], 2)
         self.assertEqual(self.source.counts["not_supplied"], 3)
+
+    def test_several_catalogs_for_a_visit(self):
+        """A visit with catalogs from several runs falls back rather than guessing."""
+        with self.assertLogs("kbmod.standardizers.visit_summary_source", level="WARNING"):
+            self.assertIsNone(self.source.get(ref(5, 10), "wcs"))
+        self.assertEqual(self.source.counts["ambiguous"], 1)
+        self.assertEqual(self.butler.reads, [])
 
 
 if __name__ == "__main__":
