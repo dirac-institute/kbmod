@@ -547,6 +547,77 @@ class test_results(unittest.TestCase):
         self.assertEqual(len(table1.get_filtered("filter2")), 3)
         self.assertEqual(len(table1.get_filtered("filter3")), 6)
 
+    def test_extend_many(self):
+        # Several batches, some filtered (tracked), appended at once must equal appending them in order.
+        batches = []
+        for b in range(4):
+            trjs = [
+                Trajectory(x=100 * b + i, y=i, vx=1.0, vy=2.0, lh=10.0 + i, obs_count=i) for i in range(10)
+            ]
+            batch = Results.from_trajectories(trjs, track_filtered=True)
+            batch.filter_rows([i for i in range(10) if i % (b + 2) != 0], label="filter1")
+            if b % 2 == 1:
+                batch.filter_rows([0, 1], label="filter2")
+            batches.append(batch)
+
+        sequential = Results(track_filtered=True)
+        for batch in batches:
+            sequential.extend(batch)
+        at_once = Results(track_filtered=True).extend_many(batches)
+
+        self.assertEqual(len(at_once), len(sequential))
+        for col in ["x", "y", "vx", "vy", "likelihood", "flux", "obs_count", "uuid"]:
+            self.assertTrue(np.array_equal(at_once[col], sequential[col]))
+        self.assertEqual(at_once.filtered_stats, sequential.filtered_stats)
+        self.assertEqual(set(at_once.filtered.keys()), set(sequential.filtered.keys()))
+        for key in sequential.filtered:
+            self.assertTrue(np.array_equal(at_once.filtered[key]["x"], sequential.filtered[key]["x"]))
+
+        # Appending to a non-empty table, an empty list, and a column mismatch.
+        self.assertEqual(
+            len(Results.from_trajectories(self.trj_list).extend_many(batches)),
+            self.num_entries + len(at_once),
+        )
+        self.assertEqual(len(at_once.extend_many([])), len(sequential))
+        self.input_dict["something_added"] = [i for i in range(self.num_entries)]
+        with self.assertRaises(ValueError):
+            Results.from_trajectories(self.trj_list).extend_many([Results(self.input_dict)])
+
+    def test_extend_many_empty_tables_match_extend(self):
+        # Until rows accumulate, extend accepts a table with other columns and keeps the union;
+        # extend_many must accept the same sequence and build the same table.
+        self.input_dict["something_added"] = [i for i in range(self.num_entries)]
+        extra_empty = Results(self.input_dict)
+        extra_empty.filter_rows(np.full(self.num_entries, False))
+        self.assertEqual(len(extra_empty), 0)
+        plain = Results.from_trajectories(self.trj_list)
+
+        sequential = Results()
+        for batch in [extra_empty, plain]:
+            sequential.extend(batch)
+        at_once = Results().extend_many([extra_empty, plain])
+        self.assertEqual(set(at_once.colnames), set(sequential.colnames))
+        self.assertIn("something_added", at_once.colnames)
+        self.assertEqual(len(at_once), self.num_entries)
+        self.assertTrue(np.array_equal(at_once["x"], sequential["x"]))
+
+        # Once rows exist, a later table must match the accumulated columns, as with extend.
+        with self.assertRaises(ValueError):
+            Results().extend(plain).extend(Results(self.input_dict))
+        with self.assertRaises(ValueError):
+            Results().extend_many([plain, Results(self.input_dict)])
+
+    def test_extend_many_filtered_stats_untracked(self):
+        # The filter counts add up across batches when the filtered rows are not tracked.
+        batches = []
+        for b in range(3):
+            batch = Results.from_trajectories(self.trj_list, track_filtered=False)
+            batch.filter_rows([0, 1, 2], label="sigma-g")
+            batches.append(batch)
+        keep = Results().extend_many(batches)
+        self.assertEqual(len(keep), 9)
+        self.assertEqual(keep.filtered_stats["sigma-g"], 3 * (self.num_entries - 3))
+
     def test_extend_filtered_stats_untracked(self):
         # The filter counts must add up across extends even when the filtered rows are not tracked.
         table1 = Results.from_trajectories(self.trj_list, track_filtered=False)
