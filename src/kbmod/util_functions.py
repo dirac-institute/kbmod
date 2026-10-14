@@ -189,7 +189,7 @@ def unravel_results(
     ----------
     results : `kbmod.results.Results`
         The results.
-    image_collection : `kbmod.image_collection.ImageCollection` or `astropy.table.Table`
+    image_collection : `kbmod.image_collection.ImageCollection`
         The image collection containing the images used in the results.
     obscode : `str`, optional
         The observatory code to use for the observations.
@@ -225,10 +225,12 @@ def unravel_results(
     # Import here to avoid the ImageCollection -> WorkUnit -> util_functions cycle.
     from kbmod.image_collection import ImageCollection, unpack_table
 
+    if not isinstance(image_collection, ImageCollection):
+        raise TypeError(f"Expected an ImageCollection, got {type(image_collection).__name__}.")
+
     # Packing moves constant config/band columns into Table.meta. Work on a copy
     # of the underlying table: config is supporting metadata, hidden by IC indexing.
-    metadata = image_collection.data if isinstance(image_collection, ImageCollection) else image_collection
-    metadata = unpack_table(metadata.copy())
+    metadata = unpack_table(image_collection.data.copy())
     zp = _get_output_zero_point(metadata) if zero_point is None else float(zero_point)
     if not np.isfinite(zp):
         raise ValueError("Output zero point must be finite.")

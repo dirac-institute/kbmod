@@ -48,6 +48,7 @@ class test_util_functions(unittest.TestCase):
         # Upstream instrumental zero points deliberately differ from output units.
         ic["zeroPoint"] = np.linspace(32.0, 32.4, self.num_images)
         ic["config"] = [json.dumps({"zero_point": 31.0}) for _ in range(self.num_images)]
+        ic["std_idx"] = np.arange(self.num_images)
 
         res.table.meta["mjd_mid"] = ic["mjd_mid"]
         obs_count = [self.num_images for _ in range(self.num_trjs)]
@@ -59,7 +60,7 @@ class test_util_functions(unittest.TestCase):
             np.array([j + (i * 0.1) for j in range(self.num_images)]) for i in range(self.num_trjs)
         ]
 
-        self.ic = ic
+        self.ic = ImageCollection(ic, validate=False)
         self.res = res
 
     def test_get_matched_obstimes(self):
@@ -104,16 +105,14 @@ class test_util_functions(unittest.TestCase):
         self.assertEqual(len(df2), self.num_trjs * 2)
 
     def test_unravel_results_configured_zero_point(self):
-        self.ic["config"] = [json.dumps({"zero_point": 31.4})] * self.num_images
-        self.ic.remove_column("zeroPoint")  # A summary is not needed for calibrated fluxes.
+        self.ic.data["config"] = [json.dumps({"zero_point": 31.4})] * self.num_images
+        self.ic.data.remove_column("zeroPoint")  # A summary is not needed for calibrated fluxes.
         df = unravel_results(self.res, self.ic)
         expected = np.repeat(31.4 - 2.5 * np.log10(self.res["flux"]), self.num_images)
         np.testing.assert_allclose(df["magnitude"], expected)
 
     def test_unravel_results_packed_collection_roundtrip(self):
-        metadata = self.ic.copy()
-        metadata["std_idx"] = np.arange(self.num_images)
-        ic = ImageCollection(metadata, validate=False)
+        ic = ImageCollection(self.ic.data.copy(), validate=False)
         ic.pack()
         self.assertNotIn("config", ic.data.colnames)
         self.assertNotIn("band", ic.data.colnames)
@@ -135,19 +134,19 @@ class test_util_functions(unittest.TestCase):
     def test_unravel_results_rejects_unknown_or_mixed_units(self):
         for config in (None, "{}", "not-json", '{"zero_point": null}', '{"zero_point": NaN}'):
             with self.subTest(config=config):
-                metadata = self.ic.copy()
+                metadata = self.ic.data.copy()
                 if config is None:
                     metadata.remove_column("config")
                 else:
                     metadata["config"] = [config] * self.num_images
                 with self.assertRaises(ValueError):
-                    unravel_results(self.res, metadata)
-        self.ic["config"] = [json.dumps({"zero_point": 31.0 + (i % 2)}) for i in range(self.num_images)]
+                    unravel_results(self.res, ImageCollection(metadata, validate=False))
+        self.ic.data["config"] = [json.dumps({"zero_point": 31.0 + (i % 2)}) for i in range(self.num_images)]
         with self.assertRaisesRegex(ValueError, "Mixed output zero points"):
             unravel_results(self.res, self.ic)
 
     def test_unravel_results_explicit_zero_point(self):
-        self.ic.remove_column("config")
+        self.ic.data.remove_column("config")
         # Preserve all historical positional arguments; the calibration override
         # is keyword-only and comes from known result units, never the summary.
         df = unravel_results(self.res, self.ic, "500", "test", True, zero_point=31.4)
@@ -158,6 +157,10 @@ class test_util_functions(unittest.TestCase):
         for zp in (np.nan, np.inf, -np.inf):
             with self.subTest(zp=zp), self.assertRaises(ValueError):
                 unravel_results(self.res, self.ic, zero_point=zp)
+
+    def test_unravel_results_requires_image_collection(self):
+        with self.assertRaisesRegex(TypeError, "Expected an ImageCollection"):
+            unravel_results(self.res, self.ic.data)
 
     def test_make_manual_tracklets(self):
         df = unravel_results(self.res, self.ic)
