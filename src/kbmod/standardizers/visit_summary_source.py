@@ -20,9 +20,15 @@ class VisitSummarySource:
 
     Pass an instance to `ButlerStandardizer` as ``component_source``. Any
     component this source cannot supply (no catalog for the visit, several
-    catalogs for the visit in the collections, a missing or duplicated detector
-    row, an empty value, or any other component) is read from the image as
-    usual.
+    catalogs for the visit in the collections, a catalog that fails the check
+    below, a missing or duplicated detector row, an empty value, or any other
+    component) is read from the image as usual.
+
+    The catalog must come from the processing that made the images; a catalog
+    from another processing run has a different calibration. When ``verify``
+    is set, the WCS of one image per visit is read from the image itself and
+    compared with its catalog row, and the whole visit uses the images' own
+    components if they differ.
 
     Only one visit is held in memory. Targets sorted by visit, as
     ``kbmod_build_ic`` sorts them, read each catalog once; unsorted targets are
@@ -36,6 +42,9 @@ class VisitSummarySource:
     fields (e.g. ``astromOffsetMean``) that difference images leave NaN. On
     DP2 difference images the WCS, bounding box and VisitInfo were identical.
 
+    The catalog's PhotoCalib is deliberately not supplied: it can describe
+    instrumental counts while the delivered images are already calibrated.
+
     The first catalog read in a process imports the PSF model packages, which
     draws from NumPy's global random state.
 
@@ -48,20 +57,26 @@ class VisitSummarySource:
         were found in.
     dataset_type : `str`, optional
         Name of the per-visit summary dataset type.
+    verify : `bool`, optional
+        Check each visit's catalog against one of its images, at the cost of
+        one extra WCS read per visit.
     """
 
     components = ("visitInfo", "bbox", "wcs", "summaryStats")
 
-    def __init__(self, butler, collections, dataset_type="visit_summary"):
+    def __init__(self, butler, collections, dataset_type="visit_summary", verify=True):
         self.butler = butler
         self.collections = collections
         self.dataset_type = dataset_type
+        self.verify = verify
         self._visit = None
         self._rows = None
+        self._verified = False
         self.counts = {
             "catalog_reads": 0,
             "catalog_failures": 0,
             "ambiguous": 0,
+            "mismatched": 0,
             "substituted": 0,
             "not_supplied": 0,
         }
@@ -87,7 +102,13 @@ class VisitSummarySource:
         visit = (ref.dataId["instrument"], ref.dataId["visit"])
         if visit != self._visit:
             self._visit, self._rows = visit, self._load(*visit)
+            self._verified = not self.verify
         row = self._rows.get(ref.dataId["detector"]) if self._rows is not None else None
+        if row is not None and not self._verified and row["wcs"] is not None:
+            # Check the first image of the visit that has a catalog WCS.
+            self._verified = True
+            if not self._matches_image(ref, row["wcs"]):
+                self._rows = row = None
         value = row.get(component) if row is not None else None
         self.counts["not_supplied" if value is None else "substituted"] += 1
         return value
@@ -130,6 +151,25 @@ class VisitSummarySource:
             return None
         self.counts["catalog_reads"] += 1
         return self._extract(catalog)
+
+    def _matches_image(self, ref, catalog_wcs):
+        """Return whether an image's own WCS equals its catalog row's WCS."""
+        try:
+            image_wcs = self.butler.get(ref.makeComponentRef("wcs"))
+        except Exception as e:
+            image_wcs = None
+            reason = f"its WCS could not be read ({e!r})"
+        else:
+            reason = "its WCS differs from the catalog's"
+        if image_wcs is not None and image_wcs == catalog_wcs:
+            return True
+        self.counts["mismatched"] += 1
+        logger.warning(
+            f"{self.dataset_type} for visit {self._visit[1]} in {self.collections} does not match image "
+            f"{ref.dataId}: {reason}. The catalog may be from another processing run; reading "
+            "components from the images instead."
+        )
+        return False
 
     @staticmethod
     def _extract(catalog):
