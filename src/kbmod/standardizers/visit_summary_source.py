@@ -20,15 +20,18 @@ class VisitSummarySource:
 
     Pass an instance to `ButlerStandardizer` as ``component_source``. Any
     component this source cannot supply (no catalog for the visit, several
-    catalogs for the visit in the collections, a catalog that fails the check
-    below, a missing or duplicated detector row, an empty value, or any other
-    component) is read from the image as usual.
+    catalogs for the visit in the collections, a catalog that cannot be read
+    or fails the check below, a missing or duplicated detector row, summary
+    statistics missing a field the standardizer reads, an empty value, or any
+    other component) is read from the image as usual.
 
     The catalog must come from the processing that made the images; a catalog
     from another processing run has a different calibration. When ``verify``
-    is set, the WCS of one image per visit is read from the image itself and
-    compared with its catalog row, and the whole visit uses the images' own
-    components if they differ.
+    is set, the catalog is checked separately for each image run and dataset
+    type in a visit: the WCS of the first such image whose catalog row has a
+    WCS is read from the image and compared with that row. Images of that run
+    use the catalog only if they match, and nothing is supplied from the
+    catalog for an image of that run before the check.
 
     Only one visit is held in memory. Targets sorted by visit, as
     ``kbmod_build_ic`` sorts them, read each catalog once; unsorted targets are
@@ -58,11 +61,25 @@ class VisitSummarySource:
     dataset_type : `str`, optional
         Name of the per-visit summary dataset type.
     verify : `bool`, optional
-        Check each visit's catalog against one of its images, at the cost of
-        one extra WCS read per visit.
+        Check each visit's catalog against its images, at the cost of one
+        extra WCS read per visit and image run.
     """
 
     components = ("visitInfo", "bbox", "wcs", "summaryStats")
+
+    # Summary statistics ButlerStandardizer always reads. If the catalog lacks
+    # any of them, summary statistics are read from the images instead.
+    summary_fields = (
+        "psfSigma",
+        "psfArea",
+        "nPsfStar",
+        "zeroPoint",
+        "skyBg",
+        "skyNoise",
+        "meanVar",
+        "astromOffsetMean",
+        "astromOffsetStd",
+    )
 
     def __init__(self, butler, collections, dataset_type="visit_summary", verify=True):
         self.butler = butler
@@ -71,7 +88,7 @@ class VisitSummarySource:
         self.verify = verify
         self._visit = None
         self._rows = None
-        self._verified = False
+        self._checks = {}
         self.counts = {
             "catalog_reads": 0,
             "catalog_failures": 0,
@@ -101,14 +118,10 @@ class VisitSummarySource:
             return None
         visit = (ref.dataId["instrument"], ref.dataId["visit"])
         if visit != self._visit:
-            self._visit, self._rows = visit, self._load(*visit)
-            self._verified = not self.verify
+            self._visit, self._rows, self._checks = visit, self._load(*visit), {}
         row = self._rows.get(ref.dataId["detector"]) if self._rows is not None else None
-        if row is not None and not self._verified and row["wcs"] is not None:
-            # Check the first image of the visit that has a catalog WCS.
-            self._verified = True
-            if not self._matches_image(ref, row["wcs"]):
-                self._rows = row = None
+        if row is not None and not self._is_verified(ref, row):
+            row = None
         value = row.get(component) if row is not None else None
         self.counts["not_supplied" if value is None else "substituted"] += 1
         return value
@@ -142,7 +155,7 @@ class VisitSummarySource:
                     f"{self.collections}; reading components from the images instead."
                 )
                 return None
-            catalog = self.butler.get(next(iter(candidates.values())))
+            rows = self._extract(self.butler.get(next(iter(candidates.values()))), visit)
         except Exception as e:
             # Reading the catalog is only an optimization: any failure falls
             # back to reading each image's components.
@@ -150,7 +163,23 @@ class VisitSummarySource:
             logger.warning(f"Could not read {self.dataset_type} for visit {visit}: {e!r}")
             return None
         self.counts["catalog_reads"] += 1
-        return self._extract(catalog)
+        return rows
+
+    def _is_verified(self, ref, row):
+        """Return whether the visit's catalog may be used for this image.
+
+        The result is remembered per image run and dataset type within the
+        visit. An image whose row has no WCS cannot be checked; it uses its
+        own components until another image of its run has passed the check.
+        """
+        if not self.verify:
+            return True
+        key = (ref.run, ref.datasetType.name)
+        if key not in self._checks:
+            if row["wcs"] is None:
+                return False
+            self._checks[key] = self._matches_image(ref, row["wcs"])
+        return self._checks[key]
 
     def _matches_image(self, ref, catalog_wcs):
         """Return whether an image's own WCS equals its catalog row's WCS."""
@@ -166,20 +195,26 @@ class VisitSummarySource:
         self.counts["mismatched"] += 1
         logger.warning(
             f"{self.dataset_type} for visit {self._visit[1]} in {self.collections} does not match image "
-            f"{ref.dataId}: {reason}. The catalog may be from another processing run; reading "
-            "components from the images instead."
+            f"{ref.dataId} of run {ref.run}: {reason}. The catalog may be from another processing run; "
+            "reading components from that run's images instead."
         )
         return False
 
-    @staticmethod
-    def _extract(catalog):
+    def _extract(self, catalog, visit):
         """Map detector ID to its components, omitting duplicated detectors."""
         from lsst.afw.image import ExposureSummaryStats
 
         # The catalog schema can lag the stack's ExposureSummaryStats (so
-        # ExposureSummaryStats.from_record fails); fields it lacks keep their defaults.
+        # ExposureSummaryStats.from_record fails); fields it lacks keep their
+        # defaults unless the standardizer reads them.
         names = set(catalog.schema.getNames())
         fields = [f.name for f in dataclasses.fields(ExposureSummaryStats) if f.name in names]
+        missing = [f for f in self.summary_fields if f not in names]
+        if missing:
+            logger.warning(
+                f"{self.dataset_type} for visit {visit} lacks {missing}; reading summary statistics "
+                "from the images instead."
+            )
 
         rows, duplicates = {}, set()
         for record in catalog:
@@ -191,7 +226,7 @@ class VisitSummarySource:
                 "visitInfo": record.getVisitInfo(),
                 "bbox": record.getBBox(),
                 "wcs": record.getWcs(),
-                "summaryStats": ExposureSummaryStats(**{f: record[f] for f in fields}),
+                "summaryStats": None if missing else ExposureSummaryStats(**{f: record[f] for f in fields}),
             }
         for detector in duplicates:
             logger.warning(f"Detector {detector} appears more than once in the catalog; not substituting it.")

@@ -23,6 +23,8 @@ class FakeRecord:
         return self.detector
 
     def getVisitInfo(self):
+        if self.detector == 98:
+            raise RuntimeError("malformed row")
         return f"visitInfo-{self.detector}"
 
     def getBBox(self):
@@ -32,7 +34,7 @@ class FakeRecord:
         return None if self.detector == 99 else f"wcs-{self.detector}"
 
     def __getitem__(self, name):
-        return self.values[name]
+        return self.values.get(name, 1.0)
 
 
 class FakeCatalog(list):
@@ -46,7 +48,8 @@ class FakeButler:
 
     Each catalog is listed twice by the query, as a chained collection does
     when a run is reachable through several of its members. Image WCS reads
-    return the catalog's value except for visits in `image_wcs`.
+    return the catalog's value except for the visits or (visit, run) pairs in
+    `image_wcs`.
     """
 
     def __init__(self, catalogs, broken=(), image_wcs=None):
@@ -67,7 +70,7 @@ class FakeButler:
         if hasattr(ref, "component"):
             visit, detector = ref.parent.dataId["visit"], ref.parent.dataId["detector"]
             self.image_reads.append((visit, detector))
-            value = self.image_wcs.get(visit, f"wcs-{detector}")
+            value = self.image_wcs.get((visit, ref.parent.run), self.image_wcs.get(visit, f"wcs-{detector}"))
             if isinstance(value, Exception):
                 raise value
             return value
@@ -76,8 +79,12 @@ class FakeButler:
         return self.catalogs[visit][i]
 
 
-def ref(visit, detector):
-    image = SimpleNamespace(dataId={"instrument": "LSSTCam", "visit": visit, "detector": detector})
+def ref(visit, detector, run="run-A"):
+    image = SimpleNamespace(
+        dataId={"instrument": "LSSTCam", "visit": visit, "detector": detector},
+        run=run,
+        datasetType=SimpleNamespace(name="difference_image"),
+    )
     image.makeComponentRef = lambda component: SimpleNamespace(parent=image, component=component)
     return image
 
@@ -85,8 +92,8 @@ def ref(visit, detector):
 @unittest.skipUnless(HAS_AFW, "requires lsst.afw")
 class TestVisitSummarySource(unittest.TestCase):
     def setUp(self):
-        names = ["id", "psfSigma", "zeroPoint"]
-        catalog = lambda dets: FakeCatalog(  # noqa: E731
+        names = ["id", *VisitSummarySource.summary_fields]
+        catalog = lambda dets, names=names: FakeCatalog(  # noqa: E731
             [FakeRecord(d, {"psfSigma": 2.0 + d, "zeroPoint": 31.5}) for d in dets], names
         )
         self.butler = FakeButler(
@@ -96,9 +103,12 @@ class TestVisitSummarySource(unittest.TestCase):
                 5: [catalog([10]), catalog([10])],
                 6: [catalog([10, 11])],
                 7: [catalog([10, 11])],
+                8: [catalog([10, 11])],
+                9: [catalog([10, 98])],
+                10: [catalog([10], names=["id", "zeroPoint"])],
             },
             broken=(4,),
-            image_wcs={6: "wcs-from-another-run", 7: OSError("unreadable")},
+            image_wcs={6: "wcs-from-another-run", 7: OSError("unreadable"), (8, "run-B"): "wcs-run-B"},
         )
         self.source = VisitSummarySource(self.butler, ["coll"])
 
@@ -108,8 +118,8 @@ class TestVisitSummarySource(unittest.TestCase):
         self.assertEqual(self.source.get(ref(1, 11), "wcs"), "wcs-11")
         stats = self.source.get(ref(1, 11), "summaryStats")
         self.assertEqual((stats.psfSigma, stats.zeroPoint), (13.0, 31.5))
-        # Fields missing from the catalog schema keep their defaults.
-        self.assertTrue(math.isnan(stats.skyNoise))
+        # Fields the standardizer does not read keep their defaults if missing.
+        self.assertTrue(math.isnan(stats.effTime))
         # One catalog read serves every detector of the visit, and one image
         # WCS read checks it.
         self.assertEqual(self.butler.reads, [1])
@@ -162,10 +172,34 @@ class TestVisitSummarySource(unittest.TestCase):
         self.assertEqual(self.butler.image_reads, [(6, 10), (7, 10)])
 
     def test_check_uses_an_image_with_a_catalog_wcs(self):
-        # Detector 99 has no catalog WCS, so the next image of the visit is checked.
-        self.assertIsNone(self.source.get(ref(1, 99), "wcs"))
+        # Detector 99 has no catalog WCS to check, so nothing is supplied for it
+        # until another image of its run has passed the check.
+        self.assertIsNone(self.source.get(ref(1, 99), "visitInfo"))
         self.assertEqual(self.source.get(ref(1, 11), "wcs"), "wcs-11")
+        self.assertEqual(self.source.get(ref(1, 99), "visitInfo"), "visitInfo-99")
         self.assertEqual(self.butler.image_reads, [(1, 11)])
+
+    def test_each_image_run_is_checked(self):
+        """Passing the check for one run's images does not vouch for another run's."""
+        self.assertEqual(self.source.get(ref(8, 10), "wcs"), "wcs-10")
+        with self.assertLogs("kbmod.standardizers.visit_summary_source", level="WARNING") as logs:
+            self.assertIsNone(self.source.get(ref(8, 11, run="run-B"), "wcs"))
+        self.assertIn("run-B", logs.output[0])
+        self.assertEqual(self.source.get(ref(8, 11), "wcs"), "wcs-11")
+        self.assertEqual(self.butler.image_reads, [(8, 10), (8, 11)])
+
+    def test_malformed_catalog_falls_back(self):
+        with self.assertLogs("kbmod.standardizers.visit_summary_source", level="WARNING"):
+            self.assertIsNone(self.source.get(ref(9, 10), "wcs"))
+        self.assertIsNone(self.source.get(ref(9, 11), "wcs"))
+        self.assertEqual(self.source.counts["catalog_failures"], 1)
+        self.assertEqual(self.butler.reads, [9])
+
+    def test_summary_missing_read_fields_falls_back(self):
+        with self.assertLogs("kbmod.standardizers.visit_summary_source", level="WARNING") as logs:
+            self.assertIsNone(self.source.get(ref(10, 10), "summaryStats"))
+        self.assertIn("psfSigma", logs.output[0])
+        self.assertEqual(self.source.get(ref(10, 10), "wcs"), "wcs-10")
 
     def test_verify_can_be_disabled(self):
         source = VisitSummarySource(self.butler, ["coll"], verify=False)
