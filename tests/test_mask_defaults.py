@@ -90,9 +90,10 @@ class TestMaskDefaults(unittest.TestCase):
                 np.testing.assert_array_equal(self.legacy_mask(std_class, config, pixels), expected)
 
     def test_builder_mask_policy(self):
+        # Negative detections/spikes are masked; injection flags alone are not.
         np.testing.assert_array_equal(
             self.butler_mask(self.build_config()),
-            [True, True, True, True, False, False, True, True, False, False],
+            [True, True, True, True, True, True, False, False, False, False],
         )
 
     def test_builder_override_and_fresh_defaults(self):

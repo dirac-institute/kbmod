@@ -13,15 +13,15 @@ BUTLER_MASK_FLAGS = (
 )
 
 # The collection builder applies a broader mask than direct Butler ingestion.
+# Mask negative detections and spikes while retaining injected sources.
 IC_BUILD_MASK_FLAGS = (
     "BAD",
     "CLIPPED",
     "CR",
     "CROSSTALK",
+    "DETECTED_NEGATIVE",
     "EDGE",
     "INEXACT_PSF",
-    "INJECTED",
-    "INJECTED_TEMPLATE",
     "INTRP",
     "ITL_DIP",
     "NOT_DEBLENDED",
@@ -30,6 +30,7 @@ IC_BUILD_MASK_FLAGS = (
     "SAT",
     "SAT_TEMPLATE",
     "SENSOR_EDGE",
+    "SPIKE",
     "STREAK",
     "SUSPECT",
     "UNMASKEDNAN",
