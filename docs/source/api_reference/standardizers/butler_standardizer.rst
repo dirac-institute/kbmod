@@ -4,6 +4,31 @@ Module: butler_standardizer
 .. automodule:: kbmod.standardizers.butler_standardizer
    :members:
 
+Photometric calibration
+-----------------------
+
+Science pixels are multiplied by
+``10**((config["zero_point"] - pixel_zero_point) / 2.5)``; variance pixels are
+multiplied by the square of that factor. ``pixel_zero_point`` comes from the
+delivered Exposure's ``photoCalib.instFluxToMagnitude(1.0)`` (the mean calibration,
+without a position). Missing PhotoCalib or invalid calibration raises
+``ValueError``; the source Exposure is not modified. A target ``zero_point=31.4``
+retains nJy units for identity-calibrated inputs. Spatial calibration maps,
+calibration uncertainty, PSF homogenization, and source colors are separate.
+
+Rubin can compute ``summaryStats.zeroPoint`` before calibrating pixels to nJy.
+For identity-calibrated nJy images, the pixel zero point is 31.4 AB mag; the
+default target 31 multiplies science by approximately 0.691831 and variance by
+0.478630. ``zeroPoint`` remains the original summary statistic for provenance,
+not the zero point of standardized pixels. ``unravel_results`` uses the stored
+standardizer ``config["zero_point"]`` for catalog magnitudes and rejects missing
+or mixed output calibrations unless a known flux zero point is supplied explicitly.
+
+Previously saved WorkUnits, reprojected images, and psi/phi arrays retain their
+old scaling. Loading them with new code does not recalibrate them. Rebuild
+these products and rerun the search; changing catalog magnitudes cannot restore
+candidates discarded by earlier thresholds or repair incorrectly scaled pixels.
+
 Timestamp convention and migration
 ----------------------------------
 
@@ -54,4 +79,3 @@ that two matching legacy timestamps are scientifically correct.
 Retain original products and their software revisions for historical
 reproduction. Use rebuilt products for corrected analyses; there is no option
 to restore the erroneous Butler midpoint arithmetic.
-

@@ -491,6 +491,10 @@ class MockButler:
         mocked.image.array = hdul["IMAGE"].data
         mocked.variance.array = hdul["VARIANCE"].data
         mocked.mask.array = hdul["MASK"].data
+        # Default to pixels already in the standardizer's target units. Keep
+        # this distinct from summary.zeroPoint so tests cannot accidentally
+        # treat the summary as the calibration of the delivered pixels.
+        mocked.photoCalib.instFluxToMagnitude.return_value = 31.0
         if self.mockImages is not None:
             self.mockImages(mocked)
 
