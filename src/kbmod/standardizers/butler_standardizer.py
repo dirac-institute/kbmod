@@ -17,6 +17,7 @@ import astropy.units as u
 from networkx import center
 import numpy as np
 
+from .mask_defaults import BUTLER_MASK_FLAGS
 from .standardizer import Standardizer, StandardizerConfig
 
 from kbmod.wcs_utils import max_sky_separation
@@ -89,7 +90,7 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """Size of the symmetric square kernel by which mask footprints will be
     increased by."""
 
-    mask_flags = ["BAD", "CLIPPED", "CR", "CROSSTALK", "EDGE", "NO_DATA", "SAT", "SENSOR_EDGE", "SUSPECT"]
+    mask_flags = list(BUTLER_MASK_FLAGS)
     """List of flags that will be masked."""
 
     psf_std = 1

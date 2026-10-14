@@ -33,32 +33,9 @@ except ImportError:
 
 import kbmod
 from kbmod.standardizers import ButlerStandardizerConfig
+from kbmod.standardizers.mask_defaults import IC_BUILD_MASK_FLAGS
 
 logger = kbmod.Logging.getLogger(__name__)
-
-# Default Rubin mask flags to use if none are provided
-RUBIN_MASK_FLAGS = [
-    "BAD",
-    "CLIPPED",
-    "CR",
-    "CROSSTALK",
-    "EDGE",
-    "INEXACT_PSF",
-    "INJECTED",
-    "INJECTED_TEMPLATE",
-    "INTRP",
-    "ITL_DIP",
-    "NOT_DEBLENDED",
-    "NO_DATA",
-    "REJECTED",
-    "SAT",
-    "SAT_TEMPLATE",
-    "SENSOR_EDGE",
-    "STREAK",
-    "SUSPECT",
-    "UNMASKEDNAN",
-    "VIGNETTED",
-]
 
 
 def ingest_collection(
@@ -188,7 +165,7 @@ def execute(args):
     std_config["grow_mask"] = args.grow_mask
     if args.grow_kernel_shape is not None:
         std_config["grow_kernel_shape"] = tuple(args.grow_kernel_shape)
-    std_config["mask_flags"] = args.mask_flags if args.mask_flags else RUBIN_MASK_FLAGS
+    std_config["mask_flags"] = args.mask_flags if args.mask_flags else list(IC_BUILD_MASK_FLAGS)
     if args.wcs_fallback_points is not None:
         std_config["wcs_fallback_points"] = args.wcs_fallback_points
     if args.wcs_fallback_sips_degree is not None:
