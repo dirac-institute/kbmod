@@ -136,10 +136,8 @@ def ingest_collection(
     output_dir=None,
     overwrite=False,
     fail_on_error=False,
-    exclude_bands=None,
     num_workers=1,
     refs_pbar=None,
-    cone_region=None,
     chunk_size=None,
     use_visit_summary=False,
 ):
@@ -166,8 +164,6 @@ def ingest_collection(
         If True, overwrite the final output ImageCollection file if it exists. Note that this will still load intermediate chunks from cache if they exist; it does not force reprocessing of cached chunks. Default is False.
     fail_on_error : bool, optional
         If True, fail the entire ingestion of a collection if any images for the collection failed to standardize. Default is False.
-    exclude_bands : list of str, optional
-        List of band letters to exclude (e.g., ['u', 'y']). Filters by physical_filter first character.
     num_workers : int, optional
         Number of parallel workers (default: 1 = serial processing).
     refs_pbar : tqdm, optional
@@ -187,23 +183,11 @@ def ingest_collection(
         logger.info(f"Preparing to use output path {output_path} for {collection_name}")
 
     # Get all butler references for the specified dataset type in this collection
-    # Build a where clause and bind dict for the Butler query
-    where_clauses = []
-    bind = {}
-    if target is not None:
-        where_clauses.append(f"instrument='LSSTCam' and exposure.target_name='{target}'")
-    if cone_region is not None:
-        where_clauses.append("visit_detector_region.region OVERLAPS cone_region")
-        bind["cone_region"] = cone_region
-
-    where_str = " AND ".join(where_clauses) if where_clauses else None
-
     try:
-        if where_str is not None:
+        if target is not None:
             refs = butler.query_datasets(
                 datasetType,
-                where=where_str,
-                bind=bind if bind else None,
+                where=f"instrument='LSSTCam' and exposure.target_name='{target}'",
                 collections=[collection_name],
                 limit=None,
             )
@@ -219,24 +203,6 @@ def ingest_collection(
     if not refs:
         logger.debug(f"No datasets found for {datasetType} in {collection_name}.")
         return
-
-    # Filter by band if exclude_bands is specified
-    if exclude_bands:
-        original_count = len(refs)
-        print(f"Excluding bands {exclude_bands} from {original_count} refs")
-        filtered_refs = []
-        exclude_bands = set(exclude_bands)
-        for r in refs:
-            if r.dataId.get("physical_filter", "x")[0] not in exclude_bands:
-                filtered_refs.append(r)
-        filtered_count = original_count - len(filtered_refs)
-        if filtered_count > 0:
-            logger.info(f"Filtered out {filtered_count} refs with excluded bands {exclude_bands}")
-        if not filtered_refs:
-            logger.debug(f"No datasets remaining after band filtering for {collection_name}.")
-            return
-        # Update refs to filtered refs
-        refs = filtered_refs
 
     # Sort refs by visit then detector for deterministic chunking and chronological processing
     logger.info(f"Starting to sort {len(refs)} refs")
@@ -402,48 +368,20 @@ def execute(args):
         # If a dry run, print collection sizes
         print(f"\nDry run: Counting refs per collection...")
 
-        # Build cone search region if specified
-        cone_region = None
-        if args.cone_ra is not None and args.cone_dec is not None:
-            from lsst.sphgeom import Circle, UnitVector3d, LonLat, Angle
-
-            center = UnitVector3d(LonLat.fromDegrees(args.cone_ra, args.cone_dec))
-            cone_region = Circle(center, Angle.fromDegrees(args.cone_radius))
-            print(
-                f"Cone search filter active: {args.cone_radius}° radius circle at RA={args.cone_ra}, Dec={args.cone_dec}"
-            )
-
         collection_sizes = []
         all_unique_refs = set()
         for col in collections:
             try:
-                # Build where clause and bind dict
-                where_clauses = []
-                bind = {}
                 if args.target is not None:
-                    where_clauses.append(f"instrument='LSSTCam' and exposure.target_name='{args.target}'")
-                if cone_region is not None:
-                    where_clauses.append("visit_detector_region.region OVERLAPS cone_region")
-                    bind["cone_region"] = cone_region
-
-                where_str = " AND ".join(where_clauses) if where_clauses else None
-
-                if where_str is not None:
                     refs = list(
                         butler.query_datasets(
                             args.datasetType,
-                            where=where_str,
-                            bind=bind if bind else None,
+                            where=f"instrument='LSSTCam' and exposure.target_name='{args.target}'",
                             collections=[col],
                         )
                     )
                 else:
                     refs = list(butler.registry.queryDatasets(args.datasetType, collections=[col]))
-                # Apply band filtering for accurate count
-                if args.exclude_bands:
-                    refs = [
-                        r for r in refs if r.dataId.get("physical_filter", "x")[0] not in args.exclude_bands
-                    ]
                 collection_sizes.append((col, len(refs)))
                 # Track unique refs by (visit, detector, instrument) tuple
                 for r in refs:
@@ -458,7 +396,7 @@ def execute(args):
 
         total = sum(size for _, size in collection_sizes)
         print(f"\nFound {len(collections)} collections")
-        print(f"Total refs (after band filtering): {total:,}")
+        print(f"Total refs: {total:,}")
         print(f"Unique refs across all collections: {len(all_unique_refs):,}")
         print(f"\nTop 10 largest collections:")
         for i, (col, size) in enumerate(collection_sizes[:10], 1):
@@ -479,17 +417,6 @@ def execute(args):
     if args.visit_summary:
         # The per-image header is the one component visit_summary cannot supply.
         std_config["standardize_metadata"] = False
-
-    # Build cone search region if specified (for non-dry-run path)
-    cone_region = None
-    if args.cone_ra is not None and args.cone_dec is not None:
-        from lsst.sphgeom import Circle, UnitVector3d, LonLat, Angle
-
-        center = UnitVector3d(LonLat.fromDegrees(args.cone_ra, args.cone_dec))
-        cone_region = Circle(center, Angle.fromDegrees(args.cone_radius))
-        print(
-            f"Cone search filter: {args.cone_radius}° radius circle at RA={args.cone_ra}, Dec={args.cone_dec}"
-        )
 
     # Ingest each collection. Wrap per-collection so one collection's failure
     # (notably the final ImageCollection.vstack merge, which crashes on
@@ -515,10 +442,8 @@ def execute(args):
                 args.output_dir,
                 args.overwrite,
                 args.fail_on_error,
-                args.exclude_bands,
                 args.num_workers,
                 refs_pbar=None,
-                cone_region=cone_region,
                 chunk_size=args.chunk_size,
                 use_visit_summary=args.visit_summary,
             )
@@ -588,12 +513,6 @@ def main():
         help="Maximum number of exposures to process per collection",
     )
     parser.add_argument(
-        "--exclude_bands",
-        nargs="+",
-        default=[],
-        help="Bands to exclude by first letter of physical_filter (default: u y). Pass --exclude_bands with no args to include all.",
-    )
-    parser.add_argument(
         "--num_workers",
         type=int,
         default=1,
@@ -653,24 +572,6 @@ def main():
         help="Number of exposures per chunk. If not specified, divides evenly among workers.",
     )
     parser.add_argument(
-        "--cone_ra",
-        type=float,
-        default=None,
-        help="RA in degrees for cone search center. Used with --cone_dec and --cone_radius.",
-    )
-    parser.add_argument(
-        "--cone_dec",
-        type=float,
-        default=None,
-        help="Dec in degrees for cone search center. Used with --cone_ra and --cone_radius.",
-    )
-    parser.add_argument(
-        "--cone_radius",
-        type=float,
-        default=2.0,
-        help="Radius in degrees for cone search filter (default: 2.0). Only used when --cone_ra and --cone_dec are specified.",
-    )
-    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose logging",
@@ -685,8 +586,6 @@ def main():
         parser.error("Must specify either --collections or --collection_regex for ingesting.")
     if args.collections is not None and args.collection_regex is not None:
         parser.error("Cannot specify both --collections and --collection_regex. Use one or the other.")
-    if (args.cone_ra is None) != (args.cone_dec is None):
-        parser.error("Must specify both --cone_ra and --cone_dec together, or neither.")
 
     execute(args)
 
