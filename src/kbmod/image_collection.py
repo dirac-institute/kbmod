@@ -1121,6 +1121,9 @@ class ImageCollection:
             stack_data.meta = None
             data.append(stack_data)
             if self._standardizers is not None:
+                # Convert to list if needed (may be numpy array)
+                if hasattr(self._standardizers, "tolist"):
+                    self._standardizers = list(self._standardizers)
                 if ic._standardizers is not None:
                     self._standardizers = np.concatenate((self._standardizers, ic._standardizers))
                 else:
