@@ -41,9 +41,12 @@ except ImportError:
     )
 
 import kbmod
-from kbmod.standardizers import ButlerStandardizerConfig
+from kbmod.standardizers import ButlerStandardizerConfig, VisitSummarySource
 
 logger = kbmod.Logging.getLogger(__name__)
+
+# Table metadata key recording that components came from visit_summary.
+ACQUISITION_META_KEY = "kbmod_acquisition"
 
 # Default Rubin mask flags to use if none are provided
 RUBIN_MASK_FLAGS = [
@@ -70,7 +73,9 @@ RUBIN_MASK_FLAGS = [
 ]
 
 
-def _process_refs_chunk_threaded(refs_chunk, butler_or_repo, config, fail_on_error):
+def _process_refs_chunk_threaded(
+    refs_chunk, butler_or_repo, config, fail_on_error, visit_summary_collections=None
+):
     """
     Worker function for threaded parallel processing.
     Creates its own Butler instance to avoid contention.
@@ -85,6 +90,9 @@ def _process_refs_chunk_threaded(refs_chunk, butler_or_repo, config, fail_on_err
         Configuration for the ButlerStandardizer.
     fail_on_error : bool
         Whether to fail on standardization errors.
+    visit_summary_collections : list[str] or None, optional
+        If given, read each image's VisitInfo, bounding box, WCS and summary
+        statistics from its visit's visit_summary in these collections.
 
     Returns
     -------
@@ -96,13 +104,21 @@ def _process_refs_chunk_threaded(refs_chunk, butler_or_repo, config, fail_on_err
         else:
             worker_butler = butler_or_repo
 
+        source = None
+        if visit_summary_collections is not None:
+            source = VisitSummarySource(worker_butler, visit_summary_collections)
+
         ic = kbmod.ImageCollection.fromTargets(
             refs_chunk,
             butler=worker_butler,
             force="ButlerStandardizer",
             config=config,
             fail_on_error=fail_on_error,
+            component_source=source,
         )
+        if source is not None:
+            logger.info(f"visit_summary components: {source.counts}")
+            ic.meta[ACQUISITION_META_KEY] = "visit_summary"
         return ic
     except Exception as e:
         logger.error(f"Worker error: {e}")
@@ -123,6 +139,7 @@ def ingest_collection(
     num_workers=1,
     refs_pbar=None,
     chunk_size=None,
+    use_visit_summary=False,
 ):
     """
     Ingest a single collection from the LSST Butler repository into a KBMOD ImageCollection, which is then saved as a .collection file.
@@ -151,6 +168,10 @@ def ingest_collection(
         Number of parallel workers (default: 1 = serial processing).
     refs_pbar : tqdm, optional
         Optional outer progress bar to update with ref counts.
+    use_visit_summary : bool, optional
+        Read VisitInfo, bounding box, WCS and summary statistics from each
+        visit's visit_summary in this collection instead of from every image.
+        Intermediate chunks are cached in a separate directory.
     """
     if output_dir is not None:
         # Generate an output path based on the collection name and replace slashes with underscores
@@ -210,6 +231,9 @@ def ingest_collection(
     if output_dir is not None:
         output_collection_name = collection_name.replace("/", "_")
         cache_dir = os.path.join(output_dir, "intermediates", output_collection_name)
+        if use_visit_summary:
+            # Keep chunks built from visit_summary apart from default-mode chunks.
+            cache_dir = os.path.join(cache_dir, "visit_summary")
         os.makedirs(cache_dir, exist_ok=True)
         manifest_path = os.path.join(cache_dir, "manifest.parquet")
 
@@ -261,6 +285,7 @@ def ingest_collection(
             df_combined = df_new
         df_combined.to_parquet(manifest_path, index=False)
 
+    visit_summary_collections = [collection_name] if use_visit_summary else None
     if chunks_to_process:
         if num_workers > 1:
             logger.info(
@@ -270,7 +295,12 @@ def ingest_collection(
                 futures = {}
                 for idx, chunk, cached_path in chunks_to_process:
                     future = executor.submit(
-                        _process_refs_chunk_threaded, chunk, repo, butler_standardizer_config, fail_on_error
+                        _process_refs_chunk_threaded,
+                        chunk,
+                        repo,
+                        butler_standardizer_config,
+                        fail_on_error,
+                        visit_summary_collections,
                     )
                     futures[future] = (idx, cached_path)
 
@@ -285,7 +315,7 @@ def ingest_collection(
             logger.info(f"Processing {len(chunks_to_process)} chunks serially")
             for idx, chunk, cached_path in tqdm(chunks_to_process, desc="Chunks", unit="chunk"):
                 result = _process_refs_chunk_threaded(
-                    chunk, butler, butler_standardizer_config, fail_on_error
+                    chunk, butler, butler_standardizer_config, fail_on_error, visit_summary_collections
                 )
                 if result is not None:
                     if cached_path:
@@ -306,6 +336,8 @@ def ingest_collection(
 
     logger.debug(f"Created ImageCollection for collection {collection_name} with {len(ic)} images")
     ic["collection"] = collection_name
+    if use_visit_summary:
+        ic.meta[ACQUISITION_META_KEY] = "visit_summary"
 
     if output_dir is not None:
         if not overwrite and os.path.exists(output_path):
@@ -382,6 +414,9 @@ def execute(args):
         std_config["wcs_fallback_points"] = args.wcs_fallback_points
     if args.wcs_fallback_sips_degree is not None:
         std_config["wcs_fallback_sips_degree"] = args.wcs_fallback_sips_degree
+    if args.visit_summary:
+        # The per-image header is the one component visit_summary cannot supply.
+        std_config["standardize_metadata"] = False
 
     # Ingest each collection. Wrap per-collection so one collection's failure
     # (notably the final ImageCollection.vstack merge, which crashes on
@@ -410,6 +445,7 @@ def execute(args):
                 args.num_workers,
                 refs_pbar=None,
                 chunk_size=args.chunk_size,
+                use_visit_summary=args.visit_summary,
             )
         except Exception:
             if args.fail_on_error:
@@ -511,6 +547,18 @@ def main():
         type=int,
         default=None,
         help="Degree of the SIP distortion to fit when creating a fallback WCS when an astropy WCS cannot be constructed from the Rubin SkyWCS metadata.",
+    )
+    parser.add_argument(
+        "--visit_summary",
+        action="store_true",
+        help=(
+            "Read each image's VisitInfo, bounding box, WCS and summary statistics from its visit's "
+            "visit_summary instead of opening every image, and skip the per-image header metadata "
+            "(OBSID etc.). Summary statistics then come from visit_summary, which stores them as 32-bit "
+            "floats. Faster when the build covers many detectors per visit (e.g. whole collections); "
+            "sparse selections such as small cone searches gain little. Intermediate chunks are cached "
+            "separately from the default mode."
+        ),
     )
     parser.add_argument(
         "--fail_on_error",

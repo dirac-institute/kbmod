@@ -638,6 +638,59 @@ class TestButlerStandardizer(unittest.TestCase):
             obs_day = ButlerStandardizer._mjd_to_obs_day(mjd)
             self.assertEqual(obs_day, 20250602)
 
+    def requested_components(self, get_mock):
+        """Names of the dataset components requested through a wrapped Butler.get."""
+        names = [c.args[0].datasetType.name for c in get_mock.call_args_list]
+        return [n.split(".")[-1] for n in names if "." in n]
+
+    def test_config_overrides_are_honored(self):
+        """Overrides of the optional-metadata switches and zero_point take effect."""
+        conf = {
+            "standardize_metadata": False,
+            "standardize_effective_summary_stats": True,
+            "standardize_uri": True,
+        }
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=self.butler, config=conf)
+        with mock.patch.object(self.butler, "get", wraps=self.butler.get) as get:
+            meta = std.standardizeMetadata()
+        self.assertNotIn("metadata", self.requested_components(get))
+        self.assertNotIn("OBSID", meta)
+        self.assertIn("effTime", meta)
+        self.assertTrue(meta["location"].startswith("file:/"))
+
+        # Science and variance are scaled to the configured zero point, not the default.
+        default = Standardizer.get(DatasetId(7, fill_metadata=True), butler=self.butler)
+        default.standardizeMetadata()
+        rescaled = Standardizer.get(
+            DatasetId(7, fill_metadata=True), butler=self.butler, config={"zero_point": 25}
+        )
+        rescaled.standardizeMetadata()
+        sci_default, sci_rescaled = (
+            default.standardizeScienceImage()[0],
+            rescaled.standardizeScienceImage()[0],
+        )
+        mask = sci_default != 0
+        np.testing.assert_allclose(sci_rescaled[mask] / sci_default[mask], 10 ** (-6 / 2.5))
+
+    def test_wcs_fit_thread_limit(self):
+        """The WCS fit runs under a BLAS/OpenMP thread limit unless disabled."""
+        target = "kbmod.standardizers.butler_standardizer.threadpool_limits"
+        with mock.patch(target) as limits:
+            Standardizer.get(DatasetId(7), butler=self.butler).standardizeMetadata()
+        limits.assert_called_once_with(limits=1)
+
+        with mock.patch(target) as limits:
+            conf = {"wcs_fit_threads": None}
+            Standardizer.get(DatasetId(7), butler=self.butler, config=conf).standardizeMetadata()
+        limits.assert_not_called()
+
+    def test_butler_list_without_datastore_attribute(self):
+        """A list of butlers resolves the datastore root from the selected butler."""
+        butler = MockButler("/far/far/away")
+        del butler.datastore
+        std = ButlerStandardizer(DatasetId(7), butler=[butler])
+        self.assertEqual(std.location, "/far/far/away")
+
     def test_deepcopy(self):
         """Deep-copying a ButlerStandardizer yields an independent object
         whose butler attribute is the same instance as the original's."""
@@ -652,6 +705,92 @@ class TestButlerStandardizer(unittest.TestCase):
         self.assertIsNot(new_std._metadata, std._metadata)
         new_std._metadata["k"] = "mutated"
         self.assertEqual(std._metadata["k"], "v")
+
+    def build_metadata(self, seed=1183, **kwargs):
+        """Standardize the metadata of a fixed target with a seeded WCS fit,
+        recording the components requested from the Butler."""
+        std = ButlerStandardizer(DatasetId(7, fill_metadata=True), butler=self.butler, **kwargs)
+        np.random.seed(seed)
+        with mock.patch.object(self.butler, "get", wraps=self.butler.get) as get:
+            meta = std.standardizeMetadata()
+        # The mocked VisitInfo returns a new Mock for some fields on every
+        # call, and the mocked ref's repr (location) includes its address;
+        # compare the other concrete values.
+        concrete = {
+            k: v for k, v in meta.items() if isinstance(v, (int, float, str, np.number)) and k != "location"
+        }
+        return std, concrete, self.requested_components(get)
+
+    def test_component_source_substitutes_components(self):
+        """Supplied components are not read from the Butler and give the same metadata."""
+        conf = {"standardize_metadata": False}
+        _, expected, _ = self.build_metadata(config=conf)
+
+        source = FakeComponentSource(self.butler, ("visitInfo", "bbox", "wcs", "summaryStats"))
+        std, meta, requested = self.build_metadata(config=conf, component_source=source)
+        self.assertEqual(requested, [])
+        self.assertEqual(sorted(source.served), ["bbox", "summaryStats", "visitInfo", "wcs"])
+        self.assertEqual(meta, expected)
+
+        # Components the source does not supply are read from the Butler.
+        source = FakeComponentSource(self.butler, ("wcs",))
+        _, meta, requested = self.build_metadata(component_source=source)
+        self.assertEqual(sorted(requested), ["bbox", "metadata", "summaryStats", "visitInfo"])
+        self.assertEqual(source.served, ["wcs"])
+        _, expected, _ = self.build_metadata()
+        self.assertEqual(meta, expected)
+
+    def test_component_source_is_released(self):
+        """The component source serves one metadata fetch and is never copied or pickled."""
+        source = FakeComponentSource(self.butler, ("wcs",))
+        std = ButlerStandardizer(
+            DatasetId(7, fill_metadata=True), butler=self.butler, component_source=source
+        )
+        self.assertIsNone(copy.deepcopy(std)._component_source)
+        self.assertIsNone(std.__getstate__()["_component_source"])
+        self.assertIs(std._component_source, source)
+
+        std.standardizeMetadata()
+        self.assertIsNone(std._component_source)
+
+        # Also released when the fetch fails.
+        failing = FakeComponentSource(self.butler, ("wcs",), fail=True)
+        std = ButlerStandardizer(
+            DatasetId(7, fill_metadata=True), butler=self.butler, component_source=failing
+        )
+        with self.assertRaises(RuntimeError):
+            std.standardizeMetadata()
+        self.assertIsNone(std._component_source)
+
+    def test_component_source_through_image_collection(self):
+        """ImageCollection.fromTargets forwards the component source to each standardizer."""
+        source = FakeComponentSource(self.butler, ("visitInfo", "bbox", "wcs", "summaryStats"))
+        targets = [DatasetId(i, fill_metadata=True) for i in (7, 8)]
+        ic = ImageCollection.fromTargets(
+            targets, butler=self.butler, force=ButlerStandardizer, component_source=source
+        )
+        self.assertEqual(len(ic), 2)
+        self.assertEqual(len(source.served), 8)
+
+
+class FakeComponentSource:
+    """Component source serving the given components from a Butler, recording
+    what it served."""
+
+    def __init__(self, butler, components, fail=False):
+        # Bind now so tests that wrap butler.get count only the standardizer's own reads.
+        self.read = butler.get
+        self.components = components
+        self.fail = fail
+        self.served = []
+
+    def get(self, ref, component):
+        if self.fail:
+            raise RuntimeError("source failure")
+        if component not in self.components:
+            return None
+        self.served.append(component)
+        return self.read(ref.makeComponentRef(component))
 
 
 if __name__ == "__main__":
