@@ -1,4 +1,7 @@
+import contextlib
 import importlib.util
+import io
+import json
 import sys
 import types
 import unittest
@@ -6,6 +9,7 @@ from unittest import mock
 
 from astropy.io import fits
 import numpy as np
+import yaml
 
 from kbmod.standardizers import (
     ButlerStandardizer,
@@ -14,8 +18,9 @@ from kbmod.standardizers import (
     KBMODV0_5Config,
     KBMODV1,
     KBMODV1Config,
+    MaskProfile,
 )
-from kbmod.standardizers.mask_defaults import IC_BUILD_MASK_FLAGS, LEGACY_FITS_MASK_BITS
+from kbmod.standardizers.mask_defaults import DEEP_MASK_FLAGS, LEGACY_FITS_MASK_BITS, resolve_mask_flags
 
 
 class TestMaskDefaults(unittest.TestCase):
@@ -72,12 +77,69 @@ class TestMaskDefaults(unittest.TestCase):
         self.addCleanup(std.hdulist.close)
         return std._standardizeMask().ravel()
 
-    def test_butler_defaults_preserved(self):
+    def test_butler_default_is_rubin(self):
         config = ButlerStandardizerConfig(grow_mask=False)
+        self.assertEqual(config["mask_profile"], "lsstcam")
         np.testing.assert_array_equal(
             self.butler_mask(config),
-            [True, True, False, False, False, False, False, False, False, False],
+            [True, True, True, True, True, True, False, False, False, False],
         )
+
+    def test_profiles_in_butler_and_builder(self):
+        for profile in MaskProfile:
+            expected = [True, True] + [profile != MaskProfile.DEEP] * 4 + [False] * 4
+            for value in (profile, profile.value):
+                with self.subTest(profile=value):
+                    config = ButlerStandardizerConfig(mask_profile=value, grow_mask=False)
+                    np.testing.assert_array_equal(self.butler_mask(config), expected)
+            config = self.build_config("--mask_profile", profile.name)
+            np.testing.assert_array_equal(self.butler_mask(config), expected)
+
+    def test_profile_updates_and_overrides(self):
+        config = ButlerStandardizerConfig(grow_mask=False)
+        config["mask_profile"] = MaskProfile.DEEP
+        self.assertIs(type(config["mask_profile"]), str)
+        self.assertFalse(self.butler_mask(config)[4])  # Negative detection retained by DEEP.
+        config.update(mask_profile=MaskProfile.COMCAM)
+        self.assertIs(type(config["mask_profile"]), str)
+        self.assertTrue(self.butler_mask(config)[4])
+        config["mask_flags"] = ["INJECTED"]
+        config.update({"mask_profile": MaskProfile.DEEP})
+        expected = np.zeros(10, dtype=bool)
+        expected[6] = True
+        np.testing.assert_array_equal(self.butler_mask(config), expected)
+
+    def test_profile_serialization(self):
+        for profile in MaskProfile:
+            for flags in (None, [], ["INJECTED"]):
+                with self.subTest(profile=profile, flags=flags):
+                    config = ButlerStandardizerConfig(grow_mask=False, mask_profile=profile, mask_flags=flags)
+                    for loaded in (
+                        json.loads(json.dumps(config.toDict())),
+                        yaml.safe_load(yaml.safe_dump(config.toDict())),
+                    ):
+                        recovered = ButlerStandardizerConfig(loaded)
+                        self.assertEqual(recovered["mask_profile"], profile.value)
+                        self.assertEqual(recovered["mask_flags"], flags)
+                        np.testing.assert_array_equal(self.butler_mask(recovered), self.butler_mask(config))
+
+        # Old saved configs contain explicit flags but no profile.
+        legacy = ButlerStandardizerConfig(grow_mask=False, mask_flags=list(DEEP_MASK_FLAGS))
+        np.testing.assert_array_equal(
+            self.butler_mask(legacy), [True, True, False, False, False, False, False, False, False, False]
+        )
+
+    def test_invalid_profile(self):
+        with self.assertRaises(ValueError):
+            ButlerStandardizerConfig(mask_profile="typo")
+        config = ButlerStandardizerConfig()
+        with self.assertRaises(ValueError):
+            config["mask_profile"] = "typo"
+        with self.assertRaises(ValueError):
+            config.update(mask_profile="typo")
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+            self.build_config("--mask_profile", "typo")
+        self.assertEqual(error.exception.code, 2)
 
     def test_legacy_defaults_preserved(self):
         # Pixel i + 1 holds legacy bit i; the first pixel has no flags.
@@ -97,15 +159,15 @@ class TestMaskDefaults(unittest.TestCase):
         )
 
     def test_builder_override_and_fresh_defaults(self):
-        custom = self.build_config("--mask_flags", "INJECTED")
+        custom = self.build_config("--mask_profile", "deep", "--mask_flags", "INJECTED")
         expected = np.zeros(10, dtype=bool)
         expected[6] = True
         np.testing.assert_array_equal(self.butler_mask(custom), expected)
 
-        first = self.build_config()
-        first["mask_flags"].clear()
-        second = self.build_config()
-        self.assertEqual(second["mask_flags"], list(IC_BUILD_MASK_FLAGS))
+        self.assertFalse(self.butler_mask(self.build_config("--mask_flags")).any())
+        first = resolve_mask_flags(MaskProfile.DEEP)
+        first.clear()
+        self.assertEqual(resolve_mask_flags(MaskProfile.DEEP), list(DEEP_MASK_FLAGS))
 
     def test_standardizer_overrides(self):
         config = ButlerStandardizerConfig(grow_mask=False, mask_flags=["INTRP"])

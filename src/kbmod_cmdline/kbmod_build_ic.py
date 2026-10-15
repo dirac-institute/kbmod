@@ -32,8 +32,7 @@ except ImportError:
     )
 
 import kbmod
-from kbmod.standardizers import ButlerStandardizerConfig
-from kbmod.standardizers.mask_defaults import IC_BUILD_MASK_FLAGS
+from kbmod.standardizers import ButlerStandardizerConfig, MaskProfile
 
 logger = kbmod.Logging.getLogger(__name__)
 
@@ -161,11 +160,10 @@ def execute(args):
         return 0
 
     # Update a default ButlerStandardizer config based on command-line arguments
-    std_config = ButlerStandardizerConfig()
+    std_config = ButlerStandardizerConfig(mask_profile=args.mask_profile, mask_flags=args.mask_flags)
     std_config["grow_mask"] = args.grow_mask
     if args.grow_kernel_shape is not None:
         std_config["grow_kernel_shape"] = tuple(args.grow_kernel_shape)
-    std_config["mask_flags"] = args.mask_flags if args.mask_flags else list(IC_BUILD_MASK_FLAGS)
     if args.wcs_fallback_points is not None:
         std_config["wcs_fallback_points"] = args.wcs_fallback_points
     if args.wcs_fallback_sips_degree is not None:
@@ -252,9 +250,17 @@ def main():
         help="Size of the kernel used for growing the mask, as two integers (rows, cols). Example: --grow_kernel_shape 5 5",
     )
     parser.add_argument(
+        "--mask_profile",
+        type=str.lower,
+        choices=[profile.value for profile in MaskProfile],
+        default=MaskProfile.LSSTCAM.value,
+        help="Mask profile. LSSTCam and ComCam use Rubin flags; DEEP uses the legacy Butler flags.",
+    )
+    parser.add_argument(
         "--mask_flags",
-        nargs="+",
-        help="List of mask flags to use when standardizing images. If not provided, a default set of Rubin mask flags will be used.",
+        nargs="*",
+        default=None,
+        help="Override the mask profile with these flags. Pass with no flags to mask no bits.",
     )
     parser.add_argument(
         "--wcs_fallback_points",

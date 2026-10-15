@@ -1,6 +1,17 @@
-"""Mask defaults for each ingestion path; these policies intentionally differ."""
+"""Named mask policies for Butler ingestion and legacy FITS formats."""
 
-BUTLER_MASK_FLAGS = (
+from enum import Enum
+
+
+class MaskProfile(str, Enum):
+    """Supported Butler mask profiles, also accepted as lowercase strings."""
+
+    LSSTCAM = "lsstcam"
+    COMCAM = "comcam"
+    DEEP = "deep"
+
+
+DEEP_MASK_FLAGS = (
     "BAD",
     "CLIPPED",
     "CR",
@@ -12,9 +23,8 @@ BUTLER_MASK_FLAGS = (
     "SUSPECT",
 )
 
-# The collection builder applies a broader mask than direct Butler ingestion.
 # Mask negative detections and spikes while retaining injected sources.
-IC_BUILD_MASK_FLAGS = (
+RUBIN_MASK_FLAGS = (
     "BAD",
     "CLIPPED",
     "CR",
@@ -36,6 +46,16 @@ IC_BUILD_MASK_FLAGS = (
     "UNMASKEDNAN",
     "VIGNETTED",
 )
+
+
+def resolve_mask_flags(profile, mask_flags=None):
+    """Return a fresh flag list; explicit flags (including []) override the profile."""
+    profile = MaskProfile(profile)
+    if mask_flags is not None:
+        return list(mask_flags)
+    # LSSTCam and ComCam currently share the Rubin policy.
+    return list(DEEP_MASK_FLAGS if profile == MaskProfile.DEEP else RUBIN_MASK_FLAGS)
+
 
 LEGACY_FITS_MASK_FLAGS = ("BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN")
 

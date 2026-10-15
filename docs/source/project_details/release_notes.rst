@@ -4,6 +4,14 @@ Release Notes
 Unreleased
 ----------
 
+**Mask profiles**
+
+* Butler ingestion and ``kbmod_build_ic`` now default to the broader Rubin mask
+  policy. Use ``mask_profile="deep"`` (CLI: ``--mask_profile deep``) for the
+  previous Butler defaults. The ``lsstcam`` and ``comcam`` profiles currently
+  share the Rubin flags. Explicit ``mask_flags`` override the selected profile,
+  including in saved configurations; legacy FITS defaults are unchanged.
+
 **Timestamp correction and compatibility**
 
 * Butler timestamps now use the native ``VisitInfo`` exposure midpoint converted

@@ -4,6 +4,34 @@ Module: butler_standardizer
 .. automodule:: kbmod.standardizers.butler_standardizer
    :members:
 
+Mask profiles
+-------------
+
+Butler ingestion and ``kbmod_build_ic`` default to the ``lsstcam`` mask profile.
+``lsstcam`` and ``comcam`` currently share the Rubin flags, including
+``DETECTED_NEGATIVE`` and ``SPIKE`` but excluding ``INJECTED`` and
+``INJECTED_TEMPLATE``. Select ``deep`` to retain the previous, narrower Butler
+defaults. Profiles are explicit; they are not inferred from the instrument.
+The legacy FITS standardizers keep their existing defaults and fixed bit maps.
+
+.. code-block:: python
+
+   from kbmod.standardizers import ButlerStandardizerConfig, MaskProfile
+
+   config = ButlerStandardizerConfig(mask_profile=MaskProfile.DEEP)
+   # The string form is equivalent, including in saved configuration files.
+   config = ButlerStandardizerConfig(mask_profile="deep")
+
+For the builder, use ``--mask_profile deep`` (or ``lsstcam`` / ``comcam``).
+An explicit ``mask_flags`` list overrides the profile; ``None`` uses its defaults
+and ``[]`` masks no bits. On the CLI, ``--mask_flags BAD SAT`` overrides the
+profile, and ``--mask_flags`` with no values selects no mask bits. Threshold
+masking and mask growth remain controlled by their existing options.
+
+Existing saved configurations with explicit mask flags retain those flags even
+when they have no ``mask_profile``. New configurations persist the profile as a
+plain string and preserve whether flags were explicitly supplied.
+
 Photometric calibration
 -----------------------
 
