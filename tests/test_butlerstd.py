@@ -122,6 +122,125 @@ class TestButlerStandardizer(unittest.TestCase):
                 np.testing.assert_allclose(ra, expected.ra.deg if degrees else expected.ra.rad)
                 np.testing.assert_allclose(dec, expected.dec.deg if degrees else expected.dec.rad)
 
+    def test_photocalib_overrides_precalibration_summary(self):
+        """nJy pixels must not acquire the exposure-dependent summary scale."""
+        std = ButlerStandardizer(DatasetId(7), butler=self.butler)
+        std.exp = self.butler.mock_exposure(7)
+        sci = np.array([[100.0, -10.0, 0.0], [2.0, np.nan, 7.0]], dtype=np.float32)
+        var = np.full_like(sci, 4.0)
+        std.exp.image.array = sci.copy()
+        std.exp.variance.array = var.copy()
+        std.exp.photoCalib.instFluxToMagnitude.return_value = 31.4
+        factor = 10 ** ((31.0 - 31.4) / 2.5)
+
+        # Native DP2 grizy examples plus an unusable summary. The summary is
+        # retained as metadata, but only the attached PhotoCalib sets the scale.
+        for summary_zp in (32.224116, 32.099284, 31.879751, 31.563941, 30.434182, np.nan):
+            with self.subTest(summary_zp=summary_zp):
+                std._metadata = {"zeroPoint": summary_zp}
+                metadata = std._metadata.copy()
+                actual_sci = std.standardizeScienceImage()[0]
+                actual_var = std.standardizeVarianceImage()[0]
+                self.assertEqual(actual_sci.dtype, sci.dtype)
+                self.assertEqual(actual_var.dtype, var.dtype)
+                np.testing.assert_allclose(actual_sci, sci * factor, rtol=1e-6)
+                np.testing.assert_allclose(actual_var, var * factor**2, rtol=1e-6)
+                np.testing.assert_allclose(actual_sci / np.sqrt(actual_var), sci / np.sqrt(var), rtol=1e-6)
+                self.assertEqual(std._metadata, metadata)
+        np.testing.assert_array_equal(std.exp.image.array, sci)
+        np.testing.assert_array_equal(std.exp.variance.array, var)
+
+    def test_photocalib_instrumental_counts(self):
+        """Legacy count-space inputs still map equal magnitudes to equal fluxes."""
+        for input_zp in (29.0, 30.0, 32.0):
+            for target_zp in (31.0, 31.4):
+                with self.subTest(input_zp=input_zp, target_zp=target_zp):
+                    std = ButlerStandardizer(
+                        DatasetId(7), butler=self.butler, config={"zero_point": target_zp}
+                    )
+                    std.exp = self.butler.mock_exposure(7)
+                    std.exp.photoCalib.instFluxToMagnitude.return_value = input_zp
+                    # Same magnitude-25 source and S/N=10 in different count units.
+                    flux = 10 ** ((input_zp - 25.0) / 2.5)
+                    std.exp.image.array = np.array([[flux]])
+                    std.exp.variance.array = np.array([[(flux / 10.0) ** 2]])
+                    expected = 10 ** ((target_zp - 25.0) / 2.5)
+                    np.testing.assert_allclose(std.standardizeScienceImage()[0], [[expected]])
+                    np.testing.assert_allclose(std.standardizeVarianceImage()[0], [[(expected / 10.0) ** 2]])
+
+    def test_photocalib_cold_calls_and_replaced_exposure(self):
+        """Direct calls need no metadata warm-up and never reuse a stale scale."""
+        for first_call in ("standardizeScienceImage", "standardizeVarianceImage"):
+            with self.subTest(first_call=first_call):
+                std = ButlerStandardizer(DatasetId(7), butler=self.butler)
+                self.assertIsNone(std._metadata)
+                getattr(std, first_call)()
+                self.assertIsNotNone(std.exp)
+                self.assertIsNone(std._metadata)
+
+                # An injection/reconstruction path can supply a new exposure.
+                std.exp = self.butler.mock_exposure(7)
+                std.exp.image.array = np.array([[10.0]])
+                std.exp.variance.array = np.array([[4.0]])
+                std.exp.photoCalib.instFluxToMagnitude.return_value = 31.4
+                factor = 10 ** ((31.0 - 31.4) / 2.5)
+                np.testing.assert_allclose(std.standardizeScienceImage()[0], [[10.0 * factor]])
+                np.testing.assert_allclose(std.standardizeVarianceImage()[0], [[4.0 * factor**2]])
+                std.config["zero_point"] = 31.4
+                np.testing.assert_allclose(std.standardizeScienceImage()[0], [[10.0]])
+                np.testing.assert_allclose(std.standardizeVarianceImage()[0], [[4.0]])
+
+    def test_photocalib_invalid_calibration(self):
+        """Missing or invalid calibration must not silently fall back to summary."""
+        std = ButlerStandardizer(DatasetId(7), butler=self.butler)
+        std.exp = self.butler.mock_exposure(7)
+        std._metadata = {"zeroPoint": 31.0}
+        photo_calib = std.exp.photoCalib
+        std.exp.photoCalib = None
+        for method in (std.standardizeScienceImage, std.standardizeVarianceImage):
+            with self.assertRaisesRegex(ValueError, "attached PhotoCalib"):
+                method()
+        std.exp.photoCalib = photo_calib
+        for input_zp, target_zp in (
+            (np.nan, 31),
+            (np.inf, 31),
+            (31.4, np.nan),
+            (31.4, 1000),
+            (31.4, -1000),
+            # Scale is finite and positive (1e+/-200), but its square is not.
+            (31.4, 531.4),
+            (31.4, -468.6),
+        ):
+            with self.subTest(input_zp=input_zp, target_zp=target_zp):
+                photo_calib.instFluxToMagnitude.return_value = input_zp
+                std.config["zero_point"] = target_zp
+                for method in (std.standardizeScienceImage, std.standardizeVarianceImage):
+                    with self.assertRaises(ValueError):
+                        method()
+
+    def test_metadata_config_overrides(self):
+        """Config mappings override class defaults for all optional metadata."""
+        for headers, effective, uri in ((True, False, False), (False, True, True)):
+            with self.subTest(headers=headers, effective=effective, uri=uri):
+                std = ButlerStandardizer(
+                    DatasetId(7, fill_metadata=True),
+                    butler=self.butler,
+                    config={
+                        "standardize_metadata": headers,
+                        "standardize_effective_summary_stats": effective,
+                        "standardize_uri": uri,
+                    },
+                )
+                metadata = std.standardizeMetadata()
+                self.assertEqual("OBSID" in metadata, headers)
+                self.assertEqual("GAINA" in metadata, headers)
+                for key in ("effTime", "effTimePsfSigmaScale", "effTimeSkyBgScale", "effTimeZeroPointScale"):
+                    self.assertEqual(key in metadata, effective)
+                if uri:
+                    self.assertEqual(metadata["location"], "file://far/far/away")
+                else:
+                    self.assertEqual(metadata["location"], str(std.ref))
+
     def test_fitted_wcs_accuracy(self):
         """Fit distorted, rectangular detectors and validate on a held-out grid."""
         for idx in (0, 7):
@@ -321,6 +440,31 @@ class TestButlerStandardizer(unittest.TestCase):
         ic._standardizers = np.full((n_stds,), None)
         with self.assertRaises(TypeError):
             ic.get_standardizer(0, butler=self.butler)
+
+    def test_standardized_flux_to_catalog_magnitude(self):
+        """Persist the target through ImageCollection and use it for catalog flux."""
+        from kbmod.results import Results
+        from kbmod.search import Trajectory
+        from kbmod.util_functions import unravel_results
+
+        for target in (31.0, 31.4):
+            with self.subTest(target=target):
+                std = ButlerStandardizer(
+                    DatasetId(7, fill_metadata=True), butler=self.butler, config={"zero_point": target}
+                )
+                std.standardizeMetadata()["zeroPoint"] = 32.2
+                std.exp = self.butler.mock_exposure(7)
+                std.exp.photoCalib.instFluxToMagnitude.return_value = 31.4
+                std.exp.image.array = np.array([[100.0]])  # 100 nJy = 26.4 AB mag.
+                flux = float(std.standardizeScienceImage()[0][0, 0])
+                collection = ImageCollection.fromStandardizers([std])
+                results = Results.from_trajectories([Trajectory(flux=flux, obs_count=1)])
+                results.table.meta["mjd_mid"] = np.asarray(collection["mjd_mid"])
+                results.table["img_ra"] = [[1.0]]
+                results.table["img_dec"] = [[2.0]]
+                output = unravel_results(results, collection)
+                np.testing.assert_allclose(output["magnitude"], [26.4], atol=1e-6, rtol=0)
+                self.assertEqual(collection["zeroPoint"][0], 32.2)
 
     def mock_kbmodv1like_bitmasking(self, mockedexp):
         """Assign each flag that exists to a pixel, standardize, then expect
