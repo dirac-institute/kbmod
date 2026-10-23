@@ -810,10 +810,6 @@ class ImageCollection:
     @property
     def columns(self):
         """Return metadata columns."""
-        # interesting, in python 3.10.9  using unpacking operator * inside bracket
-        # operator is considered SyntaxError. But casting the columns into a tuple
-        # (basically what unpacking operator would've done) is a-ok. TODO: update
-        # to unpacking operator when 3.10 stops being supported.
         return self.data.columns[tuple(self._userColumns)]
 
     def get_standardizer(self, index, **kwargs):

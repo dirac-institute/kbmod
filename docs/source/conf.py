@@ -5,7 +5,7 @@
 import os
 import shutil
 
-from pkg_resources import get_distribution
+from importlib.metadata import version as package_version
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -14,7 +14,7 @@ project = 'KBMOD'
 copyright = '2023, KBMOD Developers'
 author = 'KBMOD Developers'
 
-release = get_distribution('kbmod').version
+release = package_version('kbmod')
 version = '.'.join(release.split('.')[:2])
 
 project_root = os.path.abspath("../../")

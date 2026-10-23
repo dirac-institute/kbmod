@@ -1,5 +1,6 @@
 [build-system]
-requires = ["packaging>=21",
+requires = ["cmake>=3.23",
+            "packaging>=21",
             "setuptools>=60",
             "setuptools_scm>=8.0",
             "pybind11>=2.10.0"]
@@ -14,7 +15,7 @@ authors = [{name="KBMOD Developers"}, ]
 description = "Moving object detection library implemented on GPUs"
 license-files = ["LICENSE", ]
 readme = "README.md"
-requires-python = "<3.14"
+requires-python = ">=3.11,<3.14"
 keywords = ["astronomy", "astrophysics", "image_processing", "gpu"]
 classifiers = [
     "Development Status :: 3 - Beta",
@@ -100,7 +101,7 @@ tests = [
 # formatting configuration as specified at developer.lsst.io
 [tool.black]
 line-length = 110
-target-version = ["py39", "py310", "py311"]
+target-version = ["py311"]
 extend-exclude = "data/|docs/|include/|lib/|setup.py"
 
 [tool.isort]

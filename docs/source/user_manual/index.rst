@@ -25,7 +25,7 @@ Installation
 
 KBMOD can be installed from source and requires:
 
-* Python >= 3.10
+* Python >= 3.11, < 3.14
 * CMake >= 3.23
 * A C++ compiler
 * Cuda Toolkit >= 8.0 (to build the GPU libraries)
@@ -36,7 +36,7 @@ We recommend using a virtual environment such as conda to install the necessary 
 
 .. code-block:: bash
  
-    conda create -n kbmod_env -c conda-forge python=3.11 cmake>=3.23
+    conda create -n kbmod_env -c conda-forge python=3.13 cmake>=3.23
     conda activate kbmod_env
 
 Depending on your system, you may need to install additional dependencies. See the Troubleshooting section below for more details.

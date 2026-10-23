@@ -1,25 +1,31 @@
 name: Daily canary clean builds
 on:
+  workflow_dispatch:
   schedule:
      # run every day at 8am UTC, midnight PST, 3am eastern
     - cron: '0 8 * * *'
 
 env:
   CONDA: /local/tmp/kbmod-runner/miniconda3
+  PYTHONNOUSERSITE: "1"
+  PYTHONPATH: ""
 
 jobs:
   test-legacy:
     name:  Python ${{ matrix.python-version }}
     runs-on: self-hosted
+    env:
+      KBMOD_CI_ENV: kbmod-canary-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.python-version }}
     strategy:
       fail-fast: true
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13"]
     defaults:
       run:
         shell: bash -leo pipefail {0}
     steps:
       - name: Setup environment
+        shell: bash --noprofile --norc -eo pipefail {0}
         run: echo "/usr/local/cuda-12/bin" > $GITHUB_PATH
         # setup-conda can only cache what setup-conda installs,
         # we install via pip so we're re-downloading many of
@@ -27,6 +33,7 @@ jobs:
       - name: Setup miniconda
         uses: conda-incubator/setup-miniconda@v2.2.0
         with:
+          activate-environment: ${{ env.KBMOD_CI_ENV }}
           python-version: ${{ matrix.python-version }}
       - name: Checkout code
         uses: actions/checkout@v3
@@ -44,3 +51,10 @@ jobs:
           cd tests
           python -m unittest -b
           cd ..
+      - name: Remove run environment
+        if: ${{ always() }}
+        shell: bash --noprofile --norc -eo pipefail {0}
+        run: |
+          if [ -d "$CONDA/envs/$KBMOD_CI_ENV/conda-meta" ]; then
+            "$CONDA/bin/conda" env remove --yes --name "$KBMOD_CI_ENV"
+          fi

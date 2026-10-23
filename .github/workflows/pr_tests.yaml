@@ -13,11 +13,15 @@ on:
 
 env:
   CONDA: /local/tmp/kbmod-runner/miniconda3
+  PYTHONNOUSERSITE: "1"
+  PYTHONPATH: ""
 
 jobs:
   test-fiducial:
     name:  Testing in kbmod_ci env.
     runs-on: self-hosted
+    env:
+      KBMOD_CI_ENV: kbmod-test-${{ github.run_id }}-${{ github.run_attempt }}
     strategy:
       fail-fast: true
     defaults:
@@ -25,16 +29,13 @@ jobs:
         shell: bash -leo pipefail {0}
     steps:
       - name: Setup environment
+        shell: bash --noprofile --norc -eo pipefail {0}
         run: echo "/usr/local/cuda-12/bin" > $GITHUB_PATH
       - name: Setup miniconda
         uses: conda-incubator/setup-miniconda@v2.2.0
         with:
-          activate-environment: kbmod_ci_clone
-      - name: Clone existing environment
-        run: |
-          conda deactivate
-          conda create --name kbmod_ci_clone --clone kbmod_ci
-          conda activate kbmod_ci_clone
+          activate-environment: ${{ env.KBMOD_CI_ENV }}
+          python-version: "3.13"
       - name: Checkout code
         uses: actions/checkout@v3
         with:
@@ -53,3 +54,10 @@ jobs:
           cd tests
           python -m unittest -b
           cd ..
+      - name: Remove run environment
+        if: ${{ always() }}
+        shell: bash --noprofile --norc -eo pipefail {0}
+        run: |
+          if [ -d "$CONDA/envs/$KBMOD_CI_ENV/conda-meta" ]; then
+            "$CONDA/bin/conda" env remove --yes --name "$KBMOD_CI_ENV"
+          fi
