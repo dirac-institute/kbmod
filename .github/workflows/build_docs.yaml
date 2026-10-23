@@ -35,12 +35,8 @@ jobs:
       - name: Setup miniconda
         uses: conda-incubator/setup-miniconda@v2.2.0
         with:
-          activate-environment: kbmod_docs_clone
-      - name: Switch environments
-        run: |
-          conda deactivate
-          conda create --name kbmod_docs_clone --clone kbmod_docs
-          conda activate kbmod_docs_clone
+          activate-environment: kbmod_docs_py313
+          python-version: "3.13"
       - name: Checkout code
         uses: actions/checkout@v3
         with:
