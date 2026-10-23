@@ -54,7 +54,6 @@ class CMakeBuild(build_ext):
         # find out if cmake or cmake3 provides min required version
         self.set_cmake()
 
-        # Must be in this form due to bug in .resolve() only fixed in Python 3.10+
         ext_fullpath = Path.cwd() / self.get_ext_fullpath(ext.name)  # type: ignore[no-untyped-call]
         extdir = ext_fullpath.parent.resolve()
 
