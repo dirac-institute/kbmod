@@ -1,5 +1,6 @@
 [build-system]
-requires = ["packaging>=21",
+requires = ["cmake>=3.23",
+            "packaging>=21",
             "setuptools>=60",
             "setuptools_scm>=8.0",
             "pybind11>=2.10.0"]
