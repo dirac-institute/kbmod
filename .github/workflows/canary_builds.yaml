@@ -25,6 +25,7 @@ jobs:
         shell: bash -leo pipefail {0}
     steps:
       - name: Setup environment
+        shell: bash --noprofile --norc -eo pipefail {0}
         run: echo "/usr/local/cuda-12/bin" > $GITHUB_PATH
         # setup-conda can only cache what setup-conda installs,
         # we install via pip so we're re-downloading many of

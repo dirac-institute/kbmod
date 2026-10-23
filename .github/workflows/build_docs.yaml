@@ -35,6 +35,7 @@ jobs:
         shell: bash -leo pipefail {0}
     steps:
       - name: Setup environment
+        shell: bash --noprofile --norc -eo pipefail {0}
         run: echo "/usr/local/cuda-12/bin" > $GITHUB_PATH
       - name: Checkout code
         uses: actions/checkout@v3
