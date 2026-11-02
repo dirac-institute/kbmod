@@ -26,8 +26,10 @@ __host__ __device__ bool device_pixel_valid(float value);
  * Although we call this convolve (by astronomy conventions) autocorrelation is a
  * flipped version of standard convolution.
  */
-__global__ void convolve_psf(int width, int height, float *source_img, float *result_img, float *psf,
-                             int psf_radius, int psf_dim, float psf_sum) {
+// Match the launch below so register use permits a full convolution block.
+__global__ void __launch_bounds__(CONV_THREAD_DIM * CONV_THREAD_DIM)
+convolve_psf(int width, int height, float *source_img, float *result_img, float *psf,
+             int psf_radius, int psf_dim, float psf_sum) {
     // Find bounds of convolution area
     const int x = blockIdx.x * CONV_THREAD_DIM + threadIdx.x;
     const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;

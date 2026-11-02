@@ -27,7 +27,7 @@ class CMakeExtension(Extension):
 
 
 class CMakeBuild(build_ext):
-    def try_cmake(self, cmakecmd, min_version="3.5.0"):
+    def try_cmake(self, cmakecmd, min_version="3.23.0"):
         try:
             out = subprocess.check_output([cmakecmd, '--version'])
         except OSError:
@@ -54,7 +54,6 @@ class CMakeBuild(build_ext):
         # find out if cmake or cmake3 provides min required version
         self.set_cmake()
 
-        # Must be in this form due to bug in .resolve() only fixed in Python 3.10+
         ext_fullpath = Path.cwd() / self.get_ext_fullpath(ext.name)  # type: ignore[no-untyped-call]
         extdir = ext_fullpath.parent.resolve()
 
@@ -68,10 +67,10 @@ class CMakeBuild(build_ext):
         # Can be set with Conda-Build, for example.
         cmake_generator = os.environ.get("CMAKE_GENERATOR", "")
 
-        # Set Python_EXECUTABLE instead if you use PYBIND11_FINDPYTHON
+        # Match the interpreter used by pip and CMakeLists.txt's FindPython3.
         cmake_args = [
             f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}{os.sep}",
-            f"-DPYTHON_EXECUTABLE={sys.executable}",
+            f"-DPython3_EXECUTABLE={sys.executable}",
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
             f"-DPYBIND11_FINDPYTHON=ON",
         ]
