@@ -519,6 +519,59 @@ class Results:
 
         return self
 
+    def extend_many(self, results_list):
+        """Append several `Results` objects at once.
+
+        Equivalent to calling `extend` on each in order, but every table is stacked with a single
+        `vstack`. Repeated `extend` copies the whole accumulated table each time, which is quadratic
+        in the total number of rows when many batches are appended.
+
+        Parameters
+        ----------
+        results_list : `list` of `Results`
+            The data structures containing the results to add, in order.
+
+        Returns
+        -------
+        self : `Results`
+            Returns a reference to itself to allow chaining.
+
+        Raises
+        ------
+        Raises a ValueError if the columns of the results do not match.
+        """
+        if len(results_list) == 0:
+            return self
+
+        # Check columns as repeated `extend` would: once rows have accumulated, each table must
+        # match the accumulated columns, which are the union of every table so far (an empty
+        # table can contribute columns before any rows arrive).
+        reference = set(self.colnames)
+        accumulated_rows = len(self)
+        for results2 in results_list:
+            incoming = set(results2.colnames)
+            if accumulated_rows > 0 and incoming != reference:
+                raise ValueError("Column mismatch when merging results")
+            reference.update(incoming)
+            accumulated_rows += len(results2)
+
+        self.table = vstack([self.table] + [results2.table for results2 in results_list])
+
+        # Combine the statistics (even if track_filtered is False) and gather the filtered rows
+        # per key, so each key is also stacked once.
+        pending = {}
+        for results2 in results_list:
+            for key, count in results2.filtered_stats.items():
+                self.filtered_stats[key] = self.filtered_stats.get(key, 0) + count
+            for key, filtered_table in results2.filtered.items():
+                if key not in pending:
+                    pending[key] = [self.filtered[key]] if key in self.filtered else []
+                pending[key].append(filtered_table)
+        for key, tables in pending.items():
+            self.filtered[key] = tables[0] if len(tables) == 1 else vstack(tables)
+
+        return self
+
     def make_trajectory_list(self):
         """Create a list of ``Trajectory`` objects.
 

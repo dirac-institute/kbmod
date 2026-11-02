@@ -315,6 +315,9 @@ class SearchRunner:
             self._end_phase("near duplicate removal")
 
         # Transform the results into a Result table in batches while doing sigma-G filtering.
+        # The batches are stacked once at the end: appending each to the growing table copies all
+        # earlier rows every time, which is quadratic in the number of results.
+        batches = []
         batch_start = 0
         while batch_start < len(result_trjs):
             self._check_timeout()
@@ -351,8 +354,9 @@ class SearchRunner:
 
             # Append the unfiltered results to the final table.
             logger.debug(f"Added {len(batch_results)} results from batch [{batch_start}, {batch_end}).")
-            keep.extend(batch_results)
+            batches.append(batch_results)
             batch_start += batch_size
+        keep.extend_many(batches)
 
         # Save the timing information.
         self._end_phase("load_and_filter_results")
