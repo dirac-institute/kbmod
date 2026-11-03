@@ -7,6 +7,7 @@ User Manual
 
    overview
    input_files
+   source_injection
    search_space
    reprojection
    search_params

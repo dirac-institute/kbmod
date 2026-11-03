@@ -2,19 +2,154 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 import numpy as np
-from astropy.table import Table
+from astropy.table import Table, MaskedColumn
 
 from kbmod import ImageCollection
 from kbmod.configuration import SearchConfiguration
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 from kbmod.search import Trajectory
-from kbmod.injection import generate_injection_catalog, inject_sources_into_ic, match_injection_results
+from kbmod.injection import (
+    generate_injection_catalog,
+    inject_sources_into_ic,
+    match_injection_results,
+    prepare_injection_catalog,
+)
 from kbmod.results import Results
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 
 from utils import DECamImdiffFactory, MockButler, MockVisitInjectConfig, MockVisitInjectTask
+
+
+class TestPrepareInjectionCatalog(unittest.TestCase):
+    def make_catalog(self):
+        catalog = Table(
+            {
+                "source_type": ["Star", "Trail", "Trail"],
+                "mag_total": [22, 22, 22],
+                "obstime": [59000.0] * 3,
+                "obj_ids": [1, 2, 3],
+            },
+            meta={"seed": 1234},
+        )
+        catalog["trail_length"] = MaskedColumn([0.0, 10.0, 0.1], mask=[True, False, False])
+        catalog["beta"] = MaskedColumn([np.nan, 90.0, -30.0], mask=[True, False, False])
+        return catalog
+
+    def test_mixed_catalog_total_flux_and_provenance(self):
+        catalog = self.make_catalog()
+        prepared = prepare_injection_catalog(catalog)
+        np.testing.assert_allclose(prepared["mag"], [22.0, 24.5, 19.5])
+        # Independently reconstruct Rubin's integrated flux, including the
+        # length factor, for long and subpixel trails at fixed total magnitude.
+        flux = 10 ** (-0.4 * np.asarray(prepared["mag"])) * [1, 10, 0.1]
+        np.testing.assert_allclose(flux, 10 ** (-0.4 * 22))
+        self.assertNotIn("mag", catalog.colnames)
+        for name in catalog.colnames:
+            np.testing.assert_array_equal(prepared[name], catalog[name])
+        self.assertEqual(prepared.meta, catalog.meta)
+        np.testing.assert_array_equal(prepared["beta"].mask, catalog["beta"].mask)
+        again = prepare_injection_catalog(prepared)
+        np.testing.assert_array_equal(again["mag"], prepared["mag"])
+        prepared["mag_total"][0] = 10
+        prepared.meta["seed"] = 7
+        self.assertEqual(catalog["mag_total"][0], 22)
+        self.assertEqual(catalog.meta["seed"], 1234)
+
+    def test_stars_empty_catalog_and_default_angle(self):
+        stars = self.make_catalog()[:1]
+        stars.remove_columns(["trail_length", "beta"])
+        np.testing.assert_array_equal(prepare_injection_catalog(stars)["mag"], stars["mag_total"])
+        self.assertEqual(len(prepare_injection_catalog(stars[:0])), 0)
+        catalog = self.make_catalog()
+        catalog.remove_column("beta")
+        np.testing.assert_allclose(prepare_injection_catalog(catalog)["mag"], [22, 24.5, 19.5])
+
+    def test_invalid_trail_geometry(self):
+        for name, values in (
+            ("trail_length", [0, -1, np.nan, np.inf, np.ma.masked]),
+            ("beta", [np.nan, np.inf, np.ma.masked]),
+        ):
+            for value in values:
+                with self.subTest(name=name, value=value):
+                    catalog = self.make_catalog()
+                    catalog[name][1] = value
+                    with self.assertRaisesRegex(ValueError, name):
+                        prepare_injection_catalog(catalog)
+
+    def test_missing_columns_and_invalid_magnitudes(self):
+        for name in ["source_type", "mag_total", "trail_length"]:
+            with self.subTest(name=name):
+                catalog = self.make_catalog()
+                catalog.remove_column(name)
+                with self.assertRaisesRegex(ValueError, name):
+                    prepare_injection_catalog(catalog)
+        for value in [np.nan, np.inf, np.ma.masked]:
+            catalog = self.make_catalog()
+            catalog["mag_total"] = MaskedColumn([22.0, 22.0, 22.0])
+            catalog["mag_total"][0] = value
+            with self.assertRaisesRegex(ValueError, "mag_total"):
+                prepare_injection_catalog(catalog)
+
+    def test_unit_conversion(self):
+        catalog = self.make_catalog()
+        catalog["trail_length"].unit = u.pix
+        catalog["beta"] = catalog["beta"] * (np.pi / 180)
+        catalog["beta"].unit = u.rad
+        prepared = prepare_injection_catalog(catalog)
+        np.testing.assert_allclose(prepared["beta"][1:], [90, -30])
+        self.assertEqual(catalog["beta"].unit, u.rad)
+        catalog["trail_length"].unit = u.arcsec
+        with self.assertRaises(u.UnitConversionError):
+            prepare_injection_catalog(catalog)
+
+    def test_wrapper_preserves_native_magnitudes_and_extra_columns(self):
+        catalog = prepare_injection_catalog(self.make_catalog())
+        ic = mock.MagicMock()
+        ic.__len__.return_value = 1
+        ic.data = Table({"dataId": [0], "mjd_mid": [59000.0]})
+        ic.get_standardizers.return_value = [{"std": SimpleNamespace()}]
+        exposure = SimpleNamespace(psf=None, photoCalib=None, wcs=None)
+        butler = mock.Mock()
+        butler.get.return_value = exposure
+
+        def inject(injection_catalogs, **kwargs):
+            for name in catalog.colnames:
+                np.testing.assert_array_equal(injection_catalogs[name], catalog[name])
+            # Simulate Rubin's in-place type standardization. It must not
+            # modify the caller's truth catalog.
+            type_col = "source_type" if "source_type" in catalog.colnames else "kind"
+            injection_catalogs[type_col][0] = "OTHER"
+            return SimpleNamespace(output_exposure=exposure, output_catalog=injection_catalogs)
+
+        with (
+            mock.patch("kbmod.injection.HAS_LSST", True),
+            mock.patch("kbmod.injection.DatasetId", side_effect=int, create=True),
+            mock.patch("kbmod.injection.VisitInjectTask", create=True) as task,
+            mock.patch.object(ImageCollection, "fromStandardizers"),
+        ):
+            task.return_value.run.side_effect = inject
+            _, returned = inject_sources_into_ic(ic, catalog, butler, inject_config=SimpleNamespace())
+            self.assertEqual(catalog["source_type"][0], "Star")
+            np.testing.assert_array_equal(returned["mag"], catalog["mag"])
+            # Honor configured source type and length column names too.
+            catalog.rename_column("source_type", "kind")
+            catalog.rename_column("trail_length", "length")
+            config = SimpleNamespace(col_source_type="kind", col_trail_length="length")
+
+            _, returned = inject_sources_into_ic(ic, catalog, butler, inject_config=config)
+            self.assertEqual(catalog["kind"][0], "Star")
+            np.testing.assert_array_equal(returned["mag"], catalog["mag"])
+            np.testing.assert_array_equal(returned["mag_total"], catalog["mag_total"])
+            self.assertEqual(returned.meta, catalog.meta)
+            catalog["length"][1] = 0
+            task.return_value.run.reset_mock()
+            butler.reset_mock()
+            with self.assertRaisesRegex(ValueError, "positive 'length'"):
+                inject_sources_into_ic(ic, catalog, butler, inject_config=config)
+            task.return_value.run.assert_not_called()
+            butler.get.assert_not_called()
 
 
 class TestInjectionCatalog(unittest.TestCase):
