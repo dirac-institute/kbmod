@@ -28,6 +28,82 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _validate_trail_catalog(catalog, inject_config=None):
+    """Validate trail geometry without changing native Rubin catalog semantics."""
+    type_col = getattr(inject_config, "col_source_type", "source_type")
+    length_col = getattr(inject_config, "col_trail_length", "trail_length")
+    if type_col not in catalog.colnames:
+        return np.zeros(len(catalog), dtype=bool)
+    trails = np.asarray(np.ma.filled(catalog[type_col] == "Trail", False), dtype=bool)
+    if not np.any(trails):
+        return trails
+
+    # Rubin defaults to beta=0 when the column is absent. If supplied, every
+    # trail must have a finite angle; masked values are allowed on other types.
+    for name in [length_col] + (["beta"] if "beta" in catalog.colnames else []):
+        if name not in catalog.colnames:
+            raise ValueError(f"Trail sources require the '{name}' column.")
+        values = np.ma.asarray(catalog[name][trails], dtype=float)
+        if np.any(np.ma.getmaskarray(values)) or not np.all(np.isfinite(np.ma.getdata(values))):
+            raise ValueError(f"Trail sources require finite, unmasked '{name}' values.")
+        if name == length_col and np.any(values <= 0):
+            raise ValueError(f"Trail sources require positive '{name}' values; use Star for zero length.")
+    return trails
+
+
+def prepare_injection_catalog(catalog):
+    """Prepare a mixed-source catalog from total object magnitudes.
+
+    This opt-in helper uses standard Rubin column names and returns a copy.
+    It leaves ``mag_total`` and all truth/provenance columns intact, and sets
+    ``mag`` for consumption by :func:`inject_sources_into_ic`. Calling it again
+    is safe: conversion always starts from ``mag_total``, never from ``mag``.
+
+    Parameters
+    ----------
+    catalog : `astropy.table.Table`
+        Catalog containing ``source_type`` and finite, unmasked ``mag_total``
+        (total object AB magnitude). ``Trail`` rows additionally require a
+        positive ``trail_length`` in native-image pixels. ``beta``, if present,
+        is the counterclockwise angle from image +x in degrees; otherwise it
+        defaults to zero. Trail positions are their centers. Geometry fields
+        may be masked for other source types. Unit-bearing magnitude, length,
+        and angle columns must be convertible to mag, pixel, and degree,
+        respectively. Positions, times, and IDs pass through unchanged.
+
+    Returns
+    -------
+    prepared : `astropy.table.Table`
+        Independent catalog with ``mag = mag_total`` for non-trail sources and
+        ``mag = mag_total + 2.5 * log10(trail_length)`` for trails. Rubin's trail
+        renderer multiplies the flux inferred from ``mag`` by length in pixels;
+        this correction therefore preserves the intended total object flux.
+
+    Notes
+    -----
+    Already prepared Rubin catalogs should be passed directly to
+    :func:`inject_sources_into_ic`, which does not convert magnitudes.
+    This helper does not derive geometry from velocities or exposure times.
+    """
+    for name in ("source_type", "mag_total"):
+        if name not in catalog.colnames:
+            raise ValueError(f"Preparing an injection catalog requires the '{name}' column.")
+    prepared = catalog.copy(copy_data=True)
+    # Normalize units on the copy before the pixel-length flux conversion.
+    for name, unit in (("mag_total", u.mag), ("trail_length", u.pix), ("beta", u.deg)):
+        if name in prepared.colnames and getattr(prepared[name], "unit", None) is not None:
+            prepared[name].convert_unit_to(unit)
+    magnitudes = np.ma.asarray(prepared["mag_total"], dtype=float)
+    if np.any(np.ma.getmaskarray(magnitudes)) or not np.all(np.isfinite(np.ma.getdata(magnitudes))):
+        raise ValueError("mag_total must contain finite, unmasked total object magnitudes.")
+    trails = _validate_trail_catalog(prepared)
+    # A float column avoids truncation when integer magnitudes were supplied.
+    prepared["mag"] = np.array(magnitudes, dtype=float)
+    if np.any(trails):
+        prepared["mag"][trails] += 2.5 * np.log10(np.asarray(prepared["trail_length"][trails], dtype=float))
+    return prepared
+
+
 def generate_injection_catalog(
     ic,
     search_config,
@@ -227,7 +303,15 @@ def inject_sources_into_ic(
     ic : `kbmod.ImageCollection`
         Image collection to inject sources into.
     catalog : `astropy.table.Table`
-        Catalog of sources to inject.
+        Rubin-format catalog of sources to inject, with ``obstime`` matching
+        ``ic["mjd_mid"]``. Mixed ``Star`` and ``Trail`` rows are supported.
+        Trails require positive ``trail_length`` (native-image pixels) and,
+        if supplied, finite ``beta`` (degrees counterclockwise from image +x,
+        default zero). Positions specify trail centers. Additional columns
+        pass through to Rubin's injector and its output catalog.
+        Magnitudes retain Rubin's native semantics: for trails, total flux is
+        the flux implied by ``mag`` times the length in pixels. Use
+        :func:`prepare_injection_catalog` to start from total object magnitudes.
     butler : `dafButler.Butler`
         Butler to use for retrieving exposures.
     inject_config : `VisitInjectConfig`, optional
@@ -277,6 +361,7 @@ def inject_sources_into_ic(
 
     if inject_config is None:
         inject_config = VisitInjectConfig()
+    _validate_trail_catalog(catalog, inject_config)
     inject_task = VisitInjectTask(config=inject_config)
 
     catalog = catalog.group_by("obstime")
