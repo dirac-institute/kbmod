@@ -33,6 +33,7 @@ except ImportError:
 
 import kbmod
 from kbmod.standardizers import ButlerStandardizerConfig, MaskProfile
+from kbmod.standardizers.mask_defaults import resolve_mask_flags
 
 logger = kbmod.Logging.getLogger(__name__)
 
@@ -160,7 +161,10 @@ def execute(args):
         return 0
 
     # Update a default ButlerStandardizer config based on command-line arguments
-    std_config = ButlerStandardizerConfig(mask_profile=args.mask_profile, mask_flags=args.mask_flags)
+    # Save the resolved planes: older readers need a list, and the collection
+    # keeps its planes if a profile's definition later changes.
+    mask_flags = resolve_mask_flags(args.mask_profile, args.mask_flags)
+    std_config = ButlerStandardizerConfig(mask_profile=args.mask_profile, mask_flags=mask_flags)
     std_config["grow_mask"] = args.grow_mask
     if args.grow_kernel_shape is not None:
         std_config["grow_kernel_shape"] = tuple(args.grow_kernel_shape)

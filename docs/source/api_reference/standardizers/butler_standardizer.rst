@@ -63,6 +63,16 @@ Existing saved configurations with explicit mask flags retain those flags even
 when they have no ``mask_profile``. New configurations persist the profile as a
 plain string and preserve whether flags were explicitly supplied.
 
+``kbmod_build_ic`` saves the resolved plane list along with the profile, so its
+collections can be read by KBMOD versions without mask profiles, and they keep
+their planes if a profile's definition later changes. A configuration built in
+Python that relies on a profile saves ``mask_flags=None`` instead. Versions
+without mask profiles fail with a ``TypeError`` when building masks from such a
+collection, so update every worker that reads it. During a staggered upgrade,
+pass an explicit list instead, for example
+``mask_flags=resolve_mask_flags("deep")`` from
+``kbmod.standardizers.mask_defaults``.
+
 Photometric calibration
 -----------------------
 

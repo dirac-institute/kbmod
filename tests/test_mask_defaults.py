@@ -188,6 +188,16 @@ class TestMaskDefaults(unittest.TestCase):
             [True, True, True, True, True, True, False, False, False, False],
         )
 
+    def test_builder_saves_resolved_flags(self):
+        # Readers without mask profiles iterate the saved mask_flags, so None would fail.
+        for profile in MaskProfile:
+            with self.subTest(profile=profile):
+                saved = json.loads(json.dumps(self.build_config("--mask_profile", profile.value).toDict()))
+                self.assertEqual(saved["mask_profile"], profile.value)
+                self.assertEqual(saved["mask_flags"], resolve_mask_flags(profile))
+        saved = json.loads(json.dumps(self.build_config("--mask_flags", "SAT").toDict()))
+        self.assertEqual(saved["mask_flags"], ["SAT"])
+
     def test_builder_override_and_fresh_defaults(self):
         custom = self.build_config("--mask_profile", "deep", "--mask_flags", "INJECTED")
         expected = np.zeros(10, dtype=bool)

@@ -14,6 +14,10 @@ Unreleased
   ``INJECTED`` or ``INJECTED_TEMPLATE``. Profiles do not set mask growth.
   Explicit ``mask_flags`` override the selected profile, including in saved
   configurations; legacy FITS defaults are unchanged.
+* ``kbmod_build_ic`` saves the resolved mask planes with the profile, so its
+  collections remain readable by earlier versions. A Python configuration that
+  relies on a profile saves ``mask_flags=None``, which earlier versions cannot
+  read: update those workers or pass an explicit ``mask_flags`` list.
 
 **Timestamp correction and compatibility**
 
