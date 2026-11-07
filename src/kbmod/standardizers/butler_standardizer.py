@@ -17,6 +17,7 @@ import astropy.units as u
 from networkx import center
 import numpy as np
 
+from .mask_defaults import MaskProfile, resolve_mask_flags
 from .standardizer import Standardizer, StandardizerConfig
 
 from kbmod.wcs_utils import max_sky_separation
@@ -89,8 +90,12 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """Size of the symmetric square kernel by which mask footprints will be
     increased by."""
 
-    mask_flags = ["BAD", "CLIPPED", "CR", "CROSSTALK", "EDGE", "NO_DATA", "SAT", "SENSOR_EDGE", "SUSPECT"]
-    """List of flags that will be masked."""
+    mask_profile = MaskProfile.LSSTCAM.value
+    """Mask profile: ``lsstcam`` (default), ``comcam``, or ``deep``. Selects mask
+    planes only; growth is set by ``grow_mask``."""
+
+    mask_flags = None
+    """Explicit flags overriding ``mask_profile``. None uses the profile; [] masks no bits."""
 
     psf_std = 1
     """Standard deviation of the Point Spread Function. Used as a fallback
@@ -131,6 +136,20 @@ class ButlerStandardizerConfig(StandardizerConfig):
     greedy_export = False
     """If True, the standardizer will keep the Exposure object in memory
     after the LayeredImage is created. This is useful for large datasets."""
+
+    def __init__(self, config=None, **kwargs):
+        super().__init__(config, **kwargs)
+        self["mask_profile"] = self["mask_profile"]
+
+    def __setitem__(self, key, value):
+        if key == "mask_profile":
+            # Store a plain string for persisted configurations.
+            value = MaskProfile(value).value
+        super().__setitem__(key, value)
+
+    def update(self, conf=None, **kwargs):
+        for key, value in dict(conf or {}, **kwargs).items():
+            self[key] = value
 
 
 class ButlerStandardizer(Standardizer):
@@ -705,8 +724,9 @@ class ButlerStandardizer(Standardizer):
 
             # Filter out any configured mask flags not present in this
             # exposure's mask plane to avoid KeyError at lookup time.
-            available_flags = [f for f in self.config["mask_flags"] if f in bit_flag_map]
-            missing_flags = set(self.config["mask_flags"]) - set(available_flags)
+            mask_flags = resolve_mask_flags(self.config["mask_profile"], self.config["mask_flags"])
+            available_flags = [f for f in mask_flags if f in bit_flag_map]
+            missing_flags = set(mask_flags) - set(available_flags)
             if missing_flags:
                 logger.debug(f"Mask flags {missing_flags} not found in exposure mask plane, skipping.")
 

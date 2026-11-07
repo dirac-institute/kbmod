@@ -32,33 +32,10 @@ except ImportError:
     )
 
 import kbmod
-from kbmod.standardizers import ButlerStandardizerConfig
+from kbmod.standardizers import ButlerStandardizerConfig, MaskProfile
+from kbmod.standardizers.mask_defaults import resolve_mask_flags
 
 logger = kbmod.Logging.getLogger(__name__)
-
-# Default Rubin mask flags to use if none are provided
-RUBIN_MASK_FLAGS = [
-    "BAD",
-    "CLIPPED",
-    "CR",
-    "CROSSTALK",
-    "EDGE",
-    "INEXACT_PSF",
-    "INJECTED",
-    "INJECTED_TEMPLATE",
-    "INTRP",
-    "ITL_DIP",
-    "NOT_DEBLENDED",
-    "NO_DATA",
-    "REJECTED",
-    "SAT",
-    "SAT_TEMPLATE",
-    "SENSOR_EDGE",
-    "STREAK",
-    "SUSPECT",
-    "UNMASKEDNAN",
-    "VIGNETTED",
-]
 
 
 def ingest_collection(
@@ -184,11 +161,13 @@ def execute(args):
         return 0
 
     # Update a default ButlerStandardizer config based on command-line arguments
-    std_config = ButlerStandardizerConfig()
+    # Save the resolved planes: older readers need a list, and the collection
+    # keeps its planes if a profile's definition later changes.
+    mask_flags = resolve_mask_flags(args.mask_profile, args.mask_flags)
+    std_config = ButlerStandardizerConfig(mask_profile=args.mask_profile, mask_flags=mask_flags)
     std_config["grow_mask"] = args.grow_mask
     if args.grow_kernel_shape is not None:
         std_config["grow_kernel_shape"] = tuple(args.grow_kernel_shape)
-    std_config["mask_flags"] = args.mask_flags if args.mask_flags else RUBIN_MASK_FLAGS
     if args.wcs_fallback_points is not None:
         std_config["wcs_fallback_points"] = args.wcs_fallback_points
     if args.wcs_fallback_sips_degree is not None:
@@ -275,9 +254,18 @@ def main():
         help="Size of the kernel used for growing the mask, as two integers (rows, cols). Example: --grow_kernel_shape 5 5",
     )
     parser.add_argument(
+        "--mask_profile",
+        type=str.lower,
+        choices=[profile.value for profile in MaskProfile],
+        default=MaskProfile.LSSTCAM.value,
+        help="Mask profile: lsstcam (LSSTCam survey planes), comcam (DP1 planes, the previous Butler default), "
+        "or deep (the comcam planes plus UNMASKEDNAN). Mask growth is set separately with --grow_mask.",
+    )
+    parser.add_argument(
         "--mask_flags",
-        nargs="+",
-        help="List of mask flags to use when standardizing images. If not provided, a default set of Rubin mask flags will be used.",
+        nargs="*",
+        default=None,
+        help="Override the mask profile with these flags. Pass with no flags to mask no bits.",
     )
     parser.add_argument(
         "--wcs_fallback_points",

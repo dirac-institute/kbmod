@@ -11,6 +11,7 @@ from astropy.nddata import bitmask
 
 import numpy as np
 
+from ..mask_defaults import LEGACY_FITS_MASK_BITS, LEGACY_FITS_MASK_FLAGS
 from .multi_extension_fits import MultiExtensionFits, FitsStandardizerConfig
 
 __all__ = [
@@ -39,27 +40,10 @@ class KBMODV1Config(FitsStandardizerConfig):
     """Size of the symmetric square kernel by which mask footprints will be
     increased by."""
 
-    bit_flag_map = {
-        "BAD": 2**0,
-        "CLIPPED": 2**9,
-        "CR": 2**3,
-        "CROSSTALK": 2**10,
-        "DETECTED": 2**5,
-        "DETECTED_NEGATIVE": 2**6,
-        "EDGE": 2**4,
-        "INEXACT_PSF": 2**11,
-        "INTRP": 2**2,
-        "NOT_DEBLENDED": 2**12,
-        "NO_DATA": 2**8,
-        "REJECTED": 2**13,
-        "SAT": 2**1,
-        "SENSOR_EDGE": 2**14,
-        "SUSPECT": 2**7,
-        "UNMASKEDNAN": 2**15,
-    }
+    bit_flag_map = LEGACY_FITS_MASK_BITS.copy()
     """Mapping between the flag meaning to its value."""
 
-    mask_flags = ["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]
+    mask_flags = list(LEGACY_FITS_MASK_FLAGS)
     """List of flags that will be used when masking."""
 
 

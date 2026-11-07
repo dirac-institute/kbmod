@@ -4,6 +4,21 @@ Release Notes
 Unreleased
 ----------
 
+**Mask profiles**
+
+* Butler ingestion and ``kbmod_build_ic`` now default to the ``lsstcam`` mask
+  profile, the 20 planes used for the LSSTCam survey builds. Use
+  ``mask_profile="comcam"`` (CLI: ``--mask_profile comcam``) for the previous
+  nine-plane Butler default, which the DP1 builds used. ``deep`` adds
+  ``UNMASKEDNAN`` to those nine, as in the DEEP builds. No profile masks
+  ``INJECTED`` or ``INJECTED_TEMPLATE``. Profiles do not set mask growth.
+  Explicit ``mask_flags`` override the selected profile, including in saved
+  configurations; legacy FITS defaults are unchanged.
+* ``kbmod_build_ic`` saves the resolved mask planes with the profile, so its
+  collections remain readable by earlier versions. A Python configuration that
+  relies on a profile saves ``mask_flags=None``, which earlier versions cannot
+  read: update those workers or pass an explicit ``mask_flags`` list.
+
 **Timestamp correction and compatibility**
 
 * Butler timestamps now use the native ``VisitInfo`` exposure midpoint converted

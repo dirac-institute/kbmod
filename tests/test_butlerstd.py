@@ -13,6 +13,7 @@ from utils import DECamImdiffFactory, MockButler, MockFailedButler, DatasetRef, 
 from kbmod import ImageCollection, Standardizer, StandardizerConfig
 from kbmod.core.psf import PSF
 from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
+from kbmod.standardizers.mask_defaults import MaskProfile, resolve_mask_flags
 
 # Use a shared factory so that we can reference the same fits files in mocks
 # and tests without having to untar the archive multiple times.
@@ -441,6 +442,27 @@ class TestButlerStandardizer(unittest.TestCase):
         with self.assertRaises(TypeError):
             ic.get_standardizer(0, butler=self.butler)
 
+    def test_mask_profile_imagecollection_roundtrip(self):
+        for profile in MaskProfile:
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory() as directory:
+                std = ButlerStandardizer(
+                    DatasetId(7, fill_metadata=True),
+                    butler=self.butler,
+                    config={"mask_profile": profile, "grow_mask": False},
+                )
+                expected = std.standardizeMaskImage()[0]
+                collection = ImageCollection.fromStandardizers([std])
+                # The fixture leaves incidental VisitInfo fields as Mock objects.
+                for name in list(collection.data.colnames):
+                    if collection.data[name].dtype.kind == "O":
+                        collection.data.remove_column(name)
+                path = Path(directory) / "masks.collection"
+                collection.write(path)
+                recovered = ImageCollection.read(path).get_standardizer(0, butler=self.butler)["std"]
+                self.assertEqual(recovered.config["mask_profile"], profile.value)
+                self.assertIsNone(recovered.config["mask_flags"])
+                np.testing.assert_array_equal(recovered.standardizeMaskImage()[0], expected)
+
     def test_standardized_flux_to_catalog_magnitude(self):
         """Persist the target through ImageCollection and use it for catalog flux."""
         from kbmod.results import Results
@@ -493,7 +515,7 @@ class TestButlerStandardizer(unittest.TestCase):
         for mask in standardizedMask:
             for i, flag in enumerate(KBMODV1Config.bit_flag_map):
                 with self.subTest("Failed to mask expected", flag=flag):
-                    if flag in ButlerStandardizerConfig.mask_flags:
+                    if flag in resolve_mask_flags(ButlerStandardizerConfig.mask_profile):
                         self.assertEqual(mask.ravel()[i], True)
                     else:
                         self.assertEqual(mask.ravel()[i], False)
@@ -504,7 +526,7 @@ class TestButlerStandardizer(unittest.TestCase):
         butler = MockButler("/far/far/away", mock_images_f=self.mock_kbmodv1like_bitmasking)
 
         # Add flags that don't exist in the mock exposure's mask plane
-        extra_flags = ButlerStandardizerConfig.mask_flags + ["SPIKE", "GHOST", "NONEXISTENT"]
+        extra_flags = resolve_mask_flags(ButlerStandardizerConfig.mask_profile) + ["GHOST", "NONEXISTENT"]
         conf = StandardizerConfig(grow_mask=False, mask_flags=extra_flags)
         std = Standardizer.get(DatasetId(9), butler=butler, config=conf)
 
@@ -516,7 +538,7 @@ class TestButlerStandardizer(unittest.TestCase):
         for mask in standardizedMask:
             for i, flag in enumerate(KBMODV1Config.bit_flag_map):
                 with self.subTest("Failed to mask expected", flag=flag):
-                    if flag in ButlerStandardizerConfig.mask_flags:
+                    if flag in resolve_mask_flags(ButlerStandardizerConfig.mask_profile):
                         self.assertEqual(mask.ravel()[i], True)
                     else:
                         self.assertEqual(mask.ravel()[i], False)
