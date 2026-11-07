@@ -8,11 +8,32 @@ Mask profiles
 -------------
 
 Butler ingestion and ``kbmod_build_ic`` default to the ``lsstcam`` mask profile.
-``lsstcam`` and ``comcam`` currently share the Rubin flags, including
-``DETECTED_NEGATIVE`` and ``SPIKE`` but excluding ``INJECTED`` and
-``INJECTED_TEMPLATE``. Select ``deep`` to retain the previous, narrower Butler
-defaults. Profiles are explicit; they are not inferred from the instrument.
-The legacy FITS standardizers keep their existing defaults and fixed bit maps.
+Each profile reproduces the mask planes of the campaign it names. Profiles are
+explicit; they are not inferred from the instrument.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Profile
+     - Mask planes
+     - Campaign
+   * - ``lsstcam`` (default)
+     - The ``comcam`` planes plus ``DETECTED_NEGATIVE``, ``INEXACT_PSF``,
+       ``INTRP``, ``ITL_DIP``, ``NOT_DEBLENDED``, ``REJECTED``,
+       ``SAT_TEMPLATE``, ``SPIKE``, ``STREAK``, ``UNMASKEDNAN`` and
+       ``VIGNETTED`` (20 in total)
+     - LSSTCam survey builds
+   * - ``comcam``
+     - ``BAD``, ``CLIPPED``, ``CR``, ``CROSSTALK``, ``EDGE``, ``NO_DATA``,
+       ``SAT``, ``SENSOR_EDGE`` and ``SUSPECT``, the previous Butler default
+     - DP1 (LSSTComCam) builds
+   * - ``deep``
+     - The ``comcam`` planes plus ``UNMASKEDNAN``
+     - DEEP (DECam) builds
+
+No profile masks ``INJECTED`` or ``INJECTED_TEMPLATE``, so injected sources are
+retained. Planes that an exposure's mask does not define are skipped. The legacy
+FITS standardizers keep their existing defaults and fixed bit maps.
 
 .. code-block:: python
 
@@ -26,7 +47,17 @@ For the builder, use ``--mask_profile deep`` (or ``lsstcam`` / ``comcam``).
 An explicit ``mask_flags`` list overrides the profile; ``None`` uses its defaults
 and ``[]`` masks no bits. On the CLI, ``--mask_flags BAD SAT`` overrides the
 profile, and ``--mask_flags`` with no values selects no mask bits. Threshold
-masking and mask growth remain controlled by their existing options.
+masking remains controlled by its existing options.
+
+Profiles select mask planes only, so reproducing a campaign also requires its
+mask growth. The default growth depends on the entry point.
+``ButlerStandardizerConfig`` grows masks with a 10x10 kernel
+(``grow_mask=True``), but ``kbmod_build_ic`` leaves growth off unless
+``--grow_mask`` is given. The LSSTCam survey builds used no growth, the DP1
+builds used a 10x10 kernel, and the DEEP builds used a 10-pixel box. For
+example, use ``--mask_profile comcam --grow_mask`` to rebuild DP1 with the CLI,
+or ``ButlerStandardizerConfig(grow_mask=False)`` to match the LSSTCam survey
+builds from Python.
 
 Existing saved configurations with explicit mask flags retain those flags even
 when they have no ``mask_profile``. New configurations persist the profile as a

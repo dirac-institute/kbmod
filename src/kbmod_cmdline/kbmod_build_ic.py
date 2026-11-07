@@ -254,7 +254,8 @@ def main():
         type=str.lower,
         choices=[profile.value for profile in MaskProfile],
         default=MaskProfile.LSSTCAM.value,
-        help="Mask profile. LSSTCam and ComCam use Rubin flags; DEEP uses the legacy Butler flags.",
+        help="Mask profile: lsstcam (LSSTCam survey planes), comcam (DP1 planes, the previous Butler default), "
+        "or deep (the comcam planes plus UNMASKEDNAN). Mask growth is set separately with --grow_mask.",
     )
     parser.add_argument(
         "--mask_flags",

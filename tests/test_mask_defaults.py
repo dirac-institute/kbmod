@@ -20,7 +20,12 @@ from kbmod.standardizers import (
     KBMODV1Config,
     MaskProfile,
 )
-from kbmod.standardizers.mask_defaults import DEEP_MASK_FLAGS, LEGACY_FITS_MASK_BITS, resolve_mask_flags
+from kbmod.standardizers.mask_defaults import (
+    COMCAM_MASK_FLAGS,
+    DEEP_MASK_FLAGS,
+    LEGACY_FITS_MASK_BITS,
+    resolve_mask_flags,
+)
 
 
 class TestMaskDefaults(unittest.TestCase):
@@ -85,22 +90,47 @@ class TestMaskDefaults(unittest.TestCase):
             [True, True, True, True, True, True, False, False, False, False],
         )
 
+    def test_profiles_match_campaigns(self):
+        # Pin each profile to the planes recorded for the campaign it names.
+        dp1 = {"BAD", "CLIPPED", "CR", "CROSSTALK", "EDGE", "NO_DATA", "SAT", "SENSOR_EDGE", "SUSPECT"}
+        survey = dp1 | {
+            "DETECTED_NEGATIVE",
+            "INEXACT_PSF",
+            "INTRP",
+            "ITL_DIP",
+            "NOT_DEBLENDED",
+            "REJECTED",
+            "SAT_TEMPLATE",
+            "SPIKE",
+            "STREAK",
+            "UNMASKEDNAN",
+            "VIGNETTED",
+        }
+        self.assertCountEqual(resolve_mask_flags(MaskProfile.LSSTCAM), survey)
+        self.assertCountEqual(resolve_mask_flags(MaskProfile.COMCAM), dp1)
+        self.assertCountEqual(resolve_mask_flags(MaskProfile.DEEP), dp1 | {"UNMASKEDNAN"})
+
     def test_profiles_in_butler_and_builder(self):
+        # Pixels: BAD, CR, INTRP, UNMASKEDNAN, DETECTED_NEGATIVE, SPIKE, then injected and unflagged.
+        expected = {
+            MaskProfile.LSSTCAM: [True] * 6 + [False] * 4,
+            MaskProfile.COMCAM: [True] * 2 + [False] * 8,
+            MaskProfile.DEEP: [True, True, False, True] + [False] * 6,
+        }
         for profile in MaskProfile:
-            expected = [True, True] + [profile != MaskProfile.DEEP] * 4 + [False] * 4
             for value in (profile, profile.value):
                 with self.subTest(profile=value):
                     config = ButlerStandardizerConfig(mask_profile=value, grow_mask=False)
-                    np.testing.assert_array_equal(self.butler_mask(config), expected)
+                    np.testing.assert_array_equal(self.butler_mask(config), expected[profile])
             config = self.build_config("--mask_profile", profile.name)
-            np.testing.assert_array_equal(self.butler_mask(config), expected)
+            np.testing.assert_array_equal(self.butler_mask(config), expected[profile])
 
     def test_profile_updates_and_overrides(self):
         config = ButlerStandardizerConfig(grow_mask=False)
         config["mask_profile"] = MaskProfile.DEEP
         self.assertIs(type(config["mask_profile"]), str)
         self.assertFalse(self.butler_mask(config)[4])  # Negative detection retained by DEEP.
-        config.update(mask_profile=MaskProfile.COMCAM)
+        config.update(mask_profile=MaskProfile.LSSTCAM)
         self.assertIs(type(config["mask_profile"]), str)
         self.assertTrue(self.butler_mask(config)[4])
         config["mask_flags"] = ["INJECTED"]
@@ -123,8 +153,8 @@ class TestMaskDefaults(unittest.TestCase):
                         self.assertEqual(recovered["mask_flags"], flags)
                         np.testing.assert_array_equal(self.butler_mask(recovered), self.butler_mask(config))
 
-        # Old saved configs contain explicit flags but no profile.
-        legacy = ButlerStandardizerConfig(grow_mask=False, mask_flags=list(DEEP_MASK_FLAGS))
+        # Old saved configs contain explicit flags (the previous default) but no profile.
+        legacy = ButlerStandardizerConfig(grow_mask=False, mask_flags=list(COMCAM_MASK_FLAGS))
         np.testing.assert_array_equal(
             self.butler_mask(legacy), [True, True, False, False, False, False, False, False, False, False]
         )

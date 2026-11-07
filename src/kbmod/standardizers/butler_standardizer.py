@@ -91,7 +91,8 @@ class ButlerStandardizerConfig(StandardizerConfig):
     increased by."""
 
     mask_profile = MaskProfile.LSSTCAM.value
-    """Mask profile: ``lsstcam`` (default), ``comcam``, or ``deep``."""
+    """Mask profile: ``lsstcam`` (default), ``comcam``, or ``deep``. Selects mask
+    planes only; growth is set by ``grow_mask``."""
 
     mask_flags = None
     """Explicit flags overriding ``mask_profile``. None uses the profile; [] masks no bits."""
