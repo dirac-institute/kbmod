@@ -38,3 +38,17 @@ If loading data from raw FITS files, these must be Vera C. Rubin Science Pipelin
 stored in 1st, 2nd and 3rd header extension/plane respectively. The zeroth header extension is expected to contain the image metadata. A single FITS file can be loaded with the :py:meth:`~kbmod.util_functions.load_deccam_layered_image` function, which takes the file name and an optional numpy array of the PSF kernel and produces a :py:class:`~kbmod.core.image_stack_py.LayeredImagePy`.
 
 To build an :py:class:`~kbmod.image_collection.ImageCollection` from multiple FITS files, use the class's :py:meth:`~kbmod.image_collection.ImageCollection.fromDir()` function. The images within a single run are expected to be warped, i.e. geometrically transformed to a set of images with a consistent and uniform relationship between sky coordinates and image pixels on a shared pixel grid. 
+
+Butler ImageCollection builds
+-----------------------------
+
+The ``kbmod_build_ic.py`` command excludes y-band datasets by default, at query
+time before standardization and ``--max_exposures`` limits. Its ``--dry`` mode
+uses the same selection and applies the limit per collection. Pass
+``--bands-to-drop u y`` to replace the excluded bands, or ``--bands-to-drop``
+with no values to keep all bands. Existing output files are still skipped unless
+``--overwrite`` is specified; use a fresh output directory for a new selection.
+
+This selection belongs to the build command. The low-level ``ImageCollection``
+constructors and readers preserve the targets or stored rows explicitly supplied
+by Python callers.
