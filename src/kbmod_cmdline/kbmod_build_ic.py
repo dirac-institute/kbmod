@@ -17,6 +17,9 @@ The ingested ImageCollections will be saved as `.collection` files in the specif
 
 For testing purposes, you can run with the `--dry` flag to see the sizes of the Butler collections without actually ingesting them, or
 you can use the `--max_exposures` flag to limit the number of exposures processed per collection.
+
+y band is excluded before standardization and exposure limits by default. Pass
+`--bands-to-drop` with no values to include all bands, or supply a replacement list.
 """
 
 import argparse
@@ -61,6 +64,24 @@ RUBIN_MASK_FLAGS = [
 ]
 
 
+def query_collection_refs(butler, collection_name, dataset_type, target=None, bands_to_drop=("y",)):
+    """Query selected bands before applying limits or standardizing images."""
+    clauses = []
+    bind = {}
+    if bands_to_drop:
+        clauses.append("band NOT IN (:excluded_bands)")
+        bind["excluded_bands"] = tuple(bands_to_drop)
+    if target is not None:
+        clauses.extend(["instrument='LSSTCam'", "exposure.target_name=:target_name"])
+        bind["target_name"] = target
+    kwargs = {"collections": [collection_name]}
+    if clauses:
+        kwargs.update(where=" AND ".join(clauses), bind=bind)
+    if target is None:
+        return list(butler.registry.queryDatasets(dataset_type, **kwargs))
+    return list(butler.query_datasets(dataset_type, limit=None, **kwargs))
+
+
 def ingest_collection(
     butler,
     collection_name,
@@ -71,6 +92,7 @@ def ingest_collection(
     output_dir=None,
     overwrite=False,
     fail_on_error=False,
+    bands_to_drop=("y",),
 ):
     """
     Ingest a single collection from the LSST Butler repository into a KBMOD ImageCollection, which is then saved as a .collection file.
@@ -95,6 +117,8 @@ def ingest_collection(
         If True, overwrite existing ImageCollection files. Default is False.
     fail_on_error : bool, optional
         If True, fail the entire ingestion of a collection if any images for the collection failed to standardize. Default is False.
+    bands_to_drop : sequence of str, optional
+        Bands excluded at query time (default: y). An empty sequence keeps all bands.
     """
     if output_dir is not None:
         # Generate an output path based on the collection name and replace slashes with underscores
@@ -108,14 +132,7 @@ def ingest_collection(
     # Get all butler references for the specified dataset type in this collection
 
     try:
-        if target is None:
-            refs = butler.registry.queryDatasets(datasetType, collections=[collection_name])
-        else:
-            refs = butler.query_datasets(
-                datasetType,
-                where=f"instrument='LSSTCam' and exposure.target_name='{target}'",
-                collections=[collection_name],
-            )
+        refs = query_collection_refs(butler, collection_name, datasetType, target, bands_to_drop)
     except Exception as e:
         logger.error(f"Error querying collection {collection_name}: {e}")
         return
@@ -161,21 +178,19 @@ def execute(args):
         collections = [col for col in all_collections if re.match(args.collection_regex, col)]
 
     if args.dry:
-        # If a dry run, just print the sizes of the collections
-        where_filter = "instrument='LSSTCam'"
-        if args.target is not None:
-            where_filter += f"and exposure.target_name='{args.target}'"
-
-        all_count = len(
-            list(
-                butler.query_datasets(
-                    args.datasetType,
-                    where=where_filter,
-                    collections=collections,
-                    limit=args.max_exposures,
-                )
+        # Use the same band/target selection and per-collection limit as ingestion.
+        all_count = 0
+        for collection_name in collections:
+            refs = query_collection_refs(
+                butler,
+                collection_name,
+                args.datasetType,
+                args.target,
+                args.bands_to_drop,
             )
-        )
+            if args.max_exposures is not None:
+                refs = refs[: args.max_exposures]
+            all_count += len(refs)
         if args.collections is not None:
             print(f"Found {len(collections)} collections matching the provided names.")
         else:
@@ -207,10 +222,11 @@ def execute(args):
             args.output_dir,
             args.overwrite,
             args.fail_on_error,
+            bands_to_drop=args.bands_to_drop,
         )
 
 
-def main():
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         prog="kbmod_build_ic",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -241,6 +257,13 @@ def main():
         help="Target name to use for the collection. If provided, will be used to filter collections for this target field.",
     )
 
+    parser.add_argument(
+        "--bands-to-drop",
+        "--bands_to_drop",
+        nargs="*",
+        default=["y"],
+        help="Bands to exclude before standardization; use this flag with no values to keep all bands.",
+    )
     # Optional arguments
     parser.add_argument(
         "--output_dir",
@@ -302,7 +325,7 @@ def main():
         help="Enable verbose logging",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
 
@@ -312,7 +335,11 @@ def main():
     if args.collections is not None and args.collection_regex is not None:
         parser.error("Cannot specify both --collections and --collection_regex. Use one or the other.")
 
-    execute(args)
+    return args
+
+
+def main():
+    execute(parse_args())
 
 
 if __name__ == "__main__":
