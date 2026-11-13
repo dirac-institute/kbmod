@@ -241,6 +241,24 @@ class test_reprojection_utils(unittest.TestCase):
 
         assert self.sc2.separation(uncorrected_coord2).arcsecond < 0.001
 
+    def test_invert_correct_parallax_distances(self):
+        # The positions above lie almost along Earth's velocity, where annual aberration
+        # (and so the #1193 radial miss) nearly vanishes at 50 au. Closer frames still
+        # expose a forward/inverse mismatch there.
+        for coord, obstime in [(self.sc1, self.icrs_time1), (self.sc2, self.icrs_time2)]:
+            for dist in [2.0, 5.2, 20.0, 50.0, 100.0]:
+                for use_minimizer in [False, True]:
+                    corrected, _ = correct_parallax(
+                        coord=coord,
+                        obstime=obstime,
+                        point_on_earth=self.eq_loc,
+                        barycentric_distance=dist,
+                        use_minimizer=use_minimizer,
+                    )
+                    nominal = SkyCoord(corrected.ra, corrected.dec, distance=dist * u.au)
+                    inverted = invert_correct_parallax_vectorized(nominal, obstime, self.eq_loc)
+                    self.assertLess(coord.separation(inverted).arcsecond, 0.001)
+
     def test_fit_barycentric_wcs(self):
         x_points = np.array([247, 1252, 1052, 980, 420, 1954, 730, 1409, 1491, 803])
         y_points = np.array([1530, 713, 3414, 3955, 1975, 123, 1456, 2008, 1413, 1756])
