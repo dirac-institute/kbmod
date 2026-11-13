@@ -4,9 +4,9 @@ from astropy.coordinates import (
     SkyCoord,
     GCRS,
     ICRS,
-    solar_system_ephemeris,
-    get_body_barycentric,
+    UnitSphericalRepresentation,
 )
+from astropy.coordinates.erfa_astrom import erfa_astrom
 from astropy.time import Time
 from astropy.wcs.utils import fit_wcs_from_points, skycoord_to_pixel
 
@@ -181,12 +181,25 @@ def correct_parallax_with_minimizer(
     return answer, geocentric_distance
 
 
+def _observer_barycentric_position(obstime, obsgeoloc):
+    """Return the observer's barycentric position in AU, shape (3,) or (N, 3).
+
+    This is the vector Astropy itself adds and subtracts in its GCRS<->ICRS
+    transformations (``astrom["eb"]``), so the ray-sphere intersection and the
+    final coordinate transformation share one observer position.
+    """
+    return erfa_astrom.get().apcs(GCRS(obstime=obstime, obsgeoloc=obsgeoloc))["eb"]
+
+
 def correct_parallax_geometrically(coord, obstime, point_on_earth, barycentric_distance):
     """Calculate the parallax corrected postions for a given object at a given time,
     position on Earth, and a hypothetical distance from the Sun.
 
     This geometric solution is only applicable for objects beyond the 1au. It is
     generally faster than the scipy minimizer approach.
+
+    The returned coordinate lies on the sphere of radius ``barycentric_distance``, so
+    `invert_correct_parallax_vectorized` with that distance is its exact inverse.
 
     Attributes
     ----------
@@ -204,56 +217,49 @@ def correct_parallax_geometrically(coord, obstime, point_on_earth, barycentric_d
     An `astropy.coordinate.SkyCoord` containing the ra and dec of the point in
     ICRS, and the best fit geocentric distance (float).
     """
-
-    # Compute the Earth's location in cartesian space centered on the barycenter.
-    # Also take into account the point on Earth where the observation was made.
-    earth_pos_cart = get_body_barycentric("earth", obstime)
-    ex = earth_pos_cart.x.value + point_on_earth.x.to(u.au).value
-    ey = earth_pos_cart.y.value + point_on_earth.y.to(u.au).value
-    ez = earth_pos_cart.z.value + point_on_earth.z.to(u.au).value
-
-    # Compute the unit vector of the pointing.
     loc = (point_on_earth.to_geocentric()) * u.m
+    eb = _observer_barycentric_position(obstime, loc)
     los_earth_obj = coord.transform_to(GCRS(obstime=obstime, obsgeoloc=loc))
 
-    pointings_cart = los_earth_obj.cartesian
-    vx = pointings_cart.x.value
-    vy = pointings_cart.y.value
-    vz = pointings_cart.z.value
+    # Astropy's GCRS->ICRS removes aberration and light deflection from the GCRS direction
+    # before placing the point at the given distance from `eb`, so the intersection must use
+    # that de-aberrated (ICRS) ray, not the GCRS one. Start from the input direction, then
+    # refine once with the exact direction Astropy places the point along.
+    ray = coord.icrs.represent_as(UnitSphericalRepresentation).to_cartesian().xyz.value
+    for _ in range(2):
+        # Solve |eb + dist * ray| = barycentric_distance (ray is a unit vector).
+        b = 2 * np.dot(ray, eb)
+        c = np.dot(eb, eb) - barycentric_distance * barycentric_distance
+        disc = b * b - 4 * c
 
-    # Solve the quadratic equation for the ray leaving the earth and intersecting
-    # a sphere centered on the barycenter at (0, 0, 0) with radius = barycentric_distance
-    a = vx * vx + vy * vy + vz * vz
-    b = 2 * vx * ex + 2 * vy * ey + 2 * vz * ez
-    c = ex * ex + ey * ey + ez * ez - barycentric_distance * barycentric_distance
-    disc = b * b - 4 * a * c
+        if disc < 0:
+            # The ray from the observatory never hits a sphere at that distance.
+            return None, -1.0
 
-    if disc < 0:
-        # The ray from the observatory never hits a sphere at that distance.
-        return None, -1.0
+        # A ray can intersect a sphere at 0, 1, or 2 points. We use the closest distance
+        # that is not negative (since a negative distance is through the Earth).
+        dist1 = (-b + np.sqrt(disc)) / 2
+        dist2 = (-b - np.sqrt(disc)) / 2
+        assert dist1 > dist2
 
-    # A ray can intersect a sphere at 0, 1, or 2 points. We use the closest distance
-    # that is not negative (since a negative distance is through the Earth).
-    dist1 = (-b + np.sqrt(disc)) / (2 * a)
-    dist2 = (-b - np.sqrt(disc)) / (2 * a)
-    assert dist1 > dist2
+        if dist2 > 0.0:
+            dist = dist2
+        elif dist1 > 0.0:
+            dist = dist1
+        else:
+            # The barycentric distance puts this object on the wrong side of the Earth.
+            return None, -1.0
 
-    if dist2 > 0.0:
-        dist = dist2
-    elif dist1 > 0.0:
-        dist = dist1
-    else:
-        # The barycentric distance puts this object on the wrong side of the Earth.
-        return None, -1.0
-
-    answer = SkyCoord(
-        ra=los_earth_obj.ra,
-        dec=los_earth_obj.dec,
-        distance=dist * u.AU,
-        obstime=obstime,
-        obsgeoloc=loc,
-        frame="gcrs",
-    ).transform_to(ICRS())
+        answer = SkyCoord(
+            ra=los_earth_obj.ra,
+            dec=los_earth_obj.dec,
+            distance=dist * u.AU,
+            obstime=obstime,
+            obsgeoloc=loc,
+            frame="gcrs",
+        ).transform_to(ICRS())
+        ray = answer.cartesian.xyz.to_value(u.AU) - eb
+        ray /= np.linalg.norm(ray)
 
     return answer, dist
 
@@ -296,90 +302,56 @@ def correct_parallax_geometrically_vectorized(
         A list of calculated geocentric distances. Returned for
         compatibility.
     """
-    # Processing has to be batched over same times since Earth
-    # position changes at each time stamp
-    unique_obstimes = np.unique(mjds)
-
-    # fetch ephemeris of planet earth
-    earth_ephems_x = np.zeros((len(unique_obstimes),))
-    earth_ephems_y = np.zeros((len(unique_obstimes),))
-    earth_ephems_z = np.zeros((len(unique_obstimes),))
-    # figure out what coordinate this is pointing to - center of mass, or?
-    # TODO: redo the calls to make use of JPL ephems with all the obstime at once
-    # because there could be a lot of timestamps here
-    with solar_system_ephemeris.set("de432s"):
-        for i, ot in enumerate(Time(unique_obstimes, format="mjd")):
-            earth_coords = get_body_barycentric("earth", ot)
-            earth_ephems_x[i] = earth_coords.x.to(u.AU).value
-            earth_ephems_y[i] = earth_coords.y.to(u.AU).value
-            earth_ephems_z[i] = earth_coords.z.to(u.AU).value
-
-    # calculate the ephemeris of a particular location on earth, f.e. CTIO
-    location_ephems_x = earth_ephems_x + point_on_earth.x.to(u.AU).value
-    location_ephems_y = earth_ephems_y + point_on_earth.y.to(u.AU).value
-    location_ephems_z = earth_ephems_z + point_on_earth.z.to(u.AU).value
-
-    # Move the given ICRS coordinates back to GCRS, this change of
-    # coordinate origins changes the RA, DEC so that its line of sight
-    # now contains the object, which isn't true for ICRS coordinate
-    # Copy the cartesian elements of the LOS ray for use later
+    # Move the given ICRS coordinates to GCRS. The final GCRS->ICRS transformation
+    # below removes aberration and light deflection again before placing each point
+    # at its distance from the observer's barycentric position `eb`.
     point_on_earth_geocentric = point_on_earth.geocentric * u.m
     mjd_times = Time(mjds, format="mjd")
+    eb = np.broadcast_to(
+        _observer_barycentric_position(mjd_times, point_on_earth_geocentric), (len(mjd_times), 3)
+    )
     los_earth_obj = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, obstime=mjd_times).transform_to(
         GCRS(obsgeoloc=point_on_earth_geocentric)
     )
-    los_earth_obj_cart = los_earth_obj.cartesian
 
-    # Now that we have the ray elements, re-create the SkyCoords with but with an
-    # added distance placeholder, because that alters the underlying coordinate
-    # representation to SphericalRepresentation. Avoid data copying
-    los_earth_obj = SkyCoord(
-        ra=los_earth_obj.ra,
-        dec=los_earth_obj.dec,
-        distance=np.zeros((len(ra),)) * u.AU,
-        obstime=los_earth_obj.obstime,
-        obsgeoloc=los_earth_obj.obsgeoloc,
-        frame="gcrs",
-        copy=False,
-    )
-
-    # for each ephemeris calculate the geocentric distance
-    # that matches the given barycentric distance guess and update
-    # our LOS coordinate with these new distances
-    for obstime, ext, eyt, ezt in zip(
-        unique_obstimes, location_ephems_x, location_ephems_y, location_ephems_z
-    ):
-        mjd_mask = mjds == obstime
-        vx = los_earth_obj_cart.x[mjd_mask].value
-        vy = los_earth_obj_cart.y[mjd_mask].value
-        vz = los_earth_obj_cart.z[mjd_mask].value
-
-        # Solve the quadratic equation for the ray leaving the earth and intersecting
-        # a sphere centered on the barycenter at (0, 0, 0) with radius = barycentric_distance
-        a = vx * vx + vy * vy + vz * vz
-        b = 2 * vx * ext + 2 * vy * eyt + 2 * vz * ezt
-        c = ext * ext + eyt * eyt + ezt * ezt - barycentric_distance * barycentric_distance
-        disc = b * b - 4 * a * c
+    # Intersect the sphere along the de-aberrated (ICRS) ray from `eb`. Start from the
+    # input direction, then refine once with the exact direction Astropy places each
+    # point along.
+    ray = SkyCoord(ra=ra * u.deg, dec=dec * u.deg).cartesian.xyz.value.T
+    for _ in range(2):
+        # Solve |eb + dist * ray| = barycentric_distance (rays are unit vectors).
+        b = 2 * np.sum(ray * eb, axis=1)
+        c = np.sum(eb * eb, axis=1) - barycentric_distance * barycentric_distance
+        disc = b * b - 4 * c
 
         invalid_result_mask = disc < 0
-        disc[disc < 0] = 0
+        disc[invalid_result_mask] = 0
 
         # A ray can intersect a sphere at 0, 1, or 2 points. We use the closest distance
         # that is not negative (since a negative distance is through the Earth).
-        dist1 = (-b + np.sqrt(disc)) / (2 * a)
-        dist2 = (-b - np.sqrt(disc)) / (2 * a)
+        dist1 = (-b + np.sqrt(disc)) / 2
+        dist2 = (-b - np.sqrt(disc)) / 2
         dist = np.max([dist1, dist2], axis=0)
         invalid_result_mask = invalid_result_mask | (dist <= 0.0)
         dist[invalid_result_mask] = 0.0
 
-        los_earth_obj.distance[mjd_mask] = dist * u.AU
+        corrected = SkyCoord(
+            ra=los_earth_obj.ra,
+            dec=los_earth_obj.dec,
+            distance=dist * u.AU,
+            obstime=los_earth_obj.obstime,
+            obsgeoloc=los_earth_obj.obsgeoloc,
+            frame="gcrs",
+        ).transform_to(ICRS())
+        # Keep the previous ray for invalid results (dist = 0 puts the point at `eb`).
+        new_ray = corrected.cartesian.xyz.to_value(u.AU).T - eb
+        norm = np.linalg.norm(new_ray, axis=1, keepdims=True)
+        ray = np.where(norm > 0, new_ray / np.where(norm > 0, norm, 1.0), ray)
 
-    # finally, transform the coordinates with the new distance guesses
-    # back to ICRS, which will now include the correct parallax correction
     # Don't return geo dists if the user doesn't want them
     if return_geo_dists:
-        return los_earth_obj.transform_to(ICRS()), los_earth_obj.distance
-    return los_earth_obj.transform_to(ICRS())
+        return corrected, dist * u.AU
+    return corrected
 
 
 def invert_correct_parallax_vectorized(coords, obstimes, point_on_earth=None):
@@ -640,12 +612,12 @@ def image_positions_to_original_icrs(
     position_reprojected_coords = positions
 
     # convert to radec if input is xy
-    # TODO: I should probably rename ebd_wcs
+    # `reprojected_wcs` is the common (mosaic) WCS, whose world coordinates are EBD
+    # directions; it is not one of the per-constituent `ebd_wcs`.
     if input_format == "xy":
         radec_coords = []
         for pos in positions:
-            ebd_wcs = reprojected_wcs
-            ra, dec = ebd_wcs.all_pix2world(pos[0], pos[1], 0)
+            ra, dec = reprojected_wcs.all_pix2world(pos[0], pos[1], 0)
             radec_coords.append(SkyCoord(ra=ra, dec=dec, unit="deg"))
         position_reprojected_coords = radec_coords
 

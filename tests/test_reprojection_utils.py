@@ -241,6 +241,24 @@ class test_reprojection_utils(unittest.TestCase):
 
         assert self.sc2.separation(uncorrected_coord2).arcsecond < 0.001
 
+    def test_invert_correct_parallax_distances(self):
+        # The positions above lie almost along Earth's velocity, where annual aberration
+        # (and so the #1193 radial miss) nearly vanishes at 50 au. Closer frames still
+        # expose a forward/inverse mismatch there.
+        for coord, obstime in [(self.sc1, self.icrs_time1), (self.sc2, self.icrs_time2)]:
+            for dist in [2.0, 5.2, 20.0, 50.0, 100.0]:
+                for use_minimizer in [False, True]:
+                    corrected, _ = correct_parallax(
+                        coord=coord,
+                        obstime=obstime,
+                        point_on_earth=self.eq_loc,
+                        barycentric_distance=dist,
+                        use_minimizer=use_minimizer,
+                    )
+                    nominal = SkyCoord(corrected.ra, corrected.dec, distance=dist * u.au)
+                    inverted = invert_correct_parallax_vectorized(nominal, obstime, self.eq_loc)
+                    self.assertLess(coord.separation(inverted).arcsecond, 0.001)
+
     def test_fit_barycentric_wcs(self):
         x_points = np.array([247, 1252, 1052, 980, 420, 1954, 730, 1409, 1491, 803])
         y_points = np.array([1530, 713, 3414, 3955, 1975, 123, 1456, 2008, 1413, 1756])
@@ -301,7 +319,7 @@ class test_reprojection_utils(unittest.TestCase):
         )
 
         # crval consistency
-        npt.assert_almost_equal(corrected_wcs.wcs.crval[0], 346.649873366963)
+        npt.assert_almost_equal(corrected_wcs.wcs.crval[0], 346.6498731935031)
         npt.assert_almost_equal(corrected_wcs.wcs.crval[1], -6.593449653602658)
 
         # crpix consistency
@@ -314,7 +332,7 @@ class test_reprojection_utils(unittest.TestCase):
         npt.assert_almost_equal(corrected_wcs.wcs.cd[1][0], 3.401472764249802e-08)
         npt.assert_almost_equal(corrected_wcs.wcs.cd[1][1], 5.4242245855217796e-05)
 
-        npt.assert_almost_equal(geo_dist, 40.186247683250144)
+        npt.assert_almost_equal(geo_dist, 40.18622524709708)
 
     def test_transform_wcses_to_ebd(self):
         corrected_wcses, geo_dists = transform_wcses_to_ebd(
@@ -324,9 +342,9 @@ class test_reprojection_utils(unittest.TestCase):
         assert len(corrected_wcses) == 1
         assert len(geo_dists) == 1
         # crval consistency
-        npt.assert_almost_equal(corrected_wcses[0].wcs.crval[0], 346.649873366963)
+        npt.assert_almost_equal(corrected_wcses[0].wcs.crval[0], 346.6498731935031)
         npt.assert_almost_equal(corrected_wcses[0].wcs.crval[1], -6.593449653602658)
-        npt.assert_almost_equal(geo_dists[0], 40.186247683250144)
+        npt.assert_almost_equal(geo_dists[0], 40.18622524709708)
 
     def test_parallax_with_method_and_no_bounds(self):
         corrected_coord1, _ = correct_parallax(
@@ -401,6 +419,38 @@ class test_reprojection_utils(unittest.TestCase):
 
         inverted = invert_correct_parallax_vectorized(corr, obstimes, ctio)
         self.assertLessEqual(inverted.separation(obs).arcsecond, 1e-4)
+
+    def test_forward_lands_on_requested_sphere(self):
+        # The inverse is only exact if the forward point lies at the requested
+        # barycentric distance (issue #1193), for both forward implementations.
+        loc = EarthLocation.from_geocentric(
+            1818939.0064558375, -5208471.035589417, -3195171.4151173383, unit=u.m
+        )
+        # Several positions and times (one time repeated) in a single vectorized call.
+        ra = np.array([37.8715, 38.2, 37.5])
+        dec = np.array([6.6963, 6.9, 6.4])
+        mjd = np.array([60652.0903, 60652.0903, 60653.0903])
+        obs = SkyCoord(ra * u.deg, dec * u.deg)
+        for dist in [1.5, 5.2, 42.0, 100.0]:
+            vector, _ = correct_parallax_geometrically_vectorized(ra, dec, mjd, dist, loc)
+            inverted = invert_correct_parallax_vectorized(
+                SkyCoord(vector.ra, vector.dec, distance=dist * u.au), mjd, loc
+            )
+            for i in range(len(ra)):
+                scalar, _ = correct_parallax_geometrically(obs[i], Time(mjd[i], format="mjd"), loc, dist)
+                self.assertLess(scalar.separation(vector[i]).arcsecond, 1e-9)
+                self.assertLess(abs((scalar.distance - dist * u.au).to_value(u.m)), 1.0)
+                self.assertLess(abs((vector[i].distance - dist * u.au).to_value(u.m)), 1.0)
+                self.assertLess(inverted[i].separation(obs[i]).arcsecond, 1e-5)
+
+    def test_vectorized_parallax_invalid_rays(self):
+        # A sphere inside the observer's orbit is never hit along these rays: they must
+        # stay flagged (zero geocentric distance) after the refinement step.
+        loc = EarthLocation.of_site("ctio")
+        _, geo_dists = correct_parallax_geometrically_vectorized(
+            [37.87, 220.0], [6.69, -15.0], [60652.09, 60652.09], 0.5, loc
+        )
+        npt.assert_array_equal(geo_dists.to_value(u.au), [0.0, 0.0])
 
 
 if __name__ == "__main__":
