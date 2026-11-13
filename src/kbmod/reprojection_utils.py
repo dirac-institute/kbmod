@@ -612,12 +612,12 @@ def image_positions_to_original_icrs(
     position_reprojected_coords = positions
 
     # convert to radec if input is xy
-    # TODO: I should probably rename ebd_wcs
+    # `reprojected_wcs` is the common (mosaic) WCS, whose world coordinates are EBD
+    # directions; it is not one of the per-constituent `ebd_wcs`.
     if input_format == "xy":
         radec_coords = []
         for pos in positions:
-            ebd_wcs = reprojected_wcs
-            ra, dec = ebd_wcs.all_pix2world(pos[0], pos[1], 0)
+            ra, dec = reprojected_wcs.all_pix2world(pos[0], pos[1], 0)
             radec_coords.append(SkyCoord(ra=ra, dec=dec, unit="deg"))
         position_reprojected_coords = radec_coords
 
