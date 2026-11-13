@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from astropy.coordinates import EarthLocation
+from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.table import Table
 from astropy.time import Time
 
@@ -395,6 +395,71 @@ class test_run_search(unittest.TestCase):
             dec_diffs = np.abs(results["img_dec"][i] - results["global_dec"][i])
             self.assertTrue(np.all(dec_diffs > 0.0))
             self.assertTrue(np.all(dec_diffs < 1.0))
+
+    def test_ebd_positions_round_trip_to_original_icrs(self):
+        # Issue #1193: a mosaic position mapped back through the common WCS and the
+        # nominal-distance inverse must give the observed direction of the original pixel
+        # that the EBD WCS warped there, in both reverse callers.
+        num_times = 3
+        width, height = 400, 300
+        bary_dist = 5.2
+        observatory = EarthLocation.of_site("ctio")
+        fake_times = create_fake_times(num_times, t0=60652.0903)
+        fake_ds = FakeDataSet(width, height, fake_times)
+
+        orig_wcs = make_fake_wcs(37.8715, 6.6963, height, width, deg_per_pixel=0.2 / 3600.0)
+        ebd_wcses, geo_dists = [], []
+        for t in fake_times:
+            ebd, geo = fit_barycentric_wcs(
+                orig_wcs, width, height, bary_dist, Time(t, format="mjd"), observatory, npoints=100, seed=1193
+            )
+            ebd_wcses.append(ebd)
+            geo_dists.append(geo)
+        common_wcs = ebd_wcses[0]
+
+        work = WorkUnit(
+            im_stack=fake_ds.stack_py,
+            config=SearchConfiguration(),
+            wcs=common_wcs,
+            reprojected=True,
+            reprojection_frame="ebd",
+            per_image_indices=[[i] for i in range(num_times)],
+            barycentric_distance=bary_dist,
+            obstimes=fake_times,
+            org_image_meta=Table(
+                {
+                    "ebd_wcs": np.array(ebd_wcses),
+                    "geocentric_distance": np.array(geo_dists),
+                    "per_image_wcs": np.array([orig_wcs] * num_times),
+                }
+            ),
+            observatory=observatory,
+        )
+
+        # Stationary trajectories at a few mosaic pixels.
+        pixels = [(200, 150), (20, 30), (380, 270)]
+        trjs = [
+            Trajectory(x=x, y=y, vx=0.0, vy=0.0, flux=100.0, lh=100.0, obs_count=num_times) for x, y in pixels
+        ]
+        results = Results.from_trajectories(trjs)
+        append_positions_to_results(work, results)
+
+        for i in range(num_times):
+            from_wu = work.image_positions_to_original_icrs(
+                [i] * len(pixels),
+                [(float(x), float(y)) for x, y in pixels],
+                input_format="xy",
+                output_format="radec",
+                filter_in_frame=False,
+            )
+            for k, (x, y) in enumerate(pixels):
+                # Truth: the original pixel the warp sampled for this mosaic pixel.
+                orig_xy = ebd_wcses[i].world_to_pixel(common_wcs.pixel_to_world(x, y))
+                expected = orig_wcs.pixel_to_world(*orig_xy)
+
+                from_results = SkyCoord(results["img_ra"][k][i], results["img_dec"][k][i], unit="deg")
+                self.assertLess(from_results.separation(expected).arcsec, 1e-3)
+                self.assertLess(from_wu[k].separation(expected).arcsec, 1e-3)
 
     def test_append_positions_to_results_no_global(self):
         # Create a fake WorkUnit with 20 times, a completely random image stack,
