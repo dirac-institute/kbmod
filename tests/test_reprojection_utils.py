@@ -408,16 +408,31 @@ class test_reprojection_utils(unittest.TestCase):
         loc = EarthLocation.from_geocentric(
             1818939.0064558375, -5208471.035589417, -3195171.4151173383, unit=u.m
         )
-        ra, dec, mjd = 37.8715, 6.6963, 60652.0903
+        # Several positions and times (one time repeated) in a single vectorized call.
+        ra = np.array([37.8715, 38.2, 37.5])
+        dec = np.array([6.6963, 6.9, 6.4])
+        mjd = np.array([60652.0903, 60652.0903, 60653.0903])
         obs = SkyCoord(ra * u.deg, dec * u.deg)
-        for dist in [5.2, 42.0]:
-            scalar, _ = correct_parallax_geometrically(obs, Time(mjd, format="mjd"), loc, dist)
-            vector, _ = correct_parallax_geometrically_vectorized([ra], [dec], [mjd], dist, loc)
-            for corr in [scalar, vector[0]]:
-                self.assertLess(abs((corr.distance - dist * u.au).to_value(u.m)), 1.0)
-                nominal = SkyCoord(corr.ra, corr.dec, distance=dist * u.au)
-                inverted = invert_correct_parallax_vectorized(nominal, [mjd], loc)
-                self.assertLess(inverted[0].separation(obs).arcsecond, 1e-5)
+        for dist in [1.5, 5.2, 42.0, 100.0]:
+            vector, _ = correct_parallax_geometrically_vectorized(ra, dec, mjd, dist, loc)
+            inverted = invert_correct_parallax_vectorized(
+                SkyCoord(vector.ra, vector.dec, distance=dist * u.au), mjd, loc
+            )
+            for i in range(len(ra)):
+                scalar, _ = correct_parallax_geometrically(obs[i], Time(mjd[i], format="mjd"), loc, dist)
+                self.assertLess(scalar.separation(vector[i]).arcsecond, 1e-9)
+                self.assertLess(abs((scalar.distance - dist * u.au).to_value(u.m)), 1.0)
+                self.assertLess(abs((vector[i].distance - dist * u.au).to_value(u.m)), 1.0)
+                self.assertLess(inverted[i].separation(obs[i]).arcsecond, 1e-5)
+
+    def test_vectorized_parallax_invalid_rays(self):
+        # A sphere inside the observer's orbit is never hit along these rays: they must
+        # stay flagged (zero geocentric distance) after the refinement step.
+        loc = EarthLocation.of_site("ctio")
+        _, geo_dists = correct_parallax_geometrically_vectorized(
+            [37.87, 220.0], [6.69, -15.0], [60652.09, 60652.09], 0.5, loc
+        )
+        npt.assert_array_equal(geo_dists.to_value(u.au), [0.0, 0.0])
 
 
 if __name__ == "__main__":
